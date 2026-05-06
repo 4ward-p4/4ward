@@ -2,66 +2,66 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://smolka.st/4ward/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/examples/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/concepts/architecture-modifications/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/concepts/architectures/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/concepts/p4runtime-features/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/concepts/traces/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/concepts/type-translation/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/getting-started/cli/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/getting-started/grpc/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/getting-started/playground/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/reference/cli/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/reference/embedding-cc/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/reference/errors/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/reference/grpc/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/reference/playground/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://smolka.st/4ward/reference/stf/</loc>
-         <lastmod>2026-04-29</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
 </urlset>
