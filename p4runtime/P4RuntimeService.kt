@@ -513,11 +513,7 @@ class P4RuntimeService(
       }
     }
 
-    // Translate PRE replica ports from P4RT → dataplane before writing to the simulator.
-    // The simulator stores raw dataplane port integers; Replica.port carries P4RT-encoded bytes.
-    val translatedUpdate = translateReplicaPorts(update, state)
-
-    when (val result = simulator.writeEntry(translatedUpdate)) {
+    when (val result = simulator.writeEntry(update)) {
       is WriteResult.Success -> {}
       is WriteResult.AlreadyExists ->
         throw Status.ALREADY_EXISTS.withDescription(result.message).asException()
@@ -528,60 +524,6 @@ class P4RuntimeService(
       is WriteResult.ResourceExhausted ->
         throw Status.RESOURCE_EXHAUSTED.withDescription(result.message).asException()
     }
-  }
-
-  /**
-   * Translates `Replica.port` (bytes, P4RT-encoded) to dataplane form for the simulator.
-   *
-   * For each replica with a non-empty `port` field, forward-allocates through the [PortTranslator]
-   * (creating both forward and reverse mappings), then replaces the P4RT bytes with the dataplane
-   * integer in the returned update. The simulator stores raw dataplane port integers.
-   *
-   * Replicas using the deprecated `Replica.egress_port` (int32) field are already dataplane values
-   * and pass through unchanged — but they have no P4RT reverse mapping, so `toDualEncoded` and
-   * `translatePacketIn` will fail for those ports.
-   *
-   * TODO(PRE read-back): The simulator stores the translated dataplane integer in `Replica.port`,
-   *   so reading PRE entries back returns raw values, not P4RT strings. `translateForRead` doesn't
-   *   handle PRE entities yet — it would need to reverse-translate replica ports.
-   */
-  private fun translateReplicaPorts(update: Update, state: PipelineState): Update {
-    val pt = state.typeTranslator?.portTranslator ?: return update
-    val entity = update.entity
-    if (!entity.hasPacketReplicationEngineEntry()) return update
-    val pre = entity.packetReplicationEngineEntry
-
-    fun translateReplica(replica: P4RuntimeOuterClass.Replica): P4RuntimeOuterClass.Replica {
-      if (replica.port.isEmpty) return replica
-      val dataplanePort = pt.p4rtToDataplane(replica.port)
-      return replica.toBuilder().setPort(encodeMinWidth(dataplanePort)).build()
-    }
-
-    val translatedPre =
-      when (pre.typeCase) {
-        P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.MULTICAST_GROUP_ENTRY -> {
-          val group = pre.multicastGroupEntry
-          val translated = group.replicasList.map { translateReplica(it) }
-          pre
-            .toBuilder()
-            .setMulticastGroupEntry(group.toBuilder().clearReplicas().addAllReplicas(translated))
-            .build()
-        }
-        P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.CLONE_SESSION_ENTRY -> {
-          val session = pre.cloneSessionEntry
-          val translated = session.replicasList.map { translateReplica(it) }
-          pre
-            .toBuilder()
-            .setCloneSessionEntry(session.toBuilder().clearReplicas().addAllReplicas(translated))
-            .build()
-        }
-        P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.TYPE_NOT_SET,
-        null -> return update
-      }
-    return update
-      .toBuilder()
-      .setEntity(entity.toBuilder().setPacketReplicationEngineEntry(translatedPre))
-      .build()
   }
 
   // ---------------------------------------------------------------------------
