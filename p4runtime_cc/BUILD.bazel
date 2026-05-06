@@ -49,3 +49,27 @@ cc_test(
         "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
     ],
 )
+
+cc_library(
+    name = "fourward",
+    srcs = ["fourward.cc"],
+    hdrs = ["fourward.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":fourward_server",
+        "//net/grpc:grpc++",
+        "//third_party/absl/container:flat_hash_map",
+        "//third_party/absl/status",
+        "//third_party/absl/status:statusor",
+        "//third_party/fourward/p4runtime:dataplane_cc_grpc",
+        "//third_party/fourward/p4runtime:dataplane_cc_proto",
+        "//third_party/gloop/util/status:status_macros",
+        "//third_party/grpc:grpc++",
+        "//third_party/p4_infra/packetlib",
+        "//third_party/p4_infra/packetlib:packetlib_cc_proto",
+        "//third_party/p4lang_PI/proto/p4/tmp:p4config_cc_proto",
+        "//third_party/pins_infra/p4_runtime:p4_runtime_session",
+        "//third_party/pins_infra/tests/forwarding:packet_at_port",
+    ],
+)
+
