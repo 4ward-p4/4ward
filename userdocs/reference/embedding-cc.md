@@ -5,14 +5,10 @@ description: "Treat 4ward like a native C++ library — Bazel setup, example usa
 # Embedding the server in C++
 
 **Treat 4ward like a native C++ library.** Depend on
-`//p4runtime_cc:fourward_server`, construct a `FourwardServer`, and
-you have factories for P4Runtime and Dataplane stubs on a shared gRPC
-channel. Your project sees a C++ API and a Bazel target; the server's
-implementation language never enters the picture.
-
-Under the hood, `Start()` spawns the server as a subprocess, blocks
-until it is accepting RPCs, and returns an RAII handle. Destruction
-kills the subprocess.
+`//p4runtime_cc:dataplane_client` for the ergonomic wrapper, or
+`//p4runtime_cc:fourward_server` for raw stub access. Your project sees
+a C++ API and a Bazel target; the server's implementation language never
+enters the picture.
 
 ## Bazel dependency
 
@@ -21,17 +17,58 @@ cc_test(
     name = "my_test",
     srcs = ["my_test.cc"],
     deps = [
+        "@fourward//p4runtime_cc:dataplane_client",
         "@fourward//p4runtime_cc:fourward_server",
-        # ... your gRPC / P4Runtime deps ...
+        # ... your other deps ...
     ],
 )
 ```
 
-The library propagates the server binary through its `data` attribute, so
-consumers do not need to list `@fourward//p4runtime:p4runtime_server`
-themselves.
 
-## Example
+## DataplaneClient
+
+The recommended entry point for packet injection and result observation:
+
+```cpp
+#include "p4runtime_cc/dataplane_client.h"
+
+absl::Status RunAgainstFourward() {
+  ASSIGN_OR_RETURN(fourward::FourwardServer server,
+                   fourward::FourwardServer::Start());
+
+  // Use default 10s timeout for everything:
+  fourward::DataplaneClient dataplane(server);
+
+  // Or configure a longer default for slow networks:
+  fourward::DataplaneClient dataplane(server, absl::Seconds(30));
+
+  // Inject a single packet — returns trace + outputs inline.
+  ASSIGN_OR_RETURN(auto response,
+                   dataplane.InjectPacket({
+                       .ingress_port = fourward::DataplanePort{.port = 0},
+                       .payload = raw_ethernet_bytes,
+                   }));
+
+  // Override timeout per-call when needed:
+  ASSIGN_OR_RETURN(auto fast,
+                   dataplane.InjectPacket(args, absl::Seconds(1)));
+
+  // Subscribe to results from all injection sources.
+  ASSIGN_OR_RETURN(fourward::ResultStream stream,
+                   dataplane.SubscribeResults());
+  ASSIGN_OR_RETURN(auto result, stream.Next());
+
+  return absl::OkStatus();
+}
+```
+
+Method names mirror `dataplane.proto` one-to-one: `InjectPacket`,
+`InjectPackets`, `SubscribeResults`. `RegisterPrePacketHook` is
+intentionally not wrapped — use the raw stub for advanced use cases.
+
+## FourwardServer (low-level)
+
+For direct stub access or when you need the P4Runtime service:
 
 ```cpp
 #include "p4runtime_cc/fourward_server.h"
@@ -45,13 +82,9 @@ absl::Status RunAgainstFourward() {
   // ... drive the server via gRPC ...
 
   return absl::OkStatus();
-  // `server` is killed here via SIGTERM; the scratch directory holding its
-  // port-file is removed on the same path.
+  // `server` destructor kills the subprocess.
 }
 ```
-
-Both stubs share a single insecure channel to `localhost:<port>` managed
-by the wrapper.
 
 Options cover `device_id`, the listening `port` (unset by default — the
 kernel picks an ephemeral port), `drop_port`, `cpu_port`, and

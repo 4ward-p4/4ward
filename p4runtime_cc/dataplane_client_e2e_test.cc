@@ -195,5 +195,21 @@ TEST_F(DataplaneClientE2ETest, InjectPacketsResultsDeliveredViaSubscribe) {
   }
 }
 
+TEST_F(DataplaneClientE2ETest,
+       InjectPacketWithP4RuntimePortFailsWithoutTranslation) {
+  DataplaneClient client(*server_);
+
+  // The passthrough program has no @p4runtime_translation on its port type.
+  // Injecting via P4RuntimePort must fail with FAILED_PRECONDITION.
+  absl::StatusOr<fourward::dataplane::InjectPacketResponse> resp =
+      client.InjectPacket({
+          .ingress_port = P4RuntimePort{.port = std::string("\x00\x01", 2)},
+          .payload = MakeEthernetFrame(),
+      });
+  ASSERT_FALSE(resp.ok());
+  EXPECT_EQ(resp.status().code(), absl::StatusCode::kFailedPrecondition)
+      << resp.status();
+}
+
 }  // namespace
 }  // namespace fourward
