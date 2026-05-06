@@ -1,0 +1,41 @@
+name: Check BuildBuddy cache availability
+description: |
+  Emits a `Remote cache: ENABLED` notice when BUILDBUDDY_API_KEY is set, fails
+  fast (`::error`, exit 1) on `push` events to main when it's missing — where
+  absence indicates a config regression — and warns without failing on PRs
+  (fork PRs legitimately don't get repo secrets). Outputs `enabled=true|false`
+  so callers can gate their own cache-config payload (whether bazelrc or
+  command-line flags) on the result. Centralises the gating so a future cache
+  outage doesn't silently degrade CI to an uncached build (issue #605).
+
+inputs:
+  api-key:
+    required: true
+    description: |
+      The BUILDBUDDY_API_KEY secret value (pass `secrets.BUILDBUDDY_API_KEY`
+      from the workflow); will be empty for fork-PR runs, since GitHub
+      strips repo secrets from those.
+
+outputs:
+  enabled:
+    description: '`"true"` if the cache is configured, `"false"` if absent on a fork PR.'
+    value: ${{ steps.gate.outputs.enabled }}
+
+runs:
+  using: composite
+  steps:
+    - id: gate
+      shell: bash
+      env:
+        API_KEY: ${{ inputs.api-key }}
+      run: |
+        if [[ -n "${API_KEY}" ]]; then
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Remote cache::ENABLED (BuildBuddy)"
+        elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+          echo "::error title=Remote cache::DISABLED — BUILDBUDDY_API_KEY secret is missing on a main push. Restore it in repo Settings → Secrets and re-run; if intentionally disabling BuildBuddy, also drop the cache-config blocks from .github/workflows/ci.yml."
+          exit 1
+        else
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+          echo "::warning title=Remote cache::DISABLED — BUILDBUDDY_API_KEY not available (likely a fork PR; GitHub strips repo secrets from those). Build will be uncached."
+        fi

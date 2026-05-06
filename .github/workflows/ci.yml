@@ -81,14 +81,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Configure remote cache
+      - name: Check remote cache availability
+        id: cache
+        uses: ./.github/actions/configure-cache
+        with:
+          api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
+
+      - name: Add cache flags to bazelrc
+        if: steps.cache.outputs.enabled == 'true'
         env:
           BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
         run: |
-          if [[ -n "${BUILDBUDDY_API_KEY}" ]]; then
-            echo "build --config=ci" >> ~/.bazelrc
-            echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
-          fi
+          echo "build --config=ci" >> ~/.bazelrc
+          echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
 
       # Restore-only: the build-and-test job owns the authoritative cache for
       # this key.  Lint builds a subset of targets, so letting it save would
@@ -133,14 +138,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Configure remote cache
+      - name: Check remote cache availability
+        id: cache
+        uses: ./.github/actions/configure-cache
+        with:
+          api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
+
+      - name: Add cache flags to bazelrc
+        if: steps.cache.outputs.enabled == 'true'
         env:
           BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
         run: |
-          if [[ -n "${BUILDBUDDY_API_KEY}" ]]; then
-            echo "build --config=ci" >> ~/.bazelrc
-            echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
-          fi
+          echo "build --config=ci" >> ~/.bazelrc
+          echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
 
       - name: Restore Bazel cache
         uses: actions/cache/restore@v5
@@ -203,6 +213,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Check remote cache availability
+        id: cache
+        uses: ./.github/actions/configure-cache
+        with:
+          api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
+
       # Separate local cache namespace (`bazel-bcr-*`) from the main
       # build-and-test job: this workspace uses a different `.bazelrc`
       # and resolves its own dependency graph via
@@ -227,9 +243,10 @@ jobs:
       - name: Build public targets via bcr_test_module
         env:
           BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
+          CACHE_ENABLED: ${{ steps.cache.outputs.enabled }}
         run: |
           FLAGS=()
-          if [[ -n "${BUILDBUDDY_API_KEY}" ]]; then
+          if [[ "${CACHE_ENABLED}" == "true" ]]; then
             FLAGS+=(
               --remote_cache=grpcs://4ward.buildbuddy.io
               --remote_header=x-buildbuddy-api-key="${BUILDBUDDY_API_KEY}"
@@ -275,14 +292,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Configure remote cache
+      - name: Check remote cache availability
+        id: cache
+        uses: ./.github/actions/configure-cache
+        with:
+          api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
+
+      - name: Add cache flags to bazelrc
+        if: steps.cache.outputs.enabled == 'true'
         env:
           BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
         run: |
-          if [[ -n "${BUILDBUDDY_API_KEY}" ]]; then
-            echo "build --config=ci" >> ~/.bazelrc
-            echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
-          fi
+          echo "build --config=ci" >> ~/.bazelrc
+          echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
 
       - name: Restore Bazel cache
         uses: actions/cache/restore@v5
