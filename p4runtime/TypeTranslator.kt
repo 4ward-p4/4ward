@@ -43,6 +43,18 @@ sealed class P4rtValue {
 class TranslationException(message: String) : RuntimeException(message)
 
 /**
+ * Direction of a `@p4runtime_translation` translation. Reads and Writes go through symmetric pairs
+ * of helpers in [TypeTranslator]; carrying the direction as a named enum (rather than a raw
+ * boolean) makes the call sites self-explanatory and prevents accidental inversion.
+ */
+private enum class Direction {
+  /** P4Runtime SDN form → data-plane representation (Write). */
+  TO_DATAPLANE,
+  /** Data-plane representation → P4Runtime SDN form (Read). */
+  TO_P4RT,
+}
+
+/**
  * Translates between P4Runtime port IDs and dataplane port numbers.
  *
  * Most `@p4runtime_translation` types appear only in dynamically-typed table entry fields (match
@@ -151,58 +163,70 @@ private constructor(
   // ---------------------------------------------------------------------------
 
   /** Translates a Write update from P4Runtime to data-plane representation. */
-  fun translateForWrite(update: Update): Update {
-    val entity = update.entity
-    return when (entity.entityCase) {
-      Entity.EntityCase.TABLE_ENTRY -> {
-        val translated = translateTableEntry(entity.tableEntry, toDataplane = true) ?: return update
-        update.toBuilder().setEntity(entity.toBuilder().setTableEntry(translated)).build()
-      }
-      Entity.EntityCase.ACTION_PROFILE_MEMBER -> {
-        val member = entity.actionProfileMember
-        val translated = translateAction(member.action, toDataplane = true) ?: return update
-        update
-          .toBuilder()
-          .setEntity(
-            entity.toBuilder().setActionProfileMember(member.toBuilder().setAction(translated))
-          )
-          .build()
-      }
-      Entity.EntityCase.ACTION_PROFILE_GROUP,
-      Entity.EntityCase.COUNTER_ENTRY,
-      Entity.EntityCase.DIRECT_COUNTER_ENTRY,
-      Entity.EntityCase.METER_ENTRY,
-      Entity.EntityCase.DIRECT_METER_ENTRY,
-      Entity.EntityCase.REGISTER_ENTRY,
-      Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
-      Entity.EntityCase.VALUE_SET_ENTRY,
-      Entity.EntityCase.DIGEST_ENTRY,
-      Entity.EntityCase.EXTERN_ENTRY,
-      Entity.EntityCase.ENTITY_NOT_SET,
-      null -> update
-    }
-  }
+  fun translateForWrite(update: Update): Update =
+    update
+      .toBuilder()
+      .setEntity(translateEntity(update.entity, direction = Direction.TO_DATAPLANE))
+      .build()
 
   /** Translates a Read entity from data-plane to P4Runtime representation. */
   fun translateForRead(entity: Entity): Entity =
+    translateEntity(entity, direction = Direction.TO_P4RT)
+
+  /**
+   * Translates [entity] in the given [direction]. P4Runtime spec §11.2 requires that whatever
+   * `TO_DATAPLANE` does on Write is reversed by `TO_P4RT` on Read; this single switch keeps the two
+   * directions co-located so the pair stays obviously symmetric in code review. Structural
+   * enforcement of "every supported entity type round-trips" lives in `RoundTripTest` — this
+   * dispatcher is the shape that makes that coverage easy to reason about.
+   */
+  private fun translateEntity(entity: Entity, direction: Direction): Entity =
     when (entity.entityCase) {
       Entity.EntityCase.TABLE_ENTRY -> {
-        val translated =
-          translateTableEntry(entity.tableEntry, toDataplane = false) ?: return entity
-        entity.toBuilder().setTableEntry(translated).build()
+        val translated = translateTableEntry(entity.tableEntry, direction)
+        if (translated == null) entity else entity.toBuilder().setTableEntry(translated).build()
       }
       Entity.EntityCase.ACTION_PROFILE_MEMBER -> {
         val member = entity.actionProfileMember
-        val translated = translateAction(member.action, toDataplane = false) ?: return entity
-        entity.toBuilder().setActionProfileMember(member.toBuilder().setAction(translated)).build()
+        val translated = translateAction(member.action, direction)
+        if (translated == null) entity
+        else
+          entity
+            .toBuilder()
+            .setActionProfileMember(member.toBuilder().setAction(translated))
+            .build()
+      }
+      Entity.EntityCase.DIRECT_COUNTER_ENTRY -> {
+        // Direct counters are addressed by the table entry they attach to; the embedded
+        // TableEntry carries match values that may be translated.
+        val direct = entity.directCounterEntry
+        val translated = translateTableEntry(direct.tableEntry, direction)
+        if (translated == null) entity
+        else
+          entity
+            .toBuilder()
+            .setDirectCounterEntry(direct.toBuilder().setTableEntry(translated))
+            .build()
+      }
+      Entity.EntityCase.DIRECT_METER_ENTRY -> {
+        val direct = entity.directMeterEntry
+        val translated = translateTableEntry(direct.tableEntry, direction)
+        if (translated == null) entity
+        else
+          entity
+            .toBuilder()
+            .setDirectMeterEntry(direct.toBuilder().setTableEntry(translated))
+            .build()
+      }
+      Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY -> {
+        val translated = translatePreReplicas(entity.packetReplicationEngineEntry, direction)
+        if (translated == null) entity
+        else entity.toBuilder().setPacketReplicationEngineEntry(translated).build()
       }
       Entity.EntityCase.ACTION_PROFILE_GROUP,
       Entity.EntityCase.COUNTER_ENTRY,
-      Entity.EntityCase.DIRECT_COUNTER_ENTRY,
       Entity.EntityCase.METER_ENTRY,
-      Entity.EntityCase.DIRECT_METER_ENTRY,
       Entity.EntityCase.REGISTER_ENTRY,
-      Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
       Entity.EntityCase.VALUE_SET_ENTRY,
       Entity.EntityCase.DIGEST_ENTRY,
       Entity.EntityCase.EXTERN_ENTRY,
@@ -211,15 +235,71 @@ private constructor(
     }
 
   /**
+   * Translates `Replica.port` on every replica of a [PacketReplicationEngineEntry], in either
+   * direction. Returns null if no port translation is configured for this pipeline (in which case
+   * replicas pass through untouched).
+   *
+   * `TO_DATAPLANE` (Write): forward-allocate — the controller's P4Runtime-encoded port bytes become
+   * the simulator's raw dataplane integer, and the [PortTranslator]'s table is updated so
+   * subsequent reads can reverse the mapping.
+   *
+   * `TO_P4RT` (Read): reverse-lookup — the simulator's dataplane integer becomes the controller-
+   * facing P4Runtime bytes. Replicas without an existing reverse mapping (e.g. those installed via
+   * the deprecated `Replica.egress_port` int32) pass through unchanged.
+   */
+  private fun translatePreReplicas(
+    pre: p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry,
+    direction: Direction,
+  ): p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry? {
+    val pt = portTranslator ?: return null
+
+    fun translate(replica: p4.v1.P4RuntimeOuterClass.Replica): p4.v1.P4RuntimeOuterClass.Replica {
+      if (replica.port.isEmpty) return replica
+      val newPort: ByteString =
+        when (direction) {
+          Direction.TO_DATAPLANE -> encodeMinWidth(pt.p4rtToDataplane(replica.port))
+          Direction.TO_P4RT -> pt.dataplaneToP4rt(replica.port.toUnsignedInt()) ?: return replica
+        }
+      return replica.toBuilder().setPort(newPort).build()
+    }
+
+    return when (pre.typeCase) {
+      p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.MULTICAST_GROUP_ENTRY -> {
+        val group = pre.multicastGroupEntry
+        pre
+          .toBuilder()
+          .setMulticastGroupEntry(
+            group.toBuilder().clearReplicas().addAllReplicas(group.replicasList.map(::translate))
+          )
+          .build()
+      }
+      p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.CLONE_SESSION_ENTRY -> {
+        val session = pre.cloneSessionEntry
+        pre
+          .toBuilder()
+          .setCloneSessionEntry(
+            session
+              .toBuilder()
+              .clearReplicas()
+              .addAllReplicas(session.replicasList.map(::translate))
+          )
+          .build()
+      }
+      p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.TYPE_NOT_SET,
+      null -> null
+    }
+  }
+
+  /**
    * Translates match field values and action parameter values in a table entry. Returns null if
    * nothing was translated.
    */
   private fun translateTableEntry(
     entry: p4.v1.P4RuntimeOuterClass.TableEntry,
-    toDataplane: Boolean,
+    direction: Direction,
   ): p4.v1.P4RuntimeOuterClass.TableEntry? {
-    val translatedMatches = translateMatchFields(entry.tableId, entry.matchList, toDataplane)
-    val translatedAction = translateTableAction(entry.action, toDataplane)
+    val translatedMatches = translateMatchFields(entry.tableId, entry.matchList, direction)
+    val translatedAction = translateTableAction(entry.action, direction)
     if (translatedMatches == null && translatedAction == null) return null
     val builder = entry.toBuilder()
     if (translatedMatches != null) {
@@ -239,8 +319,11 @@ private constructor(
   fun translatePacketOut(packetOut: PacketOut): PacketOut {
     if (packetOutMetadataTypeNames.isEmpty()) return packetOut
     val translated =
-      translateMetadata(packetOutMetadataTypeNames, packetOut.metadataList, toDataplane = true)
-        ?: return packetOut
+      translateMetadata(
+        packetOutMetadataTypeNames,
+        packetOut.metadataList,
+        direction = Direction.TO_DATAPLANE,
+      ) ?: return packetOut
     return packetOut.toBuilder().clearMetadata().addAllMetadata(translated).build()
   }
 
@@ -254,8 +337,11 @@ private constructor(
   fun translatePacketIn(packetIn: PacketIn): PacketIn {
     if (packetInMetadataTypeNames.isEmpty()) return packetIn
     val translated =
-      translateMetadata(packetInMetadataTypeNames, packetIn.metadataList, toDataplane = false)
-        ?: return packetIn
+      translateMetadata(
+        packetInMetadataTypeNames,
+        packetIn.metadataList,
+        direction = Direction.TO_P4RT,
+      ) ?: return packetIn
     return packetIn.toBuilder().clearMetadata().addAllMetadata(translated).build()
   }
 
@@ -265,17 +351,17 @@ private constructor(
    */
   private fun translateTableAction(
     tableAction: p4.v1.P4RuntimeOuterClass.TableAction,
-    toDataplane: Boolean,
+    direction: Direction,
   ): p4.v1.P4RuntimeOuterClass.TableAction? {
     if (tableAction.hasAction()) {
-      val translated = translateAction(tableAction.action, toDataplane) ?: return null
+      val translated = translateAction(tableAction.action, direction) ?: return null
       return tableAction.toBuilder().setAction(translated).build()
     }
     if (tableAction.hasActionProfileActionSet()) {
       var changed = false
       val translatedActions =
         tableAction.actionProfileActionSet.actionProfileActionsList.map { profileAction ->
-          val translated = translateAction(profileAction.action, toDataplane)
+          val translated = translateAction(profileAction.action, direction)
           if (translated != null) {
             changed = true
             profileAction.toBuilder().setAction(translated).build()
@@ -300,9 +386,9 @@ private constructor(
   /** Translates params of a single [Action], returning null if no translation was needed. */
   private fun translateAction(
     action: p4.v1.P4RuntimeOuterClass.Action,
-    toDataplane: Boolean,
+    direction: Direction,
   ): p4.v1.P4RuntimeOuterClass.Action? {
-    val translated = translateParams(action.actionId, action.paramsList, toDataplane) ?: return null
+    val translated = translateParams(action.actionId, action.paramsList, direction) ?: return null
     return action.toBuilder().clearParams().addAllParams(translated).build()
   }
 
@@ -313,7 +399,7 @@ private constructor(
   private fun translateParams(
     actionId: Int,
     params: List<p4.v1.P4RuntimeOuterClass.Action.Param>,
-    toDataplane: Boolean,
+    direction: Direction,
   ): List<p4.v1.P4RuntimeOuterClass.Action.Param>? {
     var changed = false
     val result =
@@ -321,7 +407,7 @@ private constructor(
         val typeName = paramTypeNames[packKey(actionId, param.paramId)]
         if (typeName != null) {
           changed = true
-          val translated = translateValue(getOrCreateTable(typeName), param.value, toDataplane)
+          val translated = translateValue(getOrCreateTable(typeName), param.value, direction)
           param.toBuilder().setValue(translated).build()
         } else {
           param
@@ -333,7 +419,7 @@ private constructor(
   private fun translateMatchFields(
     tableId: Int,
     matches: List<p4.v1.P4RuntimeOuterClass.FieldMatch>,
-    toDataplane: Boolean,
+    direction: Direction,
   ): List<p4.v1.P4RuntimeOuterClass.FieldMatch>? {
     var changed = false
     val result =
@@ -344,7 +430,7 @@ private constructor(
           val table = getOrCreateTable(typeName)
           when (match.fieldMatchTypeCase) {
             p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT -> {
-              val translated = translateValue(table, match.exact.value, toDataplane)
+              val translated = translateValue(table, match.exact.value, direction)
               match
                 .toBuilder()
                 .setExact(
@@ -353,7 +439,7 @@ private constructor(
                 .build()
             }
             p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -> {
-              val translated = translateValue(table, match.optional.value, toDataplane)
+              val translated = translateValue(table, match.optional.value, direction)
               match
                 .toBuilder()
                 .setOptional(
@@ -379,14 +465,14 @@ private constructor(
   private fun translateMetadata(
     typeNameMap: Map<Int, String>,
     metadata: List<p4.v1.P4RuntimeOuterClass.PacketMetadata>,
-    toDataplane: Boolean,
+    direction: Direction,
   ): List<p4.v1.P4RuntimeOuterClass.PacketMetadata>? {
     var changed = false
     val result =
       metadata.map { meta ->
         val typeName = typeNameMap[meta.metadataId]
         if (typeName != null) {
-          val translated = translateValue(getOrCreateTable(typeName), meta.value, toDataplane)
+          val translated = translateValue(getOrCreateTable(typeName), meta.value, direction)
           changed = true
           meta.toBuilder().setValue(translated).build()
         } else {
@@ -405,19 +491,20 @@ private constructor(
   private fun translateValue(
     table: TranslationTable,
     value: ByteString,
-    toDataplane: Boolean,
+    direction: Direction,
   ): ByteString =
-    if (toDataplane) {
-      if (table.isStringType) {
-        table.lookupOrAllocateString(value.toStringUtf8())
-      } else {
-        table.lookupOrAllocateBitstring(value)
-      }
-    } else {
-      when (val p4rtValue = table.reverseLookup(value)) {
-        is P4rtValue.Bitstring -> p4rtValue.value
-        is P4rtValue.Str -> ByteString.copyFromUtf8(p4rtValue.value)
-      }
+    when (direction) {
+      Direction.TO_DATAPLANE ->
+        if (table.isStringType) {
+          table.lookupOrAllocateString(value.toStringUtf8())
+        } else {
+          table.lookupOrAllocateBitstring(value)
+        }
+      Direction.TO_P4RT ->
+        when (val p4rtValue = table.reverseLookup(value)) {
+          is P4rtValue.Bitstring -> p4rtValue.value
+          is P4rtValue.Str -> ByteString.copyFromUtf8(p4rtValue.value)
+        }
     }
 
   companion object {

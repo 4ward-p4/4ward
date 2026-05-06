@@ -1,0 +1,20 @@
+load("//bazel:fourward_pipeline.bzl", "fourward_pipeline")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = True,
+    licenses = ["notice"],
+)
+
+# Synthetic fixture: declares every entity-bearing P4 construct we can write
+# from P4Runtime, with a `@p4runtime_translation` type used in the table key,
+# action params, and direct counter/meter — enough to exercise read-write
+# symmetry for every supported entity type.
+fourward_pipeline(
+    name = "round_trip",
+    src = "round_trip.p4",
+    out = "round_trip.txtpb",
+    extra_srcs = ["//e2e_tests/sai_p4:sai_p4_srcs"],
+    includes = ["//e2e_tests/sai_p4:fixed/v1model_sai.p4"],
+    visibility = ["//p4runtime:__pkg__"],
+)

@@ -659,6 +659,37 @@ kt_jvm_test(
 )
 
 kt_jvm_test(
+    name = "RoundTripTest",
+    srcs = [
+        "P4RuntimeTestHarness.kt",
+        "RoundTripTest.kt",
+    ],
+    data = [
+        "//e2e_tests/translation_round_trip:round_trip",
+    ],
+    test_class = "fourward.p4runtime.RoundTripTest",
+    deps = [
+        ":dataplane_java_proto",
+        ":dataplane_kt_grpc",
+        ":p4runtime",
+        ":p4runtime_kt_grpc",
+        "//bazel:runfiles",
+        "//simulator",
+        "//simulator:ir_java_proto",
+        "//simulator:p4data_java_proto",
+        "//simulator:p4info_java_proto",
+        "//simulator:p4runtime_java_proto",
+        "//simulator:simulator_java_proto",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@fourward_maven//:io_grpc_grpc_api",
+        "@fourward_maven//:io_grpc_grpc_inprocess",
+        "@fourward_maven//:junit_junit",
+        "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
+        "@googleapis//google/rpc:rpc_java_proto",
+    ],
+)
+
+kt_jvm_test(
     name = "SaiP4ConstraintTest",
     srcs = [
         "P4RuntimeTestHarness.kt",
