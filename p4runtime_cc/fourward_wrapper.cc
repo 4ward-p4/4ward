@@ -1,47 +1,37 @@
 // Copyright 2026 The 4ward Authors
 // SPDX-License-Identifier: Apache-2.0
 
-#include "third_party/fourward/p4runtime_cc/fourward.h"
+#include "p4runtime_cc/fourward_wrapper.h"
 
 #include <memory>
-#include <optional>
-#include <string>
 #include <utility>
 #include <vector>
 
-#include "third_party/absl/container/flat_hash_map.h"
-#include "third_party/absl/status/status.h"
-#include "third_party/absl/status/statusor.h"
-#include "third_party/fourward/p4runtime/dataplane.grpc.pb.h"
-#include "third_party/fourward/p4runtime/dataplane.pb.h"
-#include "third_party/fourward/p4runtime_cc/fourward_server.h"
-#include "third_party/gloop/util/status/status_macros.h"
-#include "third_party/grpc/include/grpcpp/client_context.h"
-#include "third_party/p4_infra/packetlib/packetlib.h"
-#include "third_party/p4_infra/packetlib/packetlib.proto.h"
-#include "third_party/pins_infra/p4_runtime/p4_runtime_session.h"
-#include "third_party/pins_infra/tests/forwarding/packet_at_port.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "grpcpp/client_context.h"
+#include "p4runtime/dataplane.grpc.pb.h"
+#include "p4runtime/dataplane.pb.h"
 
 namespace fourward {
+namespace {
 
-absl::StatusOr<Fourward> Fourward::Create(FourwardServerOptions options) {
-  ASSIGN_OR_RETURN(FourwardServer server, FourwardServer::Start(options));
-
-  p4_runtime::P4RuntimeSessionOptionalArgs session_args;
-  session_args.role = "";
-  ASSIGN_OR_RETURN(std::unique_ptr<p4_runtime::P4RuntimeSession> session,
-                   p4_runtime::P4RuntimeSession::Create(
-                       server.NewP4RuntimeStub(), server.DeviceId(),
-                       p4_runtime::P4RuntimeSessionOptionalArgs{
-                           // Use the default role for full pipeline access.
-                           .role = "",
-                       }));
-
-  return Fourward(std::move(server), std::move(session), options);
+absl::Status GrpcToAbsl(const grpc::Status& s) {
+  if (s.ok()) return absl::OkStatus();
+  return absl::Status(static_cast<absl::StatusCode>(s.error_code()),
+                      s.error_message());
 }
 
-absl::StatusOr<std::vector<pins::PacketAtPort>> Fourward::SendPacket(
-    const pins::PacketAtPort& packet) {
+}  // namespace
+
+absl::StatusOr<Fourward> Fourward::Create(FourwardServerOptions options) {
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start(options);
+  if (!server.ok()) return std::move(server).status();
+  return Fourward(std::move(*server), options);
+}
+
+absl::StatusOr<std::vector<PacketAtPort>> Fourward::SendPacket(
+    const PacketAtPort& packet) {
   fourward::dataplane::InjectPacketRequest request;
   request.set_dataplane_ingress_port(packet.port);
   request.set_payload(packet.data);
@@ -49,58 +39,40 @@ absl::StatusOr<std::vector<pins::PacketAtPort>> Fourward::SendPacket(
   grpc::ClientContext context;
   fourward::dataplane::InjectPacketResponse response;
   absl::Status status =
-      DataplaneStub().InjectPacket(&context, request, &response);
-  if (!status.ok()) {
-    return status;
-  }
+      GrpcToAbsl(DataplaneStub().InjectPacket(&context, request, &response));
+  if (!status.ok()) return status;
 
-  std::vector<pins::PacketAtPort> received_packets;
+  std::vector<PacketAtPort> received;
   if (!response.possible_outcomes().empty()) {
-    for (const auto& out_packet : response.possible_outcomes(0).packets()) {
-      received_packets.push_back(pins::PacketAtPort{
-          .port = static_cast<int>(out_packet.dataplane_egress_port()),
-          .data = out_packet.payload(),
+    for (const auto& out : response.possible_outcomes(0).packets()) {
+      received.push_back(PacketAtPort{
+          .port = static_cast<int>(out.dataplane_egress_port()),
+          .data = out.payload(),
       });
     }
   }
-  return received_packets;
+  return received;
 }
 
-absl::StatusOr<absl::flat_hash_map<int, packetlib::Packets>>
-Fourward::SendPacket(int ingress_port, packetlib::Packet packet) {
-  absl::flat_hash_map<int, packetlib::Packets> packets_by_port;
-
-  ASSIGN_OR_RETURN(std::string data, packetlib::RawSerializePacket(packet));
-  ASSIGN_OR_RETURN(std::vector<pins::PacketAtPort> outputs,
-                   SendPacket(pins::PacketAtPort{
-                       .port = ingress_port,
-                       .data = std::move(data),
-                   }));
-  for (const auto& [port, payload] : outputs) {
-    *packets_by_port[port].add_packets() = packetlib::ParsePacket(payload);
-  }
-  return packets_by_port;
-}
-
-absl::StatusOr<std::vector<std::vector<pins::PacketAtPort>>>
-SendPacketToFourward(Fourward* wrapper, const pins::PacketAtPort& packet,
-                     int min_samples, std::optional<int> max_samples) {
+absl::StatusOr<std::vector<std::vector<PacketAtPort>>> SendPacketToFourward(
+    Fourward& fourward, const PacketAtPort& packet) {
   fourward::dataplane::InjectPacketRequest request;
   request.set_dataplane_ingress_port(packet.port);
   request.set_payload(packet.data);
 
   grpc::ClientContext context;
   fourward::dataplane::InjectPacketResponse response;
-  RETURN_IF_ERROR(
-      wrapper->DataplaneStub().InjectPacket(&context, request, &response));
+  absl::Status status = GrpcToAbsl(
+      fourward.DataplaneStub().InjectPacket(&context, request, &response));
+  if (!status.ok()) return status;
 
-  std::vector<std::vector<pins::PacketAtPort>> result;
+  std::vector<std::vector<PacketAtPort>> result;
   for (const auto& outcome : response.possible_outcomes()) {
-    std::vector<pins::PacketAtPort> entry;
-    for (const auto& out_packet : outcome.packets()) {
-      entry.push_back(pins::PacketAtPort{
-          .port = static_cast<int>(out_packet.dataplane_egress_port()),
-          .data = out_packet.payload(),
+    std::vector<PacketAtPort> entry;
+    for (const auto& out : outcome.packets()) {
+      entry.push_back(PacketAtPort{
+          .port = static_cast<int>(out.dataplane_egress_port()),
+          .data = out.payload(),
       });
     }
     result.push_back(std::move(entry));

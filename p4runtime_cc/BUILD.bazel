@@ -11,7 +11,7 @@ cc_library(
     srcs = ["fourward_server.cc"],
     hdrs = ["fourward_server.h"],
     data = ["//p4runtime:p4runtime_server"],
-    # Runfile path baked in per build for BCR portability — the apparent
+    # Runfile path baked in per build for BCR portability -- the apparent
     # repo name differs between root and BCR consumers.
     local_defines = [
         'FOURWARD_SERVER_RLOCATION=\\"$(rlocationpath //p4runtime:p4runtime_server)\\"',
@@ -51,25 +51,33 @@ cc_test(
 )
 
 cc_library(
-    name = "fourward",
-    srcs = ["fourward.cc"],
-    hdrs = ["fourward.h"],
+    name = "fourward_wrapper",
+    srcs = ["fourward_wrapper.cc"],
+    hdrs = ["fourward_wrapper.h"],
     visibility = ["//visibility:public"],
     deps = [
         ":fourward_server",
-        "//net/grpc:grpc++",
-        "//third_party/absl/container:flat_hash_map",
-        "//third_party/absl/status",
-        "//third_party/absl/status:statusor",
-        "//third_party/fourward/p4runtime:dataplane_cc_grpc",
-        "//third_party/fourward/p4runtime:dataplane_cc_proto",
-        "//third_party/gloop/util/status:status_macros",
-        "//third_party/grpc:grpc++",
-        "//third_party/p4_infra/packetlib",
-        "//third_party/p4_infra/packetlib:packetlib_cc_proto",
-        "//third_party/p4lang_PI/proto/p4/tmp:p4config_cc_proto",
-        "//third_party/pins_infra/p4_runtime:p4_runtime_session",
-        "//third_party/pins_infra/tests/forwarding:packet_at_port",
+        "//p4runtime:dataplane_cc_grpc",
+        "//p4runtime:dataplane_cc_proto",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@grpc//:grpc++",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_grpc",
     ],
 )
 
+cc_test(
+    name = "fourward_wrapper_test",
+    srcs = ["fourward_wrapper_test.cc"],
+    deps = [
+        ":fourward_server",
+        ":fourward_wrapper",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_grpc",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+    ],
+)
