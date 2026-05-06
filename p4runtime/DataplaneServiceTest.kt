@@ -23,8 +23,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.take
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -125,25 +123,16 @@ class DataplaneServiceTest {
   fun `SubscribeResults delivers result after injection`() = runBlocking {
     harness.loadPipeline(loadPassthroughConfig())
     val stub = DataplaneCoroutineStub(harness.channel)
+    val (job, results) = subscribeAndAwaitActive(stub)
 
-    // Collect 2 messages: SubscriptionActive + 1 result.
-    val messages = async {
-      withTimeout(5000) {
-        stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).take(2).toList()
-      }
-    }
-
-    // Wait for subscription to be active, then inject.
-    // Small yield to let the subscription start.
-    delay(100)
     harness.injectPacket(ingressPort = 0, payload = byteArrayOf(0x01))
 
-    val result = messages.await()
-    assertEquals("expected 2 messages", 2, result.size)
-    assertTrue("first is SubscriptionActive", result[0].hasActive())
-    assertTrue("second is ProcessPacketResult", result[1].hasResult())
-    assertEquals(0, result[1].result.inputPacket.dataplaneIngressPort)
-    assertEquals(ByteString.copyFrom(byteArrayOf(0x01)), result[1].result.inputPacket.payload)
+    val result = withTimeout(5000) { results.receive() }
+    assertTrue("expected ProcessPacketResult", result.hasResult())
+    assertEquals(0, result.result.inputPacket.dataplaneIngressPort)
+    assertEquals(ByteString.copyFrom(byteArrayOf(0x01)), result.result.inputPacket.payload)
+
+    job.cancel()
   }
 
   // =========================================================================
@@ -154,17 +143,7 @@ class DataplaneServiceTest {
   fun `SubscribeResults receives results from both InjectPacket and PacketOut`() = runBlocking {
     harness.loadPipeline(loadPassthroughConfig())
     val stub = DataplaneCoroutineStub(harness.channel)
-
-    val channel = Channel<SubscribeResultsResponse>(UNLIMITED)
-    val job = launch {
-      stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
-        channel.send(it)
-      }
-    }
-
-    // Wait for subscription to be active.
-    val first = withTimeout(5000) { channel.receive() }
-    assertTrue("first message should be SubscriptionActive", first.hasActive())
+    val (job, results) = subscribeAndAwaitActive(stub)
 
     // Source 1: InjectPacket via DataplaneService.
     harness.injectPacket(ingressPort = 0, payload = byteArrayOf(0xAA.toByte()))
@@ -180,11 +159,9 @@ class DataplaneServiceTest {
       )
     }
 
-    // Collect 2 results.
-    val results = withTimeout(5000) { listOf(channel.receive(), channel.receive()) }
-
-    assertTrue("should be a result", results[0].hasResult())
-    assertTrue("should be a result", results[1].hasResult())
+    val collected = withTimeout(5000) { listOf(results.receive(), results.receive()) }
+    assertTrue("should be a result", collected[0].hasResult())
+    assertTrue("should be a result", collected[1].hasResult())
 
     job.cancel()
   }
@@ -225,15 +202,7 @@ class DataplaneServiceTest {
     harness.loadPipeline(loadPassthroughConfig())
     val stub = DataplaneCoroutineStub(harness.channel)
     val count = 5
-
-    // Collect SubscriptionActive + count results.
-    val messages = async {
-      withTimeout(10000) {
-        stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).take(count + 1).toList()
-      }
-    }
-
-    delay(100)
+    val (job, results) = subscribeAndAwaitActive(stub)
 
     val injections =
       (0 until count).map { i ->
@@ -241,12 +210,16 @@ class DataplaneServiceTest {
           harness.injectPacket(ingressPort = 0, payload = byteArrayOf(i.toByte()))
         }
       }
-    for (job in injections) job.await()
+    for (j in injections) j.await()
 
-    val result = messages.await()
-    assertEquals("expected SubscriptionActive + $count results", count + 1, result.size)
-    assertTrue("first is SubscriptionActive", result[0].hasActive())
-    for (msg in result.drop(1)) assertTrue("should be a result", msg.hasResult())
+    withTimeout(10_000) {
+      repeat(count) {
+        val msg = results.receive()
+        assertTrue("should be a result", msg.hasResult())
+      }
+    }
+
+    job.cancel()
   }
 
   // =========================================================================
@@ -259,19 +232,24 @@ class DataplaneServiceTest {
     val stub = DataplaneCoroutineStub(harness.channel)
 
     val collected = java.util.concurrent.atomic.AtomicInteger(0)
+    val ready = CompletableDeferred<Unit>()
     val collectJob =
       launch(Dispatchers.IO) {
         // Any exception is expected here — the stream closes abruptly on overflow.
         @Suppress("TooGenericExceptionCaught")
         try {
           stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
-            collected.incrementAndGet()
-            delay(50) // slow consumer: forces the buffer to fill on bursty input
+            if (it.hasActive()) {
+              ready.complete(Unit)
+            } else {
+              collected.incrementAndGet()
+              delay(50) // slow consumer: forces the buffer to fill on bursty input
+            }
           }
         } catch (_: Exception) {}
       }
 
-    delay(200) // let subscription register
+    withTimeout(5000) { ready.await() }
 
     // 200 packets is well above the typical callbackFlow buffer (~64).
     repeat(200) { i -> harness.injectPacket(ingressPort = 0, payload = byteArrayOf(i.toByte())) }
@@ -443,5 +421,25 @@ class DataplaneServiceTest {
 
     withTimeout(5000) { ready.await() }
     return hookJob to packetEvents
+  }
+
+  /**
+   * Subscribes to `subscribeResults` and consumes the [SubscriptionActive] sentinel that the server
+   * emits as the first message. After this returns, packets injected by the test are guaranteed to
+   * be observed by the subscriber — no timing-based guesses needed. The returned channel yields the
+   * post-sentinel events.
+   */
+  private suspend fun CoroutineScope.subscribeAndAwaitActive(
+    stub: DataplaneCoroutineStub
+  ): Pair<Job, Channel<SubscribeResultsResponse>> {
+    val results = Channel<SubscribeResultsResponse>(UNLIMITED)
+    val job = launch {
+      stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
+        results.send(it)
+      }
+    }
+    val first = withTimeout(5000) { results.receive() }
+    assertTrue("first message should be SubscriptionActive", first.hasActive())
+    return job to results
   }
 }
