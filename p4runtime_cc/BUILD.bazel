@@ -33,6 +33,66 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "dataplane_client",
+    srcs = ["dataplane_client.cc"],
+    hdrs = ["dataplane_client.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":fourward_server",
+        "//p4runtime:dataplane_cc_grpc",
+        "//p4runtime:dataplane_cc_proto",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:span",
+        "@grpc//:grpc++",
+    ],
+)
+
+cc_test(
+    name = "dataplane_client_test",
+    srcs = ["dataplane_client_test.cc"],
+    deps = [
+        ":dataplane_client",
+        ":fourward_server",
+        "//p4runtime:dataplane_cc_proto",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:span",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "dataplane_client_e2e_test",
+    srcs = ["dataplane_client_e2e_test.cc"],
+    data = ["//e2e_tests/passthrough:passthrough_p4runtime"],
+    local_defines = [
+        'PASSTHROUGH_PIPELINE_RLOCATION=\\"$(rlocationpath //e2e_tests/passthrough:passthrough_p4runtime)\\"',
+    ],
+    deps = [
+        ":dataplane_client",
+        ":fourward_server",
+        "//p4runtime:dataplane_cc_proto",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
+        "@bazel_tools//tools/cpp/runfiles",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_grpc",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+    ],
+)
+
 cc_test(
     name = "fourward_server_test",
     srcs = ["fourward_server_test.cc"],
