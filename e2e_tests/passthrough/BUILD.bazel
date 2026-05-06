@@ -14,6 +14,14 @@ fourward_pipeline(
     visibility = ["//p4runtime:__pkg__"],
 )
 
+fourward_pipeline(
+    name = "passthrough_p4runtime",
+    src = "passthrough.p4",
+    out = "passthrough_p4runtime.binpb",
+    out_format = "p4runtime",
+    visibility = ["//p4runtime_cc:__pkg__"],
+)
+
 # Runs the passthrough STF test against the 4ward simulator.
 kt_jvm_test(
     name = "passthrough_test",
