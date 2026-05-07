@@ -53,6 +53,29 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "dataplane_matchers",
+    testonly = True,
+    hdrs = ["dataplane_matchers.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":dataplane_client",
+        "//p4runtime:dataplane_cc_proto",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "dataplane_matchers_test",
+    srcs = ["dataplane_matchers_test.cc"],
+    deps = [
+        ":dataplane_matchers",
+        "//p4runtime:dataplane_cc_proto",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "dataplane_client_test",
     srcs = ["dataplane_client_test.cc"],
@@ -78,6 +101,7 @@ cc_test(
     ],
     deps = [
         ":dataplane_client",
+        ":dataplane_matchers",
         ":fourward_server",
         "//p4runtime:dataplane_cc_proto",
         "@abseil-cpp//absl/status",
