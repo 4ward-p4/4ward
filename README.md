@@ -281,7 +281,7 @@ ergonomics (sealed classes, pattern matching).
 > [!IMPORTANT]
 > **You don't need Kotlin to contribute to — or use — 4ward.**
 > [AI writes the code](docs/AI_WORKFLOW.md); C++ projects embed via
-> [`//p4runtime_cc:fourward_server`](https://smolkaj.github.io/4ward/reference/embedding-cc/);
+> [`//p4runtime_cc:dataplane_client`](https://smolkaj.github.io/4ward/reference/embedding-cc/);
 > any gRPC client works in any language.
 
 ## Project structure
