@@ -18,11 +18,13 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "grpcpp/client_context.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4runtime/dataplane.pb.h"
+#include "p4runtime_cc/dataplane_matchers.h"
 #include "p4runtime_cc/fourward_server.h"
 #include "tools/cpp/runfiles/runfiles.h"
 
@@ -138,11 +140,7 @@ TEST_F(DataplaneClientE2ETest, InjectPacketReturnsTraceAndOutputs) {
           .payload = MakeEthernetFrame(),
       });
   ASSERT_TRUE(resp.ok()) << resp.status();
-
-  // Passthrough forwards every packet to port 1.
-  ASSERT_EQ(resp->possible_outcomes_size(), 1);
-  ASSERT_EQ(resp->possible_outcomes(0).packets_size(), 1);
-  EXPECT_EQ(resp->possible_outcomes(0).packets(0).dataplane_egress_port(), 1u);
+  EXPECT_THAT(*resp, ForwardsTo(1));
   EXPECT_FALSE(resp->trace().DebugString().empty());
 }
 
@@ -163,11 +161,8 @@ TEST_F(DataplaneClientE2ETest, SubscribeResultsDeliversInjectedPacket) {
   absl::StatusOr<fourward::dataplane::ProcessPacketResult> result =
       stream->Next();
   ASSERT_TRUE(result.ok()) << result.status();
-  ASSERT_EQ(result->possible_outcomes_size(), 1);
-  ASSERT_EQ(result->possible_outcomes(0).packets_size(), 1);
-  EXPECT_EQ(result->possible_outcomes(0).packets(0).dataplane_egress_port(),
-            1u);
-  EXPECT_EQ(result->input_packet().dataplane_ingress_port(), 0u);
+  EXPECT_THAT(*result, ForwardsTo(1));
+  EXPECT_THAT(*result, HasIngress(0));
 }
 
 TEST_F(DataplaneClientE2ETest, InjectPacketsResultsDeliveredViaSubscribe) {
@@ -185,14 +180,11 @@ TEST_F(DataplaneClientE2ETest, InjectPacketsResultsDeliveredViaSubscribe) {
   absl::Status status = client.InjectPackets(absl::MakeConstSpan(batch));
   ASSERT_TRUE(status.ok()) << status;
 
-  // Both results should arrive.
   for (int i = 0; i < 2; ++i) {
     absl::StatusOr<fourward::dataplane::ProcessPacketResult> result =
         stream->Next();
     ASSERT_TRUE(result.ok()) << "result " << i << ": " << result.status();
-    ASSERT_EQ(result->possible_outcomes_size(), 1);
-    EXPECT_EQ(result->possible_outcomes(0).packets(0).dataplane_egress_port(),
-              1u);
+    EXPECT_THAT(*result, ForwardsTo(1));
   }
 }
 
