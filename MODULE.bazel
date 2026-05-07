@@ -126,7 +126,7 @@ maven.install(
 )
 use_repo(maven, "maven")
 
-# --- Python (cram test runner) ---
+# --- Python (cram test runner, cpplint) ---
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(python_version = "3.12")
