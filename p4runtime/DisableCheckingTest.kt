@@ -152,18 +152,17 @@ class DisableCheckingTest {
   /** Ternary ACL entry matching ipv4_dst with wrong ether_type — violates the constraint. */
   @Suppress("MagicNumber")
   private fun constraintViolatingEntry(config: PipelineConfig): Entity {
-    val table = config.p4Info.tablesList.first { it.preamble.name.contains("acl") }
-    val forwardAction = config.p4Info.actionsList.first { it.preamble.name.contains("forward") }
-    fun fieldId(name: String) = table.matchFieldsList.first { it.name.contains(name) }.id
+    val aclTable = findTable(config, "acl")
+    val forwardAction = findAction(config, "forward")
 
     return Entity.newBuilder()
       .setTableEntry(
         TableEntry.newBuilder()
-          .setTableId(table.preamble.id)
+          .setTableId(aclTable.preamble.id)
           .setPriority(10)
           .addMatch(
             FieldMatch.newBuilder()
-              .setFieldId(fieldId("ether_type"))
+              .setFieldId(matchFieldId(aclTable, "ether_type"))
               .setTernary(
                 FieldMatch.Ternary.newBuilder()
                   .setValue(ByteString.copyFrom(longToBytes(0x0806L, 2)))
@@ -172,7 +171,7 @@ class DisableCheckingTest {
           )
           .addMatch(
             FieldMatch.newBuilder()
-              .setFieldId(fieldId("ipv4_dst"))
+              .setFieldId(matchFieldId(aclTable, "ipv4_dst"))
               .setTernary(
                 FieldMatch.Ternary.newBuilder()
                   .setValue(ByteString.copyFrom(longToBytes(0x0A000001L, 4)))
@@ -186,7 +185,7 @@ class DisableCheckingTest {
                   .setActionId(forwardAction.preamble.id)
                   .addParams(
                     P4RuntimeOuterClass.Action.Param.newBuilder()
-                      .setParamId(1)
+                      .setParamId(paramId(forwardAction, "port"))
                       .setValue(ByteString.copyFrom(longToBytes(1L, 2)))
                   )
               )
