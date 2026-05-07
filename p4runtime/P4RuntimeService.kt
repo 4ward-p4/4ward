@@ -77,6 +77,8 @@ class P4RuntimeService(
   private val writeMutex: Mutex = Mutex(),
   private val deviceId: Long = DEFAULT_DEVICE_ID,
   private val cpuPortConfig: CpuPortConfig = CpuPortConfig.Auto,
+  private val disableRefersToChecking: Boolean = false,
+  private val disableP4ConstraintsChecking: Boolean = false,
 ) : P4RuntimeGrpcKt.P4RuntimeCoroutineImplBase(), Closeable {
 
   /** Bundled pipeline state — atomically swapped on pipeline load to avoid torn reads. */
@@ -228,15 +230,20 @@ class P4RuntimeService(
       cookie = fwdConfig.cookie,
       typeTranslator = typeTranslator,
       writeValidator = WriteValidator(pipelineConfig.p4Info),
-      referenceValidator = ReferenceValidator.create(fwdConfig.p4Info),
+      referenceValidator =
+        if (disableRefersToChecking) null else ReferenceValidator.create(fwdConfig.p4Info),
       constraintValidator =
-        constraintValidatorBinary?.let {
-          try {
-            ConstraintValidator.create(fwdConfig.p4Info, it)
-          } catch (e: ConstraintValidatorException) {
-            throw Status.INTERNAL.withDescription("constraint validation failed: ${e.message}")
-              .withCause(e)
-              .asException()
+        if (disableP4ConstraintsChecking) {
+          null
+        } else {
+          constraintValidatorBinary?.let {
+            try {
+              ConstraintValidator.create(fwdConfig.p4Info, it)
+            } catch (e: ConstraintValidatorException) {
+              throw Status.INTERNAL.withDescription("constraint validation failed: ${e.message}")
+                .withCause(e)
+                .asException()
+            }
           }
         },
       packetHeaderCodec =

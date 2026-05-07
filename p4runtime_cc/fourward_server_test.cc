@@ -151,6 +151,14 @@ TEST(FourwardServerTest, DropAndCpuPortFlagsAcceptedByServer) {
   ExpectHealthy(*cpu_override);
 }
 
+TEST(FourwardServerTest, DisableCheckingFlagsAcceptedByServer) {
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start(
+      {.disable_refers_to_checking = true,
+       .disable_p4_constraints_checking = true});
+  ASSERT_TRUE(server.ok()) << server.status();
+  ExpectHealthy(*server);
+}
+
 TEST(FourwardServerTest, StartupTimeoutYieldsDeadlineExceeded) {
   // A 1-nanosecond timeout is unreachable: even if the JVM had booted
   // instantly the port file poll loop cannot observe it that fast. The
