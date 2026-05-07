@@ -1,6 +1,5 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_binary")
 load("@rules_license//rules:license.bzl", "license")
-load("@rules_python//python/entry_points:py_console_script_binary.bzl", "py_console_script_binary")
 
 package(
     default_applicable_licenses = [":license"],
@@ -33,12 +32,4 @@ kt_jvm_binary(
     name = "detekt",
     main_class = "io.gitlab.arturbosch.detekt.cli.Main",
     runtime_deps = ["@fourward_maven//:io_gitlab_arturbosch_detekt_detekt_cli"],
-)
-
-# cpplint: enforces Google C++ Style Guide rules that clang-tidy doesn't
-# (header guards, IWYU hygiene, copyright, etc.). Invoked from
-# tools/lint.sh; CPPLINT.cfg at repo root configures filters.
-py_console_script_binary(
-    name = "cpplint",
-    pkg = "@pip//cpplint",
 )
