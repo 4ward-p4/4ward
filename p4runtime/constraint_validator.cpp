@@ -1,3 +1,6 @@
+// Copyright 2026 The 4ward Authors
+// SPDX-License-Identifier: Apache-2.0
+//
 // Constraint validator subprocess for the 4ward P4Runtime server.
 //
 // Reads ConstraintRequest messages from stdin and writes ConstraintResponse
@@ -11,6 +14,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/backend/interpreter.h"

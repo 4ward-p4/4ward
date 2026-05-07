@@ -1,8 +1,8 @@
 // Copyright 2026 The 4ward Authors
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef FOURWARD_P4RUNTIME_CC_DATAPLANE_CLIENT_H_
-#define FOURWARD_P4RUNTIME_CC_DATAPLANE_CLIENT_H_
+#ifndef P4RUNTIME_CC_DATAPLANE_CLIENT_H_
+#define P4RUNTIME_CC_DATAPLANE_CLIENT_H_
 
 // Convenience wrapper for the Dataplane gRPC service (dataplane.proto).
 //
@@ -128,4 +128,4 @@ class DataplaneClient {
 
 }  // namespace fourward
 
-#endif  // FOURWARD_P4RUNTIME_CC_DATAPLANE_CLIENT_H_
+#endif  // P4RUNTIME_CC_DATAPLANE_CLIENT_H_
