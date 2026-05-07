@@ -66,9 +66,9 @@ class DisableCheckingTest {
   @Test
   fun `constraint violation is accepted when checking is disabled`() {
     P4RuntimeTestHarness(
-      constraintValidatorBinary = VALIDATOR_BINARY,
-      disableP4ConstraintsChecking = true,
-    )
+        constraintValidatorBinary = VALIDATOR_BINARY,
+        disableP4ConstraintsChecking = true,
+      )
       .use { harness ->
         val config = loadConstrained()
         harness.loadPipeline(config)
@@ -83,9 +83,9 @@ class DisableCheckingTest {
   @Test
   fun `disabling refers_to still rejects constraint violations`() {
     P4RuntimeTestHarness(
-      constraintValidatorBinary = VALIDATOR_BINARY,
-      disableRefersToChecking = true,
-    )
+        constraintValidatorBinary = VALIDATOR_BINARY,
+        disableRefersToChecking = true,
+      )
       .use { harness ->
         val config = loadConstrained()
         harness.loadPipeline(config)
@@ -110,8 +110,7 @@ class DisableCheckingTest {
   // Helpers
   // ===========================================================================
 
-  private fun loadRefersTo(): PipelineConfig =
-    loadConfig("e2e_tests/golden_errors/refers_to.txtpb")
+  private fun loadRefersTo(): PipelineConfig = loadConfig("e2e_tests/golden_errors/refers_to.txtpb")
 
   private fun loadConstrained(): PipelineConfig =
     loadConfig("e2e_tests/constrained_table/constrained_table.txtpb")
