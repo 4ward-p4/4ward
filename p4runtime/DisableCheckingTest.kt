@@ -77,6 +77,36 @@ class DisableCheckingTest {
   }
 
   // ===========================================================================
+  // Independence: disabling one does not affect the other
+  // ===========================================================================
+
+  @Test
+  fun `disabling refers_to still rejects constraint violations`() {
+    P4RuntimeTestHarness(
+      constraintValidatorBinary = VALIDATOR_BINARY,
+      disableRefersToChecking = true,
+    )
+      .use { harness ->
+        val config = loadConstrained()
+        harness.loadPipeline(config)
+        assertGrpcError(Status.Code.INVALID_ARGUMENT) {
+          harness.installEntry(constraintViolatingEntry(config))
+        }
+      }
+  }
+
+  @Test
+  fun `disabling p4-constraints still rejects refers_to violations`() {
+    P4RuntimeTestHarness(disableP4ConstraintsChecking = true).use { harness ->
+      val config = loadRefersTo()
+      harness.loadPipeline(config)
+      assertGrpcError(Status.Code.INVALID_ARGUMENT) {
+        harness.installEntry(refersToViolatingEntry(config))
+      }
+    }
+  }
+
+  // ===========================================================================
   // Helpers
   // ===========================================================================
 
