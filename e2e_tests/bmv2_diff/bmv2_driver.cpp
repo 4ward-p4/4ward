@@ -1,3 +1,6 @@
+// Copyright 2026 The 4ward Authors
+// SPDX-License-Identifier: Apache-2.0
+//
 // BMv2 driver binary for differential testing.
 //
 // Drives a BMv2 simple_switch instance via its C++ API (no Thrift).
@@ -37,10 +40,13 @@
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
+#include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 using bm::ActionData;

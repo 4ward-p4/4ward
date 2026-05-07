@@ -1,8 +1,8 @@
 // Copyright 2026 The 4ward Authors
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef FOURWARD_P4RUNTIME_CC_FOURWARD_SERVER_H_
-#define FOURWARD_P4RUNTIME_CC_FOURWARD_SERVER_H_
+#ifndef P4RUNTIME_CC_FOURWARD_SERVER_H_
+#define P4RUNTIME_CC_FOURWARD_SERVER_H_
 
 // Treat 4ward like a native C++ library.
 //
@@ -140,4 +140,4 @@ class FourwardServer {
 
 }  // namespace fourward
 
-#endif  // FOURWARD_P4RUNTIME_CC_FOURWARD_SERVER_H_
+#endif  // P4RUNTIME_CC_FOURWARD_SERVER_H_

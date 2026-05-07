@@ -6,6 +6,8 @@
 
 #include "p4c_backend/options.h"
 
+#include <string>
+
 namespace P4::FourWard {
 
 FourWardOptions::FourWardOptions() {

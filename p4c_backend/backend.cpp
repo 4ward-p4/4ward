@@ -19,6 +19,8 @@
 #include <array>
 #include <fstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "frontends/p4/coreLibrary.h"
 #include "frontends/p4/enumInstance.h"

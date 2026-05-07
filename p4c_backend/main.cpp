@@ -38,6 +38,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "control-plane/p4RuntimeSerializer.h"

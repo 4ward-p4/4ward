@@ -108,8 +108,8 @@ jobs:
       - name: Install clang tools
         run: sudo apt install -y clang-format clang-tidy
 
-      # On PRs, skip clang-tidy when no C++ files were modified — most PRs
-      # only touch Kotlin or proto files.  Always run on pushes to main.
+      # On PRs, skip the C++ linters when no C++ files were modified — most
+      # PRs only touch Kotlin or proto files.  Always run on pushes to main.
       - name: Detect C++ changes
         if: github.event_name == 'pull_request'
         env:
@@ -119,6 +119,10 @@ jobs:
           if ! printf '%s\n' "$FILES" | grep -qE '\.(cpp|cc|h)$|\.clang-tidy$'; then
             echo "No C++ files changed; skipping clang-tidy."
             echo "SKIP_CLANG_TIDY=1" >> "$GITHUB_ENV"
+          fi
+          if ! printf '%s\n' "$FILES" | grep -qE '\.(cpp|cc|h)$|CPPLINT.cfg$'; then
+            echo "No C++ files changed; skipping cpplint."
+            echo "SKIP_CPPLINT=1" >> "$GITHUB_ENV"
           fi
 
       - run: ./tools/lint.sh
