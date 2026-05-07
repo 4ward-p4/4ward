@@ -74,6 +74,12 @@ struct FourwardServerOptions {
   // CPU port configuration (the `--cpu-port` flag).
   CpuPort cpu_port = CpuPort::Auto();
 
+  // Skip @refers_to referential integrity checking on Write RPCs.
+  bool disable_refers_to_checking = false;
+
+  // Skip @entry_restriction / @action_restriction checking on Write RPCs.
+  bool disable_p4_constraints_checking = false;
+
   // Maximum time to wait for Start() to complete.
   absl::Duration startup_timeout = absl::Seconds(5);
 };

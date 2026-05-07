@@ -56,6 +56,8 @@ class P4RuntimeTestHarness(
   constraintValidatorBinary: Path? = null,
   dropPortOverride: Int? = null,
   cpuPortConfig: CpuPortConfig = CpuPortConfig.Auto,
+  disableRefersToChecking: Boolean = false,
+  disableP4ConstraintsChecking: Boolean = false,
 ) : Closeable {
 
   private val serverName = InProcessServerBuilder.generateName()
@@ -69,6 +71,8 @@ class P4RuntimeTestHarness(
       constraintValidatorBinary,
       writeMutex = writeMutex,
       cpuPortConfig = cpuPortConfig,
+      disableRefersToChecking = disableRefersToChecking,
+      disableP4ConstraintsChecking = disableP4ConstraintsChecking,
     )
   private val dataplaneService =
     DataplaneService(broker, typeTranslator = { service.typeTranslator })

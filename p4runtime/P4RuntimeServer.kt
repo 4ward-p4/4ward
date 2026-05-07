@@ -15,6 +15,8 @@ class P4RuntimeServer(
   private val deviceId: Long = P4RuntimeService.DEFAULT_DEVICE_ID,
   dropPortOverride: Int? = null,
   cpuPortConfig: CpuPortConfig = CpuPortConfig.Auto,
+  private val disableRefersToChecking: Boolean = false,
+  private val disableP4ConstraintsChecking: Boolean = false,
 ) {
 
   /**
@@ -31,6 +33,8 @@ class P4RuntimeServer(
       writeMutex = writeMutex,
       deviceId = deviceId,
       cpuPortConfig = cpuPortConfig,
+      disableRefersToChecking = disableRefersToChecking,
+      disableP4ConstraintsChecking = disableP4ConstraintsChecking,
     )
   private val dataplaneService =
     DataplaneService(broker, typeTranslator = { service.typeTranslator })
@@ -84,8 +88,19 @@ fun main(args: Array<String>) {
   val dropPort = flagValue(args, "--drop-port")?.toIntOrNull()
   val cpuPortConfig = CpuPortConfig.fromFlag(flagValue(args, "--cpu-port"))
   val portFile = flagValue(args, "--port-file")?.let(Path::of)
+  val disableRefersToChecking = flagPresent(args, "--disable-refers-to-checking")
+  val disableP4ConstraintsChecking = flagPresent(args, "--disable-p4-constraints-checking")
 
-  val server = P4RuntimeServer(port, deviceId, dropPort, cpuPortConfig).start()
+  val server =
+    P4RuntimeServer(
+        port,
+        deviceId,
+        dropPort,
+        cpuPortConfig,
+        disableRefersToChecking = disableRefersToChecking,
+        disableP4ConstraintsChecking = disableP4ConstraintsChecking,
+      )
+      .start()
   println("P4Runtime server listening on port ${server.port()}")
 
   // Machine-readable readiness signal for embedders. Write the port to a temp
@@ -104,3 +119,5 @@ private fun writePortFileAtomic(path: Path, port: Int) {
 
 private fun flagValue(args: Array<String>, flag: String): String? =
   args.find { it.startsWith("$flag=") }?.substringAfter("=")
+
+private fun flagPresent(args: Array<String>, flag: String): Boolean = args.any { it == flag }

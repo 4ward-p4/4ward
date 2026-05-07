@@ -59,6 +59,9 @@ constexpr char kFlagPortFile[] = "--port-file=";
 constexpr char kFlagDropPort[] = "--drop-port=";
 constexpr char kFlagCpuPort[] = "--cpu-port=";
 constexpr char kCpuPortNoneValue[] = "none";
+constexpr char kFlagDisableRefersToChecking[] = "--disable-refers-to-checking";
+constexpr char kFlagDisableP4ConstraintsChecking[] =
+    "--disable-p4-constraints-checking";
 
 // Creates a unique scratch directory under $TEST_TMPDIR (honored by Bazel
 // test shards) or /tmp.
@@ -206,6 +209,12 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
     case CpuPort::Kind::kOverride:
       args.push_back(absl::StrCat(kFlagCpuPort, options.cpu_port.port));
       break;
+  }
+  if (options.disable_refers_to_checking) {
+    args.push_back(kFlagDisableRefersToChecking);
+  }
+  if (options.disable_p4_constraints_checking) {
+    args.push_back(kFlagDisableP4ConstraintsChecking);
   }
   std::vector<char*> argv;
   argv.reserve(args.size() + 1);
