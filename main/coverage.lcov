@@ -315,77 +315,77 @@ FN:37,fourward/p4runtime/DataplaneService::<init> (Lfourward/p4runtime/PacketBro
 FNDA:1,fourward/p4runtime/DataplaneService::<init> (Lfourward/p4runtime/PacketBroker;Lkotlin/jvm/functions/Function0;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 FN:43,fourward/p4runtime/DataplaneService::injectPacket (Lfourward/dataplane/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 FNDA:1,fourward/p4runtime/DataplaneService::injectPacket (Lfourward/dataplane/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-FN:70,fourward/p4runtime/DataplaneService::injectPackets (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+FN:72,fourward/p4runtime/DataplaneService::injectPackets (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 FNDA:0,fourward/p4runtime/DataplaneService::injectPackets (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-FN:88,fourward/p4runtime/DataplaneService::subscribeResults (Lfourward/dataplane/SubscribeResultsRequest;)Lkotlinx/coroutines/flow/Flow;
+FN:90,fourward/p4runtime/DataplaneService::subscribeResults (Lfourward/dataplane/SubscribeResultsRequest;)Lkotlinx/coroutines/flow/Flow;
 FNDA:1,fourward/p4runtime/DataplaneService::subscribeResults (Lfourward/dataplane/SubscribeResultsRequest;)Lkotlinx/coroutines/flow/Flow;
-FN:137,fourward/p4runtime/DataplaneService::registerPrePacketHook (Lkotlinx/coroutines/flow/Flow;)Lkotlinx/coroutines/flow/Flow;
+FN:139,fourward/p4runtime/DataplaneService::registerPrePacketHook (Lkotlinx/coroutines/flow/Flow;)Lkotlinx/coroutines/flow/Flow;
 FNDA:1,fourward/p4runtime/DataplaneService::registerPrePacketHook (Lkotlinx/coroutines/flow/Flow;)Lkotlinx/coroutines/flow/Flow;
-FN:183,fourward/p4runtime/DataplaneService::resolveIngressPort (Lfourward/dataplane/InjectPacketRequest;Lfourward/p4runtime/TypeTranslator;)I
+FN:185,fourward/p4runtime/DataplaneService::resolveIngressPort (Lfourward/dataplane/InjectPacketRequest;Lfourward/p4runtime/TypeTranslator;)I
 FNDA:1,fourward/p4runtime/DataplaneService::resolveIngressPort (Lfourward/dataplane/InjectPacketRequest;Lfourward/p4runtime/TypeTranslator;)I
 FN:39,fourward/p4runtime/DataplaneService$1::invoke ()Ljava/lang/Void;
 FNDA:1,fourward/p4runtime/DataplaneService$1::invoke ()Ljava/lang/Void;
-FN:72,fourward/p4runtime/DataplaneService$injectPackets$2::invoke (Lkotlin/jvm/functions/Function2;)V
+FN:74,fourward/p4runtime/DataplaneService$injectPackets$2::invoke (Lkotlin/jvm/functions/Function2;)V
 FNDA:0,fourward/p4runtime/DataplaneService$injectPackets$2::invoke (Lkotlin/jvm/functions/Function2;)V
-FN:74,fourward/p4runtime/DataplaneService$injectPackets$2$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
+FN:76,fourward/p4runtime/DataplaneService$injectPackets$2$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
 FNDA:0,fourward/p4runtime/DataplaneService$injectPackets$2$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
-FN:75,fourward/p4runtime/DataplaneService$injectPackets$2$1$1::emit (Lfourward/dataplane/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+FN:77,fourward/p4runtime/DataplaneService$injectPackets$2$1$1::emit (Lfourward/dataplane/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 FNDA:0,fourward/p4runtime/DataplaneService$injectPackets$2$1$1::emit (Lfourward/dataplane/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-FN:78,fourward/p4runtime/DataplaneService$injectPackets$2$1$1$1::run ()V
+FN:80,fourward/p4runtime/DataplaneService$injectPackets$2$1$1$1::run ()V
 FNDA:0,fourward/p4runtime/DataplaneService$injectPackets$2$1$1$1::run ()V
-FN:137,fourward/p4runtime/DataplaneService$registerPrePacketHook$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
+FN:139,fourward/p4runtime/DataplaneService$registerPrePacketHook$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
 FNDA:1,fourward/p4runtime/DataplaneService$registerPrePacketHook$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
-FN:167,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
+FN:169,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
 FNDA:1,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
-FN:173,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$2::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
+FN:175,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$2::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
 FNDA:1,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$2::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
-FN:173,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$2$1::emit (Lfourward/dataplane/PrePacketHookResponse;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+FN:175,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$2$1::emit (Lfourward/dataplane/PrePacketHookResponse;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 FNDA:1,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$2$1::emit (Lfourward/dataplane/PrePacketHookResponse;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-FN:176,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$3::invoke ()V
+FN:178,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$3::invoke ()V
 FNDA:1,fourward/p4runtime/DataplaneService$registerPrePacketHook$1$3::invoke ()V
-FN:88,fourward/p4runtime/DataplaneService$subscribeResults$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
+FN:90,fourward/p4runtime/DataplaneService$subscribeResults$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
 FNDA:1,fourward/p4runtime/DataplaneService$subscribeResults$1::invokeSuspend (Ljava/lang/Object;)Ljava/lang/Object;
-FN:132,fourward/p4runtime/DataplaneService$subscribeResults$1$1::invoke ()V
+FN:134,fourward/p4runtime/DataplaneService$subscribeResults$1$1::invoke ()V
 FNDA:1,fourward/p4runtime/DataplaneService$subscribeResults$1$1::invoke ()V
-FN:97,fourward/p4runtime/DataplaneService$subscribeResults$1$handle$1::invoke (Lfourward/p4runtime/PacketBroker$SubscriptionResult;)V
+FN:99,fourward/p4runtime/DataplaneService$subscribeResults$1$handle$1::invoke (Lfourward/p4runtime/PacketBroker$SubscriptionResult;)V
 FNDA:1,fourward/p4runtime/DataplaneService$subscribeResults$1$handle$1::invoke (Lfourward/p4runtime/PacketBroker$SubscriptionResult;)V
-FN:201,fourward/p4runtime/DataplaneServiceKt::missingPortTranslation (Lcom/google/protobuf/ByteString;Lfourward/p4runtime/TypeTranslator;)Lio/grpc/StatusException;
+FN:203,fourward/p4runtime/DataplaneServiceKt::missingPortTranslation (Lcom/google/protobuf/ByteString;Lfourward/p4runtime/TypeTranslator;)Lio/grpc/StatusException;
 FNDA:1,fourward/p4runtime/DataplaneServiceKt::missingPortTranslation (Lcom/google/protobuf/ByteString;Lfourward/p4runtime/TypeTranslator;)Lio/grpc/StatusException;
-FN:216,fourward/p4runtime/DataplaneServiceKt::enrichTrace (Lfourward/sim/TraceTree;Lfourward/p4runtime/TypeTranslator;)Lfourward/sim/TraceTree;
+FN:218,fourward/p4runtime/DataplaneServiceKt::enrichTrace (Lfourward/sim/TraceTree;Lfourward/p4runtime/TypeTranslator;)Lfourward/sim/TraceTree;
 FNDA:1,fourward/p4runtime/DataplaneServiceKt::enrichTrace (Lfourward/sim/TraceTree;Lfourward/p4runtime/TypeTranslator;)Lfourward/sim/TraceTree;
-FN:227,fourward/p4runtime/DataplaneServiceKt::toDualEncoded (Lfourward/sim/OutputPacket;Lfourward/p4runtime/PortTranslator;)Lfourward/dataplane/OutputPacket;
+FN:229,fourward/p4runtime/DataplaneServiceKt::toDualEncoded (Lfourward/sim/OutputPacket;Lfourward/p4runtime/PortTranslator;)Lfourward/dataplane/OutputPacket;
 FNDA:1,fourward/p4runtime/DataplaneServiceKt::toDualEncoded (Lfourward/sim/OutputPacket;Lfourward/p4runtime/PortTranslator;)Lfourward/dataplane/OutputPacket;
 BRDA:51,0,0,1
 BRDA:51,0,1,0
-BRDA:183,0,0,0
-BRDA:183,0,1,0
-BRDA:183,0,2,1
-BRDA:186,0,0,1
-BRDA:186,0,1,1
-BRDA:186,0,2,1
-BRDA:186,0,3,1
-BRDA:142,0,0,1
-BRDA:142,0,1,1
-BRDA:167,0,0,1
-BRDA:167,0,1,0
-BRDA:99,0,0,1
-BRDA:99,0,1,0
-BRDA:108,0,0,0
-BRDA:108,0,1,1
-BRDA:108,0,2,0
-BRDA:108,0,3,1
-BRDA:123,0,0,1
-BRDA:123,0,1,1
-BRDA:202,0,0,1
-BRDA:202,0,1,1
-BRDA:216,0,0,1
-BRDA:216,0,1,0
-BRDA:216,0,2,0
-BRDA:216,0,3,1
-BRDA:230,0,0,1
-BRDA:230,0,1,1
+BRDA:185,0,0,0
+BRDA:185,0,1,0
+BRDA:185,0,2,1
+BRDA:188,0,0,1
+BRDA:188,0,1,1
+BRDA:188,0,2,1
+BRDA:188,0,3,1
+BRDA:144,0,0,1
+BRDA:144,0,1,1
+BRDA:169,0,0,1
+BRDA:169,0,1,0
+BRDA:101,0,0,1
+BRDA:101,0,1,0
+BRDA:110,0,0,0
+BRDA:110,0,1,1
+BRDA:110,0,2,0
+BRDA:110,0,3,1
+BRDA:125,0,0,1
+BRDA:125,0,1,1
+BRDA:204,0,0,1
+BRDA:204,0,1,1
+BRDA:218,0,0,1
+BRDA:218,0,1,0
+BRDA:218,0,2,0
+BRDA:218,0,3,1
 BRDA:232,0,0,1
 BRDA:232,0,1,1
+BRDA:234,0,0,1
+BRDA:234,0,1,1
 DA:37,1
 DA:38,1
 DA:39,1
@@ -409,8 +409,8 @@ DA:62,1
 DA:63,1
 DA:64,1
 DA:65,1
-DA:70,0
-DA:71,0
+DA:66,1
+DA:67,1
 DA:72,0
 DA:73,0
 DA:74,0
@@ -418,18 +418,18 @@ DA:75,0
 DA:76,0
 DA:77,0
 DA:78,0
+DA:79,0
 DA:80,0
-DA:81,0
 DA:82,0
 DA:83,0
 DA:84,0
-DA:88,1
-DA:89,1
+DA:85,0
+DA:86,0
 DA:90,1
 DA:91,1
 DA:92,1
-DA:95,1
-DA:96,1
+DA:93,1
+DA:94,1
 DA:97,1
 DA:98,1
 DA:99,1
@@ -439,61 +439,61 @@ DA:102,1
 DA:103,1
 DA:104,1
 DA:105,1
-DA:108,1
-DA:109,1
+DA:106,1
+DA:107,1
 DA:110,1
+DA:111,1
 DA:112,1
-DA:113,1
 DA:114,1
-DA:117,1
-DA:118,1
-DA:121,1
-DA:122,1
+DA:115,1
+DA:116,1
+DA:119,1
+DA:120,1
 DA:123,1
-DA:124,0
-DA:128,0
-DA:130,1
+DA:124,1
+DA:125,1
+DA:126,0
+DA:130,0
 DA:132,1
-DA:133,1
-DA:137,1
-DA:138,1
+DA:134,1
+DA:135,1
 DA:139,1
 DA:140,1
+DA:141,1
 DA:142,1
-DA:143,1
 DA:144,1
-DA:159,1
-DA:160,1
+DA:145,1
+DA:146,1
 DA:161,1
 DA:162,1
-DA:166,1
-DA:167,1
+DA:163,1
+DA:164,1
 DA:168,1
-DA:170,0
-DA:173,1
+DA:169,1
+DA:170,1
+DA:172,0
 DA:175,1
-DA:176,1
 DA:177,1
 DA:178,1
 DA:179,1
 DA:180,1
-DA:183,1
-DA:184,1
+DA:181,1
+DA:182,1
+DA:185,1
 DA:186,1
-DA:187,1
 DA:188,1
-DA:190,0
-DA:191,1
-DA:201,1
-DA:202,1
+DA:189,1
+DA:190,1
+DA:192,0
+DA:193,1
 DA:203,1
+DA:204,1
 DA:205,1
-DA:208,1
-DA:209,1
-DA:212,1
-DA:216,1
-DA:227,1
-DA:228,1
+DA:207,1
+DA:210,1
+DA:211,1
+DA:214,1
+DA:218,1
 DA:229,1
 DA:230,1
 DA:231,1
@@ -501,12 +501,14 @@ DA:232,1
 DA:233,1
 DA:234,1
 DA:235,1
-DA:239,1
+DA:236,1
+DA:237,1
 DA:241,1
-DA:242,1
 DA:243,1
-LH:99
-LF:119
+DA:244,1
+DA:245,1
+LH:101
+LF:121
 end_of_record
 SF:p4runtime/EntityReader.kt
 FN:18,fourward/p4runtime/EntityReader::<init> (Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;I)V
@@ -10567,21 +10569,21 @@ FN:61,fourward/simulator/ErrorVal::<clinit> ()V
 FNDA:1,fourward/simulator/ErrorVal::<clinit> ()V
 FN:61,fourward/simulator/ErrorVal$Companion::getNO_ERROR ()Lfourward/simulator/ErrorVal;
 FNDA:1,fourward/simulator/ErrorVal$Companion::getNO_ERROR ()Lfourward/simulator/ErrorVal;
-FN:185,fourward/simulator/HeaderStackVal::<init> (Ljava/lang/String;Ljava/util/List;I)V
+FN:189,fourward/simulator/HeaderStackVal::<init> (Ljava/lang/String;Ljava/util/List;I)V
 FNDA:1,fourward/simulator/HeaderStackVal::<init> (Ljava/lang/String;Ljava/util/List;I)V
-FN:185,fourward/simulator/HeaderStackVal::<init> (Ljava/lang/String;Ljava/util/List;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+FN:189,fourward/simulator/HeaderStackVal::<init> (Ljava/lang/String;Ljava/util/List;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
 FNDA:1,fourward/simulator/HeaderStackVal::<init> (Ljava/lang/String;Ljava/util/List;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
-FN:186,fourward/simulator/HeaderStackVal::getElementTypeName ()Ljava/lang/String;
+FN:190,fourward/simulator/HeaderStackVal::getElementTypeName ()Ljava/lang/String;
 FNDA:1,fourward/simulator/HeaderStackVal::getElementTypeName ()Ljava/lang/String;
-FN:187,fourward/simulator/HeaderStackVal::getHeaders ()Ljava/util/List;
+FN:191,fourward/simulator/HeaderStackVal::getHeaders ()Ljava/util/List;
 FNDA:1,fourward/simulator/HeaderStackVal::getHeaders ()Ljava/util/List;
-FN:188,fourward/simulator/HeaderStackVal::getNextIndex ()I
+FN:192,fourward/simulator/HeaderStackVal::getNextIndex ()I
 FNDA:1,fourward/simulator/HeaderStackVal::getNextIndex ()I
-FN:188,fourward/simulator/HeaderStackVal::setNextIndex (I)V
+FN:192,fourward/simulator/HeaderStackVal::setNextIndex (I)V
 FNDA:1,fourward/simulator/HeaderStackVal::setNextIndex (I)V
-FN:191,fourward/simulator/HeaderStackVal::getSize ()I
+FN:195,fourward/simulator/HeaderStackVal::getSize ()I
 FNDA:1,fourward/simulator/HeaderStackVal::getSize ()I
-FN:194,fourward/simulator/HeaderStackVal::deepCopy ()Lfourward/simulator/HeaderStackVal;
+FN:198,fourward/simulator/HeaderStackVal::deepCopy ()Lfourward/simulator/HeaderStackVal;
 FNDA:1,fourward/simulator/HeaderStackVal::deepCopy ()Lfourward/simulator/HeaderStackVal;
 FN:77,fourward/simulator/HeaderVal::<init> (Ljava/lang/String;Ljava/util/Map;Z)V
 FNDA:1,fourward/simulator/HeaderVal::<init> (Ljava/lang/String;Ljava/util/Map;Z)V
@@ -10645,13 +10647,13 @@ FN:163,fourward/simulator/StructVal::invalidateUnionExcept (Lfourward/simulator/
 FNDA:1,fourward/simulator/StructVal::invalidateUnionExcept (Lfourward/simulator/HeaderVal;)V
 FN:168,fourward/simulator/StructVal::setBitField (Ljava/lang/String;J)V
 FNDA:1,fourward/simulator/StructVal::setBitField (Ljava/lang/String;J)V
-FN:174,fourward/simulator/StructVal::bitWidth (Ljava/lang/String;)I
+FN:178,fourward/simulator/StructVal::bitWidth (Ljava/lang/String;)I
 FNDA:1,fourward/simulator/StructVal::bitWidth (Ljava/lang/String;)I
-FN:198,fourward/simulator/UnitVal::<init> ()V
+FN:202,fourward/simulator/UnitVal::<init> ()V
 FNDA:1,fourward/simulator/UnitVal::<init> ()V
 FN:14,fourward/simulator/Value::deepCopy ()Lfourward/simulator/Value;
 FNDA:1,fourward/simulator/Value::deepCopy ()Lfourward/simulator/Value;
-FN:209,fourward/simulator/ValuesKt::asStructVal (Lfourward/simulator/Value;)Lfourward/simulator/StructVal;
+FN:213,fourward/simulator/ValuesKt::asStructVal (Lfourward/simulator/Value;)Lfourward/simulator/StructVal;
 FNDA:1,fourward/simulator/ValuesKt::asStructVal (Lfourward/simulator/Value;)Lfourward/simulator/StructVal;
 BRDA:23,0,0,1
 BRDA:23,0,1,1
@@ -10693,14 +10695,14 @@ BRDA:168,0,0,1
 BRDA:168,0,1,0
 BRDA:168,0,2,0
 BRDA:168,0,3,1
-BRDA:174,0,0,1
-BRDA:174,0,1,0
-BRDA:174,0,2,0
-BRDA:174,0,3,1
-BRDA:210,0,0,1
-BRDA:210,0,1,1
-BRDA:211,0,0,1
-BRDA:211,0,1,0
+BRDA:178,0,0,1
+BRDA:178,0,1,0
+BRDA:178,0,2,0
+BRDA:178,0,3,1
+BRDA:214,0,0,1
+BRDA:214,0,1,1
+BRDA:215,0,0,1
+BRDA:215,0,1,0
 DA:14,1
 DA:18,1
 DA:22,1
@@ -10762,21 +10764,24 @@ DA:164,1
 DA:168,1
 DA:169,1
 DA:170,1
+DA:171,1
+DA:172,1
 DA:174,1
-DA:175,1
-DA:185,1
-DA:186,1
-DA:187,1
-DA:188,1
+DA:178,1
+DA:179,1
 DA:189,1
+DA:190,1
 DA:191,1
-DA:194,1
+DA:192,1
+DA:193,1
+DA:195,1
 DA:198,1
-DA:209,1
-DA:210,1
-DA:211,1
-DA:212,0
+DA:202,1
 DA:213,1
-LH:66
-LF:76
+DA:214,1
+DA:215,1
+DA:216,0
+DA:217,1
+LH:69
+LF:79
 end_of_record

@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryMed">83.2&nbsp;%</td>
-            <td class="headerCovTableEntry">119</td>
-            <td class="headerCovTableEntry">99</td>
+            <td class="headerCovTableEntryMed">83.5&nbsp;%</td>
+            <td class="headerCovTableEntry">121</td>
+            <td class="headerCovTableEntry">101</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-08 00:39:46</td>
+            <td class="headerValue">2026-05-08 05:58:49</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryMed">78.3&nbsp;%</td>
@@ -121,188 +121,190 @@
 <span id="L59"><span class="lineNum">      59</span> <span class="tlaGNC">           1 :         .build()</span></span>
 <span id="L60"><span class="lineNum">      60</span> <span class="tlaUNC tlaBgUNC">           0 :     } catch (e: StatusException) {</span></span>
 <span id="L61"><span class="lineNum">      61</span> <span class="tlaUNC">           0 :       throw e // already has a proper status; don't rewrap.</span></span>
-<span id="L62"><span class="lineNum">      62</span> <span class="tlaGNC tlaBgGNC">           1 :     } catch (e: Exception) {</span></span>
-<span id="L63"><span class="lineNum">      63</span> <span class="tlaGNC">           1 :       val detail =</span></span>
-<span id="L64"><span class="lineNum">      64</span> <span class="tlaGNC">           1 :         listOfNotNull(&quot;InjectPacket failed&quot;, e.javaClass.simpleName, e.message).joinToString(&quot;: &quot;)</span></span>
-<span id="L65"><span class="lineNum">      65</span> <span class="tlaGNC">           1 :       throw Status.INTERNAL.withDescription(detail).withCause(e).asException()</span></span>
-<span id="L66"><span class="lineNum">      66</span>              :     }</span>
-<span id="L67"><span class="lineNum">      67</span>              :   }</span>
-<span id="L68"><span class="lineNum">      68</span>              : </span>
-<span id="L69"><span class="lineNum">      69</span>              :   override suspend fun injectPackets(requests: Flow&lt;InjectPacketRequest&gt;): InjectPacketsResponse {</span>
-<span id="L70"><span class="lineNum">      70</span> <span class="tlaUNC tlaBgUNC">           0 :     val translator = typeTranslator()</span></span>
-<span id="L71"><span class="lineNum">      71</span> <span class="tlaUNC">           0 :     broker.withHookOnce { processPacket -&gt;</span></span>
-<span id="L72"><span class="lineNum">      72</span> <span class="tlaUNC">           0 :       val futures = mutableListOf&lt;java.util.concurrent.ForkJoinTask&lt;*&gt;&gt;()</span></span>
-<span id="L73"><span class="lineNum">      73</span> <span class="tlaUNC">           0 :       kotlinx.coroutines.runBlocking {</span></span>
-<span id="L74"><span class="lineNum">      74</span> <span class="tlaUNC">           0 :         requests.collect { request -&gt;</span></span>
-<span id="L75"><span class="lineNum">      75</span> <span class="tlaUNC">           0 :           val port = resolveIngressPort(request, translator)</span></span>
-<span id="L76"><span class="lineNum">      76</span> <span class="tlaUNC">           0 :           val payload = request.payload.toByteArray()</span></span>
-<span id="L77"><span class="lineNum">      77</span> <span class="tlaUNC">           0 :           futures.add(</span></span>
-<span id="L78"><span class="lineNum">      78</span> <span class="tlaUNC">           0 :             java.util.concurrent.ForkJoinPool.commonPool().submit { processPacket(port, payload) }</span></span>
-<span id="L79"><span class="lineNum">      79</span>              :           )</span>
-<span id="L80"><span class="lineNum">      80</span> <span class="tlaUNC">           0 :         }</span></span>
-<span id="L81"><span class="lineNum">      81</span> <span class="tlaUNC">           0 :       }</span></span>
-<span id="L82"><span class="lineNum">      82</span> <span class="tlaUNC">           0 :       futures.forEach { it.join() }</span></span>
-<span id="L83"><span class="lineNum">      83</span> <span class="tlaUNC">           0 :     }</span></span>
-<span id="L84"><span class="lineNum">      84</span> <span class="tlaUNC">           0 :     return InjectPacketsResponse.getDefaultInstance()</span></span>
-<span id="L85"><span class="lineNum">      85</span>              :   }</span>
-<span id="L86"><span class="lineNum">      86</span>              : </span>
-<span id="L87"><span class="lineNum">      87</span>              :   override fun subscribeResults(request: SubscribeResultsRequest): Flow&lt;SubscribeResultsResponse&gt; =</span>
-<span id="L88"><span class="lineNum">      88</span> <span class="tlaGNC tlaBgGNC">           1 :     callbackFlow {</span></span>
-<span id="L89"><span class="lineNum">      89</span> <span class="tlaGNC">           1 :       send(</span></span>
-<span id="L90"><span class="lineNum">      90</span> <span class="tlaGNC">           1 :         SubscribeResultsResponse.newBuilder()</span></span>
-<span id="L91"><span class="lineNum">      91</span> <span class="tlaGNC">           1 :           .setActive(SubscriptionActive.getDefaultInstance())</span></span>
-<span id="L92"><span class="lineNum">      92</span> <span class="tlaGNC">           1 :           .build()</span></span>
-<span id="L93"><span class="lineNum">      93</span>              :       )</span>
-<span id="L94"><span class="lineNum">      94</span>              : </span>
-<span id="L95"><span class="lineNum">      95</span> <span class="tlaGNC">           1 :       val handle =</span></span>
-<span id="L96"><span class="lineNum">      96</span> <span class="tlaGNC">           1 :         broker.subscribe { subResult -&gt;</span></span>
-<span id="L97"><span class="lineNum">      97</span> <span class="tlaGNC">           1 :           try {</span></span>
-<span id="L98"><span class="lineNum">      98</span> <span class="tlaGNC">           1 :             val translator = typeTranslator()</span></span>
-<span id="L99"><span class="lineNum">      99</span> <span class="tlaGNC">           1 :             val pt = translator?.portTranslator</span></span>
-<span id="L100"><span class="lineNum">     100</span> <span class="tlaGNC">           1 :             val result =</span></span>
-<span id="L101"><span class="lineNum">     101</span> <span class="tlaGNC">           1 :               ProcessPacketResultProto.newBuilder()</span></span>
-<span id="L102"><span class="lineNum">     102</span> <span class="tlaGNC">           1 :                 .setInputPacket(</span></span>
-<span id="L103"><span class="lineNum">     103</span> <span class="tlaGNC">           1 :                   InputPacket.newBuilder()</span></span>
-<span id="L104"><span class="lineNum">     104</span> <span class="tlaGNC">           1 :                     .setDataplaneIngressPort(subResult.ingressPort)</span></span>
-<span id="L105"><span class="lineNum">     105</span> <span class="tlaGNC">           1 :                     .apply {</span></span>
-<span id="L106"><span class="lineNum">     106</span>              :                       // Ingress ports may come from InjectPacket.dataplane_ingress_port (raw int,</span>
-<span id="L107"><span class="lineNum">     107</span>              :                       // never forward-allocated), so a missing reverse mapping is expected.</span>
-<span id="L108"><span class="lineNum">     108</span> <span class="tlaGNC">           1 :                       pt?.dataplaneToP4rt(subResult.ingressPort)?.let { setP4RtIngressPort(it) }</span></span>
-<span id="L109"><span class="lineNum">     109</span> <span class="tlaGNC">           1 :                     }</span></span>
-<span id="L110"><span class="lineNum">     110</span> <span class="tlaGNC">           1 :                     .setPayload(ByteString.copyFrom(subResult.payload))</span></span>
-<span id="L111"><span class="lineNum">     111</span>              :                 )</span>
-<span id="L112"><span class="lineNum">     112</span> <span class="tlaGNC">           1 :                 .addAllPossibleOutcomes(</span></span>
-<span id="L113"><span class="lineNum">     113</span> <span class="tlaGNC">           1 :                   subResult.possibleOutcomes.map { world -&gt;</span></span>
-<span id="L114"><span class="lineNum">     114</span> <span class="tlaGNC">           1 :                     PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()</span></span>
-<span id="L115"><span class="lineNum">     115</span>              :                   }</span>
-<span id="L116"><span class="lineNum">     116</span>              :                 )</span>
-<span id="L117"><span class="lineNum">     117</span> <span class="tlaGNC">           1 :                 .setTrace(enrichTrace(subResult.trace, translator))</span></span>
-<span id="L118"><span class="lineNum">     118</span> <span class="tlaGNC">           1 :                 .build()</span></span>
-<span id="L119"><span class="lineNum">     119</span>              :             // Close the stream if the channel is full or closed — silently dropping a packet</span>
-<span id="L120"><span class="lineNum">     120</span>              :             // result would violate the SubscribeResults contract.</span>
-<span id="L121"><span class="lineNum">     121</span> <span class="tlaGNC">           1 :             val sendResult =</span></span>
-<span id="L122"><span class="lineNum">     122</span> <span class="tlaGNC">           1 :               trySend(SubscribeResultsResponse.newBuilder().setResult(result).build())</span></span>
-<span id="L123"><span class="lineNum">     123</span> <span class="tlaGNC">           1 :             if (sendResult.isFailure) close(sendResult.exceptionOrNull())</span></span>
-<span id="L124"><span class="lineNum">     124</span> <span class="tlaUNC tlaBgUNC">           0 :           } catch (</span></span>
-<span id="L125"><span class="lineNum">     125</span>              :             @Suppress(&quot;TooGenericExceptionCaught&quot;) // Any translation/encoding failure should</span>
-<span id="L126"><span class="lineNum">     126</span>              :             e: Exception // terminate this subscription stream, not crash the packet sender.</span>
-<span id="L127"><span class="lineNum">     127</span>              :           ) {</span>
-<span id="L128"><span class="lineNum">     128</span> <span class="tlaUNC">           0 :             close(e)</span></span>
-<span id="L129"><span class="lineNum">     129</span>              :           }</span>
-<span id="L130"><span class="lineNum">     130</span> <span class="tlaGNC tlaBgGNC">           1 :         }</span></span>
-<span id="L131"><span class="lineNum">     131</span>              : </span>
-<span id="L132"><span class="lineNum">     132</span> <span class="tlaGNC">           1 :       awaitClose { handle.unsubscribe() }</span></span>
-<span id="L133"><span class="lineNum">     133</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L134"><span class="lineNum">     134</span>              : </span>
-<span id="L135"><span class="lineNum">     135</span>              :   override fun registerPrePacketHook(</span>
-<span id="L136"><span class="lineNum">     136</span>              :     requests: Flow&lt;PrePacketHookResponse&gt;</span>
-<span id="L137"><span class="lineNum">     137</span> <span class="tlaGNC">           1 :   ): Flow&lt;PrePacketHookInvocation&gt; = callbackFlow {</span></span>
-<span id="L138"><span class="lineNum">     138</span> <span class="tlaGNC">           1 :     val invocations = Channel&lt;PrePacketHookInvocation&gt;(Channel.RENDEZVOUS)</span></span>
-<span id="L139"><span class="lineNum">     139</span> <span class="tlaGNC">           1 :     val responses = Channel&lt;PrePacketHookResponse&gt;(Channel.RENDEZVOUS)</span></span>
-<span id="L140"><span class="lineNum">     140</span> <span class="tlaGNC">           1 :     val newHook = PacketBroker.Hook(invocations, responses)</span></span>
-<span id="L141"><span class="lineNum">     141</span>              : </span>
-<span id="L142"><span class="lineNum">     142</span> <span class="tlaGNC">           1 :     if (!broker.registerHook(newHook)) {</span></span>
-<span id="L143"><span class="lineNum">     143</span> <span class="tlaGNC">           1 :       throw Status.ALREADY_EXISTS.withDescription(&quot;A pre-packet hook is already registered&quot;)</span></span>
-<span id="L144"><span class="lineNum">     144</span> <span class="tlaGNC">           1 :         .asException()</span></span>
-<span id="L145"><span class="lineNum">     145</span>              :     }</span>
-<span id="L146"><span class="lineNum">     146</span>              : </span>
-<span id="L147"><span class="lineNum">     147</span>              :     // Synchronisation handshake: tell the client the hook is live. From the</span>
-<span id="L148"><span class="lineNum">     148</span>              :     // client's perspective, every packet emitted *after* this message is</span>
-<span id="L149"><span class="lineNum">     149</span>              :     // guaranteed to flow through the hook — no timing guesses needed.</span>
-<span id="L150"><span class="lineNum">     150</span>              :     // Mirrors the SubscriptionActive sentinel that subscribeResults emits.</span>
-<span id="L151"><span class="lineNum">     151</span>              :     //</span>
-<span id="L152"><span class="lineNum">     152</span>              :     // The sentinel must be sent *before* the forwarder is launched. Sending it</span>
-<span id="L153"><span class="lineNum">     153</span>              :     // through the `invocations` channel after launching the forwarder would be</span>
-<span id="L154"><span class="lineNum">     154</span>              :     // racier, not safer: the broker may already be firing into the rendezvous</span>
-<span id="L155"><span class="lineNum">     155</span>              :     // channel from another thread (the hook is live the moment registerHook</span>
-<span id="L156"><span class="lineNum">     156</span>              :     // returns true), so a concurrent packet event could win the rendezvous</span>
-<span id="L157"><span class="lineNum">     157</span>              :     // before our sentinel does. Bypassing the channel entirely keeps ordering</span>
-<span id="L158"><span class="lineNum">     158</span>              :     // tied to lexical structure rather than thread races.</span>
-<span id="L159"><span class="lineNum">     159</span> <span class="tlaGNC">           1 :     send(</span></span>
-<span id="L160"><span class="lineNum">     160</span> <span class="tlaGNC">           1 :       PrePacketHookInvocation.newBuilder()</span></span>
-<span id="L161"><span class="lineNum">     161</span> <span class="tlaGNC">           1 :         .setRegistered(PrePacketHookInvocation.HookRegistered.getDefaultInstance())</span></span>
-<span id="L162"><span class="lineNum">     162</span> <span class="tlaGNC">           1 :         .build()</span></span>
-<span id="L163"><span class="lineNum">     163</span>              :     )</span>
-<span id="L164"><span class="lineNum">     164</span>              : </span>
-<span id="L165"><span class="lineNum">     165</span>              :     // Forward invocations from the internal channel to the gRPC stream.</span>
-<span id="L166"><span class="lineNum">     166</span> <span class="tlaGNC">           1 :     launch {</span></span>
-<span id="L167"><span class="lineNum">     167</span> <span class="tlaGNC">           1 :       for (invocation in invocations) {</span></span>
-<span id="L168"><span class="lineNum">     168</span> <span class="tlaGNC">           1 :         send(invocation)</span></span>
-<span id="L169"><span class="lineNum">     169</span>              :       }</span>
-<span id="L170"><span class="lineNum">     170</span> <span class="tlaUNC tlaBgUNC">           0 :     }</span></span>
-<span id="L171"><span class="lineNum">     171</span>              : </span>
-<span id="L172"><span class="lineNum">     172</span>              :     // Forward responses from the gRPC stream to the internal channel.</span>
-<span id="L173"><span class="lineNum">     173</span> <span class="tlaGNC tlaBgGNC">           1 :     launch { requests.collect { response -&gt; responses.send(response) } }</span></span>
-<span id="L174"><span class="lineNum">     174</span>              : </span>
-<span id="L175"><span class="lineNum">     175</span> <span class="tlaGNC">           1 :     awaitClose {</span></span>
-<span id="L176"><span class="lineNum">     176</span> <span class="tlaGNC">           1 :       broker.deregisterHook()</span></span>
-<span id="L177"><span class="lineNum">     177</span> <span class="tlaGNC">           1 :       invocations.close()</span></span>
-<span id="L178"><span class="lineNum">     178</span> <span class="tlaGNC">           1 :       responses.close()</span></span>
-<span id="L179"><span class="lineNum">     179</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L180"><span class="lineNum">     180</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L181"><span class="lineNum">     181</span>              : </span>
-<span id="L182"><span class="lineNum">     182</span>              :   private fun resolveIngressPort(request: InjectPacketRequest, translator: TypeTranslator?): Int =</span>
-<span id="L183"><span class="lineNum">     183</span> <span class="tlaGNC">           1 :     when (request.ingressPortCase) {</span></span>
-<span id="L184"><span class="lineNum">     184</span> <span class="tlaGNC">           1 :       InjectPacketRequest.IngressPortCase.DATAPLANE_INGRESS_PORT -&gt; request.dataplaneIngressPort</span></span>
-<span id="L185"><span class="lineNum">     185</span>              :       InjectPacketRequest.IngressPortCase.P4RT_INGRESS_PORT -&gt;</span>
-<span id="L186"><span class="lineNum">     186</span> <span class="tlaGNC">           1 :         (translator?.portTranslator</span></span>
-<span id="L187"><span class="lineNum">     187</span> <span class="tlaGNC">           1 :             ?: throw missingPortTranslation(request.p4RtIngressPort, translator))</span></span>
-<span id="L188"><span class="lineNum">     188</span> <span class="tlaGNC">           1 :           .p4rtToDataplane(request.p4RtIngressPort)</span></span>
-<span id="L189"><span class="lineNum">     189</span>              :       InjectPacketRequest.IngressPortCase.INGRESSPORT_NOT_SET,</span>
-<span id="L190"><span class="lineNum">     190</span> <span class="tlaUNC tlaBgUNC">           0 :       null -&gt; 0</span></span>
-<span id="L191"><span class="lineNum">     191</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
-<span id="L192"><span class="lineNum">     192</span>              : }</span>
-<span id="L193"><span class="lineNum">     193</span>              : </span>
-<span id="L194"><span class="lineNum">     194</span>              : // Same FAILED_PRECONDITION covers two distinct remediations — &quot;load a pipeline&quot;</span>
-<span id="L195"><span class="lineNum">     195</span>              : // vs. &quot;use a pipeline whose port type has @p4runtime_translation&quot; — so the</span>
-<span id="L196"><span class="lineNum">     196</span>              : // message has to say which branch the caller is on.</span>
-<span id="L197"><span class="lineNum">     197</span>              : private fun missingPortTranslation(</span>
-<span id="L198"><span class="lineNum">     198</span>              :   requestedPort: ByteString,</span>
-<span id="L199"><span class="lineNum">     199</span>              :   translator: TypeTranslator?,</span>
-<span id="L200"><span class="lineNum">     200</span>              : ): StatusException {</span>
-<span id="L201"><span class="lineNum">     201</span> <span class="tlaGNC">           1 :   val reason =</span></span>
-<span id="L202"><span class="lineNum">     202</span> <span class="tlaGNC">           1 :     if (translator == null) {</span></span>
-<span id="L203"><span class="lineNum">     203</span> <span class="tlaGNC">           1 :       &quot;no pipeline is loaded — call SetForwardingPipelineConfig first&quot;</span></span>
-<span id="L204"><span class="lineNum">     204</span>              :     } else {</span>
-<span id="L205"><span class="lineNum">     205</span> <span class="tlaGNC">           1 :       &quot;the loaded pipeline's port type has no @p4runtime_translation — compile &quot; +</span></span>
-<span id="L206"><span class="lineNum">     206</span>              :         &quot;with a port type that carries the annotation (e.g. via v1model_sai.p4)&quot;</span>
-<span id="L207"><span class="lineNum">     207</span>              :     }</span>
-<span id="L208"><span class="lineNum">     208</span> <span class="tlaGNC">           1 :   return Status.FAILED_PRECONDITION.withDescription(</span></span>
-<span id="L209"><span class="lineNum">     209</span> <span class="tlaGNC">           1 :       &quot;InjectPacket uses p4rt_ingress_port (0x${requestedPort.toHex()}), but $reason. &quot; +</span></span>
-<span id="L210"><span class="lineNum">     210</span>              :         &quot;Alternatively, use dataplane_ingress_port (numeric) to bypass P4Runtime port translation.&quot;</span>
-<span id="L211"><span class="lineNum">     211</span>              :     )</span>
-<span id="L212"><span class="lineNum">     212</span> <span class="tlaGNC">           1 :     .asException()</span></span>
-<span id="L213"><span class="lineNum">     213</span>              : }</span>
-<span id="L214"><span class="lineNum">     214</span>              : </span>
-<span id="L215"><span class="lineNum">     215</span>              : private fun enrichTrace(trace: TraceTree, translator: TypeTranslator?): TraceTree =</span>
-<span id="L216"><span class="lineNum">     216</span> <span class="tlaGNC">           1 :   translator?.let { TraceEnricher.enrich(trace, it) } ?: trace</span></span>
-<span id="L217"><span class="lineNum">     217</span>              : </span>
-<span id="L218"><span class="lineNum">     218</span>              : /**</span>
-<span id="L219"><span class="lineNum">     219</span>              :  * Converts a simulator [fourward.sim.OutputPacket] to a dual-encoded [OutputPacket].</span>
-<span id="L220"><span class="lineNum">     220</span>              :  *</span>
-<span id="L221"><span class="lineNum">     221</span>              :  * When a [PortTranslator] is present, every egress port must be reverse-translatable — either</span>
-<span id="L222"><span class="lineNum">     222</span>              :  * forward-allocated by a controller Write or installed via `Replica.port` (bytes). A missing</span>
-<span id="L223"><span class="lineNum">     223</span>              :  * mapping means the clone session or multicast group used the deprecated `Replica.egress_port`</span>
-<span id="L224"><span class="lineNum">     224</span>              :  * (int32), which bypasses port translation.</span>
-<span id="L225"><span class="lineNum">     225</span>              :  */</span>
-<span id="L226"><span class="lineNum">     226</span>              : private fun fourward.sim.OutputPacket.toDualEncoded(pt: PortTranslator?): OutputPacket =</span>
-<span id="L227"><span class="lineNum">     227</span> <span class="tlaGNC">           1 :   OutputPacket.newBuilder()</span></span>
-<span id="L228"><span class="lineNum">     228</span> <span class="tlaGNC">           1 :     .setDataplaneEgressPort(dataplaneEgressPort)</span></span>
-<span id="L229"><span class="lineNum">     229</span> <span class="tlaGNC">           1 :     .apply {</span></span>
-<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC">           1 :       if (pt != null) {</span></span>
-<span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :         val p4rtPort =</span></span>
-<span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :           pt.dataplaneToP4rt(dataplaneEgressPort)</span></span>
-<span id="L233"><span class="lineNum">     233</span> <span class="tlaGNC">           1 :             ?: error(</span></span>
-<span id="L234"><span class="lineNum">     234</span> <span class="tlaGNC">           1 :               &quot;PortTranslator has no reverse mapping for dataplane egress port &quot; +</span></span>
-<span id="L235"><span class="lineNum">     235</span> <span class="tlaGNC">           1 :                 &quot;$dataplaneEgressPort. Use Replica.port (bytes) instead of the deprecated &quot; +</span></span>
-<span id="L236"><span class="lineNum">     236</span>              :                 &quot;Replica.egress_port (int32) to enable port translation for clone sessions &quot; +</span>
-<span id="L237"><span class="lineNum">     237</span>              :                 &quot;and multicast groups.&quot;</span>
-<span id="L238"><span class="lineNum">     238</span>              :             )</span>
-<span id="L239"><span class="lineNum">     239</span> <span class="tlaGNC">           1 :         setP4RtEgressPort(p4rtPort)</span></span>
-<span id="L240"><span class="lineNum">     240</span>              :       }</span>
-<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :     .setPayload(payload)</span></span>
-<span id="L243"><span class="lineNum">     243</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L62"><span class="lineNum">      62</span> <span class="tlaGNC tlaBgGNC">           1 :     } catch (e: IllegalArgumentException) {</span></span>
+<span id="L63"><span class="lineNum">      63</span> <span class="tlaGNC">           1 :       val detail = listOfNotNull(&quot;InjectPacket failed&quot;, e.message).joinToString(&quot;: &quot;)</span></span>
+<span id="L64"><span class="lineNum">      64</span> <span class="tlaGNC">           1 :       throw Status.INVALID_ARGUMENT.withDescription(detail).withCause(e).asException()</span></span>
+<span id="L65"><span class="lineNum">      65</span> <span class="tlaGNC">           1 :     } catch (e: Exception) {</span></span>
+<span id="L66"><span class="lineNum">      66</span> <span class="tlaGNC">           1 :       val detail = listOfNotNull(&quot;InjectPacket failed&quot;, e.message).joinToString(&quot;: &quot;)</span></span>
+<span id="L67"><span class="lineNum">      67</span> <span class="tlaGNC">           1 :       throw Status.INTERNAL.withDescription(detail).withCause(e).asException()</span></span>
+<span id="L68"><span class="lineNum">      68</span>              :     }</span>
+<span id="L69"><span class="lineNum">      69</span>              :   }</span>
+<span id="L70"><span class="lineNum">      70</span>              : </span>
+<span id="L71"><span class="lineNum">      71</span>              :   override suspend fun injectPackets(requests: Flow&lt;InjectPacketRequest&gt;): InjectPacketsResponse {</span>
+<span id="L72"><span class="lineNum">      72</span> <span class="tlaUNC tlaBgUNC">           0 :     val translator = typeTranslator()</span></span>
+<span id="L73"><span class="lineNum">      73</span> <span class="tlaUNC">           0 :     broker.withHookOnce { processPacket -&gt;</span></span>
+<span id="L74"><span class="lineNum">      74</span> <span class="tlaUNC">           0 :       val futures = mutableListOf&lt;java.util.concurrent.ForkJoinTask&lt;*&gt;&gt;()</span></span>
+<span id="L75"><span class="lineNum">      75</span> <span class="tlaUNC">           0 :       kotlinx.coroutines.runBlocking {</span></span>
+<span id="L76"><span class="lineNum">      76</span> <span class="tlaUNC">           0 :         requests.collect { request -&gt;</span></span>
+<span id="L77"><span class="lineNum">      77</span> <span class="tlaUNC">           0 :           val port = resolveIngressPort(request, translator)</span></span>
+<span id="L78"><span class="lineNum">      78</span> <span class="tlaUNC">           0 :           val payload = request.payload.toByteArray()</span></span>
+<span id="L79"><span class="lineNum">      79</span> <span class="tlaUNC">           0 :           futures.add(</span></span>
+<span id="L80"><span class="lineNum">      80</span> <span class="tlaUNC">           0 :             java.util.concurrent.ForkJoinPool.commonPool().submit { processPacket(port, payload) }</span></span>
+<span id="L81"><span class="lineNum">      81</span>              :           )</span>
+<span id="L82"><span class="lineNum">      82</span> <span class="tlaUNC">           0 :         }</span></span>
+<span id="L83"><span class="lineNum">      83</span> <span class="tlaUNC">           0 :       }</span></span>
+<span id="L84"><span class="lineNum">      84</span> <span class="tlaUNC">           0 :       futures.forEach { it.join() }</span></span>
+<span id="L85"><span class="lineNum">      85</span> <span class="tlaUNC">           0 :     }</span></span>
+<span id="L86"><span class="lineNum">      86</span> <span class="tlaUNC">           0 :     return InjectPacketsResponse.getDefaultInstance()</span></span>
+<span id="L87"><span class="lineNum">      87</span>              :   }</span>
+<span id="L88"><span class="lineNum">      88</span>              : </span>
+<span id="L89"><span class="lineNum">      89</span>              :   override fun subscribeResults(request: SubscribeResultsRequest): Flow&lt;SubscribeResultsResponse&gt; =</span>
+<span id="L90"><span class="lineNum">      90</span> <span class="tlaGNC tlaBgGNC">           1 :     callbackFlow {</span></span>
+<span id="L91"><span class="lineNum">      91</span> <span class="tlaGNC">           1 :       send(</span></span>
+<span id="L92"><span class="lineNum">      92</span> <span class="tlaGNC">           1 :         SubscribeResultsResponse.newBuilder()</span></span>
+<span id="L93"><span class="lineNum">      93</span> <span class="tlaGNC">           1 :           .setActive(SubscriptionActive.getDefaultInstance())</span></span>
+<span id="L94"><span class="lineNum">      94</span> <span class="tlaGNC">           1 :           .build()</span></span>
+<span id="L95"><span class="lineNum">      95</span>              :       )</span>
+<span id="L96"><span class="lineNum">      96</span>              : </span>
+<span id="L97"><span class="lineNum">      97</span> <span class="tlaGNC">           1 :       val handle =</span></span>
+<span id="L98"><span class="lineNum">      98</span> <span class="tlaGNC">           1 :         broker.subscribe { subResult -&gt;</span></span>
+<span id="L99"><span class="lineNum">      99</span> <span class="tlaGNC">           1 :           try {</span></span>
+<span id="L100"><span class="lineNum">     100</span> <span class="tlaGNC">           1 :             val translator = typeTranslator()</span></span>
+<span id="L101"><span class="lineNum">     101</span> <span class="tlaGNC">           1 :             val pt = translator?.portTranslator</span></span>
+<span id="L102"><span class="lineNum">     102</span> <span class="tlaGNC">           1 :             val result =</span></span>
+<span id="L103"><span class="lineNum">     103</span> <span class="tlaGNC">           1 :               ProcessPacketResultProto.newBuilder()</span></span>
+<span id="L104"><span class="lineNum">     104</span> <span class="tlaGNC">           1 :                 .setInputPacket(</span></span>
+<span id="L105"><span class="lineNum">     105</span> <span class="tlaGNC">           1 :                   InputPacket.newBuilder()</span></span>
+<span id="L106"><span class="lineNum">     106</span> <span class="tlaGNC">           1 :                     .setDataplaneIngressPort(subResult.ingressPort)</span></span>
+<span id="L107"><span class="lineNum">     107</span> <span class="tlaGNC">           1 :                     .apply {</span></span>
+<span id="L108"><span class="lineNum">     108</span>              :                       // Ingress ports may come from InjectPacket.dataplane_ingress_port (raw int,</span>
+<span id="L109"><span class="lineNum">     109</span>              :                       // never forward-allocated), so a missing reverse mapping is expected.</span>
+<span id="L110"><span class="lineNum">     110</span> <span class="tlaGNC">           1 :                       pt?.dataplaneToP4rt(subResult.ingressPort)?.let { setP4RtIngressPort(it) }</span></span>
+<span id="L111"><span class="lineNum">     111</span> <span class="tlaGNC">           1 :                     }</span></span>
+<span id="L112"><span class="lineNum">     112</span> <span class="tlaGNC">           1 :                     .setPayload(ByteString.copyFrom(subResult.payload))</span></span>
+<span id="L113"><span class="lineNum">     113</span>              :                 )</span>
+<span id="L114"><span class="lineNum">     114</span> <span class="tlaGNC">           1 :                 .addAllPossibleOutcomes(</span></span>
+<span id="L115"><span class="lineNum">     115</span> <span class="tlaGNC">           1 :                   subResult.possibleOutcomes.map { world -&gt;</span></span>
+<span id="L116"><span class="lineNum">     116</span> <span class="tlaGNC">           1 :                     PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()</span></span>
+<span id="L117"><span class="lineNum">     117</span>              :                   }</span>
+<span id="L118"><span class="lineNum">     118</span>              :                 )</span>
+<span id="L119"><span class="lineNum">     119</span> <span class="tlaGNC">           1 :                 .setTrace(enrichTrace(subResult.trace, translator))</span></span>
+<span id="L120"><span class="lineNum">     120</span> <span class="tlaGNC">           1 :                 .build()</span></span>
+<span id="L121"><span class="lineNum">     121</span>              :             // Close the stream if the channel is full or closed — silently dropping a packet</span>
+<span id="L122"><span class="lineNum">     122</span>              :             // result would violate the SubscribeResults contract.</span>
+<span id="L123"><span class="lineNum">     123</span> <span class="tlaGNC">           1 :             val sendResult =</span></span>
+<span id="L124"><span class="lineNum">     124</span> <span class="tlaGNC">           1 :               trySend(SubscribeResultsResponse.newBuilder().setResult(result).build())</span></span>
+<span id="L125"><span class="lineNum">     125</span> <span class="tlaGNC">           1 :             if (sendResult.isFailure) close(sendResult.exceptionOrNull())</span></span>
+<span id="L126"><span class="lineNum">     126</span> <span class="tlaUNC tlaBgUNC">           0 :           } catch (</span></span>
+<span id="L127"><span class="lineNum">     127</span>              :             @Suppress(&quot;TooGenericExceptionCaught&quot;) // Any translation/encoding failure should</span>
+<span id="L128"><span class="lineNum">     128</span>              :             e: Exception // terminate this subscription stream, not crash the packet sender.</span>
+<span id="L129"><span class="lineNum">     129</span>              :           ) {</span>
+<span id="L130"><span class="lineNum">     130</span> <span class="tlaUNC">           0 :             close(e)</span></span>
+<span id="L131"><span class="lineNum">     131</span>              :           }</span>
+<span id="L132"><span class="lineNum">     132</span> <span class="tlaGNC tlaBgGNC">           1 :         }</span></span>
+<span id="L133"><span class="lineNum">     133</span>              : </span>
+<span id="L134"><span class="lineNum">     134</span> <span class="tlaGNC">           1 :       awaitClose { handle.unsubscribe() }</span></span>
+<span id="L135"><span class="lineNum">     135</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L136"><span class="lineNum">     136</span>              : </span>
+<span id="L137"><span class="lineNum">     137</span>              :   override fun registerPrePacketHook(</span>
+<span id="L138"><span class="lineNum">     138</span>              :     requests: Flow&lt;PrePacketHookResponse&gt;</span>
+<span id="L139"><span class="lineNum">     139</span> <span class="tlaGNC">           1 :   ): Flow&lt;PrePacketHookInvocation&gt; = callbackFlow {</span></span>
+<span id="L140"><span class="lineNum">     140</span> <span class="tlaGNC">           1 :     val invocations = Channel&lt;PrePacketHookInvocation&gt;(Channel.RENDEZVOUS)</span></span>
+<span id="L141"><span class="lineNum">     141</span> <span class="tlaGNC">           1 :     val responses = Channel&lt;PrePacketHookResponse&gt;(Channel.RENDEZVOUS)</span></span>
+<span id="L142"><span class="lineNum">     142</span> <span class="tlaGNC">           1 :     val newHook = PacketBroker.Hook(invocations, responses)</span></span>
+<span id="L143"><span class="lineNum">     143</span>              : </span>
+<span id="L144"><span class="lineNum">     144</span> <span class="tlaGNC">           1 :     if (!broker.registerHook(newHook)) {</span></span>
+<span id="L145"><span class="lineNum">     145</span> <span class="tlaGNC">           1 :       throw Status.ALREADY_EXISTS.withDescription(&quot;A pre-packet hook is already registered&quot;)</span></span>
+<span id="L146"><span class="lineNum">     146</span> <span class="tlaGNC">           1 :         .asException()</span></span>
+<span id="L147"><span class="lineNum">     147</span>              :     }</span>
+<span id="L148"><span class="lineNum">     148</span>              : </span>
+<span id="L149"><span class="lineNum">     149</span>              :     // Synchronisation handshake: tell the client the hook is live. From the</span>
+<span id="L150"><span class="lineNum">     150</span>              :     // client's perspective, every packet emitted *after* this message is</span>
+<span id="L151"><span class="lineNum">     151</span>              :     // guaranteed to flow through the hook — no timing guesses needed.</span>
+<span id="L152"><span class="lineNum">     152</span>              :     // Mirrors the SubscriptionActive sentinel that subscribeResults emits.</span>
+<span id="L153"><span class="lineNum">     153</span>              :     //</span>
+<span id="L154"><span class="lineNum">     154</span>              :     // The sentinel must be sent *before* the forwarder is launched. Sending it</span>
+<span id="L155"><span class="lineNum">     155</span>              :     // through the `invocations` channel after launching the forwarder would be</span>
+<span id="L156"><span class="lineNum">     156</span>              :     // racier, not safer: the broker may already be firing into the rendezvous</span>
+<span id="L157"><span class="lineNum">     157</span>              :     // channel from another thread (the hook is live the moment registerHook</span>
+<span id="L158"><span class="lineNum">     158</span>              :     // returns true), so a concurrent packet event could win the rendezvous</span>
+<span id="L159"><span class="lineNum">     159</span>              :     // before our sentinel does. Bypassing the channel entirely keeps ordering</span>
+<span id="L160"><span class="lineNum">     160</span>              :     // tied to lexical structure rather than thread races.</span>
+<span id="L161"><span class="lineNum">     161</span> <span class="tlaGNC">           1 :     send(</span></span>
+<span id="L162"><span class="lineNum">     162</span> <span class="tlaGNC">           1 :       PrePacketHookInvocation.newBuilder()</span></span>
+<span id="L163"><span class="lineNum">     163</span> <span class="tlaGNC">           1 :         .setRegistered(PrePacketHookInvocation.HookRegistered.getDefaultInstance())</span></span>
+<span id="L164"><span class="lineNum">     164</span> <span class="tlaGNC">           1 :         .build()</span></span>
+<span id="L165"><span class="lineNum">     165</span>              :     )</span>
+<span id="L166"><span class="lineNum">     166</span>              : </span>
+<span id="L167"><span class="lineNum">     167</span>              :     // Forward invocations from the internal channel to the gRPC stream.</span>
+<span id="L168"><span class="lineNum">     168</span> <span class="tlaGNC">           1 :     launch {</span></span>
+<span id="L169"><span class="lineNum">     169</span> <span class="tlaGNC">           1 :       for (invocation in invocations) {</span></span>
+<span id="L170"><span class="lineNum">     170</span> <span class="tlaGNC">           1 :         send(invocation)</span></span>
+<span id="L171"><span class="lineNum">     171</span>              :       }</span>
+<span id="L172"><span class="lineNum">     172</span> <span class="tlaUNC tlaBgUNC">           0 :     }</span></span>
+<span id="L173"><span class="lineNum">     173</span>              : </span>
+<span id="L174"><span class="lineNum">     174</span>              :     // Forward responses from the gRPC stream to the internal channel.</span>
+<span id="L175"><span class="lineNum">     175</span> <span class="tlaGNC tlaBgGNC">           1 :     launch { requests.collect { response -&gt; responses.send(response) } }</span></span>
+<span id="L176"><span class="lineNum">     176</span>              : </span>
+<span id="L177"><span class="lineNum">     177</span> <span class="tlaGNC">           1 :     awaitClose {</span></span>
+<span id="L178"><span class="lineNum">     178</span> <span class="tlaGNC">           1 :       broker.deregisterHook()</span></span>
+<span id="L179"><span class="lineNum">     179</span> <span class="tlaGNC">           1 :       invocations.close()</span></span>
+<span id="L180"><span class="lineNum">     180</span> <span class="tlaGNC">           1 :       responses.close()</span></span>
+<span id="L181"><span class="lineNum">     181</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L182"><span class="lineNum">     182</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L183"><span class="lineNum">     183</span>              : </span>
+<span id="L184"><span class="lineNum">     184</span>              :   private fun resolveIngressPort(request: InjectPacketRequest, translator: TypeTranslator?): Int =</span>
+<span id="L185"><span class="lineNum">     185</span> <span class="tlaGNC">           1 :     when (request.ingressPortCase) {</span></span>
+<span id="L186"><span class="lineNum">     186</span> <span class="tlaGNC">           1 :       InjectPacketRequest.IngressPortCase.DATAPLANE_INGRESS_PORT -&gt; request.dataplaneIngressPort</span></span>
+<span id="L187"><span class="lineNum">     187</span>              :       InjectPacketRequest.IngressPortCase.P4RT_INGRESS_PORT -&gt;</span>
+<span id="L188"><span class="lineNum">     188</span> <span class="tlaGNC">           1 :         (translator?.portTranslator</span></span>
+<span id="L189"><span class="lineNum">     189</span> <span class="tlaGNC">           1 :             ?: throw missingPortTranslation(request.p4RtIngressPort, translator))</span></span>
+<span id="L190"><span class="lineNum">     190</span> <span class="tlaGNC">           1 :           .p4rtToDataplane(request.p4RtIngressPort)</span></span>
+<span id="L191"><span class="lineNum">     191</span>              :       InjectPacketRequest.IngressPortCase.INGRESSPORT_NOT_SET,</span>
+<span id="L192"><span class="lineNum">     192</span> <span class="tlaUNC tlaBgUNC">           0 :       null -&gt; 0</span></span>
+<span id="L193"><span class="lineNum">     193</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
+<span id="L194"><span class="lineNum">     194</span>              : }</span>
+<span id="L195"><span class="lineNum">     195</span>              : </span>
+<span id="L196"><span class="lineNum">     196</span>              : // Same FAILED_PRECONDITION covers two distinct remediations — &quot;load a pipeline&quot;</span>
+<span id="L197"><span class="lineNum">     197</span>              : // vs. &quot;use a pipeline whose port type has @p4runtime_translation&quot; — so the</span>
+<span id="L198"><span class="lineNum">     198</span>              : // message has to say which branch the caller is on.</span>
+<span id="L199"><span class="lineNum">     199</span>              : private fun missingPortTranslation(</span>
+<span id="L200"><span class="lineNum">     200</span>              :   requestedPort: ByteString,</span>
+<span id="L201"><span class="lineNum">     201</span>              :   translator: TypeTranslator?,</span>
+<span id="L202"><span class="lineNum">     202</span>              : ): StatusException {</span>
+<span id="L203"><span class="lineNum">     203</span> <span class="tlaGNC">           1 :   val reason =</span></span>
+<span id="L204"><span class="lineNum">     204</span> <span class="tlaGNC">           1 :     if (translator == null) {</span></span>
+<span id="L205"><span class="lineNum">     205</span> <span class="tlaGNC">           1 :       &quot;no pipeline is loaded — call SetForwardingPipelineConfig first&quot;</span></span>
+<span id="L206"><span class="lineNum">     206</span>              :     } else {</span>
+<span id="L207"><span class="lineNum">     207</span> <span class="tlaGNC">           1 :       &quot;the loaded pipeline's port type has no @p4runtime_translation — compile &quot; +</span></span>
+<span id="L208"><span class="lineNum">     208</span>              :         &quot;with a port type that carries the annotation (e.g. via v1model_sai.p4)&quot;</span>
+<span id="L209"><span class="lineNum">     209</span>              :     }</span>
+<span id="L210"><span class="lineNum">     210</span> <span class="tlaGNC">           1 :   return Status.FAILED_PRECONDITION.withDescription(</span></span>
+<span id="L211"><span class="lineNum">     211</span> <span class="tlaGNC">           1 :       &quot;InjectPacket uses p4rt_ingress_port (0x${requestedPort.toHex()}), but $reason. &quot; +</span></span>
+<span id="L212"><span class="lineNum">     212</span>              :         &quot;Alternatively, use dataplane_ingress_port (numeric) to bypass P4Runtime port translation.&quot;</span>
+<span id="L213"><span class="lineNum">     213</span>              :     )</span>
+<span id="L214"><span class="lineNum">     214</span> <span class="tlaGNC">           1 :     .asException()</span></span>
+<span id="L215"><span class="lineNum">     215</span>              : }</span>
+<span id="L216"><span class="lineNum">     216</span>              : </span>
+<span id="L217"><span class="lineNum">     217</span>              : private fun enrichTrace(trace: TraceTree, translator: TypeTranslator?): TraceTree =</span>
+<span id="L218"><span class="lineNum">     218</span> <span class="tlaGNC">           1 :   translator?.let { TraceEnricher.enrich(trace, it) } ?: trace</span></span>
+<span id="L219"><span class="lineNum">     219</span>              : </span>
+<span id="L220"><span class="lineNum">     220</span>              : /**</span>
+<span id="L221"><span class="lineNum">     221</span>              :  * Converts a simulator [fourward.sim.OutputPacket] to a dual-encoded [OutputPacket].</span>
+<span id="L222"><span class="lineNum">     222</span>              :  *</span>
+<span id="L223"><span class="lineNum">     223</span>              :  * When a [PortTranslator] is present, every egress port must be reverse-translatable — either</span>
+<span id="L224"><span class="lineNum">     224</span>              :  * forward-allocated by a controller Write or installed via `Replica.port` (bytes). A missing</span>
+<span id="L225"><span class="lineNum">     225</span>              :  * mapping means the clone session or multicast group used the deprecated `Replica.egress_port`</span>
+<span id="L226"><span class="lineNum">     226</span>              :  * (int32), which bypasses port translation.</span>
+<span id="L227"><span class="lineNum">     227</span>              :  */</span>
+<span id="L228"><span class="lineNum">     228</span>              : private fun fourward.sim.OutputPacket.toDualEncoded(pt: PortTranslator?): OutputPacket =</span>
+<span id="L229"><span class="lineNum">     229</span> <span class="tlaGNC">           1 :   OutputPacket.newBuilder()</span></span>
+<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC">           1 :     .setDataplaneEgressPort(dataplaneEgressPort)</span></span>
+<span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :     .apply {</span></span>
+<span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :       if (pt != null) {</span></span>
+<span id="L233"><span class="lineNum">     233</span> <span class="tlaGNC">           1 :         val p4rtPort =</span></span>
+<span id="L234"><span class="lineNum">     234</span> <span class="tlaGNC">           1 :           pt.dataplaneToP4rt(dataplaneEgressPort)</span></span>
+<span id="L235"><span class="lineNum">     235</span> <span class="tlaGNC">           1 :             ?: error(</span></span>
+<span id="L236"><span class="lineNum">     236</span> <span class="tlaGNC">           1 :               &quot;PortTranslator has no reverse mapping for dataplane egress port &quot; +</span></span>
+<span id="L237"><span class="lineNum">     237</span> <span class="tlaGNC">           1 :                 &quot;$dataplaneEgressPort. Use Replica.port (bytes) instead of the deprecated &quot; +</span></span>
+<span id="L238"><span class="lineNum">     238</span>              :                 &quot;Replica.egress_port (int32) to enable port translation for clone sessions &quot; +</span>
+<span id="L239"><span class="lineNum">     239</span>              :                 &quot;and multicast groups.&quot;</span>
+<span id="L240"><span class="lineNum">     240</span>              :             )</span>
+<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :         setP4RtEgressPort(p4rtPort)</span></span>
+<span id="L242"><span class="lineNum">     242</span>              :       }</span>
+<span id="L243"><span class="lineNum">     243</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L244"><span class="lineNum">     244</span> <span class="tlaGNC">           1 :     .setPayload(payload)</span></span>
+<span id="L245"><span class="lineNum">     245</span> <span class="tlaGNC">           1 :     .build()</span></span>
         </pre>
               </td>
             </tr>

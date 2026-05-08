@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryMed">86.8&nbsp;%</td>
-            <td class="headerCovTableEntry">76</td>
-            <td class="headerCovTableEntry">66</td>
+            <td class="headerCovTableEntryMed">87.3&nbsp;%</td>
+            <td class="headerCovTableEntry">79</td>
+            <td class="headerCovTableEntry">69</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-08 00:39:46</td>
+            <td class="headerValue">2026-05-08 05:58:49</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryMed">87.9&nbsp;%</td>
@@ -228,51 +228,55 @@
 <span id="L166"><span class="lineNum">     166</span>              :   /** Overwrites a bit-valued field, preserving its IR-defined width. */</span>
 <span id="L167"><span class="lineNum">     167</span>              :   fun setBitField(name: String, value: Long) {</span>
 <span id="L168"><span class="lineNum">     168</span> <span class="tlaGNC">           1 :     val existing = checkNotNull(fields[name] as? BitVal) { &quot;$typeName.$name is not a bit field&quot; }</span></span>
-<span id="L169"><span class="lineNum">     169</span> <span class="tlaGNC">           1 :     fields[name] = BitVal(value, existing.bits.width)</span></span>
-<span id="L170"><span class="lineNum">     170</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L171"><span class="lineNum">     171</span>              : </span>
-<span id="L172"><span class="lineNum">     172</span>              :   /** Returns the bit width of a bit-valued field, as defined by the IR. */</span>
-<span id="L173"><span class="lineNum">     173</span>              :   fun bitWidth(name: String): Int {</span>
-<span id="L174"><span class="lineNum">     174</span> <span class="tlaGNC">           1 :     val field = checkNotNull(fields[name] as? BitVal) { &quot;$typeName.$name is not a bit field&quot; }</span></span>
-<span id="L175"><span class="lineNum">     175</span> <span class="tlaGNC">           1 :     return field.bits.width</span></span>
-<span id="L176"><span class="lineNum">     176</span>              :   }</span>
-<span id="L177"><span class="lineNum">     177</span>              : }</span>
-<span id="L178"><span class="lineNum">     178</span>              : </span>
-<span id="L179"><span class="lineNum">     179</span>              : /**</span>
-<span id="L180"><span class="lineNum">     180</span>              :  * A header stack (fixed-size array of headers with a next/last pointer).</span>
-<span id="L181"><span class="lineNum">     181</span>              :  *</span>
-<span id="L182"><span class="lineNum">     182</span>              :  * Elements are typically [HeaderVal] but may be [StructVal] for header-union stacks (P4 spec</span>
-<span id="L183"><span class="lineNum">     183</span>              :  * §8.18).</span>
-<span id="L184"><span class="lineNum">     184</span>              :  */</span>
-<span id="L185"><span class="lineNum">     185</span> <span class="tlaGNC">           1 : data class HeaderStackVal(</span></span>
-<span id="L186"><span class="lineNum">     186</span> <span class="tlaGNC">           1 :   val elementTypeName: String,</span></span>
-<span id="L187"><span class="lineNum">     187</span> <span class="tlaGNC">           1 :   val headers: MutableList&lt;Value&gt;,</span></span>
-<span id="L188"><span class="lineNum">     188</span> <span class="tlaGNC">           1 :   var nextIndex: Int = 0,</span></span>
-<span id="L189"><span class="lineNum">     189</span> <span class="tlaGNC">           1 : ) : Value() {</span></span>
-<span id="L190"><span class="lineNum">     190</span>              :   val size: Int</span>
-<span id="L191"><span class="lineNum">     191</span> <span class="tlaGNC">           1 :     get() = headers.size</span></span>
-<span id="L192"><span class="lineNum">     192</span>              : </span>
-<span id="L193"><span class="lineNum">     193</span>              :   override fun deepCopy(): HeaderStackVal =</span>
-<span id="L194"><span class="lineNum">     194</span> <span class="tlaGNC">           1 :     HeaderStackVal(elementTypeName, headers.mapTo(mutableListOf()) { it.deepCopy() }, nextIndex)</span></span>
-<span id="L195"><span class="lineNum">     195</span>              : }</span>
+<span id="L169"><span class="lineNum">     169</span> <span class="tlaGNC">           1 :     try {</span></span>
+<span id="L170"><span class="lineNum">     170</span> <span class="tlaGNC">           1 :       fields[name] = BitVal(value, existing.bits.width)</span></span>
+<span id="L171"><span class="lineNum">     171</span> <span class="tlaGNC">           1 :     } catch (e: IllegalArgumentException) {</span></span>
+<span id="L172"><span class="lineNum">     172</span> <span class="tlaGNC">           1 :       throw IllegalArgumentException(&quot;$typeName.$name: ${e.message}&quot;, e)</span></span>
+<span id="L173"><span class="lineNum">     173</span>              :     }</span>
+<span id="L174"><span class="lineNum">     174</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L175"><span class="lineNum">     175</span>              : </span>
+<span id="L176"><span class="lineNum">     176</span>              :   /** Returns the bit width of a bit-valued field, as defined by the IR. */</span>
+<span id="L177"><span class="lineNum">     177</span>              :   fun bitWidth(name: String): Int {</span>
+<span id="L178"><span class="lineNum">     178</span> <span class="tlaGNC">           1 :     val field = checkNotNull(fields[name] as? BitVal) { &quot;$typeName.$name is not a bit field&quot; }</span></span>
+<span id="L179"><span class="lineNum">     179</span> <span class="tlaGNC">           1 :     return field.bits.width</span></span>
+<span id="L180"><span class="lineNum">     180</span>              :   }</span>
+<span id="L181"><span class="lineNum">     181</span>              : }</span>
+<span id="L182"><span class="lineNum">     182</span>              : </span>
+<span id="L183"><span class="lineNum">     183</span>              : /**</span>
+<span id="L184"><span class="lineNum">     184</span>              :  * A header stack (fixed-size array of headers with a next/last pointer).</span>
+<span id="L185"><span class="lineNum">     185</span>              :  *</span>
+<span id="L186"><span class="lineNum">     186</span>              :  * Elements are typically [HeaderVal] but may be [StructVal] for header-union stacks (P4 spec</span>
+<span id="L187"><span class="lineNum">     187</span>              :  * §8.18).</span>
+<span id="L188"><span class="lineNum">     188</span>              :  */</span>
+<span id="L189"><span class="lineNum">     189</span> <span class="tlaGNC">           1 : data class HeaderStackVal(</span></span>
+<span id="L190"><span class="lineNum">     190</span> <span class="tlaGNC">           1 :   val elementTypeName: String,</span></span>
+<span id="L191"><span class="lineNum">     191</span> <span class="tlaGNC">           1 :   val headers: MutableList&lt;Value&gt;,</span></span>
+<span id="L192"><span class="lineNum">     192</span> <span class="tlaGNC">           1 :   var nextIndex: Int = 0,</span></span>
+<span id="L193"><span class="lineNum">     193</span> <span class="tlaGNC">           1 : ) : Value() {</span></span>
+<span id="L194"><span class="lineNum">     194</span>              :   val size: Int</span>
+<span id="L195"><span class="lineNum">     195</span> <span class="tlaGNC">           1 :     get() = headers.size</span></span>
 <span id="L196"><span class="lineNum">     196</span>              : </span>
-<span id="L197"><span class="lineNum">     197</span>              : /** Sentinel for void returns and uninitialised variables. */</span>
-<span id="L198"><span class="lineNum">     198</span> <span class="tlaGNC">           1 : object UnitVal : Value()</span></span>
-<span id="L199"><span class="lineNum">     199</span>              : </span>
-<span id="L200"><span class="lineNum">     200</span>              : /**</span>
-<span id="L201"><span class="lineNum">     201</span>              :  * Views a [HeaderVal] or [StructVal] as a [StructVal] for read-only field-based operations</span>
-<span id="L202"><span class="lineNum">     202</span>              :  * (hashing, checksums). Headers have the same `fields` map but carry an extra validity bit that</span>
-<span id="L203"><span class="lineNum">     203</span>              :  * these operations don't need.</span>
-<span id="L204"><span class="lineNum">     204</span>              :  *</span>
-<span id="L205"><span class="lineNum">     205</span>              :  * The returned [StructVal] shares the original [HeaderVal]'s mutable field map — callers must not</span>
-<span id="L206"><span class="lineNum">     206</span>              :  * mutate the returned struct's fields.</span>
-<span id="L207"><span class="lineNum">     207</span>              :  */</span>
-<span id="L208"><span class="lineNum">     208</span>              : fun Value.asStructVal(): StructVal =</span>
-<span id="L209"><span class="lineNum">     209</span> <span class="tlaGNC">           1 :   when (this) {</span></span>
-<span id="L210"><span class="lineNum">     210</span> <span class="tlaGNC">           1 :     is StructVal -&gt; this</span></span>
-<span id="L211"><span class="lineNum">     211</span> <span class="tlaGNC">           1 :     is HeaderVal -&gt; StructVal(typeName, fields)</span></span>
-<span id="L212"><span class="lineNum">     212</span> <span class="tlaUNC tlaBgUNC">           0 :     else -&gt; error(&quot;expected struct or header, got ${this::class.simpleName}&quot;)</span></span>
-<span id="L213"><span class="lineNum">     213</span> <span class="tlaGNC tlaBgGNC">           1 :   }</span></span>
+<span id="L197"><span class="lineNum">     197</span>              :   override fun deepCopy(): HeaderStackVal =</span>
+<span id="L198"><span class="lineNum">     198</span> <span class="tlaGNC">           1 :     HeaderStackVal(elementTypeName, headers.mapTo(mutableListOf()) { it.deepCopy() }, nextIndex)</span></span>
+<span id="L199"><span class="lineNum">     199</span>              : }</span>
+<span id="L200"><span class="lineNum">     200</span>              : </span>
+<span id="L201"><span class="lineNum">     201</span>              : /** Sentinel for void returns and uninitialised variables. */</span>
+<span id="L202"><span class="lineNum">     202</span> <span class="tlaGNC">           1 : object UnitVal : Value()</span></span>
+<span id="L203"><span class="lineNum">     203</span>              : </span>
+<span id="L204"><span class="lineNum">     204</span>              : /**</span>
+<span id="L205"><span class="lineNum">     205</span>              :  * Views a [HeaderVal] or [StructVal] as a [StructVal] for read-only field-based operations</span>
+<span id="L206"><span class="lineNum">     206</span>              :  * (hashing, checksums). Headers have the same `fields` map but carry an extra validity bit that</span>
+<span id="L207"><span class="lineNum">     207</span>              :  * these operations don't need.</span>
+<span id="L208"><span class="lineNum">     208</span>              :  *</span>
+<span id="L209"><span class="lineNum">     209</span>              :  * The returned [StructVal] shares the original [HeaderVal]'s mutable field map — callers must not</span>
+<span id="L210"><span class="lineNum">     210</span>              :  * mutate the returned struct's fields.</span>
+<span id="L211"><span class="lineNum">     211</span>              :  */</span>
+<span id="L212"><span class="lineNum">     212</span>              : fun Value.asStructVal(): StructVal =</span>
+<span id="L213"><span class="lineNum">     213</span> <span class="tlaGNC">           1 :   when (this) {</span></span>
+<span id="L214"><span class="lineNum">     214</span> <span class="tlaGNC">           1 :     is StructVal -&gt; this</span></span>
+<span id="L215"><span class="lineNum">     215</span> <span class="tlaGNC">           1 :     is HeaderVal -&gt; StructVal(typeName, fields)</span></span>
+<span id="L216"><span class="lineNum">     216</span> <span class="tlaUNC tlaBgUNC">           0 :     else -&gt; error(&quot;expected struct or header, got ${this::class.simpleName}&quot;)</span></span>
+<span id="L217"><span class="lineNum">     217</span> <span class="tlaGNC tlaBgGNC">           1 :   }</span></span>
         </pre>
               </td>
             </tr>
