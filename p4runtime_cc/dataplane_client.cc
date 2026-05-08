@@ -47,9 +47,9 @@ struct overloaded : Ts... { using Ts::operator()...; };
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
-fourward::dataplane::InjectPacketRequest ToProto(
+fourward::InjectPacketRequest ToProto(
     const InjectPacketArgs& args) {
-  fourward::dataplane::InjectPacketRequest req;
+  fourward::InjectPacketRequest req;
   std::visit(overloaded{
                  [&](const DataplanePort& p) {
                    req.set_dataplane_ingress_port(p.port);
@@ -70,7 +70,7 @@ DataplaneClient::DataplaneClient(const FourwardServer& server,
     : DataplaneClient(server.NewDataplaneStub(), default_timeout) {}
 
 DataplaneClient::DataplaneClient(
-    std::unique_ptr<fourward::dataplane::Dataplane::Stub> stub,
+    std::unique_ptr<fourward::Dataplane::Stub> stub,
     absl::Duration default_timeout)
     : stub_(std::move(stub)), default_timeout_(default_timeout) {}
 
@@ -79,13 +79,13 @@ DataplaneClient::DataplaneClient(DataplaneClient&&) = default;
 DataplaneClient& DataplaneClient::operator=(DataplaneClient&&) =
     default;
 
-absl::StatusOr<fourward::dataplane::InjectPacketResponse>
+absl::StatusOr<fourward::InjectPacketResponse>
 DataplaneClient::InjectPacket(const InjectPacketArgs& args,
                               std::optional<absl::Duration> deadline) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(deadline)));
-  fourward::dataplane::InjectPacketRequest req = ToProto(args);
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketRequest req = ToProto(args);
+  fourward::InjectPacketResponse resp;
   grpc::Status status = stub_->InjectPacket(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
   return resp;
@@ -96,12 +96,12 @@ absl::Status DataplaneClient::InjectPackets(
     std::optional<absl::Duration> deadline) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(deadline)));
-  fourward::dataplane::InjectPacketsResponse resp;
+  fourward::InjectPacketsResponse resp;
   std::unique_ptr<
-      grpc::ClientWriter<fourward::dataplane::InjectPacketRequest>>
+      grpc::ClientWriter<fourward::InjectPacketRequest>>
       writer = stub_->InjectPackets(&ctx, &resp);
   for (const InjectPacketArgs& arg : args) {
-    fourward::dataplane::InjectPacketRequest req = ToProto(arg);
+    fourward::InjectPacketRequest req = ToProto(arg);
     if (!writer->Write(req)) {
       return ToAbsl(writer->Finish());
     }
@@ -113,7 +113,7 @@ absl::Status DataplaneClient::InjectPackets(
 class ResultStream::Impl {
  public:
   static absl::StatusOr<std::unique_ptr<Impl>> Create(
-      fourward::dataplane::Dataplane::Stub* stub,
+      fourward::Dataplane::Stub* stub,
       absl::Duration startup_timeout);
 
   ~Impl();
@@ -121,7 +121,7 @@ class ResultStream::Impl {
   Impl(const Impl&) = delete;
   Impl& operator=(const Impl&) = delete;
 
-  absl::StatusOr<fourward::dataplane::ProcessPacketResult> Next(
+  absl::StatusOr<fourward::ProcessPacketResult> Next(
       absl::Duration timeout);
 
  private:
@@ -139,23 +139,23 @@ class ResultStream::Impl {
 
   std::unique_ptr<grpc::ClientContext> context_;
   std::unique_ptr<
-      grpc::ClientReader<fourward::dataplane::SubscribeResultsResponse>>
+      grpc::ClientReader<fourward::SubscribeResultsResponse>>
       reader_;
   std::thread thread_;
 
   absl::Mutex mu_;
   State state_ ABSL_GUARDED_BY(mu_) = State::kStarting;
-  std::deque<fourward::dataplane::ProcessPacketResult> queue_
+  std::deque<fourward::ProcessPacketResult> queue_
       ABSL_GUARDED_BY(mu_);
   absl::Status final_status_ ABSL_GUARDED_BY(mu_);
 };
 
 absl::StatusOr<std::unique_ptr<ResultStream::Impl>> ResultStream::Impl::Create(
-    fourward::dataplane::Dataplane::Stub* stub,
+    fourward::Dataplane::Stub* stub,
     absl::Duration startup_timeout) {
   std::unique_ptr<Impl> impl(new Impl);
   impl->context_ = std::make_unique<grpc::ClientContext>();
-  fourward::dataplane::SubscribeResultsRequest req;
+  fourward::SubscribeResultsRequest req;
   impl->reader_ = stub->SubscribeResults(impl->context_.get(), req);
 
   Impl* raw = impl.get();
@@ -191,7 +191,7 @@ ResultStream::Impl::~Impl() {
 }
 
 void ResultStream::Impl::ReadLoop() {
-  fourward::dataplane::SubscribeResultsResponse first;
+  fourward::SubscribeResultsResponse first;
   if (!reader_->Read(&first) || !first.has_active()) {
     grpc::Status status = reader_->Finish();
     absl::MutexLock lock(&mu_);
@@ -211,7 +211,7 @@ void ResultStream::Impl::ReadLoop() {
     state_ = State::kSubscribed;
   }
 
-  fourward::dataplane::SubscribeResultsResponse resp;
+  fourward::SubscribeResultsResponse resp;
   while (reader_->Read(&resp)) {
     if (!resp.has_result()) continue;
     absl::MutexLock lock(&mu_);
@@ -223,7 +223,7 @@ void ResultStream::Impl::ReadLoop() {
   final_status_ = ToAbsl(status);
 }
 
-absl::StatusOr<fourward::dataplane::ProcessPacketResult>
+absl::StatusOr<fourward::ProcessPacketResult>
 ResultStream::Impl::Next(absl::Duration timeout) {
   absl::MutexLock lock(&mu_);
   if (!mu_.AwaitWithTimeout(absl::Condition(this, &Impl::QueueOrFinished),
@@ -232,7 +232,7 @@ ResultStream::Impl::Next(absl::Duration timeout) {
         "ResultStream::Next: no result within ", absl::FormatDuration(timeout)));
   }
   if (!queue_.empty()) {
-    fourward::dataplane::ProcessPacketResult result = std::move(queue_.front());
+    fourward::ProcessPacketResult result = std::move(queue_.front());
     queue_.pop_front();
     return result;
   }
@@ -248,7 +248,7 @@ ResultStream::ResultStream(ResultStream&&) = default;
 ResultStream& ResultStream::operator=(ResultStream&&) = default;
 ResultStream::ResultStream(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 
-absl::StatusOr<fourward::dataplane::ProcessPacketResult> ResultStream::Next(
+absl::StatusOr<fourward::ProcessPacketResult> ResultStream::Next(
     absl::Duration timeout) {
   return impl_->Next(timeout);
 }

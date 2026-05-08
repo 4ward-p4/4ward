@@ -90,6 +90,6 @@ fun simulate(pipelinePath: Path, stfPath: Path, format: OutputFormat, dropPort: 
 }
 
 private const val PROTO_FILE = "@fourward//simulator/simulator.proto"
-private const val PROTO_MESSAGE = "fourward.sim.TraceTree"
+private const val PROTO_MESSAGE = "fourward.TraceTree"
 private const val TEXTPROTO_HEADER = "# proto-file: $PROTO_FILE\n# proto-message: $PROTO_MESSAGE\n"
 private const val JSON_HEADER = "// proto-file: $PROTO_FILE\n// proto-message: $PROTO_MESSAGE\n"

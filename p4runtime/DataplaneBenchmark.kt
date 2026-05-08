@@ -1,9 +1,9 @@
 package fourward.p4runtime
 
 import com.google.protobuf.ByteString
-import fourward.ir.PipelineConfig
-import fourward.ir.TranslationEntry
-import fourward.ir.TypeTranslation
+import fourward.PipelineConfig
+import fourward.TranslationEntry
+import fourward.TypeTranslation
 import org.junit.Test
 import p4.config.v1.P4InfoOuterClass
 import p4.v1.P4RuntimeOuterClass

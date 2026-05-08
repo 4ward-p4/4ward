@@ -15,15 +15,15 @@
 package fourward.simulator
 
 import com.google.protobuf.ByteString
-import fourward.ir.BehavioralConfig
-import fourward.ir.KeysetExpr
-import fourward.ir.ParserDecl
-import fourward.ir.ParserState
-import fourward.ir.SelectCase
-import fourward.ir.SelectTransition
-import fourward.ir.Stmt
-import fourward.ir.Transition
-import fourward.ir.ValueSetDecl
+import fourward.BehavioralConfig
+import fourward.KeysetExpr
+import fourward.ParserDecl
+import fourward.ParserState
+import fourward.SelectCase
+import fourward.SelectTransition
+import fourward.Stmt
+import fourward.Transition
+import fourward.ValueSetDecl
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import p4.v1.P4RuntimeOuterClass
@@ -173,7 +173,7 @@ class InterpreterParserTest {
 
   /** Creates a select state with a value_set case and a default fallback. */
   private fun valueSetSelectState(
-    keyExpr: fourward.ir.Expr,
+    keyExpr: fourward.Expr,
     valueSetName: String,
     matchNextState: String,
     defaultNextState: String = "reject",

@@ -7,7 +7,7 @@ package fourward.p4runtime
 import com.google.protobuf.Any as ProtoAny
 import com.google.protobuf.ByteString
 import com.google.protobuf.TextFormat
-import fourward.ir.PipelineConfig
+import fourward.PipelineConfig
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.assertGrpcError
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.buildEthernetFrame
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.buildExactEntry
@@ -416,7 +416,7 @@ class P4RuntimeConformanceTest {
       ForwardingPipelineConfig.newBuilder().setP4Info(config.p4Info).setP4DeviceConfig(textBytes)
     )
     val readBack = harness.getConfig()
-    assertEquals(config.device, fourward.ir.DeviceConfig.parseFrom(readBack.config.p4DeviceConfig))
+    assertEquals(config.device, fourward.DeviceConfig.parseFrom(readBack.config.p4DeviceConfig))
   }
 
   // =========================================================================

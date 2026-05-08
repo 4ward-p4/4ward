@@ -14,21 +14,21 @@
 
 package fourward.simulator
 
-import fourward.ir.ActionDecl
-import fourward.ir.Architecture
-import fourward.ir.BehavioralConfig
-import fourward.ir.ControlDecl
-import fourward.ir.DeviceConfig
-import fourward.ir.ParamDecl
-import fourward.ir.ParserDecl
-import fourward.ir.ParserState
-import fourward.ir.PipelineConfig
-import fourward.ir.PipelineStage
-import fourward.ir.StageKind
-import fourward.ir.StructDecl
-import fourward.ir.TableBehavior
-import fourward.ir.Transition
-import fourward.ir.TypeDecl
+import fourward.ActionDecl
+import fourward.Architecture
+import fourward.BehavioralConfig
+import fourward.ControlDecl
+import fourward.DeviceConfig
+import fourward.ParamDecl
+import fourward.ParserDecl
+import fourward.ParserState
+import fourward.PipelineConfig
+import fourward.PipelineStage
+import fourward.StageKind
+import fourward.StructDecl
+import fourward.TableBehavior
+import fourward.Transition
+import fourward.TypeDecl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -381,45 +381,45 @@ class SimulatorTest {
 /** Unit tests for [collectPossibleOutcomes] — the parallel vs alternative fork semantics. */
 class CollectPossibleOutcomesTest {
 
-  private fun output(port: Int): fourward.sim.TraceTree =
-    fourward.sim.TraceTree.newBuilder()
+  private fun output(port: Int): fourward.TraceTree =
+    fourward.TraceTree.newBuilder()
       .setPacketOutcome(
-        fourward.sim.PacketOutcome.newBuilder()
+        fourward.PacketOutcome.newBuilder()
           .setOutput(
-            fourward.sim.OutputPacket.newBuilder()
+            fourward.OutputPacket.newBuilder()
               .setDataplaneEgressPort(port)
               .setPayload(com.google.protobuf.ByteString.copyFrom(byteArrayOf(0x01)))
           )
       )
       .build()
 
-  private fun drop(): fourward.sim.TraceTree =
-    fourward.sim.TraceTree.newBuilder()
+  private fun drop(): fourward.TraceTree =
+    fourward.TraceTree.newBuilder()
       .setPacketOutcome(
-        fourward.sim.PacketOutcome.newBuilder()
-          .setDrop(fourward.sim.Drop.newBuilder().setReason(fourward.sim.DropReason.MARK_TO_DROP))
+        fourward.PacketOutcome.newBuilder()
+          .setDrop(fourward.Drop.newBuilder().setReason(fourward.DropReason.MARK_TO_DROP))
       )
       .build()
 
   private fun fork(
-    reason: fourward.sim.ForkReason,
-    vararg branches: Pair<String, fourward.sim.TraceTree>,
-  ): fourward.sim.TraceTree =
-    fourward.sim.TraceTree.newBuilder()
+    reason: fourward.ForkReason,
+    vararg branches: Pair<String, fourward.TraceTree>,
+  ): fourward.TraceTree =
+    fourward.TraceTree.newBuilder()
       .setForkOutcome(
-        fourward.sim.Fork.newBuilder()
+        fourward.Fork.newBuilder()
           .setReason(reason)
           .addAllBranches(
             branches.map {
-              fourward.sim.ForkBranch.newBuilder().setLabel(it.first).setSubtree(it.second).build()
+              fourward.ForkBranch.newBuilder().setLabel(it.first).setSubtree(it.second).build()
             }
           )
       )
       .build()
 
   private fun alternativeFork(
-    vararg branches: Pair<String, fourward.sim.TraceTree>
-  ): fourward.sim.TraceTree = fork(fourward.sim.ForkReason.ACTION_SELECTOR, *branches)
+    vararg branches: Pair<String, fourward.TraceTree>
+  ): fourward.TraceTree = fork(fourward.ForkReason.ACTION_SELECTOR, *branches)
 
   @Test
   fun `linear trace produces one world with one output`() {
@@ -436,7 +436,7 @@ class CollectPossibleOutcomesTest {
 
   @Test
   fun `parallel fork combines outputs within each world`() {
-    val tree = fork(fourward.sim.ForkReason.CLONE, "original" to output(1), "clone" to output(2))
+    val tree = fork(fourward.ForkReason.CLONE, "original" to output(1), "clone" to output(2))
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals("one world", 1, outcomes.size)
     assertEquals("two outputs", 2, outcomes[0].size)
@@ -460,7 +460,7 @@ class CollectPossibleOutcomesTest {
     // Clone (parallel) with 2 branches, each containing a 2-member selector (alternative).
     val tree =
       fork(
-        fourward.sim.ForkReason.CLONE,
+        fourward.ForkReason.CLONE,
         "original" to alternativeFork("m0" to output(1), "m1" to output(2)),
         "clone" to alternativeFork("m0" to output(3), "m1" to output(4)),
       )
@@ -485,12 +485,7 @@ class CollectPossibleOutcomesTest {
   @Test
   fun `multicast fork is parallel`() {
     val tree =
-      fork(
-        fourward.sim.ForkReason.MULTICAST,
-        "r0" to output(1),
-        "r1" to output(2),
-        "r2" to output(3),
-      )
+      fork(fourward.ForkReason.MULTICAST, "r0" to output(1), "r1" to output(2), "r2" to output(3))
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals("one world", 1, outcomes.size)
     assertEquals("three outputs", 3, outcomes[0].size)

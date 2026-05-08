@@ -1,8 +1,8 @@
 package fourward.web
 
-import fourward.ir.BehavioralConfig
-import fourward.ir.Expr
-import fourward.ir.ParserDecl
+import fourward.BehavioralConfig
+import fourward.Expr
+import fourward.ParserDecl
 import fourward.web.ControlGraphExtractor.ControlGraph
 import fourward.web.ControlGraphExtractor.Edge
 import fourward.web.ControlGraphExtractor.Node
@@ -34,10 +34,10 @@ object ParserGraphExtractor {
 
       val transition = state.transition
       when (transition.kindCase) {
-        fourward.ir.Transition.KindCase.NEXT_STATE -> {
+        fourward.Transition.KindCase.NEXT_STATE -> {
           edges += Edge(state.name, transition.nextState)
         }
-        fourward.ir.Transition.KindCase.SELECT -> {
+        fourward.Transition.KindCase.SELECT -> {
           val sel = transition.select
           for (case in sel.casesList) {
             val label = case.keysetsList.joinToString(", ") { keysetLabel(it) }
@@ -51,7 +51,7 @@ object ParserGraphExtractor {
             edges += Edge(state.name, sel.defaultState, "default")
           }
         }
-        fourward.ir.Transition.KindCase.KIND_NOT_SET,
+        fourward.Transition.KindCase.KIND_NOT_SET,
         null -> {}
       }
     }
@@ -71,16 +71,16 @@ object ParserGraphExtractor {
   }
 
   /** Human-readable label for a keyset expression. */
-  private fun keysetLabel(keyset: fourward.ir.KeysetExpr): String =
+  private fun keysetLabel(keyset: fourward.KeysetExpr): String =
     when (keyset.kindCase) {
-      fourward.ir.KeysetExpr.KindCase.EXACT -> exprLabel(keyset.exact)
-      fourward.ir.KeysetExpr.KindCase.MASK ->
+      fourward.KeysetExpr.KindCase.EXACT -> exprLabel(keyset.exact)
+      fourward.KeysetExpr.KindCase.MASK ->
         "${exprLabel(keyset.mask.value)} &&& ${exprLabel(keyset.mask.mask)}"
-      fourward.ir.KeysetExpr.KindCase.RANGE ->
+      fourward.KeysetExpr.KindCase.RANGE ->
         "${exprLabel(keyset.range.lo)}..${exprLabel(keyset.range.hi)}"
-      fourward.ir.KeysetExpr.KindCase.DEFAULT_CASE,
-      fourward.ir.KeysetExpr.KindCase.VALUE_SET,
-      fourward.ir.KeysetExpr.KindCase.KIND_NOT_SET,
+      fourward.KeysetExpr.KindCase.DEFAULT_CASE,
+      fourward.KeysetExpr.KindCase.VALUE_SET,
+      fourward.KeysetExpr.KindCase.KIND_NOT_SET,
       null -> "_"
     }
 
@@ -89,13 +89,13 @@ object ParserGraphExtractor {
       Expr.KindCase.LITERAL -> {
         val lit = expr.literal
         when (lit.kindCase) {
-          fourward.ir.Literal.KindCase.INTEGER -> "0x${lit.integer.toString(16).uppercase()}"
-          fourward.ir.Literal.KindCase.BOOLEAN -> lit.boolean.toString()
-          fourward.ir.Literal.KindCase.BIG_INTEGER,
-          fourward.ir.Literal.KindCase.ERROR_MEMBER,
-          fourward.ir.Literal.KindCase.ENUM_MEMBER,
-          fourward.ir.Literal.KindCase.STRING_LITERAL,
-          fourward.ir.Literal.KindCase.KIND_NOT_SET,
+          fourward.Literal.KindCase.INTEGER -> "0x${lit.integer.toString(16).uppercase()}"
+          fourward.Literal.KindCase.BOOLEAN -> lit.boolean.toString()
+          fourward.Literal.KindCase.BIG_INTEGER,
+          fourward.Literal.KindCase.ERROR_MEMBER,
+          fourward.Literal.KindCase.ENUM_MEMBER,
+          fourward.Literal.KindCase.STRING_LITERAL,
+          fourward.Literal.KindCase.KIND_NOT_SET,
           null -> lit.toString().trim()
         }
       }

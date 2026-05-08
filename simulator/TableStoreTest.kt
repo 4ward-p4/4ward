@@ -1185,11 +1185,11 @@ class TableStoreTest {
           ),
       )
     val device =
-      fourward.ir.DeviceConfig.newBuilder()
+      fourward.DeviceConfig.newBuilder()
         .setBehavioral(
-          fourward.ir.BehavioralConfig.newBuilder()
-            .addTables(fourward.ir.TableBehavior.newBuilder().setName("inner_myTable"))
-            .addActions(fourward.ir.ActionDecl.newBuilder().setName("inner_myAction"))
+          fourward.BehavioralConfig.newBuilder()
+            .addTables(fourward.TableBehavior.newBuilder().setName("inner_myTable"))
+            .addActions(fourward.ActionDecl.newBuilder().setName("inner_myAction"))
         )
         .build()
     val s = TableStore()
@@ -1231,11 +1231,11 @@ class TableStoreTest {
           ),
       )
     val device =
-      fourward.ir.DeviceConfig.newBuilder()
+      fourward.DeviceConfig.newBuilder()
         .setBehavioral(
-          fourward.ir.BehavioralConfig.newBuilder()
-            .addTables(fourward.ir.TableBehavior.newBuilder().setName("myTable"))
-            .addActions(fourward.ir.ActionDecl.newBuilder().setName("myAction"))
+          fourward.BehavioralConfig.newBuilder()
+            .addTables(fourward.TableBehavior.newBuilder().setName("myTable"))
+            .addActions(fourward.ActionDecl.newBuilder().setName("myAction"))
         )
         .build()
     val s = TableStore()

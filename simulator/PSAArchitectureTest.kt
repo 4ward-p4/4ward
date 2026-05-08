@@ -1,35 +1,35 @@
 package fourward.simulator
 
 import com.google.protobuf.ByteString
-import fourward.ir.Architecture
-import fourward.ir.AssignmentStmt
-import fourward.ir.BehavioralConfig
-import fourward.ir.BinaryOp
-import fourward.ir.BinaryOperator
-import fourward.ir.ControlDecl
-import fourward.ir.EnumDecl
-import fourward.ir.Expr
-import fourward.ir.ExternInstanceDecl
-import fourward.ir.FieldAccess
-import fourward.ir.FieldDecl
-import fourward.ir.Literal
-import fourward.ir.MethodCall
-import fourward.ir.MethodCallStmt
-import fourward.ir.ParamDecl
-import fourward.ir.ParserDecl
-import fourward.ir.ParserState
-import fourward.ir.PipelineStage
-import fourward.ir.StageKind
-import fourward.ir.Stmt
-import fourward.ir.StructDecl
-import fourward.ir.StructExpr
-import fourward.ir.StructExprField
-import fourward.ir.Transition
-import fourward.ir.Type
-import fourward.ir.TypeDecl
-import fourward.sim.DropReason
-import fourward.sim.ForkReason
-import fourward.sim.PipelineStageEvent.Direction
+import fourward.Architecture
+import fourward.AssignmentStmt
+import fourward.BehavioralConfig
+import fourward.BinaryOp
+import fourward.BinaryOperator
+import fourward.ControlDecl
+import fourward.DropReason
+import fourward.EnumDecl
+import fourward.Expr
+import fourward.ExternInstanceDecl
+import fourward.FieldAccess
+import fourward.FieldDecl
+import fourward.ForkReason
+import fourward.Literal
+import fourward.MethodCall
+import fourward.MethodCallStmt
+import fourward.ParamDecl
+import fourward.ParserDecl
+import fourward.ParserState
+import fourward.PipelineStage
+import fourward.PipelineStageEvent.Direction
+import fourward.StageKind
+import fourward.Stmt
+import fourward.StructDecl
+import fourward.StructExpr
+import fourward.StructExprField
+import fourward.Transition
+import fourward.Type
+import fourward.TypeDecl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -1255,10 +1255,10 @@ class PSAArchitectureTest {
   ): ControlDecl {
     val localActions =
       listOf("actionA", "actionB").map { name ->
-        fourward.ir.ActionDecl.newBuilder().setName(name).build()
+        fourward.ActionDecl.newBuilder().setName(name).build()
       }
     val localVar =
-      fourward.ir.VarDecl.newBuilder()
+      fourward.VarDecl.newBuilder()
         .setName("k")
         .setType(bitType(8))
         .setInitializer(bit(0x0A, 8))
@@ -1269,7 +1269,7 @@ class PSAArchitectureTest {
           MethodCallStmt.newBuilder()
             .setCall(
               Expr.newBuilder()
-                .setTableApply(fourward.ir.TableApplyExpr.newBuilder().setTableName(tableName))
+                .setTableApply(fourward.TableApplyExpr.newBuilder().setTableName(tableName))
             )
         )
         .build()
@@ -1283,12 +1283,10 @@ class PSAArchitectureTest {
   }
 
   /** Table behavior for action selector tests: exact-match key on field "1" reading local `k`. */
-  private fun tableBehavior(tableName: String): fourward.ir.TableBehavior.Builder =
-    fourward.ir.TableBehavior.newBuilder()
+  private fun tableBehavior(tableName: String): fourward.TableBehavior.Builder =
+    fourward.TableBehavior.newBuilder()
       .setName(tableName)
-      .addKeys(
-        fourward.ir.TableKey.newBuilder().setFieldName("1").setExpr(nameRef("k", bitType(8)))
-      )
+      .addKeys(fourward.TableKey.newBuilder().setFieldName("1").setExpr(nameRef("k", bitType(8))))
 
   /** Builds a PSA config with a table in the ingress control. */
   private fun psaConfigWithTable(

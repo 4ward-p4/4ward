@@ -1,34 +1,34 @@
 package fourward.simulator
 
-import fourward.ir.BehavioralConfig
-import fourward.ir.BinaryOperator
-import fourward.ir.ControlDecl
-import fourward.ir.Direction
-import fourward.ir.Expr
-import fourward.ir.Expr.KindCase as ExprKind
-import fourward.ir.FieldDecl
-import fourward.ir.KeysetExpr
-import fourward.ir.Literal
-import fourward.ir.Literal.KindCase as LiteralKind
-import fourward.ir.MethodCall
-import fourward.ir.ParserDecl
-import fourward.ir.SourceInfo
-import fourward.ir.Stmt
-import fourward.ir.Stmt.KindCase as StmtKind
-import fourward.ir.TableApplyExpr
-import fourward.ir.TableBehavior
-import fourward.ir.Transition
-import fourward.ir.Type
-import fourward.ir.Type.KindCase as TypeKind
-import fourward.ir.TypeDecl
-import fourward.ir.UnaryOperator
-import fourward.sim.ActionExecutionEvent
-import fourward.sim.AssertionEvent
-import fourward.sim.BranchEvent
-import fourward.sim.DeparserEmitEvent
-import fourward.sim.ParserTransitionEvent
-import fourward.sim.TableLookupEvent
-import fourward.sim.TraceEvent
+import fourward.ActionExecutionEvent
+import fourward.AssertionEvent
+import fourward.BehavioralConfig
+import fourward.BinaryOperator
+import fourward.BranchEvent
+import fourward.ControlDecl
+import fourward.DeparserEmitEvent
+import fourward.Direction
+import fourward.Expr
+import fourward.Expr.KindCase as ExprKind
+import fourward.FieldDecl
+import fourward.KeysetExpr
+import fourward.Literal
+import fourward.Literal.KindCase as LiteralKind
+import fourward.MethodCall
+import fourward.ParserDecl
+import fourward.ParserTransitionEvent
+import fourward.SourceInfo
+import fourward.Stmt
+import fourward.Stmt.KindCase as StmtKind
+import fourward.TableApplyExpr
+import fourward.TableBehavior
+import fourward.TableLookupEvent
+import fourward.TraceEvent
+import fourward.Transition
+import fourward.Type
+import fourward.Type.KindCase as TypeKind
+import fourward.TypeDecl
+import fourward.UnaryOperator
 import java.math.BigInteger
 
 /**
@@ -65,8 +65,8 @@ class Interpreter internal constructor(config: BehavioralConfig) {
   //   declaration, which carries the actual action body.
   // - If the midend renamed the action (currentName != ""), it is also indexed under
   //   currentName so that direct call sites using the post-midend name can resolve it.
-  private val actions: Map<String, fourward.ir.ActionDecl> = buildMap {
-    fun index(action: fourward.ir.ActionDecl) {
+  private val actions: Map<String, fourward.ActionDecl> = buildMap {
+    fun index(action: fourward.ActionDecl) {
       if (!containsKey(action.name)) put(action.name, action)
       if (action.currentName.isNotEmpty()) put(action.currentName, action)
     }
@@ -76,7 +76,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
 
   private val tables: Map<String, TableBehavior> = config.tablesList.associateBy { it.name }
 
-  private val types: Map<String, fourward.ir.TypeDecl> = config.typesList.associateBy { it.name }
+  private val types: Map<String, fourward.TypeDecl> = config.typesList.associateBy { it.name }
 
   private data class TableResult(val hit: Boolean, val actionName: String)
 
@@ -188,7 +188,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
      * Evaluates a select expression, returning (nextState, formattedValue, formattedExpression).
      */
     private fun evalSelectWithValue(
-      select: fourward.ir.SelectTransition,
+      select: fourward.SelectTransition,
       env: Environment,
     ): Triple<String, String, String> {
       val keyValues = select.keysList.map { evalExpr(it, env) }
@@ -226,7 +226,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
     }
 
     /** Human-readable rendering of an IR expression (best-effort, for trace display). */
-    private fun formatExpr(expr: fourward.ir.Expr): String =
+    private fun formatExpr(expr: fourward.Expr): String =
       when (expr.kindCase) {
         ExprKind.NAME_REF -> expr.nameRef.name
         ExprKind.FIELD_ACCESS ->
@@ -247,7 +247,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
 
     private fun matchesKeyset(
       value: Value,
-      keyset: fourward.ir.KeysetExpr,
+      keyset: fourward.KeysetExpr,
       constEnv: Environment,
     ): Boolean =
       when (keyset.kindCase) {
@@ -332,7 +332,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
 
     /** Pushes a scope, defines [localVars], runs [body], then pops the scope. */
     private inline fun withLocalScope(
-      localVars: List<fourward.ir.VarDecl>,
+      localVars: List<fourward.VarDecl>,
       env: Environment,
       body: () -> Unit,
     ) {
@@ -383,7 +383,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       }
     }
 
-    private fun execIf(ifStmt: fourward.ir.IfStmt, env: Environment) {
+    private fun execIf(ifStmt: fourward.IfStmt, env: Environment) {
       val condition = (evalExpr(ifStmt.condition, env) as BoolVal).value
 
       packetCtx?.addTraceEvent(
@@ -401,7 +401,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       }
     }
 
-    private fun execSwitch(switchStmt: fourward.ir.SwitchStmt, env: Environment) {
+    private fun execSwitch(switchStmt: fourward.SwitchStmt, env: Environment) {
       val tableResult = applyTable(switchStmt.subject.tableApply.tableName, env)
       val matchedCase = switchStmt.casesList.find { it.actionName == tableResult.actionName }
       if (matchedCase != null) {
@@ -444,7 +444,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
         null -> error("unhandled expression kind: $expr${sourceContext()}")
       }
 
-    private fun evalLiteral(lit: Literal, type: fourward.ir.Type): Value =
+    private fun evalLiteral(lit: Literal, type: fourward.Type): Value =
       when (lit.kindCase) {
         LiteralKind.BOOLEAN -> BoolVal(lit.boolean)
         LiteralKind.ERROR_MEMBER -> ErrorVal(lit.errorMember)
@@ -470,7 +470,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
         null -> error("unhandled literal kind: $lit${sourceContext()}")
       }
 
-    private fun evalFieldAccess(fa: fourward.ir.FieldAccess, env: Environment): Value {
+    private fun evalFieldAccess(fa: fourward.FieldAccess, env: Environment): Value {
       // Special case: table.apply().hit / .miss — the p4c midend may restructure
       // the apply call such that the backend emits FieldAccess{TableApplyExpr, "hit"}
       // rather than TableApplyExpr{access_kind=HIT}.
@@ -520,7 +520,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       }
 
     // P4 spec §8.18: out-of-bounds reads return an invalid header with default values.
-    private fun evalArrayIndex(ai: fourward.ir.ArrayIndex, env: Environment): Value {
+    private fun evalArrayIndex(ai: fourward.ArrayIndex, env: Environment): Value {
       val stack =
         evalExpr(ai.expr, env) as? HeaderStackVal
           ?: error("array index on non-stack value${sourceContext()}")
@@ -529,18 +529,18 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       return stack.headers[index]
     }
 
-    private fun evalSlice(slice: fourward.ir.Slice, env: Environment): Value {
+    private fun evalSlice(slice: fourward.Slice, env: Environment): Value {
       val bits = (evalExpr(slice.expr, env) as BitVal).bits
       return BitVal(bits.slice(slice.hi, slice.lo))
     }
 
-    private fun evalConcat(concat: fourward.ir.Concat, env: Environment): Value {
+    private fun evalConcat(concat: fourward.Concat, env: Environment): Value {
       val left = (evalExpr(concat.left, env) as BitVal).bits
       val right = (evalExpr(concat.right, env) as BitVal).bits
       return BitVal(left.concat(right))
     }
 
-    private fun evalCast(cast: fourward.ir.Cast, env: Environment): Value {
+    private fun evalCast(cast: fourward.Cast, env: Environment): Value {
       val inner = evalExpr(cast.expr, env)
       return when (cast.targetType.kindCase) {
         TypeKind.BIT -> {
@@ -601,7 +601,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
     }
 
     @Suppress("CyclomaticComplexMethod")
-    private fun evalBinaryOp(op: fourward.ir.BinaryOp, env: Environment): Value {
+    private fun evalBinaryOp(op: fourward.BinaryOp, env: Environment): Value {
       // P4 spec §8.1: compile-time integers adopt the width of the other operand.
       val (left, right) = coerceInfInts(evalExpr(op.left, env), evalExpr(op.right, env))
 
@@ -699,7 +699,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
         else -> left to right
       }
 
-    private fun evalUnaryOp(op: fourward.ir.UnaryOp, env: Environment): Value {
+    private fun evalUnaryOp(op: fourward.UnaryOp, env: Environment): Value {
       val inner = evalExpr(op.expr, env)
       return when (op.op) {
         // Two's-complement negation: (2^N - x) mod 2^N = (0 - x) using wrapping subtraction.
@@ -716,13 +716,13 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       }
     }
 
-    private fun evalMux(mux: fourward.ir.MuxExpr, env: Environment): Value =
+    private fun evalMux(mux: fourward.MuxExpr, env: Environment): Value =
       if ((evalExpr(mux.condition, env) as BoolVal).value) evalExpr(mux.thenExpr, env)
       else evalExpr(mux.elseExpr, env)
 
     private fun evalStructExpr(
-      se: fourward.ir.StructExpr,
-      type: fourward.ir.Type,
+      se: fourward.StructExpr,
+      type: fourward.Type,
       env: Environment,
     ): Value {
       require(type.hasNamed()) { "StructExpr must have a named type, got: $type" }
@@ -1434,10 +1434,10 @@ class ActionSelectorFork(
   /** Parser buffer position at the fork point. */
   val bytesConsumed: Int,
   /** Source info at the fork point (the table apply statement), for trace events in branches. */
-  val sourceInfo: fourward.ir.SourceInfo? = null,
+  val sourceInfo: fourward.SourceInfo? = null,
   /**
    * Continuation: remaining statements at each block nesting level (innermost first). Populated as
    * the exception propagates through [Interpreter.Execution.execBlock].
    */
-  val remainingStmts: ArrayDeque<List<fourward.ir.Stmt>> = ArrayDeque(),
+  val remainingStmts: ArrayDeque<List<fourward.Stmt>> = ArrayDeque(),
 ) : ForkException(eventsBeforeFork)

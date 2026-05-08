@@ -2,11 +2,11 @@ package fourward.p4runtime
 
 import com.google.protobuf.ByteString
 import com.google.rpc.Status as RpcStatus
-import fourward.dataplane.DataplaneGrpcKt.DataplaneCoroutineStub
-import fourward.dataplane.InjectPacketRequest
-import fourward.dataplane.InjectPacketResponse
-import fourward.dataplane.PacketSet
-import fourward.ir.PipelineConfig
+import fourward.DataplaneGrpcKt.DataplaneCoroutineStub
+import fourward.InjectPacketRequest
+import fourward.InjectPacketResponse
+import fourward.PacketSet
+import fourward.PipelineConfig
 import fourward.simulator.Simulator
 import fourward.simulator.portToBytes
 import io.grpc.ManagedChannel

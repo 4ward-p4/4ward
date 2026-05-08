@@ -1,8 +1,8 @@
 package fourward.e2e.tracetree
 
 import com.google.protobuf.TextFormat
-import fourward.sim.PacketOutcome
-import fourward.sim.TraceTree
+import fourward.PacketOutcome
+import fourward.TraceTree
 import fourward.simulator.ProcessPacketResult
 import fourward.simulator.Simulator
 import fourward.stf.StfFile

@@ -1,6 +1,8 @@
 # Packet I/O Design
 
-**Status: implemented**
+**Status: implemented** — later revised: `InputPacket`/`OutputPacket` were
+unified into `simulator.proto` and all proto packages were flattened to
+`package fourward` (#620).
 
 ## Assumptions
 

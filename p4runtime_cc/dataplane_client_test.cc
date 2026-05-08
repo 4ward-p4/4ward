@@ -41,7 +41,7 @@ TEST_F(DataplaneClientTest, SubscribeResultsConfirmsActiveAndCancelsCleanly) {
   ASSERT_TRUE(stream.ok()) << stream.status();
 
   // No pipeline loaded — no results will arrive.
-  absl::StatusOr<fourward::dataplane::ProcessPacketResult> next =
+  absl::StatusOr<fourward::ProcessPacketResult> next =
       stream->Next(absl::Milliseconds(50));
   ASSERT_FALSE(next.ok());
   EXPECT_EQ(next.status().code(), absl::StatusCode::kDeadlineExceeded)
@@ -63,7 +63,7 @@ TEST_F(DataplaneClientTest, SubscribeResultsRespectsStartupTimeout) {
 TEST_F(DataplaneClientTest, InjectPacketDataplanePortDeadlinePropagated) {
   DataplaneClient client(*server_);
 
-  absl::StatusOr<fourward::dataplane::InjectPacketResponse> resp =
+  absl::StatusOr<fourward::InjectPacketResponse> resp =
       client.InjectPacket(
           {.ingress_port = DataplanePort{.port = 0}, .payload = "x"},
           absl::Nanoseconds(1));
@@ -75,7 +75,7 @@ TEST_F(DataplaneClientTest, InjectPacketDataplanePortDeadlinePropagated) {
 TEST_F(DataplaneClientTest, InjectPacketP4RuntimePortDeadlinePropagated) {
   DataplaneClient client(*server_);
 
-  absl::StatusOr<fourward::dataplane::InjectPacketResponse> resp =
+  absl::StatusOr<fourward::InjectPacketResponse> resp =
       client.InjectPacket(
           {.ingress_port = P4RuntimePort{.port = std::string("\x00\x01", 2)},
            .payload = "x"},
@@ -123,7 +123,7 @@ TEST_F(DataplaneClientTest, ResultStreamMoveConstructionPreservesStream) {
 
   ResultStream moved = *std::move(original);
 
-  absl::StatusOr<fourward::dataplane::ProcessPacketResult> next =
+  absl::StatusOr<fourward::ProcessPacketResult> next =
       moved.Next(absl::Milliseconds(50));
   ASSERT_FALSE(next.ok());
   EXPECT_EQ(next.status().code(), absl::StatusCode::kDeadlineExceeded)

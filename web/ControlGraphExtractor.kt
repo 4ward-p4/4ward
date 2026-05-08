@@ -1,13 +1,13 @@
 package fourward.web
 
-import fourward.ir.BehavioralConfig
-import fourward.ir.BinaryOperator
-import fourward.ir.ControlDecl
-import fourward.ir.Expr
-import fourward.ir.IfStmt
-import fourward.ir.Stmt
-import fourward.ir.SwitchStmt
-import fourward.ir.TableApplyExpr
+import fourward.BehavioralConfig
+import fourward.BinaryOperator
+import fourward.ControlDecl
+import fourward.Expr
+import fourward.IfStmt
+import fourward.Stmt
+import fourward.SwitchStmt
+import fourward.TableApplyExpr
 
 /**
  * Extracts a simplified control-flow graph from a [ControlDecl]'s apply body.

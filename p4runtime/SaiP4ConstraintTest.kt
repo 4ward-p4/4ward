@@ -1,7 +1,7 @@
 package fourward.p4runtime
 
 import com.google.protobuf.ByteString
-import fourward.ir.PipelineConfig
+import fourward.PipelineConfig
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.assertGrpcError
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.findAction
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.findTable

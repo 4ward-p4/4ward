@@ -1,7 +1,7 @@
 package fourward.e2e.bmv2
 
 import com.google.protobuf.TextFormat
-import fourward.ir.PipelineConfig
+import fourward.PipelineConfig
 import java.io.Closeable
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit

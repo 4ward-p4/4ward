@@ -2,7 +2,7 @@ package fourward.stf
 
 import com.google.protobuf.ByteString
 import com.google.protobuf.TextFormat
-import fourward.ir.PipelineConfig
+import fourward.PipelineConfig
 import fourward.simulator.Simulator
 import fourward.simulator.WriteResult
 import fourward.simulator.portToBytes
@@ -83,7 +83,7 @@ class StfRunner(private val pipelineConfigPath: Path, private val dropPortOverri
  * a single possible world (no alternative forks), skips scoring entirely.
  */
 fun appendBestOutcome(
-  possibleOutcomes: List<List<fourward.sim.OutputPacket>>,
+  possibleOutcomes: List<List<fourward.OutputPacket>>,
   expects: List<StfExpectedOutput>,
   outputQueue: MutableList<ReceivedPacket>,
 ) {

@@ -1,8 +1,8 @@
 package fourward.cli
 
-import fourward.sim.DropReason
-import fourward.sim.TraceEvent
-import fourward.sim.TraceTree
+import fourward.DropReason
+import fourward.TraceEvent
+import fourward.TraceTree
 
 /** Renders a [TraceTree] as a human-readable indented string. */
 object TraceFormatter {
@@ -25,16 +25,16 @@ object TraceFormatter {
       TraceTree.OutcomeCase.PACKET_OUTCOME -> {
         val outcome = tree.packetOutcome
         when (outcome.outcomeCase) {
-          fourward.sim.PacketOutcome.OutcomeCase.OUTPUT -> {
+          fourward.PacketOutcome.OutcomeCase.OUTPUT -> {
             val out = outcome.output
             appendLine(
               "${pad(indent)}output port ${out.dataplaneEgressPort}, ${out.payload.size()} bytes"
             )
           }
-          fourward.sim.PacketOutcome.OutcomeCase.DROP -> {
+          fourward.PacketOutcome.OutcomeCase.DROP -> {
             appendLine("${pad(indent)}drop (reason: ${outcome.drop.reason.humanName()})")
           }
-          fourward.sim.PacketOutcome.OutcomeCase.OUTCOME_NOT_SET,
+          fourward.PacketOutcome.OutcomeCase.OUTCOME_NOT_SET,
           null -> {}
         }
       }
@@ -104,6 +104,6 @@ object TraceFormatter {
       else -> "unknown"
     }
 
-  private fun fourward.sim.ForkReason.humanName(): String =
+  private fun fourward.ForkReason.humanName(): String =
     name.removePrefix("ACTION_").lowercase().replace('_', ' ')
 }

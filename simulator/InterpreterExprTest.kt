@@ -1,23 +1,23 @@
 package fourward.simulator
 
-import fourward.ir.ArrayIndex
-import fourward.ir.BehavioralConfig
-import fourward.ir.BinaryOp
-import fourward.ir.BinaryOperator
-import fourward.ir.BitType
-import fourward.ir.Cast
-import fourward.ir.Concat
-import fourward.ir.Expr
-import fourward.ir.FieldAccess
-import fourward.ir.IntType
-import fourward.ir.Literal
-import fourward.ir.MethodCall
-import fourward.ir.MuxExpr
-import fourward.ir.NameRef
-import fourward.ir.Slice
-import fourward.ir.Type
-import fourward.ir.UnaryOp
-import fourward.ir.UnaryOperator
+import fourward.ArrayIndex
+import fourward.BehavioralConfig
+import fourward.BinaryOp
+import fourward.BinaryOperator
+import fourward.BitType
+import fourward.Cast
+import fourward.Concat
+import fourward.Expr
+import fourward.FieldAccess
+import fourward.IntType
+import fourward.Literal
+import fourward.MethodCall
+import fourward.MuxExpr
+import fourward.NameRef
+import fourward.Slice
+import fourward.Type
+import fourward.UnaryOp
+import fourward.UnaryOperator
 import java.math.BigInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -630,9 +630,9 @@ class InterpreterExprTest {
     val config =
       BehavioralConfig.newBuilder()
         .addTypes(
-          fourward.ir.TypeDecl.newBuilder()
+          fourward.TypeDecl.newBuilder()
             .setName("U")
-            .setHeaderUnion(fourward.ir.HeaderUnionDecl.getDefaultInstance())
+            .setHeaderUnion(fourward.HeaderUnionDecl.getDefaultInstance())
         )
         .build()
     interpreterExecution(config, TableStore()).evalExpr(expr, env)
@@ -730,9 +730,9 @@ class InterpreterExprTest {
     val expr =
       Expr.newBuilder()
         .setStructExpr(
-          fourward.ir.StructExpr.newBuilder()
-            .addFields(fourward.ir.StructExprField.newBuilder().setName("a").setValue(bit(0xAB, 8)))
-            .addFields(fourward.ir.StructExprField.newBuilder().setName("b").setValue(bit(0xCD, 8)))
+          fourward.StructExpr.newBuilder()
+            .addFields(fourward.StructExprField.newBuilder().setName("a").setValue(bit(0xAB, 8)))
+            .addFields(fourward.StructExprField.newBuilder().setName("b").setValue(bit(0xCD, 8)))
         )
         .setType(Type.newBuilder().setNamed("my_tuple"))
         .build()
@@ -787,8 +787,8 @@ class InterpreterExprTest {
     val data =
       Expr.newBuilder()
         .setStructExpr(
-          fourward.ir.StructExpr.newBuilder()
-            .addFields(fourward.ir.StructExprField.newBuilder().setName("d").setValue(bit(1, 16)))
+          fourward.StructExpr.newBuilder()
+            .addFields(fourward.StructExprField.newBuilder().setName("d").setValue(bit(1, 16)))
         )
         .setType(Type.newBuilder().setNamed("data_t"))
         .build()
@@ -815,8 +815,8 @@ class InterpreterExprTest {
     val data =
       Expr.newBuilder()
         .setStructExpr(
-          fourward.ir.StructExpr.newBuilder()
-            .addFields(fourward.ir.StructExprField.newBuilder().setName("d").setValue(bit(0xFF, 8)))
+          fourward.StructExpr.newBuilder()
+            .addFields(fourward.StructExprField.newBuilder().setName("d").setValue(bit(0xFF, 8)))
         )
         .setType(Type.newBuilder().setNamed("data_t"))
         .build()
@@ -838,12 +838,12 @@ class InterpreterExprTest {
   private val stackTestConfig =
     BehavioralConfig.newBuilder()
       .addTypes(
-        fourward.ir.TypeDecl.newBuilder()
+        fourward.TypeDecl.newBuilder()
           .setName("h_t")
           .setHeader(
-            fourward.ir.HeaderDecl.newBuilder()
+            fourward.HeaderDecl.newBuilder()
               .addFields(
-                fourward.ir.FieldDecl.newBuilder()
+                fourward.FieldDecl.newBuilder()
                   .setName("f")
                   .setType(Type.newBuilder().setBit(BitType.newBuilder().setWidth(8)))
               )

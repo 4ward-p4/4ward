@@ -1,7 +1,7 @@
 package fourward.p4runtime
 
 import com.google.protobuf.ByteString
-import fourward.ir.PipelineConfig
+import fourward.PipelineConfig
 import java.nio.file.Path
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

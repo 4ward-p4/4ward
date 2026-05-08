@@ -1,1 +1,1 @@
-INVALID_ARGUMENT: p4_device_config is not a valid DeviceConfig proto (expected serialized fourward.ir.DeviceConfig in binary or text format). binary parse: Protocol message tag had invalid wire type.; text parse: 1:8: Expected "{".
+INVALID_ARGUMENT: p4_device_config is not a valid DeviceConfig proto (expected serialized fourward.DeviceConfig in binary or text format). binary parse: Protocol message tag had invalid wire type.; text parse: 1:8: Expected "{".

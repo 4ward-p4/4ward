@@ -1,8 +1,8 @@
 package fourward.p4runtime
 
 import com.google.protobuf.ByteString
-import fourward.ir.TranslationEntry
-import fourward.ir.TypeTranslation
+import fourward.TranslationEntry
+import fourward.TypeTranslation
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows

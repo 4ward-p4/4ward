@@ -1,8 +1,8 @@
 package fourward.e2e.network
 
 import com.google.protobuf.ByteString
+import fourward.PipelineConfig
 import fourward.bazel.repoRoot
-import fourward.ir.PipelineConfig
 import fourward.simulator.Endpoint
 import fourward.simulator.Link
 import fourward.simulator.NetworkSimulator

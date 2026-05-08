@@ -22,38 +22,38 @@ using ::testing::SizeIs;
 
 // --- Test helpers ---
 
-fourward::dataplane::InjectPacketResponse Forward(uint32_t egress) {
-  fourward::dataplane::InjectPacketResponse resp;
+fourward::InjectPacketResponse Forward(uint32_t egress) {
+  fourward::InjectPacketResponse resp;
   auto* ps = resp.add_possible_outcomes();
   ps->add_packets()->set_dataplane_egress_port(egress);
   return resp;
 }
 
-fourward::dataplane::InjectPacketResponse Drop() {
-  fourward::dataplane::InjectPacketResponse resp;
+fourward::InjectPacketResponse Drop() {
+  fourward::InjectPacketResponse resp;
   resp.add_possible_outcomes();
   return resp;
 }
 
-fourward::dataplane::InjectPacketResponse Multicast(uint32_t p1, uint32_t p2) {
-  fourward::dataplane::InjectPacketResponse resp;
+fourward::InjectPacketResponse Multicast(uint32_t p1, uint32_t p2) {
+  fourward::InjectPacketResponse resp;
   auto* ps = resp.add_possible_outcomes();
   ps->add_packets()->set_dataplane_egress_port(p1);
   ps->add_packets()->set_dataplane_egress_port(p2);
   return resp;
 }
 
-fourward::dataplane::InjectPacketResponse NonDeterministic(uint32_t p1,
+fourward::InjectPacketResponse NonDeterministic(uint32_t p1,
                                                            uint32_t p2) {
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketResponse resp;
   resp.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(p1);
   resp.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(p2);
   return resp;
 }
 
-fourward::dataplane::ProcessPacketResult MakeResult(uint32_t ingress,
+fourward::ProcessPacketResult MakeResult(uint32_t ingress,
                                                     uint32_t egress) {
-  fourward::dataplane::ProcessPacketResult result;
+  fourward::ProcessPacketResult result;
   result.mutable_input_packet()->set_dataplane_ingress_port(ingress);
   auto* ps = result.add_possible_outcomes();
   ps->add_packets()->set_dataplane_egress_port(egress);
@@ -163,7 +163,7 @@ TEST(HasIngressTest, DoesNotMatch) {
 // --- HasPayload ---
 
 TEST(HasPayloadTest, ExactMatch) {
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketResponse resp;
   auto* ps = resp.add_possible_outcomes();
   auto* pkt = ps->add_packets();
   pkt->set_dataplane_egress_port(1);
@@ -172,7 +172,7 @@ TEST(HasPayloadTest, ExactMatch) {
 }
 
 TEST(HasPayloadTest, MatcherComposition) {
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketResponse resp;
   auto* ps = resp.add_possible_outcomes();
   auto* pkt = ps->add_packets();
   pkt->set_dataplane_egress_port(1);
@@ -184,7 +184,7 @@ TEST(HasPayloadTest, MatcherComposition) {
 // --- OnPorts ---
 
 TEST(OnPortsTest, GroupsByPort) {
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketResponse resp;
   auto* ps = resp.add_possible_outcomes();
   ps->add_packets()->set_dataplane_egress_port(1);
   ps->add_packets()->set_dataplane_egress_port(1);
@@ -195,7 +195,7 @@ TEST(OnPortsTest, GroupsByPort) {
 }
 
 TEST(OnPortsTest, P4RuntimePortKeys) {
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketResponse resp;
   auto* ps = resp.add_possible_outcomes();
   ps->add_packets()->set_p4rt_egress_port("Eth0");
   ps->add_packets()->set_p4rt_egress_port("Eth1");
@@ -207,7 +207,7 @@ TEST(OnPortsTest, P4RuntimePortKeys) {
 }
 
 TEST(OutcomesAreTest, MixedBareAndOutcome) {
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketResponse resp;
   auto* multicast = resp.add_possible_outcomes();
   multicast->add_packets()->set_dataplane_egress_port(1);
   multicast->add_packets()->set_dataplane_egress_port(2);
@@ -225,7 +225,7 @@ TEST(OutcomesAreTest, WithPackets) {
 // --- OutcomesAre + Outcome (empty = drop) ---
 
 TEST(OutcomesAreTest, OutcomeWithDrop) {
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketResponse resp;
   resp.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
   resp.add_possible_outcomes();  // drop
   EXPECT_THAT(resp, OutcomesAre(OnPort(1), Outcome()));
@@ -241,20 +241,20 @@ TEST(AnyOutcomeTest, WithPackets) {
 // --- String port overloads ---
 
 TEST(ForwardsToTest, StringPort) {
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketResponse resp;
   auto* ps = resp.add_possible_outcomes();
   ps->add_packets()->set_p4rt_egress_port("Eth0");
   EXPECT_THAT(resp, ForwardsTo(std::string("Eth0")));
 }
 
 TEST(OnPortTest, StringPort) {
-  fourward::dataplane::OutputPacket pkt;
+  fourward::OutputPacket pkt;
   pkt.set_p4rt_egress_port("Eth0");
   EXPECT_THAT(pkt, OnPort(std::string("Eth0")));
 }
 
 TEST(HasIngressTest, StringPort) {
-  fourward::dataplane::ProcessPacketResult result;
+  fourward::ProcessPacketResult result;
   result.mutable_input_packet()->set_p4rt_ingress_port("Eth0");
   result.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
   EXPECT_THAT(result, HasIngress(std::string("Eth0")));
@@ -263,14 +263,14 @@ TEST(HasIngressTest, StringPort) {
 // --- string_view overloads ---
 
 TEST(OnPortTest, StringView) {
-  fourward::dataplane::OutputPacket pkt;
+  fourward::OutputPacket pkt;
   pkt.set_p4rt_egress_port("Eth0");
   std::string_view sv = "Eth0";
   EXPECT_THAT(pkt, OnPort(sv));
 }
 
 TEST(HasIngressTest, StringView) {
-  fourward::dataplane::ProcessPacketResult result;
+  fourward::ProcessPacketResult result;
   result.mutable_input_packet()->set_p4rt_ingress_port("Eth0");
   result.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
   std::string_view sv = "Eth0";
@@ -278,7 +278,7 @@ TEST(HasIngressTest, StringView) {
 }
 
 TEST(ForwardsToTest, StringView) {
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketResponse resp;
   auto* ps = resp.add_possible_outcomes();
   ps->add_packets()->set_p4rt_egress_port("Eth0");
   std::string_view sv = "Eth0";
@@ -288,21 +288,21 @@ TEST(ForwardsToTest, StringView) {
 // --- OnPort with payload ---
 
 TEST(OnPortTest, WithPayload) {
-  fourward::dataplane::OutputPacket pkt;
+  fourward::OutputPacket pkt;
   pkt.set_dataplane_egress_port(1);
   pkt.set_payload("hello");
   EXPECT_THAT(pkt, OnPort(1, "hello"));
 }
 
 TEST(OnPortTest, WithPayloadMatcher) {
-  fourward::dataplane::OutputPacket pkt;
+  fourward::OutputPacket pkt;
   pkt.set_dataplane_egress_port(1);
   pkt.set_payload("hello world");
   EXPECT_THAT(pkt, OnPort(1, ::testing::StartsWith("hello")));
 }
 
 TEST(OnPortTest, WithPayloadInOutcomeIs) {
-  fourward::dataplane::InjectPacketResponse resp;
+  fourward::InjectPacketResponse resp;
   auto* ps = resp.add_possible_outcomes();
   auto* pkt = ps->add_packets();
   pkt->set_dataplane_egress_port(1);
@@ -313,7 +313,7 @@ TEST(OnPortTest, WithPayloadInOutcomeIs) {
 // --- Error message quality ---
 
 TEST(ErrorMessageTest, ForwardsToDescribes) {
-  ::testing::Matcher<const fourward::dataplane::InjectPacketResponse&> m =
+  ::testing::Matcher<const fourward::InjectPacketResponse&> m =
       ForwardsTo(1);
   std::ostringstream os;
   m.DescribeTo(&os);
@@ -321,7 +321,7 @@ TEST(ErrorMessageTest, ForwardsToDescribes) {
 }
 
 TEST(ErrorMessageTest, DropsDescribes) {
-  ::testing::Matcher<const fourward::dataplane::InjectPacketResponse&> m =
+  ::testing::Matcher<const fourward::InjectPacketResponse&> m =
       Drops();
   std::ostringstream os;
   m.DescribeTo(&os);
@@ -329,7 +329,7 @@ TEST(ErrorMessageTest, DropsDescribes) {
 }
 
 TEST(ErrorMessageTest, HasIngressDescribes) {
-  ::testing::Matcher<const fourward::dataplane::ProcessPacketResult&> m =
+  ::testing::Matcher<const fourward::ProcessPacketResult&> m =
       HasIngress(5);
   std::ostringstream os;
   m.DescribeTo(&os);

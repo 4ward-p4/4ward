@@ -14,15 +14,15 @@
 
 package fourward.simulator
 
-import fourward.ir.EnumDecl
-import fourward.ir.FieldDecl
-import fourward.ir.HeaderDecl
-import fourward.ir.HeaderStackType
-import fourward.ir.HeaderUnionDecl
-import fourward.ir.IntType
-import fourward.ir.StructDecl
-import fourward.ir.Type
-import fourward.ir.TypeDecl
+import fourward.EnumDecl
+import fourward.FieldDecl
+import fourward.HeaderDecl
+import fourward.HeaderStackType
+import fourward.HeaderUnionDecl
+import fourward.IntType
+import fourward.StructDecl
+import fourward.Type
+import fourward.TypeDecl
 import java.math.BigInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

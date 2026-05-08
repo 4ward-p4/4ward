@@ -1,16 +1,16 @@
 package fourward.web
 
-import fourward.ir.BehavioralConfig
-import fourward.ir.BlockStmt
-import fourward.ir.ControlDecl
-import fourward.ir.Expr
-import fourward.ir.IfStmt
-import fourward.ir.MethodCallStmt
-import fourward.ir.Stmt
-import fourward.ir.SwitchCase
-import fourward.ir.SwitchStmt
-import fourward.ir.TableApplyExpr
-import fourward.ir.Type
+import fourward.BehavioralConfig
+import fourward.BlockStmt
+import fourward.ControlDecl
+import fourward.Expr
+import fourward.IfStmt
+import fourward.MethodCallStmt
+import fourward.Stmt
+import fourward.SwitchCase
+import fourward.SwitchStmt
+import fourward.TableApplyExpr
+import fourward.Type
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -200,13 +200,13 @@ class ControlGraphExtractorTest {
   private fun isValidExpr(headerName: String): Expr =
     Expr.newBuilder()
       .setMethodCall(
-        fourward.ir.MethodCall.newBuilder()
+        fourward.MethodCall.newBuilder()
           .setTarget(
             Expr.newBuilder()
               .setFieldAccess(
-                fourward.ir.FieldAccess.newBuilder()
+                fourward.FieldAccess.newBuilder()
                   .setExpr(
-                    Expr.newBuilder().setNameRef(fourward.ir.NameRef.newBuilder().setName("hdr"))
+                    Expr.newBuilder().setNameRef(fourward.NameRef.newBuilder().setName("hdr"))
                   )
                   .setFieldName(headerName)
               )

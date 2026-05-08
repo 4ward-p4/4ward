@@ -1,12 +1,12 @@
 package fourward.simulator
 
 import com.google.protobuf.ByteString
-import fourward.ir.BehavioralConfig
-import fourward.ir.ExternInstanceDecl
-import fourward.ir.PipelineStage
-import fourward.ir.TypeDecl
-import fourward.sim.PipelineStageEvent
-import fourward.sim.TraceTree
+import fourward.BehavioralConfig
+import fourward.ExternInstanceDecl
+import fourward.PipelineStage
+import fourward.PipelineStageEvent
+import fourward.TraceTree
+import fourward.TypeDecl
 import java.math.BigInteger
 import p4.v1.P4RuntimeOuterClass
 
@@ -186,12 +186,12 @@ internal fun handleActionSelectorFork(
       val stripped = TraceTree.newBuilder().addAllEvents(subtree.eventsList.drop(prefixLength))
       if (subtree.hasPacketOutcome()) stripped.setPacketOutcome(subtree.packetOutcome)
       if (subtree.hasForkOutcome()) stripped.setForkOutcome(subtree.forkOutcome)
-      fourward.sim.ForkBranch.newBuilder()
+      fourward.ForkBranch.newBuilder()
         .setLabel("member_${member.memberId}")
         .setSubtree(stripped.build())
         .build()
     }
-  return buildForkTree(fork.eventsBeforeFork, fourward.sim.ForkReason.ACTION_SELECTOR, branches)
+  return buildForkTree(fork.eventsBeforeFork, fourward.ForkReason.ACTION_SELECTOR, branches)
 }
 
 /**

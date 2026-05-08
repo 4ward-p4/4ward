@@ -1,19 +1,19 @@
 package fourward.simulator
 
-import fourward.ir.BehavioralConfig
-import fourward.ir.PipelineStage
-import fourward.ir.StageKind
-import fourward.ir.StructDecl
-import fourward.sim.CloneEvent
-import fourward.sim.CloneSessionLookupEvent
-import fourward.sim.DropReason
-import fourward.sim.ForkBranch
-import fourward.sim.ForkReason
-import fourward.sim.LogMessageEvent
-import fourward.sim.MarkToDropEvent
-import fourward.sim.PipelineStageEvent
-import fourward.sim.TraceEvent
-import fourward.sim.TraceTree
+import fourward.BehavioralConfig
+import fourward.CloneEvent
+import fourward.CloneSessionLookupEvent
+import fourward.DropReason
+import fourward.ForkBranch
+import fourward.ForkReason
+import fourward.LogMessageEvent
+import fourward.MarkToDropEvent
+import fourward.PipelineStage
+import fourward.PipelineStageEvent
+import fourward.StageKind
+import fourward.StructDecl
+import fourward.TraceEvent
+import fourward.TraceTree
 import java.math.BigInteger
 
 /**

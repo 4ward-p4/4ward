@@ -4,9 +4,9 @@ import com.google.protobuf.TextFormat
 import com.google.protobuf.util.JsonFormat
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import fourward.PipelineConfig
 import fourward.bazel.repoRoot
 import fourward.bazel.resolveRunfileProperty
-import fourward.ir.PipelineConfig
 import fourward.simulator.Simulator
 import java.io.File
 import java.net.InetSocketAddress
@@ -229,7 +229,7 @@ class WebServer(
     )
   }
 
-  private fun controlGraphJson(behavioral: fourward.ir.BehavioralConfig): String {
+  private fun controlGraphJson(behavioral: fourward.BehavioralConfig): String {
     // Use the simulator's display-name maps (built during pipeline load from p4info aliases)
     // to show human-readable names in the graph.
     fun displayName(name: String) = simulator.displayName(name)
@@ -264,7 +264,7 @@ class WebServer(
     return """{$entries}"""
   }
 
-  private fun headerTypesJson(behavioral: fourward.ir.BehavioralConfig): String =
+  private fun headerTypesJson(behavioral: fourward.BehavioralConfig): String =
     Companion.headerTypesJson(behavioral)
 
   // ---------------------------------------------------------------------------
@@ -494,7 +494,7 @@ class WebServer(
     /**
      * Serializes header TypeDecls as JSON: {"type_name": [{"name":"f","bitwidth":N}, ...], ...}.
      */
-    fun headerTypesJson(behavioral: fourward.ir.BehavioralConfig): String {
+    fun headerTypesJson(behavioral: fourward.BehavioralConfig): String {
       val entries =
         behavioral.typesList
           .filter { it.hasHeader() }
@@ -503,14 +503,14 @@ class WebServer(
               typeDecl.header.fieldsList.joinToString(",") { field ->
                 val bitwidth =
                   when (field.type.kindCase) {
-                    fourward.ir.Type.KindCase.BIT -> field.type.bit.width
-                    fourward.ir.Type.KindCase.SIGNED_INT -> field.type.signedInt.width
-                    fourward.ir.Type.KindCase.BOOLEAN -> 1
-                    fourward.ir.Type.KindCase.VARBIT -> field.type.varbit.maxWidth
-                    fourward.ir.Type.KindCase.NAMED,
-                    fourward.ir.Type.KindCase.HEADER_STACK,
-                    fourward.ir.Type.KindCase.ERROR,
-                    fourward.ir.Type.KindCase.KIND_NOT_SET,
+                    fourward.Type.KindCase.BIT -> field.type.bit.width
+                    fourward.Type.KindCase.SIGNED_INT -> field.type.signedInt.width
+                    fourward.Type.KindCase.BOOLEAN -> 1
+                    fourward.Type.KindCase.VARBIT -> field.type.varbit.maxWidth
+                    fourward.Type.KindCase.NAMED,
+                    fourward.Type.KindCase.HEADER_STACK,
+                    fourward.Type.KindCase.ERROR,
+                    fourward.Type.KindCase.KIND_NOT_SET,
                     null -> 0
                   }
                 """{"name":${jsonEscape(field.name)},"bitwidth":$bitwidth}"""

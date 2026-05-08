@@ -1,9 +1,9 @@
 package fourward.e2e.pipelineoutputs
 
 import com.google.protobuf.TextFormat
+import fourward.DeviceConfig
+import fourward.PipelineConfig
 import fourward.bazel.repoRoot
-import fourward.ir.DeviceConfig
-import fourward.ir.PipelineConfig
 import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.Assert.assertEquals
@@ -23,7 +23,7 @@ class PipelineOutputsTest {
   @Test
   fun `out + out_format=native produces PipelineConfig as txtpb`() {
     val path = runfile("tiny_native.txtpb")
-    assertHeader(path, "fourward.ir.PipelineConfig")
+    assertHeader(path, "fourward.PipelineConfig")
     val cfg =
       PipelineConfig.newBuilder().also { TextFormat.merge(Files.readString(path), it) }.build()
     assertHasBasicTable(cfg.p4Info)
@@ -58,7 +58,7 @@ class PipelineOutputsTest {
   @Test
   fun `out_p4_device_config produces standalone DeviceConfig in txtpb`() {
     val path = runfile("tiny.device_config.txtpb")
-    assertHeader(path, "fourward.ir.DeviceConfig")
+    assertHeader(path, "fourward.DeviceConfig")
     val dc = DeviceConfig.newBuilder().also { TextFormat.merge(Files.readString(path), it) }.build()
     assertFalse(dc.behavioral.controlsList.isEmpty())
   }

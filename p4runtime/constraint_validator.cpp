@@ -24,7 +24,7 @@ namespace {
 
 // Reads a 4-byte big-endian length prefix from stdin, then reads that many
 // bytes and parses them as a ConstraintRequest. Returns nullopt on EOF.
-std::optional<fourward::constraints::ConstraintRequest> ReadRequest() {
+std::optional<fourward::ConstraintRequest> ReadRequest() {
   uint32_t length = 0;
   for (int i = 0; i < 4; ++i) {
     int byte = std::cin.get();
@@ -33,13 +33,13 @@ std::optional<fourward::constraints::ConstraintRequest> ReadRequest() {
   }
   std::string buffer(length, '\0');
   if (!std::cin.read(buffer.data(), length)) return std::nullopt;
-  fourward::constraints::ConstraintRequest request;
+  fourward::ConstraintRequest request;
   if (!request.ParseFromString(buffer)) return std::nullopt;
   return request;
 }
 
 // Writes a ConstraintResponse to stdout with a 4-byte big-endian length prefix.
-void WriteResponse(const fourward::constraints::ConstraintResponse& response) {
+void WriteResponse(const fourward::ConstraintResponse& response) {
   std::string bytes;
   response.SerializeToString(&bytes);
   uint32_t length = bytes.size();
@@ -51,7 +51,7 @@ void WriteResponse(const fourward::constraints::ConstraintResponse& response) {
 }
 
 void WriteError(const std::string& message) {
-  fourward::constraints::ConstraintResponse response;
+  fourward::ConstraintResponse response;
   response.mutable_error()->set_message(message);
   WriteResponse(response);
 }
@@ -83,7 +83,7 @@ int main() {
         if (action.constraint.has_value()) ++constrained_actions;
       }
 
-      fourward::constraints::ConstraintResponse response;
+      fourward::ConstraintResponse response;
       auto* load_response = response.mutable_load_p4info();
       load_response->set_constrained_tables(constrained_tables);
       load_response->set_constrained_actions(constrained_actions);
@@ -99,7 +99,7 @@ int main() {
         WriteError(std::string(reason.status().message()));
         continue;
       }
-      fourward::constraints::ConstraintResponse response;
+      fourward::ConstraintResponse response;
       response.mutable_validate_entry()->set_violation(*reason);
       WriteResponse(response);
     } else {

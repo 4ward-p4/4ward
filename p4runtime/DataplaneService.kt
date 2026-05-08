@@ -1,20 +1,20 @@
 package fourward.p4runtime
 
 import com.google.protobuf.ByteString
-import fourward.dataplane.DataplaneGrpcKt
-import fourward.dataplane.InjectPacketRequest
-import fourward.dataplane.InjectPacketResponse
-import fourward.dataplane.InjectPacketsResponse
-import fourward.dataplane.InputPacket
-import fourward.dataplane.OutputPacket
-import fourward.dataplane.PacketSet
-import fourward.dataplane.PrePacketHookInvocation
-import fourward.dataplane.PrePacketHookResponse
-import fourward.dataplane.ProcessPacketResult as ProcessPacketResultProto
-import fourward.dataplane.SubscribeResultsRequest
-import fourward.dataplane.SubscribeResultsResponse
-import fourward.dataplane.SubscriptionActive
-import fourward.sim.TraceTree
+import fourward.DataplaneGrpcKt
+import fourward.InjectPacketRequest
+import fourward.InjectPacketResponse
+import fourward.InjectPacketsResponse
+import fourward.InputPacket
+import fourward.OutputPacket
+import fourward.PacketSet
+import fourward.PrePacketHookInvocation
+import fourward.PrePacketHookResponse
+import fourward.ProcessPacketResult as ProcessPacketResultProto
+import fourward.SubscribeResultsRequest
+import fourward.SubscribeResultsResponse
+import fourward.SubscriptionActive
+import fourward.TraceTree
 import io.grpc.Status
 import io.grpc.StatusException
 import kotlinx.coroutines.channels.Channel
@@ -218,14 +218,14 @@ private fun enrichTrace(trace: TraceTree, translator: TypeTranslator?): TraceTre
   translator?.let { TraceEnricher.enrich(trace, it) } ?: trace
 
 /**
- * Converts a simulator [fourward.sim.OutputPacket] to a dual-encoded [OutputPacket].
+ * Returns a copy of this [OutputPacket] enriched with the P4Runtime port ID.
  *
  * When a [PortTranslator] is present, every egress port must be reverse-translatable — either
  * forward-allocated by a controller Write or installed via `Replica.port` (bytes). A missing
  * mapping means the clone session or multicast group used the deprecated `Replica.egress_port`
  * (int32), which bypasses port translation.
  */
-private fun fourward.sim.OutputPacket.toDualEncoded(pt: PortTranslator?): OutputPacket =
+private fun OutputPacket.toDualEncoded(pt: PortTranslator?): OutputPacket =
   OutputPacket.newBuilder()
     .setDataplaneEgressPort(dataplaneEgressPort)
     .apply {
