@@ -1443,7 +1443,7 @@ a zero-fork tree — structurally equivalent to a flat trace.</p>
 </code></pre></div>
 <p>In proto text format, the same trace:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a># proto-file: @fourward//simulator/simulator.proto
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a># proto-message: fourward.sim.TraceTree
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a># proto-message: fourward.TraceTree
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>events { packet_ingress { dataplane_ingress_port: 0 } }
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>events { parser_transition {
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  parser_name: "MyParser"
@@ -1640,7 +1640,7 @@ source fragment) linking back to the P4 source.</p>
 automatically when packets are injected through the
 <a href="../../reference/grpc/">DataplaneService gRPC API</a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a># proto-file: @fourward//simulator/simulator.proto
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a># proto-message: fourward.sim.TraceTree
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a># proto-message: fourward.TraceTree
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>events { packet_ingress {
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  dataplane_ingress_port: 1
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>  p4rt_ingress_port: "Ethernet0"
