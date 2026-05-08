@@ -5,6 +5,7 @@
 
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -257,6 +258,56 @@ TEST(HasIngressTest, StringPort) {
   result.mutable_input_packet()->set_p4rt_ingress_port("Eth0");
   result.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
   EXPECT_THAT(result, HasIngress(std::string("Eth0")));
+}
+
+// --- string_view overloads ---
+
+TEST(OnPortTest, StringView) {
+  fourward::dataplane::OutputPacket pkt;
+  pkt.set_p4rt_egress_port("Eth0");
+  std::string_view sv = "Eth0";
+  EXPECT_THAT(pkt, OnPort(sv));
+}
+
+TEST(HasIngressTest, StringView) {
+  fourward::dataplane::ProcessPacketResult result;
+  result.mutable_input_packet()->set_p4rt_ingress_port("Eth0");
+  result.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
+  std::string_view sv = "Eth0";
+  EXPECT_THAT(result, HasIngress(sv));
+}
+
+TEST(ForwardsToTest, StringView) {
+  fourward::dataplane::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  ps->add_packets()->set_p4rt_egress_port("Eth0");
+  std::string_view sv = "Eth0";
+  EXPECT_THAT(resp, ForwardsTo(sv));
+}
+
+// --- OnPort with payload ---
+
+TEST(OnPortTest, WithPayload) {
+  fourward::dataplane::OutputPacket pkt;
+  pkt.set_dataplane_egress_port(1);
+  pkt.set_payload("hello");
+  EXPECT_THAT(pkt, OnPort(1, "hello"));
+}
+
+TEST(OnPortTest, WithPayloadMatcher) {
+  fourward::dataplane::OutputPacket pkt;
+  pkt.set_dataplane_egress_port(1);
+  pkt.set_payload("hello world");
+  EXPECT_THAT(pkt, OnPort(1, ::testing::StartsWith("hello")));
+}
+
+TEST(OnPortTest, WithPayloadInOutcomeIs) {
+  fourward::dataplane::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  auto* pkt = ps->add_packets();
+  pkt->set_dataplane_egress_port(1);
+  pkt->set_payload("data");
+  EXPECT_THAT(resp, OutcomeIs(OnPort(1, "data")));
 }
 
 // --- Error message quality ---
