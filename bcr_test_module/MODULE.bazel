@@ -6,8 +6,8 @@ local_path_override(
     path = "..",
 )
 
-# Everything below is only needed if you use @fourward//grpc:p4runtime_lib
-# (the P4Runtime gRPC server). p4runtime_lib transitively invokes
+# Everything below is only needed if you use @fourward//grpc
+# (the gRPC server library). It transitively invokes
 # kt_jvm_grpc_library → java_grpc_library, which hardcodes deps on
 # @io_grpc_grpc_java//stub and reaches into the shared @maven repo.
 # Blessing grpc-java and protobuf as contributors makes those artifacts

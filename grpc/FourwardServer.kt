@@ -105,7 +105,7 @@ fun main(args: Array<String>) {
 
   // Machine-readable readiness signal for embedders. Write the port to a temp
   // file and rename into place atomically so a concurrent reader never sees a
-  // partial value. See p4runtime_cc/fourward_server.h for the embedding API.
+  // partial value. See fourward_cc/fourward_server.h for the embedding API.
   portFile?.let { writePortFileAtomic(it, server.port()) }
 
   server.blockUntilShutdown()

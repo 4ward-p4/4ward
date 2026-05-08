@@ -57,7 +57,7 @@ enough for production test workloads.
 | Interactive playground | no | [**browser-based IDE**](#web-playground) with trace playback & packet decoding |
 | Error messages | opaque | [**actionable, with valid options**](docs/ROADMAP.md#track-11-error-quality) — [75 golden-tested](grpc/golden_errors/) |
 | Data plane throughput (16-way selector) | [~4,500 pps ÷ 16 paths](docs/PERFORMANCE.md#bmv2-comparison) | [**~2,000 pps, all 16 paths**](docs/PERFORMANCE.md) ([head-to-head on SAI P4](docs/PERFORMANCE.md#bmv2-comparison)) |
-| Data plane parallelism (16-way selector) | single-threaded | [**13,000 pps on 16 cores**](docs/PERFORMANCE.md) — parallel across packets and forks |
+| Data plane parallelism (16-way selector) | single-threaded | [**16,000 pps on 16 cores**](docs/PERFORMANCE.md) — parallel across packets and forks |
 | Extensibility | limited | [**AI-friendly codebase**](docs/ROADMAP.md#why-4ward-is-easier-to-extend) — if AI can extend it, anyone can |
 | CI | slow | **[~2 min](https://4ward.buildbuddy.io/trends/)**, rigorous |
 | Development pace | slow | **[AI-fast](docs/AI_WORKFLOW.md)** |

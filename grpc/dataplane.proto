@@ -1,6 +1,6 @@
 // Dataplane gRPC service: packet injection and result observation.
 //
-// Implemented by DataplaneService (p4runtime/DataplaneService.kt).
+// Implemented by DataplaneService (grpc/DataplaneService.kt).
 // Serialized via a shared lock with P4RuntimeService to prevent races
 // between control-plane writes and data-plane packet processing.
 

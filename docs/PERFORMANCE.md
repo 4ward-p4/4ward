@@ -49,17 +49,16 @@ workloads compared to typical server hardware.
 Throughput in packets/sec (higher is better). 10k table entries + 500
 ternary ACL entries.
 
-| Workload | Sequential, 1 core | Sequential, 16 cores | Batch, 1 core | Batch, 16 cores |
-|----------|--------------------|----------------------|---------------|-----------------|
-| L3 forwarding | 2,500 | 2,600 | 2,600 | 29,000 |
-| WCMP ×16 | 2,000 | 2,300 | 1,700 | 13,000 |
-| WCMP ×16 + mirror | 1,400 | 1,700 | 1,100 | 9,000 |
+| Workload | Sequential | Batch, 16 cores |
+|----------|------------|-----------------|
+| L3 forwarding | 2,300 | 25,000 |
+| WCMP ×16 | 2,000 | 16,000 |
+| WCMP ×16 + mirror | 1,800 | 12,000 |
 
 - **Sequential** = `InjectPacket` (one packet at a time, wait for result).
+  Intra-packet parallelism (fork branches) is enabled.
 - **Batch** = `InjectPackets` (1000 packets streamed concurrently).
-- **1 core** = `ForkJoinPool.common.parallelism=1`. No parallelism.
-- **16 cores** = `InjectPacket` parallelizes fork branches within each
-  packet. `InjectPackets` adds cross-packet parallelism.
+  Parallelizes across packets and within trace tree forks.
 
 Reproducing:
 ```sh
@@ -71,10 +70,10 @@ bazel test //grpc:DataplaneBenchmark --test_output=streamed
 Head-to-head against BMv2's `simple_switch` on the same SAI P4 program
 with the same table entries: 10k LPM routes + 500 ternary ACL entries.
 
-| Workload | BMv2 | 4ward, 1 core | 4ward, 16 cores |
-|----------|------|---------------|-----------------|
-| L3 forwarding | 4,500 | 2,500 | 29,000 |
-| WCMP ×16 | 4,400 | 2,000 | 13,000 |
+| Workload | BMv2 | 4ward, sequential | 4ward, batch 16 cores |
+|----------|------|--------------------|-----------------------|
+| L3 forwarding | 4,500 | 2,300 | 25,000 |
+| WCMP ×16 | 4,400 | 2,000 | 16,000 |
 
 (packets/sec; higher is better)
 
@@ -133,14 +132,14 @@ bazel test //grpc:DataplaneBenchmark --test_output=streamed
 ## Optimizations
 
 Starting from an unoptimized baseline, twelve optimizations delivered a
-**220× improvement** on the hardest workload (WCMP ×16 + mirror, batch,
-16 cores) and **34× single-core sequential**.
+**290× improvement** on the hardest workload (WCMP ×16 + mirror, batch,
+16 cores) and **44× sequential**.
 
-| Workload | Baseline | Current (1 core) | Current (16 cores) |
-|----------|----------|-------------------|--------------------|
-| L3 forwarding | 1,400 | 2,500 | 29,000 |
-| WCMP ×16 | 83 | 2,000 | 13,000 |
-| WCMP ×16 + mirror | 41 | 1,400 | 9,000 |
+| Workload | Baseline | Current (sequential) | Current (batch, 16 cores) |
+|----------|----------|----------------------|---------------------------|
+| L3 forwarding | 1,400 | 2,300 | 25,000 |
+| WCMP ×16 | 83 | 2,000 | 16,000 |
+| WCMP ×16 + mirror | 41 | 1,800 | 12,000 |
 
 (sequential packets/sec, except "16 cores" column which uses batch mode)
 
