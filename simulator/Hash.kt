@@ -1,6 +1,6 @@
 package fourward.simulator
 
-import fourward.ir.ExternInstanceDecl
+import fourward.ExternInstanceDecl
 import java.math.BigInteger
 import java.util.zip.CRC32
 

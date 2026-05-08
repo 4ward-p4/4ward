@@ -14,12 +14,12 @@
 
 package fourward.simulator
 
-import fourward.ir.ActionDecl
-import fourward.ir.BehavioralConfig
-import fourward.ir.Direction
-import fourward.ir.Expr
-import fourward.ir.MethodCall
-import fourward.ir.ParamDecl
+import fourward.ActionDecl
+import fourward.BehavioralConfig
+import fourward.Direction
+import fourward.Expr
+import fourward.MethodCall
+import fourward.ParamDecl
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

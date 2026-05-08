@@ -1,8 +1,8 @@
 package fourward.simulator
 
-import fourward.ir.PipelineConfig
-import fourward.sim.OutputPacket
-import fourward.sim.TraceTree
+import fourward.OutputPacket
+import fourward.PipelineConfig
+import fourward.TraceTree
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -18,8 +18,8 @@ import java.util.concurrent.atomic.AtomicReference
  * selectors have one possible outcome per alternative (Cartesian product when nested inside
  * parallel forks).
  *
- * Decouples the simulator from the gRPC wire format ([fourward.dataplane.InjectPacketResponse]).
- * Each RPC method builds its own wire proto from this data class.
+ * Decouples the simulator from the gRPC wire format ([fourward.InjectPacketResponse]). Each RPC
+ * method builds its own wire proto from this data class.
  */
 data class ProcessPacketResult(val trace: TraceTree, val possibleOutcomes: List<List<OutputPacket>>)
 

@@ -48,7 +48,7 @@ In proto text format, the same trace:
 
 ```textproto
 # proto-file: @fourward//simulator/simulator.proto
-# proto-message: fourward.sim.TraceTree
+# proto-message: fourward.TraceTree
 events { packet_ingress { dataplane_ingress_port: 0 } }
 events { parser_transition {
   parser_name: "MyParser"
@@ -209,7 +209,7 @@ automatically when packets are injected through the
 
 ```textproto
 # proto-file: @fourward//simulator/simulator.proto
-# proto-message: fourward.sim.TraceTree
+# proto-message: fourward.TraceTree
 events { packet_ingress {
   dataplane_ingress_port: 1
   p4rt_ingress_port: "Ethernet0"

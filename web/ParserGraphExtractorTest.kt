@@ -1,14 +1,14 @@
 package fourward.web
 
-import fourward.ir.BehavioralConfig
-import fourward.ir.Expr
-import fourward.ir.KeysetExpr
-import fourward.ir.Literal
-import fourward.ir.ParserDecl
-import fourward.ir.ParserState
-import fourward.ir.SelectCase
-import fourward.ir.SelectTransition
-import fourward.ir.Transition
+import fourward.BehavioralConfig
+import fourward.Expr
+import fourward.KeysetExpr
+import fourward.Literal
+import fourward.ParserDecl
+import fourward.ParserState
+import fourward.SelectCase
+import fourward.SelectTransition
+import fourward.Transition
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -26,12 +26,12 @@
 
 edition = "2024";
 
-package fourward.ir;
+package fourward;
 
 import "p4/config/v1/p4info.proto";
 import "p4/v1/p4runtime.proto";
 
-option java_package = "fourward.ir";
+option java_package = "fourward";
 
 // =============================================================================
 // Top-level

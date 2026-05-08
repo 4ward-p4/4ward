@@ -7,11 +7,11 @@ package fourward.p4runtime
 
 import com.google.protobuf.Any as ProtoAny
 import com.google.protobuf.ByteString
-import fourward.ir.Architecture
-import fourward.ir.BehavioralConfig
-import fourward.ir.DeviceConfig
-import fourward.ir.PipelineConfig
-import fourward.ir.TypeTranslation
+import fourward.Architecture
+import fourward.BehavioralConfig
+import fourward.DeviceConfig
+import fourward.PipelineConfig
+import fourward.TypeTranslation
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.buildExactEntry
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.extractBatchErrors
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.findAction
@@ -193,7 +193,7 @@ class GoldenErrorTest(private val testName: String) {
       )
     val service = DataplaneService(throwingBroker)
     val request =
-      fourward.dataplane.InjectPacketRequest.newBuilder()
+      fourward.InjectPacketRequest.newBuilder()
         .setDataplaneIngressPort(0)
         .setPayload(ByteString.copyFrom(byteArrayOf(0x01)))
         .build()

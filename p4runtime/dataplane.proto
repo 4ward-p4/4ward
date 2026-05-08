@@ -6,13 +6,13 @@
 
 syntax = "proto3";
 
-package fourward.dataplane;
+package fourward;
 
 import "p4/config/v1/p4info.proto";
 import "p4/v1/p4runtime.proto";
 import "simulator/simulator.proto";
 
-option java_package = "fourward.dataplane";
+option java_package = "fourward";
 option java_outer_classname = "DataplaneProto";
 option java_multiple_files = true;
 
@@ -53,20 +53,6 @@ service Dataplane {
 
 message InjectPacketsResponse {}
 
-message InputPacket {
-  uint32 dataplane_ingress_port = 1;
-  // Only populated when port translation is available.
-  bytes p4rt_ingress_port = 3;
-  bytes payload = 2;
-}
-
-message OutputPacket {
-  uint32 dataplane_egress_port = 1;
-  // Only populated when port translation is available.
-  bytes p4rt_egress_port = 3;
-  bytes payload = 2;
-}
-
 message InjectPacketRequest {
   oneof ingress_port {
     // Dataplane port number (e.g. 0, 1, 510).
@@ -89,7 +75,7 @@ message PacketSet {
 
 // InjectPacket response. Omits the input (the caller already has it).
 message InjectPacketResponse {
-  fourward.sim.TraceTree trace = 1;
+  TraceTree trace = 1;
   // Each entry is one possible set of output packets from a single real
   // execution.  Programs with only parallel forks have exactly one entry.
   // Programs with alternative forks (action selectors) have one entry per
@@ -100,7 +86,7 @@ message InjectPacketResponse {
 // Result bundle for SubscribeResults: input + outputs + trace.
 message ProcessPacketResult {
   InputPacket input_packet = 1;
-  fourward.sim.TraceTree trace = 2;
+  TraceTree trace = 2;
   // Possible outcome sets (see InjectPacketResponse.possible_outcomes).
   repeated PacketSet possible_outcomes = 3;
 }

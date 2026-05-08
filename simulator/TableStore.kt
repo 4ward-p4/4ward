@@ -1,7 +1,7 @@
 package fourward.simulator
 
 import com.google.protobuf.ByteString
-import fourward.ir.DeviceConfig
+import fourward.DeviceConfig
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLongArray

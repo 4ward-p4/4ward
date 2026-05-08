@@ -5,9 +5,9 @@ import com.google.protobuf.ByteString
 import com.google.protobuf.InvalidProtocolBufferException
 import com.google.protobuf.TextFormat
 import com.google.rpc.Code
-import fourward.ir.DeviceConfig
-import fourward.ir.PipelineConfig
-import fourward.sim.OutputPacket
+import fourward.DeviceConfig
+import fourward.OutputPacket
+import fourward.PipelineConfig
 import fourward.simulator.Simulator
 import fourward.simulator.WriteResult
 import io.grpc.Metadata
@@ -193,7 +193,7 @@ class P4RuntimeService(
     } catch (e: TextFormat.ParseException) {
       throw Status.INVALID_ARGUMENT.withDescription(
           "p4_device_config is not a valid DeviceConfig proto (expected serialized " +
-            "fourward.ir.DeviceConfig in binary or text format). " +
+            "fourward.DeviceConfig in binary or text format). " +
             "binary parse: ${binaryError.message}; text parse: ${e.message}"
         )
         .withCause(e)

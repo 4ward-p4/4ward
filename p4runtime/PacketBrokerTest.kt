@@ -1,9 +1,9 @@
 package fourward.p4runtime
 
-import fourward.dataplane.PrePacketHookInvocation
-import fourward.dataplane.PrePacketHookResponse
-import fourward.sim.OutputPacket
-import fourward.sim.TraceTree
+import fourward.OutputPacket
+import fourward.PrePacketHookInvocation
+import fourward.PrePacketHookResponse
+import fourward.TraceTree
 import fourward.simulator.ProcessPacketResult
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.channels.Channel

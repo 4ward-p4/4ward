@@ -6,8 +6,8 @@
 
 package fourward.p4runtime
 
-import fourward.ir.BehavioralConfig
-import fourward.ir.Type
+import fourward.BehavioralConfig
+import fourward.Type
 import p4.config.v1.P4InfoOuterClass.P4Info
 import p4.v1.P4RuntimeOuterClass.PacketMetadata
 

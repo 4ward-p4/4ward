@@ -1,8 +1,8 @@
 package fourward.p4runtime
 
 import com.google.protobuf.ByteString
-import fourward.ir.TranslationEntry
-import fourward.ir.TypeTranslation
+import fourward.TranslationEntry
+import fourward.TypeTranslation
 import java.util.concurrent.ConcurrentHashMap
 import p4.config.v1.P4InfoOuterClass.P4Info
 import p4.config.v1.P4Types

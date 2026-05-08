@@ -105,9 +105,8 @@ class FourwardServer {
   std::unique_ptr<p4::v1::P4Runtime::Stub> NewP4RuntimeStub() const {
     return p4::v1::P4Runtime::NewStub(channel_);
   }
-  std::unique_ptr<fourward::dataplane::Dataplane::Stub> NewDataplaneStub()
-      const {
-    return fourward::dataplane::Dataplane::NewStub(channel_);
+  std::unique_ptr<fourward::Dataplane::Stub> NewDataplaneStub() const {
+    return fourward::Dataplane::NewStub(channel_);
   }
 
   // Address suitable for grpc::CreateChannel, e.g. "localhost:42517".

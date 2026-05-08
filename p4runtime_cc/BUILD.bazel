@@ -61,6 +61,7 @@ cc_library(
     deps = [
         ":dataplane_client",
         "//p4runtime:dataplane_cc_proto",
+        "//simulator:simulator_cc_proto",
         "@googletest//:gtest",
     ],
 )

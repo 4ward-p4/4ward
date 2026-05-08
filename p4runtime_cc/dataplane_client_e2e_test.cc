@@ -134,7 +134,7 @@ class DataplaneClientE2ETest : public ::testing::Test {
 TEST_F(DataplaneClientE2ETest, InjectPacketReturnsTraceAndOutputs) {
   DataplaneClient client(*server_);
 
-  absl::StatusOr<fourward::dataplane::InjectPacketResponse> resp =
+  absl::StatusOr<fourward::InjectPacketResponse> resp =
       client.InjectPacket({
           .ingress_port = DataplanePort{.port = 0},
           .payload = MakeEthernetFrame(),
@@ -151,14 +151,14 @@ TEST_F(DataplaneClientE2ETest, SubscribeResultsDeliversInjectedPacket) {
   ASSERT_TRUE(stream.ok()) << stream.status();
 
   // Inject via the unary RPC; the result should also appear on the stream.
-  absl::StatusOr<fourward::dataplane::InjectPacketResponse> inject =
+  absl::StatusOr<fourward::InjectPacketResponse> inject =
       client.InjectPacket({
           .ingress_port = DataplanePort{.port = 0},
           .payload = MakeEthernetFrame(),
       });
   ASSERT_TRUE(inject.ok()) << inject.status();
 
-  absl::StatusOr<fourward::dataplane::ProcessPacketResult> result =
+  absl::StatusOr<fourward::ProcessPacketResult> result =
       stream->Next();
   ASSERT_TRUE(result.ok()) << result.status();
   EXPECT_THAT(*result, ForwardsTo(1));
@@ -181,7 +181,7 @@ TEST_F(DataplaneClientE2ETest, InjectPacketsResultsDeliveredViaSubscribe) {
   ASSERT_TRUE(status.ok()) << status;
 
   for (int i = 0; i < 2; ++i) {
-    absl::StatusOr<fourward::dataplane::ProcessPacketResult> result =
+    absl::StatusOr<fourward::ProcessPacketResult> result =
         stream->Next();
     ASSERT_TRUE(result.ok()) << "result " << i << ": " << result.status();
     EXPECT_THAT(*result, ForwardsTo(1));
@@ -194,7 +194,7 @@ TEST_F(DataplaneClientE2ETest,
 
   // The passthrough program has no @p4runtime_translation on its port type.
   // Injecting via P4RuntimePort must fail with FAILED_PRECONDITION.
-  absl::StatusOr<fourward::dataplane::InjectPacketResponse> resp =
+  absl::StatusOr<fourward::InjectPacketResponse> resp =
       client.InjectPacket({
           .ingress_port = P4RuntimePort{.port = std::string("\x00\x01", 2)},
           .payload = MakeEthernetFrame(),

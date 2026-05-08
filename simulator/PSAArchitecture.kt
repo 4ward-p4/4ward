@@ -1,15 +1,15 @@
 package fourward.simulator
 
-import fourward.ir.BehavioralConfig
-import fourward.ir.ExternInstanceDecl
-import fourward.ir.PipelineStage
-import fourward.ir.TypeDecl
-import fourward.sim.DropReason
-import fourward.sim.Fork
-import fourward.sim.ForkBranch
-import fourward.sim.ForkReason
-import fourward.sim.TraceEvent
-import fourward.sim.TraceTree
+import fourward.BehavioralConfig
+import fourward.DropReason
+import fourward.ExternInstanceDecl
+import fourward.Fork
+import fourward.ForkBranch
+import fourward.ForkReason
+import fourward.PipelineStage
+import fourward.TraceEvent
+import fourward.TraceTree
+import fourward.TypeDecl
 import java.math.BigInteger
 
 /**

@@ -52,7 +52,7 @@ struct P4RuntimePort {
   std::string port;
 };
 
-// Mirrors fourward.dataplane.InjectPacketRequest with the proto's
+// Mirrors fourward.InjectPacketRequest with the proto's
 // `ingress_port` oneof modeled as a std::variant.
 struct InjectPacketArgs {
   std::variant<DataplanePort, P4RuntimePort> ingress_port;
@@ -73,7 +73,7 @@ class ResultStream {
 
   // Blocks up to `timeout` for the next result. Returns
   // DeadlineExceededError on timeout, CancelledError when the stream ends.
-  absl::StatusOr<fourward::dataplane::ProcessPacketResult> Next(
+  absl::StatusOr<fourward::ProcessPacketResult> Next(
       absl::Duration timeout = absl::Seconds(10));
 
  private:
@@ -93,9 +93,8 @@ class DataplaneClient {
  public:
   explicit DataplaneClient(const FourwardServer& server,
                            absl::Duration default_timeout = absl::Seconds(10));
-  explicit DataplaneClient(
-      std::unique_ptr<fourward::dataplane::Dataplane::Stub> stub,
-      absl::Duration default_timeout = absl::Seconds(10));
+  explicit DataplaneClient(std::unique_ptr<fourward::Dataplane::Stub> stub,
+                           absl::Duration default_timeout = absl::Seconds(10));
 
   ~DataplaneClient();
   DataplaneClient(DataplaneClient&&);
@@ -103,7 +102,7 @@ class DataplaneClient {
   DataplaneClient(const DataplaneClient&) = delete;
   DataplaneClient& operator=(const DataplaneClient&) = delete;
 
-  absl::StatusOr<fourward::dataplane::InjectPacketResponse> InjectPacket(
+  absl::StatusOr<fourward::InjectPacketResponse> InjectPacket(
       const InjectPacketArgs& args,
       std::optional<absl::Duration> deadline = std::nullopt);
 
@@ -122,7 +121,7 @@ class DataplaneClient {
     return override.value_or(default_timeout_);
   }
 
-  std::unique_ptr<fourward::dataplane::Dataplane::Stub> stub_;
+  std::unique_ptr<fourward::Dataplane::Stub> stub_;
   absl::Duration default_timeout_;
 };
 

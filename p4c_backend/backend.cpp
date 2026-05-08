@@ -34,8 +34,8 @@ namespace P4::FourWard {
 // Type emission
 // =============================================================================
 
-fourward::ir::Type FourWardBackend::emitType(const IR::Type* type) {
-  fourward::ir::Type out;
+fourward::Type FourWardBackend::emitType(const IR::Type* type) {
+  fourward::Type out;
 
   if (const auto* bits = type->to<IR::Type_Bits>()) {
     if (bits->isSigned) {
@@ -117,8 +117,8 @@ static bool isTableApply(const IR::Expression* expr, const ReferenceMap& refMap,
   return true;
 }
 
-fourward::ir::Expr FourWardBackend::emitExpr(const IR::Expression* expr) {
-  fourward::ir::Expr out;
+fourward::Expr FourWardBackend::emitExpr(const IR::Expression* expr) {
+  fourward::Expr out;
 
   if (const auto* cnst = expr->to<IR::Constant>()) {
     auto* lit = out.mutable_literal();
@@ -155,8 +155,8 @@ fourward::ir::Expr FourWardBackend::emitExpr(const IR::Expression* expr) {
       ta->set_table_name(tableName);
       if (mem->member == "hit" || mem->member == "miss") {
         ta->set_access_kind(mem->member == "hit"
-                                ? fourward::ir::TableApplyExpr::HIT
-                                : fourward::ir::TableApplyExpr::MISS);
+                                ? fourward::TableApplyExpr::HIT
+                                : fourward::TableApplyExpr::MISS);
       }
     } else if (mem->expr->is<IR::TypeNameExpression>()) {
       // Qualified enum/error member access: `error.NoError` or `MyEnum.Val`.
@@ -229,45 +229,45 @@ fourward::ir::Expr FourWardBackend::emitExpr(const IR::Expression* expr) {
     *b->mutable_right() = emitExpr(binop->right);
 
     if (binop->is<IR::Add>())
-      b->set_op(fourward::ir::BinaryOperator::ADD);
+      b->set_op(fourward::BinaryOperator::ADD);
     else if (binop->is<IR::Sub>())
-      b->set_op(fourward::ir::BinaryOperator::SUB);
+      b->set_op(fourward::BinaryOperator::SUB);
     else if (binop->is<IR::Mul>())
-      b->set_op(fourward::ir::BinaryOperator::MUL);
+      b->set_op(fourward::BinaryOperator::MUL);
     else if (binop->is<IR::Div>())
-      b->set_op(fourward::ir::BinaryOperator::DIV);
+      b->set_op(fourward::BinaryOperator::DIV);
     else if (binop->is<IR::Mod>())
-      b->set_op(fourward::ir::BinaryOperator::MOD);
+      b->set_op(fourward::BinaryOperator::MOD);
     else if (binop->is<IR::AddSat>())
-      b->set_op(fourward::ir::BinaryOperator::ADD_SAT);
+      b->set_op(fourward::BinaryOperator::ADD_SAT);
     else if (binop->is<IR::SubSat>())
-      b->set_op(fourward::ir::BinaryOperator::SUB_SAT);
+      b->set_op(fourward::BinaryOperator::SUB_SAT);
     else if (binop->is<IR::BAnd>())
-      b->set_op(fourward::ir::BinaryOperator::BIT_AND);
+      b->set_op(fourward::BinaryOperator::BIT_AND);
     else if (binop->is<IR::BOr>())
-      b->set_op(fourward::ir::BinaryOperator::BIT_OR);
+      b->set_op(fourward::BinaryOperator::BIT_OR);
     else if (binop->is<IR::BXor>())
-      b->set_op(fourward::ir::BinaryOperator::BIT_XOR);
+      b->set_op(fourward::BinaryOperator::BIT_XOR);
     else if (binop->is<IR::Shl>())
-      b->set_op(fourward::ir::BinaryOperator::SHL);
+      b->set_op(fourward::BinaryOperator::SHL);
     else if (binop->is<IR::Shr>())
-      b->set_op(fourward::ir::BinaryOperator::SHR);
+      b->set_op(fourward::BinaryOperator::SHR);
     else if (binop->is<IR::Equ>())
-      b->set_op(fourward::ir::BinaryOperator::EQ);
+      b->set_op(fourward::BinaryOperator::EQ);
     else if (binop->is<IR::Neq>())
-      b->set_op(fourward::ir::BinaryOperator::NEQ);
+      b->set_op(fourward::BinaryOperator::NEQ);
     else if (binop->is<IR::Lss>())
-      b->set_op(fourward::ir::BinaryOperator::LT);
+      b->set_op(fourward::BinaryOperator::LT);
     else if (binop->is<IR::Grt>())
-      b->set_op(fourward::ir::BinaryOperator::GT);
+      b->set_op(fourward::BinaryOperator::GT);
     else if (binop->is<IR::Leq>())
-      b->set_op(fourward::ir::BinaryOperator::LE);
+      b->set_op(fourward::BinaryOperator::LE);
     else if (binop->is<IR::Geq>())
-      b->set_op(fourward::ir::BinaryOperator::GE);
+      b->set_op(fourward::BinaryOperator::GE);
     else if (binop->is<IR::LAnd>())
-      b->set_op(fourward::ir::BinaryOperator::AND);
+      b->set_op(fourward::BinaryOperator::AND);
     else if (binop->is<IR::LOr>())
-      b->set_op(fourward::ir::BinaryOperator::OR);
+      b->set_op(fourward::BinaryOperator::OR);
     else {
       // clang-format off
       LOG1("WARNING: unhandled binary operator: " << binop->node_type_name());
@@ -277,11 +277,11 @@ fourward::ir::Expr FourWardBackend::emitExpr(const IR::Expression* expr) {
     auto* u = out.mutable_unary_op();
     *u->mutable_expr() = emitExpr(unop->expr);
     if (unop->is<IR::Neg>())
-      u->set_op(fourward::ir::UnaryOperator::NEG);
+      u->set_op(fourward::UnaryOperator::NEG);
     else if (unop->is<IR::Cmpl>())
-      u->set_op(fourward::ir::UnaryOperator::BIT_NOT);
+      u->set_op(fourward::UnaryOperator::BIT_NOT);
     else if (unop->is<IR::LNot>())
-      u->set_op(fourward::ir::UnaryOperator::NOT);
+      u->set_op(fourward::UnaryOperator::NOT);
     else {
       // clang-format off
       LOG1("WARNING: unhandled unary operator: " << unop->node_type_name());
@@ -337,8 +337,8 @@ fourward::ir::Expr FourWardBackend::emitExpr(const IR::Expression* expr) {
 // Source location
 // =============================================================================
 
-fourward::ir::SourceInfo FourWardBackend::emitSourceInfo(const IR::Node* node) {
-  fourward::ir::SourceInfo out;
+fourward::SourceInfo FourWardBackend::emitSourceInfo(const IR::Node* node) {
+  fourward::SourceInfo out;
   auto si = node->getSourceInfo();
   if (si.isValid()) {
     out.set_file(si.getSourceFile().c_str());
@@ -353,8 +353,8 @@ fourward::ir::SourceInfo FourWardBackend::emitSourceInfo(const IR::Node* node) {
 // Statement emission
 // =============================================================================
 
-fourward::ir::Stmt FourWardBackend::emitStmt(const IR::StatOrDecl* node) {
-  fourward::ir::Stmt out;
+fourward::Stmt FourWardBackend::emitStmt(const IR::StatOrDecl* node) {
+  fourward::Stmt out;
 
   if (const auto* assign = node->to<IR::AssignmentStatement>()) {
     auto* a = out.mutable_assignment();
@@ -368,11 +368,10 @@ fourward::ir::Stmt FourWardBackend::emitStmt(const IR::StatOrDecl* node) {
     // SimplifyControlFlow normally wraps branches in BlockStatements, but some
     // downstream passes (e.g. LocalCopyPropagation) may produce bare
     // statements.
-    auto emitBranch =
-        [&](const IR::Statement* stmt) -> fourward::ir::BlockStmt {
+    auto emitBranch = [&](const IR::Statement* stmt) -> fourward::BlockStmt {
       if (const auto* blk = stmt->to<IR::BlockStatement>())
         return emitBlock(blk);
-      fourward::ir::BlockStmt branch;
+      fourward::BlockStmt branch;
       // IR::EmptyStatement (produced by RemoveReturns for void-return branches)
       // has no IR representation; skip it to avoid an empty Stmt{} in the
       // output.
@@ -399,13 +398,13 @@ fourward::ir::Stmt FourWardBackend::emitStmt(const IR::StatOrDecl* node) {
       // Emit value-based switch as an if-else chain:
       //   if (subject == case1) { ... } else if (subject == case2) { ... } else
       //   { default }
-      fourward::ir::Stmt* cursor = &out;
+      fourward::Stmt* cursor = &out;
       for (const auto* c : sw->cases) {
         if (c->label->is<IR::DefaultExpression>()) continue;
         auto* ifStmt = cursor->mutable_if_stmt();
         // condition: subject == case_value
         auto* cond = ifStmt->mutable_condition()->mutable_binary_op();
-        cond->set_op(fourward::ir::BinaryOperator::EQ);
+        cond->set_op(fourward::BinaryOperator::EQ);
         *cond->mutable_left() = emitExpr(sw->expression);
         *cond->mutable_right() = emitExpr(c->label);
         if (c->statement != nullptr) {
@@ -479,9 +478,9 @@ fourward::ir::Stmt FourWardBackend::emitStmt(const IR::StatOrDecl* node) {
   return out;
 }
 
-fourward::ir::BlockStmt FourWardBackend::emitBlock(
+fourward::BlockStmt FourWardBackend::emitBlock(
     const IR::BlockStatement* block) {
-  fourward::ir::BlockStmt out;
+  fourward::BlockStmt out;
   for (const auto* stmt : block->components) {
     *out.add_stmts() = emitStmt(stmt);
   }
@@ -524,7 +523,7 @@ void FourWardBackend::setStaticEntries(p4::v1::WriteRequest entries) {
 }
 
 void FourWardBackend::setTypeTranslations(
-    std::vector<fourward::ir::TypeTranslation> translations) {
+    std::vector<fourward::TypeTranslation> translations) {
   auto* device = pipelineConfig_.mutable_device();
   for (auto& t : translations) {
     *device->add_translations() = std::move(t);
@@ -603,13 +602,13 @@ void FourWardBackend::emitParser(const IR::P4Parser* parser) {
     *p->mutable_type() = emitType(param->type);
     switch (param->direction) {
       case IR::Direction::In:
-        p->set_direction(fourward::ir::Direction::IN);
+        p->set_direction(fourward::Direction::IN);
         break;
       case IR::Direction::Out:
-        p->set_direction(fourward::ir::Direction::OUT);
+        p->set_direction(fourward::Direction::OUT);
         break;
       case IR::Direction::InOut:
-        p->set_direction(fourward::ir::Direction::INOUT);
+        p->set_direction(fourward::Direction::INOUT);
         break;
       default:
         break;
@@ -665,7 +664,7 @@ void FourWardBackend::emitParser(const IR::P4Parser* parser) {
         *selectTrans->add_keys() = emitExpr(key);
       }
       // Helper: emit a single keyset expression into a KeysetExpr proto.
-      auto emitKeyset = [this](fourward::ir::KeysetExpr* k,
+      auto emitKeyset = [this](fourward::KeysetExpr* k,
                                const IR::Expression* expr) {
         if (expr->is<IR::DefaultExpression>()) {
           k->set_default_case(true);
@@ -727,13 +726,13 @@ void FourWardBackend::emitControl(const IR::P4Control* control) {
     *p->mutable_type() = emitType(param->type);
     switch (param->direction) {
       case IR::Direction::In:
-        p->set_direction(fourward::ir::Direction::IN);
+        p->set_direction(fourward::Direction::IN);
         break;
       case IR::Direction::Out:
-        p->set_direction(fourward::ir::Direction::OUT);
+        p->set_direction(fourward::Direction::OUT);
         break;
       case IR::Direction::InOut:
-        p->set_direction(fourward::ir::Direction::INOUT);
+        p->set_direction(fourward::Direction::INOUT);
         break;
       default:
         break;
@@ -779,7 +778,7 @@ void FourWardBackend::emitControl(const IR::P4Control* control) {
 }
 
 void FourWardBackend::emitAction(const IR::P4Action* action,
-                                 fourward::ir::ActionDecl* out) {
+                                 fourward::ActionDecl* out) {
   // Use the original (pre-midend) name as the canonical key so it matches the
   // p4info alias and allows table-dispatch lookups to succeed.
   out->set_name(action->name.originalName.c_str());
@@ -874,7 +873,7 @@ void FourWardBackend::emitArchitecture(const IR::ToplevelBlock* toplevel) {
   if (main == nullptr) return;
 
   auto addStage = [&](const std::string& name, const std::string& blockName,
-                      fourward::ir::StageKind kind) {
+                      fourward::StageKind kind) {
     auto* stage = arch->add_stages();
     stage->set_name(name);
     stage->set_block_name(blockName);
@@ -904,15 +903,14 @@ void FourWardBackend::emitArchitecture(const IR::ToplevelBlock* toplevel) {
 
     // V1Switch(parser, verify_checksum, ingress, egress, compute_checksum,
     // deparser)
-    const std::vector<std::pair<std::string, fourward::ir::StageKind>>
-        stageSpec = {
-            {"parser", fourward::ir::StageKind::PARSER},
-            {"verify_checksum", fourward::ir::StageKind::CONTROL},
-            {"ingress", fourward::ir::StageKind::CONTROL},
-            {"egress", fourward::ir::StageKind::CONTROL},
-            {"compute_checksum", fourward::ir::StageKind::CONTROL},
-            {"deparser", fourward::ir::StageKind::DEPARSER},
-        };
+    const std::vector<std::pair<std::string, fourward::StageKind>> stageSpec = {
+        {"parser", fourward::StageKind::PARSER},
+        {"verify_checksum", fourward::StageKind::CONTROL},
+        {"ingress", fourward::StageKind::CONTROL},
+        {"egress", fourward::StageKind::CONTROL},
+        {"compute_checksum", fourward::StageKind::CONTROL},
+        {"deparser", fourward::StageKind::DEPARSER},
+    };
 
     size_t i = 0;
     for (const auto& arg :
@@ -965,31 +963,30 @@ void FourWardBackend::emitArchitecture(const IR::ToplevelBlock* toplevel) {
 
     // IngressPipeline(IngressParser ip, Ingress ig, IngressDeparser id)
     addStage("ingress_parser", resolveBlockName((*ingressArgs)[0]->expression),
-             fourward::ir::StageKind::PARSER);
+             fourward::StageKind::PARSER);
     addStage("ingress", resolveBlockName((*ingressArgs)[1]->expression),
-             fourward::ir::StageKind::CONTROL);
+             fourward::StageKind::CONTROL);
     addStage("ingress_deparser",
              resolveBlockName((*ingressArgs)[2]->expression),
-             fourward::ir::StageKind::DEPARSER);
+             fourward::StageKind::DEPARSER);
 
     // EgressPipeline(EgressParser ep, Egress eg, EgressDeparser ed)
     addStage("egress_parser", resolveBlockName((*egressArgs)[0]->expression),
-             fourward::ir::StageKind::PARSER);
+             fourward::StageKind::PARSER);
     addStage("egress", resolveBlockName((*egressArgs)[1]->expression),
-             fourward::ir::StageKind::CONTROL);
+             fourward::StageKind::CONTROL);
     addStage("egress_deparser", resolveBlockName((*egressArgs)[2]->expression),
-             fourward::ir::StageKind::DEPARSER);
+             fourward::StageKind::DEPARSER);
   } else if (main->type->name == "PNA_NIC") {
     arch->set_name("pna");
 
     // PNA_NIC(main_parser, pre_control, main_control, main_deparser)
-    const std::vector<std::pair<std::string, fourward::ir::StageKind>>
-        stageSpec = {
-            {"main_parser", fourward::ir::StageKind::PARSER},
-            {"pre_control", fourward::ir::StageKind::CONTROL},
-            {"main_control", fourward::ir::StageKind::CONTROL},
-            {"main_deparser", fourward::ir::StageKind::DEPARSER},
-        };
+    const std::vector<std::pair<std::string, fourward::StageKind>> stageSpec = {
+        {"main_parser", fourward::StageKind::PARSER},
+        {"pre_control", fourward::StageKind::CONTROL},
+        {"main_control", fourward::StageKind::CONTROL},
+        {"main_deparser", fourward::StageKind::DEPARSER},
+    };
 
     size_t i = 0;
     for (const auto& arg :
@@ -1083,7 +1080,7 @@ bool FourWardBackend::writeOutputs() const {
       }
     } else if (!writeProto(pipelineConfig_, *options_.outputFile,
                            "@fourward//simulator/ir.proto",
-                           "fourward.ir.PipelineConfig")) {
+                           "fourward.PipelineConfig")) {
       return false;
     }
   }
@@ -1095,8 +1092,7 @@ bool FourWardBackend::writeOutputs() const {
   }
   if (options_.outP4DeviceConfig.has_value() &&
       !writeProto(pipelineConfig_.device(), *options_.outP4DeviceConfig,
-                  "@fourward//simulator/ir.proto",
-                  "fourward.ir.DeviceConfig")) {
+                  "@fourward//simulator/ir.proto", "fourward.DeviceConfig")) {
     return false;
   }
   return true;

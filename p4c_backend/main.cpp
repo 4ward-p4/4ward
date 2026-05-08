@@ -23,7 +23,7 @@
 //   -o <file>                       Combined pipeline config
 //                                   (--format selects native or p4runtime)
 //   --out-p4info <file>             Standalone p4.config.v1.P4Info
-//   --out-p4-device-config <file>   Standalone fourward.ir.DeviceConfig
+//   --out-p4-device-config <file>   Standalone fourward.DeviceConfig
 //
 // All output paths must end in .txtpb (text proto) or .binpb (binary proto).
 //
@@ -97,9 +97,9 @@ static bool validateOutputs(const P4::FourWard::FourWardOptions& options) {
 //
 // Returns one TypeTranslation per annotated type, with auto_allocate=true
 // (hybrid mode: explicit pins + auto-allocate unknown values).
-static std::vector<fourward::ir::TypeTranslation> extractTypeTranslations(
+static std::vector<fourward::TypeTranslation> extractTypeTranslations(
     const IR::P4Program* program, const p4::config::v1::P4Info& p4Info) {
-  std::vector<fourward::ir::TypeTranslation> result;
+  std::vector<fourward::TypeTranslation> result;
   const auto& newTypes = p4Info.type_info().new_types();
 
   P4::forAllMatching<IR::Type_Newtype>(
@@ -121,7 +121,7 @@ static std::vector<fourward::ir::TypeTranslation> extractTypeTranslations(
         const auto& translatedType = it->second.translated_type();
         bool isSdnString = translatedType.has_sdn_string();
 
-        fourward::ir::TypeTranslation translation;
+        fourward::TypeTranslation translation;
         // Use type_name (not type_uri): the TypeTranslator keys translation
         // tables by type name, and SAI P4 leaves the URI empty (unset) for
         // all translated types, relying on type names for disambiguation.

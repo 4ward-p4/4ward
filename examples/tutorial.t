@@ -145,7 +145,7 @@ program and its P4Info metadata. Here's the top:
 
   $ head -20 pipeline.txtpb
   # proto-file: @fourward//simulator/ir.proto
-  # proto-message: fourward.ir.PipelineConfig
+  # proto-message: fourward.PipelineConfig
   
   p4info {
     pkg_info {

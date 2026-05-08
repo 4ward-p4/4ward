@@ -51,7 +51,7 @@ FourWardOptions::FourWardOptions() {
         outP4DeviceConfig = arg;
         return true;
       },
-      "write fourward.ir.DeviceConfig to <file> "
+      "write fourward.DeviceConfig to <file> "
       "(.txtpb for text-format, .binpb for binary)");
 }
 

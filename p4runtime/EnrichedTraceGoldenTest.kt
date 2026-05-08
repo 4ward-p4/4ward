@@ -2,11 +2,11 @@ package fourward.p4runtime
 
 import com.google.protobuf.ByteString
 import com.google.protobuf.TextFormat
-import fourward.ir.PipelineConfig
+import fourward.PipelineConfig
+import fourward.TraceTree
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.buildEthernetFrame
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.loadConfig
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.longToBytes
-import fourward.sim.TraceTree
 import org.junit.After
 import org.junit.Assert.fail
 import org.junit.Before

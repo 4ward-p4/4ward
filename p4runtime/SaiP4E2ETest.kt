@@ -1,9 +1,9 @@
 package fourward.p4runtime
 
 import com.google.protobuf.ByteString
-import fourward.ir.PipelineConfig
-import fourward.ir.TranslationEntry
-import fourward.ir.TypeTranslation
+import fourward.PipelineConfig
+import fourward.TranslationEntry
+import fourward.TypeTranslation
 import io.grpc.Status
 import org.junit.After
 import org.junit.Assert.assertEquals

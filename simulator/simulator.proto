@@ -8,12 +8,12 @@
 
 syntax = "proto3";
 
-package fourward.sim;
+package fourward;
 
 import "simulator/ir.proto";
 import "p4/v1/p4runtime.proto";
 
-option java_package = "fourward.sim";
+option java_package = "fourward";
 option java_outer_classname = "SimulatorProto";
 option java_multiple_files = true;
 
@@ -22,8 +22,11 @@ option java_multiple_files = true;
 // =============================================================================
 
 message InputPacket {
-  uint32 ingress_port = 1;
+  uint32 dataplane_ingress_port = 1;
   bytes payload = 2;
+  // P4Runtime port ID. Populated by enrichment layers (e.g. DataplaneService),
+  // never by the simulator.
+  bytes p4rt_ingress_port = 3;
 }
 
 message OutputPacket {
@@ -128,7 +131,7 @@ message TraceEvent {
     DeparserEmitEvent deparser_emit = 13;
   }
 
-  fourward.ir.SourceInfo source_info = 100;
+  SourceInfo source_info = 100;
 }
 
 // Fired on every parser state transition, including the final transition to
@@ -215,7 +218,7 @@ message PacketIngressEvent {
 // deparser).
 message PipelineStageEvent {
   string stage_name = 1;
-  fourward.ir.StageKind stage_kind = 2;
+  StageKind stage_kind = 2;
   enum Direction {
     DIRECTION_UNSPECIFIED = 0;
     ENTER = 1;

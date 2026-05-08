@@ -1,12 +1,12 @@
 package fourward.p4runtime
 
 import com.google.protobuf.ByteString
-import fourward.dataplane.DataplaneGrpcKt.DataplaneCoroutineStub
-import fourward.dataplane.InjectPacketRequest
-import fourward.dataplane.PrePacketHookInvocation
-import fourward.dataplane.PrePacketHookResponse
-import fourward.dataplane.SubscribeResultsRequest
-import fourward.dataplane.SubscribeResultsResponse
+import fourward.DataplaneGrpcKt.DataplaneCoroutineStub
+import fourward.InjectPacketRequest
+import fourward.PrePacketHookInvocation
+import fourward.PrePacketHookResponse
+import fourward.SubscribeResultsRequest
+import fourward.SubscribeResultsResponse
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.assertGrpcError
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.buildEthernetFrame
 import fourward.p4runtime.P4RuntimeTestHarness.Companion.buildExactEntry

@@ -1,21 +1,21 @@
 package fourward.simulator
 
-import fourward.ir.AssignmentStmt
-import fourward.ir.BehavioralConfig
-import fourward.ir.BitType
-import fourward.ir.BlockStmt
-import fourward.ir.ControlDecl
-import fourward.ir.Expr
-import fourward.ir.FieldAccess
-import fourward.ir.FieldDecl
-import fourward.ir.IfStmt
-import fourward.ir.Literal
-import fourward.ir.MethodCall
-import fourward.ir.MethodCallStmt
-import fourward.ir.NameRef
-import fourward.ir.SourceInfo
-import fourward.ir.Stmt
-import fourward.ir.Type
+import fourward.AssignmentStmt
+import fourward.BehavioralConfig
+import fourward.BitType
+import fourward.BlockStmt
+import fourward.ControlDecl
+import fourward.Expr
+import fourward.FieldAccess
+import fourward.FieldDecl
+import fourward.IfStmt
+import fourward.Literal
+import fourward.MethodCall
+import fourward.MethodCallStmt
+import fourward.NameRef
+import fourward.SourceInfo
+import fourward.Stmt
+import fourward.Type
 import p4.v1.P4RuntimeOuterClass
 
 /**

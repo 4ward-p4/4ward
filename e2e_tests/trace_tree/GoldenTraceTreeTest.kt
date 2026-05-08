@@ -1,9 +1,9 @@
 package fourward.e2e.tracetree
 
 import com.google.protobuf.TextFormat
+import fourward.TraceTree
 import fourward.bazel.repoRoot
 import fourward.e2e.assertMatchesGoldenFile
-import fourward.sim.TraceTree
 import fourward.simulator.Simulator
 import fourward.stf.StfFile
 import fourward.stf.installStfEntries

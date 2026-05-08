@@ -1,16 +1,16 @@
 package fourward.simulator
 
-import fourward.ir.PipelineStage
-import fourward.sim.Drop
-import fourward.sim.DropReason
-import fourward.sim.Fork
-import fourward.sim.ForkBranch
-import fourward.sim.ForkReason
-import fourward.sim.PacketIngressEvent
-import fourward.sim.PacketOutcome
-import fourward.sim.PipelineStageEvent
-import fourward.sim.TraceEvent
-import fourward.sim.TraceTree
+import fourward.Drop
+import fourward.DropReason
+import fourward.Fork
+import fourward.ForkBranch
+import fourward.ForkReason
+import fourward.PacketIngressEvent
+import fourward.PacketOutcome
+import fourward.PipelineStage
+import fourward.PipelineStageEvent
+import fourward.TraceEvent
+import fourward.TraceTree
 
 /**
  * Whether a fork's branches all happen (parallel) or only one happens (alternative).
@@ -52,7 +52,7 @@ internal fun buildDropTrace(
 /** Builds a [TraceTree] representing a packet output on the given port. */
 internal fun buildOutputTrace(events: List<TraceEvent>, port: Int, payload: ByteArray): TraceTree {
   val output =
-    fourward.sim.OutputPacket.newBuilder()
+    fourward.OutputPacket.newBuilder()
       .setDataplaneEgressPort(port)
       .setPayload(com.google.protobuf.ByteString.copyFrom(payload))
       .build()

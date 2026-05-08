@@ -1,6 +1,8 @@
 # DataplaneService Port Encoding
 
-**Status: implemented**
+**Status: implemented** — later revised: `InputPacket`/`OutputPacket` were
+unified into `simulator.proto` and all proto packages were flattened to
+`package fourward` (#620).
 
 ## Goal
 
@@ -109,13 +111,13 @@ message InjectPacketRequest {
 
 message InjectPacketResponse {
   repeated OutputPacket output_packets = 1;
-  fourward.sim.TraceTree trace = 2;
+  fourward.TraceTree trace = 2;
 }
 
 message ProcessPacketResult {
   InputPacket input_packet = 1;
   repeated OutputPacket output_packets = 2;
-  fourward.sim.TraceTree trace = 3;
+  fourward.TraceTree trace = 3;
 }
 ```
 
@@ -126,10 +128,10 @@ Key decisions:
   `sim.InputPacket` is no longer part of the request; it stays a pure
   simulator-internal type.
 - `OutputPacket` is **redefined in `dataplane.proto`** with dual encoding.
-  It replaces `fourward.sim.OutputPacket` in `InjectPacketResponse` and
-  `ProcessPacketResult`. The `fourward.sim.OutputPacket` in `simulator.proto`
+  It replaces `fourward.OutputPacket` in `InjectPacketResponse` and
+  `ProcessPacketResult`. The `fourward.OutputPacket` in `simulator.proto`
   is unchanged and continues to be used in trace trees.
-- The trace tree inside responses still uses `fourward.sim.OutputPacket` (no
+- The trace tree inside responses still uses `fourward.OutputPacket` (no
   P4RT ports). See [Future work](#future-work).
 
 ### Port translation

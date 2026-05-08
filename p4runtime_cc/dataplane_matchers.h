@@ -19,11 +19,12 @@
 #include "gmock/gmock.h"
 #include "p4runtime/dataplane.pb.h"
 #include "p4runtime_cc/dataplane_client.h"
+#include "simulator/simulator.pb.h"
 
 namespace fourward {
 namespace internal {
 
-using PacketList = std::vector<fourward::dataplane::OutputPacket>;
+using PacketList = std::vector<fourward::OutputPacket>;
 
 template <typename T>
 std::vector<PacketList> ExtractOutcomes(const T& result) {
@@ -105,7 +106,7 @@ using PortKey = std::variant<DataplanePort, P4RuntimePort>;
 // All entries must use the same port type (DataplanePort or P4RuntimePort).
 // Mixing types in a single OnPorts call groups all packets by the first
 // entry's type, which silently ignores entries of the other type.
-inline PortKey PacketPortKey(const fourward::dataplane::OutputPacket& pkt,
+inline PortKey PacketPortKey(const fourward::OutputPacket& pkt,
                              const PortKey& example_key) {
   if (std::holds_alternative<P4RuntimePort>(example_key)) {
     return P4RuntimePort{pkt.p4rt_egress_port()};
@@ -139,14 +140,12 @@ inline void PrintPortKey(std::ostream* os, const PortKey& key) {
 
 inline auto OnPort(DataplanePort expected) {
   return ::testing::ResultOf(
-      [](const fourward::dataplane::OutputPacket& p) {
-        return p.dataplane_egress_port();
-      },
+      [](const fourward::OutputPacket& p) { return p.dataplane_egress_port(); },
       ::testing::Eq(expected.port));
 }
 inline auto OnPort(P4RuntimePort expected) {
   return ::testing::ResultOf(
-      [](const fourward::dataplane::OutputPacket& p) -> const std::string& {
+      [](const fourward::OutputPacket& p) -> const std::string& {
         return p.p4rt_egress_port();
       },
       ::testing::Eq(expected.port));
@@ -161,7 +160,7 @@ inline auto OnPort(std::string_view port) {
 
 inline auto HasPayload(::testing::Matcher<const std::string&> m) {
   return ::testing::ResultOf(
-      [](const fourward::dataplane::OutputPacket& p) -> const std::string& {
+      [](const fourward::OutputPacket& p) -> const std::string& {
         return p.payload();
       },
       std::move(m));

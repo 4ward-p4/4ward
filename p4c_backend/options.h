@@ -35,7 +35,7 @@ class FourWardOptions : public CompilerOptions {
   std::optional<std::string> outputFile;
 
   // Output message type for `outputFile`.
-  //   "native" (default): fourward.ir.PipelineConfig.
+  //   "native" (default): fourward.PipelineConfig.
   //   "p4runtime":        p4.v1.ForwardingPipelineConfig (DeviceConfig
   //                       serialized into p4_device_config bytes).
   enum class Format : std::uint8_t { kNative, kP4runtime };
@@ -45,7 +45,7 @@ class FourWardOptions : public CompilerOptions {
   // determines encoding as above. Enables pipelines that want p4info or the
   // device-config blob independently of the combined form.
   //   outP4Info:         p4.config.v1.P4Info
-  //   outP4DeviceConfig: fourward.ir.DeviceConfig
+  //   outP4DeviceConfig: fourward.DeviceConfig
   std::optional<std::string> outP4Info;
   std::optional<std::string> outP4DeviceConfig;
 
