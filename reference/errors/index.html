@@ -1275,11 +1275,11 @@ and lists the valid options.</p>
   <code>space</code> and <code>code</code> fields per P4Runtime spec section 12.3.</li>
 <li><strong>Golden-tested.</strong> All 75 error paths are locked down by golden tests.
   Messages cannot silently degrade. Update with:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>bazel test //p4runtime:GoldenErrorTest --test_env=UPDATE_GOLDEN=1
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>bazel test //grpc:GoldenErrorTest --test_env=UPDATE_GOLDEN=1
 </code></pre></div></li>
 </ul>
 <h2 id="all-error-messages">All error messages<a class="headerlink" href="#all-error-messages" title="Permanent link">¶</a></h2>
-<p>See <a href="https://github.com/smolkaj/4ward/tree/main/p4runtime/golden_errors"><code>p4runtime/golden_errors/</code></a>
+<p>See <a href="https://github.com/smolkaj/4ward/tree/main/grpc/golden_errors"><code>grpc/golden_errors/</code></a>
 for the complete list of golden-tested error messages.</p>
 
 

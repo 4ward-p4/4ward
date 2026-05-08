@@ -1355,10 +1355,10 @@
   trees.</li>
 </ul>
 <h2 id="start-the-server">Start the server<a class="headerlink" href="#start-the-server" title="Permanent link">¶</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>bazel<span class="w"> </span>run<span class="w"> </span>//p4runtime:p4runtime_server
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>bazel<span class="w"> </span>run<span class="w"> </span>//grpc:fourward_server
 </code></pre></div>
 <p>The server listens on port <strong>9559</strong> by default. Override with <code>--port</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>bazel<span class="w"> </span>run<span class="w"> </span>//p4runtime:p4runtime_server<span class="w"> </span>--<span class="w"> </span>--port<span class="o">=</span><span class="m">50051</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>bazel<span class="w"> </span>run<span class="w"> </span>//grpc:fourward_server<span class="w"> </span>--<span class="w"> </span>--port<span class="o">=</span><span class="m">50051</span>
 </code></pre></div>
 <h2 id="typical-workflow">Typical workflow<a class="headerlink" href="#typical-workflow" title="Permanent link">¶</a></h2>
 <h3 id="1-load-a-pipeline">1. Load a pipeline<a class="headerlink" href="#1-load-a-pipeline" title="Permanent link">¶</a></h3>

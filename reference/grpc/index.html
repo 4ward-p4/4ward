@@ -1482,7 +1482,7 @@
 <h1 id="grpc-api-reference">gRPC API Reference<a class="headerlink" href="#grpc-api-reference" title="Permanent link">¶</a></h1>
 <p>4ward exposes two gRPC services on the same port (default: <strong>9559</strong>).</p>
 <h2 id="server">Server<a class="headerlink" href="#server" title="Permanent link">¶</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>bazel<span class="w"> </span>run<span class="w"> </span>//p4runtime:p4runtime_server<span class="w"> </span>--<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>bazel<span class="w"> </span>run<span class="w"> </span>//grpc:fourward_server<span class="w"> </span>--<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -1585,7 +1585,7 @@ become primary for a role. The highest <code>election_id</code> wins.</p>
 </tbody>
 </table>
 <h2 id="dataplane-service">Dataplane service<a class="headerlink" href="#dataplane-service" title="Permanent link">¶</a></h2>
-<p>Defined in <a href="https://github.com/smolkaj/4ward/blob/main/p4runtime/dataplane.proto"><code>dataplane.proto</code></a>.
+<p>Defined in <a href="https://github.com/smolkaj/4ward/blob/main/grpc/dataplane.proto"><code>dataplane.proto</code></a>.
 For packet injection and result observation — not part of the P4Runtime spec.</p>
 <h3 id="injectpacket"><code>InjectPacket</code><a class="headerlink" href="#injectpacket" title="Permanent link">¶</a></h3>
 <p>Inject a single packet and get the result inline.</p>
