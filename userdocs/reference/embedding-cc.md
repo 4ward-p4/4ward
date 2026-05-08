@@ -1,8 +1,8 @@
 ---
-description: "Treat 4ward like a native C++ library — Bazel setup, example usage, and the stable startup contract wrappers in other languages can rely on."
+description: "Use 4ward from C++ — Bazel setup and example usage."
 ---
 
-# Embedding the server in C++
+# C++ API
 
 **Treat 4ward like a native C++ library.** Depend on
 `//fourward_cc:dataplane_client` for the ergonomic wrapper, or
@@ -106,7 +106,7 @@ languages.
 
 ## Related
 
-- [`fourward_cc/`](https://github.com/smolkaj/4ward/tree/main/p4runtime_cc)
+- [`fourward_cc/`](https://github.com/smolkaj/4ward/tree/main/fourward_cc)
   — source of the wrapper.
 - [gRPC API reference](grpc.md) — server flags, RPC surface, and proto
   definitions.
