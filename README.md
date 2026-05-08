@@ -40,41 +40,34 @@ packets, explore trace trees. No setup beyond Bazel.
 
 ## Why 4ward?
 
-4ward is a **spec-compliant reference implementation** of the
-[P4₁₆ language](https://p4.org/wp-content/uploads/sites/53/p4-spec/docs/p4-16-working-draft.html)
-and [P4Runtime](https://p4lang.github.io/p4runtime/spec/main/P4Runtime-Spec.html),
-built for **correctness, observability, and extensibility** — yet fast
-enough for production test workloads.
+4ward is a [spec-compliant](docs/P4RUNTIME_COMPLIANCE.md) reference
+implementation of
+[P4₁₆](https://p4.org/wp-content/uploads/sites/53/p4-spec/docs/p4-16-working-draft.html)
+and [P4Runtime](https://p4lang.github.io/p4runtime/spec/main/P4Runtime-Spec.html).
+Here's what sets it apart from [BMv2](https://github.com/p4lang/behavioral-model):
 
 | | BMv2 | 4ward |
 |---|---|---|
-| P4Runtime support | outdated | [**100% spec-compliant**](docs/P4RUNTIME_COMPLIANCE.md) — 144 spec + 10 extension requirements |
-| Trace format | text | **text / JSON / [proto](e2e_tests/trace_tree/clone_with_egress.golden.txtpb)** |
-| All possible traces | not natively | [**trace trees**](#trace-trees) — every path through the program |
-| `@p4runtime_translation` | no | [**built-in translation engine**](#p4runtime_translation-done-right) |
-| Architectures | v1model only | **v1model + PSA + PNA**, [extensible by design](docs/ROADMAP.md#track-6-multi-architecture-support) |
-| Architecture customization | no | [**first-class support**](docs/ROADMAP.md#track-5-architecture-customization) |
-| Interactive playground | no | [**browser-based IDE**](#web-playground) with trace playback & packet decoding |
-| Error messages | opaque | [**actionable, with valid options**](docs/ROADMAP.md#track-11-error-quality) — [75 golden-tested](grpc/golden_errors/) |
-| Data plane throughput (16-way selector) | [~4,500 pps ÷ 16 paths](docs/PERFORMANCE.md#bmv2-comparison) | [**~2,000 pps, all 16 paths**](docs/PERFORMANCE.md) ([head-to-head on SAI P4](docs/PERFORMANCE.md#bmv2-comparison)) |
-| Data plane parallelism (16-way selector) | single-threaded | [**16,000 pps on 16 cores**](docs/PERFORMANCE.md) — parallel across packets and forks |
-| Extensibility | limited | [**AI-friendly codebase**](docs/ROADMAP.md#why-4ward-is-easier-to-extend) — if AI can extend it, anyone can |
-| CI | slow | **[~2 min](https://4ward.buildbuddy.io/trends/)**, rigorous |
-| Development pace | slow | **[AI-fast](docs/AI_WORKFLOW.md)** |
+| **Trace trees** | picks one path | [**every path through the program**](#trace-trees) |
+| **P4Runtime** | outdated | [**100% spec-compliant**](docs/P4RUNTIME_COMPLIANCE.md) — 144 spec + 10 extension requirements |
+| **`@p4runtime_translation`** | no | [**built-in translation engine**](#p4runtime_translation-done-right) |
+| **Architectures** | v1model only | **v1model + PSA + PNA**, [extensible](docs/ROADMAP.md#track-6-multi-architecture-support) |
+| **Error messages** | opaque | [**actionable, with valid options**](docs/ROADMAP.md#track-11-error-quality) — [75 golden-tested](grpc/golden_errors/) |
+| **Parallelism** (16-way selector) | single-threaded | [**16,000 pps on 16 cores**](docs/PERFORMANCE.md) |
+| **Interactive playground** | no | [**browser-based IDE**](#web-playground) with trace playback & packet decoding |
 
 ## Where we're headed
 
-The core vision is realized: spec-compliant v1model/PSA/PNA, trace trees,
-full P4Runtime, and
-[SAI P4 end-to-end](docs/SAI_P4_CONFIDENCE.md) through the full P4Runtime
-stack. The **[roadmap](docs/ROADMAP.md)** tracks what's next: adversarial
-testing, network simulation, and
+The big goal: make 4ward a drop-in replacement for BMv2 in
 **[DVaaS](https://github.com/sonic-net/sonic-pins/tree/main/dvaas)**
-integration — making 4ward a drop-in replacement for BMv2 in SONiC's
-dataplane validation service.
+(SONiC's dataplane validation service). The core is there — spec-compliant
+v1model/PSA/PNA, trace trees, full P4Runtime,
+[SAI P4 end-to-end](docs/SAI_P4_CONFIDENCE.md). The
+**[roadmap](docs/ROADMAP.md)** tracks what's left: adversarial testing,
+network simulation, and full DVaaS integration.
 
 4ward is pre-1.0 and moving fast. See **[STATUS.md](docs/STATUS.md)** for
-progress updates.
+progress.
 
 > [!WARNING]
 > **Pre-1.0 Notice:** We are aggressively refactoring to build the best
@@ -259,30 +252,27 @@ wrote it. See [Testing Strategy](docs/TESTING_STRATEGY.md) for the full story.
 
 ## Why Kotlin?
 
-The P4 ecosystem is written in C++. So why isn't 4ward?
+The P4 ecosystem is C++. We chose Kotlin anyway — because it's the
+right tool for this job.
 
-Since no one needs to hold language minutiae in their head — the
-[AI writes the code](docs/AI_WORKFLOW.md) — we're free to pick the best
-language for the problem, not the most familiar one.
+A P4 simulator is an interpreter: it walks a tree-structured IR,
+pattern-matches on node types, and evaluates expressions. Kotlin's
+sealed classes and `when` expressions make this natural and
+exhaustive — the compiler catches missing cases. The JVM gives us
+`BigInteger` for arbitrary-width bit arithmetic and a mature
+concurrent runtime that makes parallelizing packet processing
+almost free.
 
-**Why not C++?** Its top strengths — speed, ecosystem familiarity —
-don't matter here. Its top weaknesses — compile times, complexity — matter a lot.
+C++ would have given us faster single-threaded throughput, but at the
+cost of build times, complexity, and a much larger codebase. Since
+[AI writes the code](docs/AI_WORKFLOW.md), familiarity with the
+language matters less than how well the language fits the problem.
 
-**Why Kotlin?** Fast builds, simple language, strong type system, excellent
-ergonomics (sealed classes, pattern matching).
-
-**Why not…**
-- **Rust?** Borrow checker is overkill — we don't need manual memory control.
-- **Go?** Weaker type system — no algebraic data types, no pattern matching.
-- **Python?** Weak type system, slow test execution.
-- **Java?** Kotlin, but worse.
-- **OCaml?** Excellent fit, but not well-supported within Google's ecosystem :(
-
-> [!IMPORTANT]
-> **You don't need Kotlin to contribute to — or use — 4ward.**
-> [AI writes the code](docs/AI_WORKFLOW.md); C++ projects embed via
-> [`//fourward_cc:dataplane_client`](https://smolkaj.github.io/4ward/reference/embedding-cc/);
-> any gRPC client works in any language.
+> [!NOTE]
+> **You don't need to know Kotlin to use 4ward.** C++ projects embed
+> via the [C++ API](https://smolkaj.github.io/4ward/reference/embedding-cc/);
+> any language with a gRPC client can talk to the
+> [gRPC services](https://smolkaj.github.io/4ward/getting-started/grpc/).
 
 ## Project structure
 
@@ -313,12 +303,10 @@ ergonomics (sealed classes, pattern matching).
 
 Curious about the design? [ARCHITECTURE.md](docs/ARCHITECTURE.md) has the full story.
 
-## CI that has your back
+## CI
 
-We think fast, reliable CI is key to keeping developers happy and productive.
-
-Every PR gets built, linted, and tested in about 2 minutes — with a differential coverage
-report in about 5. No flakes, no "works on my machine." See for yourself on the
+Every PR gets built, linted, and tested in about 2 minutes — with a
+differential coverage report in about 5. No flakes. See the
 [BuildBuddy dashboard](https://4ward.buildbuddy.io/trends/).
 
 ## Documentation
