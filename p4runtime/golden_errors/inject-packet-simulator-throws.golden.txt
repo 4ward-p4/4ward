@@ -1,1 +1,1 @@
-INTERNAL: InjectPacket failed: IllegalArgumentException: simulated failure
+INTERNAL: InjectPacket failed: simulated failure

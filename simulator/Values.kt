@@ -166,7 +166,11 @@ data class StructVal(val typeName: String, val fields: MutableMap<String, Value>
   /** Overwrites a bit-valued field, preserving its IR-defined width. */
   fun setBitField(name: String, value: Long) {
     val existing = checkNotNull(fields[name] as? BitVal) { "$typeName.$name is not a bit field" }
-    fields[name] = BitVal(value, existing.bits.width)
+    try {
+      fields[name] = BitVal(value, existing.bits.width)
+    } catch (e: IllegalArgumentException) {
+      throw IllegalArgumentException("$typeName.$name: ${e.message}", e)
+    }
   }
 
   /** Returns the bit width of a bit-valued field, as defined by the IR. */

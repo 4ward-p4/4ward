@@ -175,6 +175,7 @@ class GoldenErrorTest(private val testName: String) {
       "inject-packet-no-pipeline" -> triggerInjectPacketNoPipeline()
       "inject-packet-no-port-translation" -> triggerInjectPacketNoPortTranslation()
       "inject-packet-simulator-throws" -> triggerInjectPacketSimulatorThrows()
+      "inject-packet-port-overflow" -> triggerInjectPacketPortOverflow()
       else -> error("unknown test: $name")
     }
   }
@@ -187,7 +188,7 @@ class GoldenErrorTest(private val testName: String) {
     // reproduce here; what this golden protects is the *translation format*.
     val throwingBroker =
       PacketBroker(
-        simulatorFn = { _, _ -> throw IllegalArgumentException("simulated failure") },
+        simulatorFn = { _, _ -> throw ArithmeticException("simulated failure") },
         writeMutex = kotlinx.coroutines.sync.Mutex(),
       )
     val service = DataplaneService(throwingBroker)
@@ -207,6 +208,14 @@ class GoldenErrorTest(private val testName: String) {
   private fun triggerInjectPacketNoPipeline() {
     val p4rtPort = ByteString.copyFrom(byteArrayOf(0, 0, 0, 1))
     harness.injectPacketP4rt(p4rtPort, byteArrayOf(0x01))
+  }
+
+  @Suppress("MagicNumber")
+  private fun triggerInjectPacketPortOverflow() {
+    // v1model's ingress_port is bit<9> (max 511). Injecting port 512 triggers
+    // a setBitField overflow in the simulator.
+    harness.loadPipeline(loadConfig("e2e_tests/passthrough/passthrough.txtpb"))
+    harness.injectPacket(512, P4RuntimeTestHarness.buildEthernetFrame(0x0800))
   }
 
   private fun triggerInjectPacketNoPortTranslation() {
@@ -1716,6 +1725,7 @@ class GoldenErrorTest(private val testName: String) {
         "inject-packet-no-pipeline",
         "inject-packet-no-port-translation",
         "inject-packet-simulator-throws",
+        "inject-packet-port-overflow",
       )
 
     private val VALIDATOR_BINARY: Path =
