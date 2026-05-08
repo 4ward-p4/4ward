@@ -59,9 +59,11 @@ class DataplaneService(
         .build()
     } catch (e: StatusException) {
       throw e // already has a proper status; don't rewrap.
+    } catch (e: IllegalArgumentException) {
+      val detail = listOfNotNull("InjectPacket failed", e.message).joinToString(": ")
+      throw Status.INVALID_ARGUMENT.withDescription(detail).withCause(e).asException()
     } catch (e: Exception) {
-      val detail =
-        listOfNotNull("InjectPacket failed", e.javaClass.simpleName, e.message).joinToString(": ")
+      val detail = listOfNotNull("InjectPacket failed", e.message).joinToString(": ")
       throw Status.INTERNAL.withDescription(detail).withCause(e).asException()
     }
   }

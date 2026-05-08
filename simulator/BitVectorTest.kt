@@ -188,4 +188,18 @@ class BitVectorTest {
     assertEquals(SignedBitVector(BigInteger.valueOf(30), 16), a.addSat(b))
     assertEquals(SignedBitVector(BigInteger.valueOf(-10), 16), a.subSat(b))
   }
+
+  // ===========================================================================
+  // StructVal.setBitField error context
+  // ===========================================================================
+
+  @Test
+  fun `setBitField overflow error includes type and field name`() {
+    val s = StructVal("standard_metadata_t", mutableMapOf("ingress_port" to BitVal(0L, 8)))
+    val e =
+      assertThrows(IllegalArgumentException::class.java) { s.setBitField("ingress_port", 4095) }
+    assert(e.message!!.contains("standard_metadata_t.ingress_port")) {
+      "expected type-qualified field name, got: ${e.message}"
+    }
+  }
 }
