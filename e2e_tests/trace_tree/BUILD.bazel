@@ -74,14 +74,14 @@ fourward_pipeline(
     name = "clone_with_egress",
     src = "clone_with_egress.p4",
     out = "clone_with_egress.txtpb",
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )
 
 fourward_pipeline(
     name = "action_selector_3",
     src = "action_selector_3.p4",
     out = "action_selector_3.txtpb",
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )
 
 _TEST_DEPS = [

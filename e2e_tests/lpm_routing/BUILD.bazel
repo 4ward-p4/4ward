@@ -11,7 +11,7 @@ fourward_pipeline(
     name = "lpm_routing",
     src = "lpm_routing.p4",
     out = "lpm_routing.txtpb",
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )
 
 kt_jvm_test(

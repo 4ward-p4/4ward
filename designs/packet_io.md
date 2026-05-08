@@ -48,7 +48,7 @@ unified into `simulator.proto` and all proto packages were flattened to
 The Dataplane service is redesigned around two independent RPCs — one for
 injection, one for observation:
 
-Defined in `p4runtime/dataplane.proto`; `InputPacket`, `OutputPacket`, and
+Defined in `grpc/dataplane.proto`; `InputPacket`, `OutputPacket`, and
 `TraceTree` are shared types from `simulator/simulator.proto`.
 
 ```proto

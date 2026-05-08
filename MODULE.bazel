@@ -33,7 +33,7 @@ bazel_dep(name = "grpc-java", version = "1.78.0.bcr.1")
 bazel_dep(name = "grpc_kotlin", version = "1.5.0")
 
 # Abseil — idiomatic C++ utilities (absl::Status, absl::Duration, absl::StrCat)
-# used by //p4runtime_cc. Declared directly so the apparent name @abseil-cpp
+# used by //fourward_cc. Declared directly so the apparent name @abseil-cpp
 # resolves under strict deps; it is also pulled transitively via @grpc.
 bazel_dep(name = "abseil-cpp", version = "20260107.1")
 
@@ -143,7 +143,7 @@ use_repo(pip, "pip")
 
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
 
-# Not dev_dependency: //p4runtime_cc:fourward_server_test is visible to BCR
+# Not dev_dependency: //fourward_cc:fourward_server_test is visible to BCR
 # consumers building `@fourward//...`, so its `@googletest` dep must resolve
 # outside the root-module context too.
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")

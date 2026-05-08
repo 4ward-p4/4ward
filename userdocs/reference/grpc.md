@@ -9,7 +9,7 @@ description: "4ward gRPC API reference: P4Runtime and Dataplane service RPCs, co
 ## Server
 
 ```sh
-bazel run //p4runtime:p4runtime_server -- [flags]
+bazel run //grpc:fourward_server -- [flags]
 ```
 
 | Flag | Default | Description |
@@ -50,7 +50,7 @@ become primary for a role. The highest `election_id` wins.
 
 ## Dataplane service
 
-Defined in [`dataplane.proto`](https://github.com/smolkaj/4ward/blob/main/p4runtime/dataplane.proto).
+Defined in [`dataplane.proto`](https://github.com/smolkaj/4ward/blob/main/grpc/dataplane.proto).
 For packet injection and result observation — not part of the P4Runtime spec.
 
 ### `InjectPacket`

@@ -131,8 +131,8 @@ failure.
   with port allocation, startup readiness checks, and graceful
   shutdown. Phase 2's `Bmv2P4RuntimeRunner` should mirror that
   lifecycle directly — same patterns, different transport.
-- 4ward already exposes a `p4runtime_server` Kotlin binary
-  (`p4runtime/BUILD.bazel`); the harness spawns it as a subprocess
+- 4ward already exposes a `fourward_server` Kotlin binary
+  (`grpc/BUILD.bazel`); the harness spawns it as a subprocess
   the same way DVaaS integration (designs/dvaas_integration.md) does.
 - The gRPC client is the standard P4Runtime Kotlin stub already used
   by `P4RuntimeConformanceTest`.

@@ -68,10 +68,10 @@ INTERNAL: undefined variable: x (at my_program.p4:42:3)
 - **Golden-tested.** All 75 error paths are locked down by golden tests.
   Messages cannot silently degrade. Update with:
   ```
-  bazel test //p4runtime:GoldenErrorTest --test_env=UPDATE_GOLDEN=1
+  bazel test //grpc:GoldenErrorTest --test_env=UPDATE_GOLDEN=1
   ```
 
 ## All error messages
 
-See [`p4runtime/golden_errors/`](https://github.com/smolkaj/4ward/tree/main/p4runtime/golden_errors)
+See [`grpc/golden_errors/`](https://github.com/smolkaj/4ward/tree/main/grpc/golden_errors)
 for the complete list of golden-tested error messages.

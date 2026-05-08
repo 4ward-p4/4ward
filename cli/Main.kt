@@ -1,6 +1,6 @@
 package fourward.cli
 
-import fourward.p4runtime.P4RuntimeServer
+import fourward.grpc.FourwardServer
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.system.exitProcess
@@ -146,7 +146,7 @@ private fun handleNetwork(args: List<String>): Int {
 }
 
 private fun handleNetworkServe(args: List<String>): Int {
-  var basePort = P4RuntimeServer.DEFAULT_PORT
+  var basePort = FourwardServer.DEFAULT_PORT
   val positional = mutableListOf<String>()
 
   for (arg in args) {

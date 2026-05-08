@@ -12,7 +12,7 @@ import p4.config.v1.P4InfoOuterClass
  * BMv2 throughput benchmark on SAI P4 middleblock.
  *
  * Measures packets/sec through BMv2's simple_switch on the same SAI P4 program and workload as
- * [fourward.p4runtime.DataplaneBenchmark], enabling a head-to-head comparison.
+ * [fourward.grpc.DataplaneBenchmark], enabling a head-to-head comparison.
  *
  * Run with: bazel test //e2e_tests/bmv2_diff:Bmv2Benchmark -c opt --test_output=streamed
  */

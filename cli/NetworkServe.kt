@@ -1,6 +1,6 @@
 package fourward.cli
 
-import fourward.p4runtime.P4RuntimeServer
+import fourward.grpc.FourwardServer
 import fourward.stf.StfFile
 import fourward.stf.installStfEntries
 import fourward.stf.loadPipelineConfig
@@ -55,13 +55,13 @@ fun networkServe(nstfPath: Path, basePort: Int): Int {
 }
 
 /** Starts one P4Runtime server per switch, pre-loaded with pipelines and entries. */
-fun startNetworkServers(nstf: NetworkStf, basePort: Int): List<P4RuntimeServer> {
-  val servers = mutableListOf<P4RuntimeServer>()
+fun startNetworkServers(nstf: NetworkStf, basePort: Int): List<FourwardServer> {
+  val servers = mutableListOf<FourwardServer>()
 
   for ((idx, sw) in nstf.switches.withIndex()) {
     // Port 0 = ephemeral (each server gets its own OS-assigned port).
     val port = if (basePort == 0) 0 else basePort + idx
-    val server = P4RuntimeServer(port = port, deviceId = idx.toLong() + 1)
+    val server = FourwardServer(port = port, deviceId = idx.toLong() + 1)
     // Register for cleanup before any fallible work below, so a failure
     // tears down this server along with the previously-built ones.
     servers.add(server)

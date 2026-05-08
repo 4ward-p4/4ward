@@ -219,7 +219,7 @@ cc_test(
     name = "dvaas_test",
     data = [
         ":sai_middleblock_fourward",        # compiled pipeline
-        "@fourward//:p4runtime_server",      # server binary
+        "@fourward//grpc:fourward_server",      # server binary
     ],
     ...
 )

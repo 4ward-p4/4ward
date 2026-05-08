@@ -1,8 +1,8 @@
 package fourward.web
 
-import fourward.p4runtime.DataplaneService
-import fourward.p4runtime.P4RuntimeService
-import fourward.p4runtime.PacketBroker
+import fourward.grpc.DataplaneService
+import fourward.grpc.P4RuntimeService
+import fourward.grpc.PacketBroker
 import fourward.simulator.Simulator
 import io.grpc.netty.NettyServerBuilder
 import java.awt.Desktop
@@ -19,11 +19,11 @@ import java.nio.file.Path
 fun main(args: Array<String>) {
   val httpPort = flagValue(args, "--http-port")?.toIntOrNull() ?: WebServer.DEFAULT_HTTP_PORT
   val grpcPort =
-    flagValue(args, "--grpc-port")?.toIntOrNull() ?: fourward.p4runtime.P4RuntimeServer.DEFAULT_PORT
+    flagValue(args, "--grpc-port")?.toIntOrNull() ?: fourward.grpc.FourwardServer.DEFAULT_PORT
   val staticDir = flagValue(args, "--static-dir")?.let { Path.of(it) }
 
   val dropPort = flagValue(args, "--drop-port")?.toIntOrNull()
-  val cpuPortConfig = fourward.p4runtime.CpuPortConfig.fromFlag(flagValue(args, "--cpu-port"))
+  val cpuPortConfig = fourward.grpc.CpuPortConfig.fromFlag(flagValue(args, "--cpu-port"))
 
   val simulator = Simulator(dropPort)
   val writeMutex = kotlinx.coroutines.sync.Mutex()

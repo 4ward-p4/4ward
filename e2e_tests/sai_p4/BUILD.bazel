@@ -41,7 +41,7 @@ fourward_pipeline(
     out_p4_device_config = "sai_middleblock.dc.binpb",
     visibility = [
         "//e2e_tests/pipeline_outputs:__pkg__",
-        "//p4runtime:__pkg__",
+        "//grpc:__pkg__",
     ],
 )
 

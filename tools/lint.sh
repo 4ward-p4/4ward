@@ -85,7 +85,7 @@ fi
 
 echo "Running detekt..."
 bazel run //:detekt -- \
-  --input "${REPO_ROOT}/simulator,${REPO_ROOT}/p4runtime,${REPO_ROOT}/e2e_tests,${REPO_ROOT}/cli,${REPO_ROOT}/web" \
+  --input "${REPO_ROOT}/simulator,${REPO_ROOT}/grpc,${REPO_ROOT}/e2e_tests,${REPO_ROOT}/cli,${REPO_ROOT}/web" \
   --config "${REPO_ROOT}/detekt.yml" \
   --build-upon-default-config || rc=1
 

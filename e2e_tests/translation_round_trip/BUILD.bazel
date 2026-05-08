@@ -16,5 +16,5 @@ fourward_pipeline(
     out = "round_trip.txtpb",
     extra_srcs = ["//e2e_tests/sai_p4:sai_p4_srcs"],
     includes = ["//e2e_tests/sai_p4:fixed/v1model_sai.p4"],
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )

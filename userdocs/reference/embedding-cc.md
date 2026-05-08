@@ -5,8 +5,8 @@ description: "Treat 4ward like a native C++ library — Bazel setup, example usa
 # Embedding the server in C++
 
 **Treat 4ward like a native C++ library.** Depend on
-`//p4runtime_cc:dataplane_client` for the ergonomic wrapper, or
-`//p4runtime_cc:fourward_server` for raw stub access. Your project sees
+`//fourward_cc:dataplane_client` for the ergonomic wrapper, or
+`//fourward_cc:fourward_server` for raw stub access. Your project sees
 a C++ API and a Bazel target; the server's implementation language never
 enters the picture.
 
@@ -17,8 +17,8 @@ cc_test(
     name = "my_test",
     srcs = ["my_test.cc"],
     deps = [
-        "@fourward//p4runtime_cc:dataplane_client",
-        "@fourward//p4runtime_cc:fourward_server",
+        "@fourward//fourward_cc:dataplane_client",
+        "@fourward//fourward_cc:fourward_server",
         # ... your other deps ...
     ],
 )
@@ -30,7 +30,7 @@ cc_test(
 The recommended entry point for packet injection and result observation:
 
 ```cpp
-#include "p4runtime_cc/dataplane_client.h"
+#include "fourward_cc/dataplane_client.h"
 
 absl::Status RunAgainstFourward() {
   ASSIGN_OR_RETURN(fourward::FourwardServer server,
@@ -71,7 +71,7 @@ intentionally not wrapped — use the raw stub for advanced use cases.
 For direct stub access or when you need the P4Runtime service:
 
 ```cpp
-#include "p4runtime_cc/fourward_server.h"
+#include "fourward_cc/fourward_server.h"
 
 absl::Status RunAgainstFourward() {
   ASSIGN_OR_RETURN(fourward::FourwardServer server,
@@ -88,7 +88,7 @@ absl::Status RunAgainstFourward() {
 
 Options cover `device_id`, the listening `port` (unset by default — the
 kernel picks an ephemeral port), `drop_port`, `cpu_port`, and
-`startup_timeout`. See [`fourward_server.h`](https://github.com/smolkaj/4ward/blob/main/p4runtime_cc/fourward_server.h)
+`startup_timeout`. See [`fourward_server.h`](https://github.com/smolkaj/4ward/blob/main/fourward_cc/fourward_server.h)
 for the full API.
 
 ## Startup contract
@@ -106,7 +106,7 @@ languages.
 
 ## Related
 
-- [`p4runtime_cc/`](https://github.com/smolkaj/4ward/tree/main/p4runtime_cc)
+- [`fourward_cc/`](https://github.com/smolkaj/4ward/tree/main/p4runtime_cc)
   — source of the wrapper.
 - [gRPC API reference](grpc.md) — server flags, RPC surface, and proto
   definitions.

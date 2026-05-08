@@ -30,7 +30,7 @@ kt_jvm_library(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel:runfiles",
-        "//p4runtime",
+        "//grpc",
         "//simulator",
         "//simulator:ir_java_proto",
         "//simulator:p4info_java_proto",
@@ -91,7 +91,7 @@ kt_jvm_test(
         ":cli",
         "//bazel:runfiles",
         "//e2e_tests:golden_file",
-        "//p4runtime",
+        "//grpc",
         "//simulator",
         "//simulator:simulator_java_proto",
         "//stf",

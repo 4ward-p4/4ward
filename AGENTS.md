@@ -135,7 +135,7 @@ Before submitting:
 
 5. **The simulator is the source of truth for all data-plane state.** Table
    entries, counters, registers — all live in the Kotlin simulator. The
-   P4Runtime server (`p4runtime/`) is a thin adapter that forwards requests;
+   P4Runtime server (`grpc/`) is a thin adapter that forwards requests;
    it holds no P4 state of its own.
 
 6. **When changing concurrency assumptions, audit every site that depended on
@@ -177,8 +177,8 @@ simulator/ir.proto           The behavioral IR. The core contract of the project
 simulator/simulator.proto    Shared types for simulator clients (P4Runtime, STF, tests).
 simulator/*.kt               Kotlin simulator (the heart of 4ward).
 p4c_backend/*.{h,cpp}        C++ p4c backend plugin (emits proto IR from P4 source).
-p4runtime/*.kt               P4Runtime gRPC server (Kotlin).
-p4runtime_cc/*.{h,cc}        C++ RAII wrapper that embeds the server as a subprocess.
+grpc/*.kt                    P4Runtime + Dataplane gRPC services (Kotlin).
+fourward_cc/*.{h,cc}         C++ embedding API (FourwardServer, DataplaneClient).
 cli/*.kt                     Standalone CLI (4ward compile / sim / run).
 web/*.kt                     Web playground server and graph extractors (Kotlin).
 examples/*.p4                Ready-to-run example programs.

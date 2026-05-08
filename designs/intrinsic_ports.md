@@ -85,8 +85,8 @@ Each entry point sources the override however makes sense for its context:
 
 | Entry point | Drop port override | CPU port override |
 |---|---|---|
-| **CLI** (`4ward run`) | `--drop-port` flag → passed to `Simulator` | `--cpu-port` flag → passed to `P4RuntimeServer` |
+| **CLI** (`4ward run`) | `--drop-port` flag → passed to `Simulator` | `--cpu-port` flag → passed to `FourwardServer` |
 | **P4Runtime server** | `--drop-port` flag → passed to `Simulator` | `--cpu-port` flag → kept in server |
 | **Web playground** | Same as P4Runtime server (it wraps one) | Same as P4Runtime server |
 | **STF runner** | Constructor param on `StfRunner` (default: null) | N/A — no P4Runtime, no CPU port semantics |
-| **Test harness** | Constructor param on `P4RuntimeTestHarness` | Constructor param on `P4RuntimeTestHarness` |
+| **Test harness** | Constructor param on `FourwardTestHarness` | Constructor param on `FourwardTestHarness` |

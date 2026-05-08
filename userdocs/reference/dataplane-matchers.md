@@ -35,8 +35,8 @@ Most tests only need the shorthands. They work on both
 (from `ResultStream::Next`):
 
 ```cpp
-#include "p4runtime_cc/dataplane_matchers.h"
-#include "p4runtime_cc/dataplane_client.h"
+#include "fourward_cc/dataplane_matchers.h"
+#include "fourward_cc/dataplane_client.h"
 
 using ::fourward::Drops;
 using ::fourward::ForwardsTo;
@@ -242,7 +242,7 @@ cc_test(
     name = "my_test",
     srcs = ["my_test.cc"],
     deps = [
-        "@fourward//p4runtime_cc:dataplane_matchers",
+        "@fourward//fourward_cc:dataplane_matchers",
         # ...
     ],
 )

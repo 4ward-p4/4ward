@@ -55,7 +55,7 @@ enough for production test workloads.
 | Architectures | v1model only | **v1model + PSA + PNA**, [extensible by design](docs/ROADMAP.md#track-6-multi-architecture-support) |
 | Architecture customization | no | [**first-class support**](docs/ROADMAP.md#track-5-architecture-customization) |
 | Interactive playground | no | [**browser-based IDE**](#web-playground) with trace playback & packet decoding |
-| Error messages | opaque | [**actionable, with valid options**](docs/ROADMAP.md#track-11-error-quality) — [75 golden-tested](p4runtime/golden_errors/) |
+| Error messages | opaque | [**actionable, with valid options**](docs/ROADMAP.md#track-11-error-quality) — [75 golden-tested](grpc/golden_errors/) |
 | Data plane throughput (16-way selector) | [~4,500 pps ÷ 16 paths](docs/PERFORMANCE.md#bmv2-comparison) | [**~2,000 pps, all 16 paths**](docs/PERFORMANCE.md) ([head-to-head on SAI P4](docs/PERFORMANCE.md#bmv2-comparison)) |
 | Data plane parallelism (16-way selector) | single-threaded | [**13,000 pps on 16 cores**](docs/PERFORMANCE.md) — parallel across packets and forks |
 | Extensibility | limited | [**AI-friendly codebase**](docs/ROADMAP.md#why-4ward-is-easier-to-extend) — if AI can extend it, anyone can |
@@ -281,7 +281,7 @@ ergonomics (sealed classes, pattern matching).
 > [!IMPORTANT]
 > **You don't need Kotlin to contribute to — or use — 4ward.**
 > [AI writes the code](docs/AI_WORKFLOW.md); C++ projects embed via
-> [`//p4runtime_cc:dataplane_client`](https://smolkaj.github.io/4ward/reference/embedding-cc/);
+> [`//fourward_cc:dataplane_client`](https://smolkaj.github.io/4ward/reference/embedding-cc/);
 > any gRPC client works in any language.
 
 ## Project structure
@@ -293,7 +293,8 @@ ergonomics (sealed classes, pattern matching).
 │   ├── ir.proto            Behavioral IR (the contract between backend & sim)
 │   └── simulator.proto     Simulator service protocol (in-process + gRPC)
 ├── p4c_backend/            p4c backend plugin (C++, emits the proto IR)
-├── p4runtime/              P4Runtime gRPC server (Kotlin)
+├── grpc/                   P4Runtime + Dataplane gRPC services (Kotlin)
+├── fourward_cc/            C++ embedding API (FourwardServer, DataplaneClient)
 ├── stf/                    STF parser + runner (drives the simulator from .stf files)
 ├── web/                    Interactive web playground
 ├── examples/               Ready-to-run P4 programs and STF tests

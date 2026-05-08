@@ -47,7 +47,7 @@ cmd_diff_coverage() {
 }
 
 cmd_benchmark() {
-  bazel test //p4runtime:DataplaneBenchmark \
+  bazel test //grpc:DataplaneBenchmark \
     --test_output=streamed \
     --nocache_test_results \
     "$@"
