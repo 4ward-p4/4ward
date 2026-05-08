@@ -11,6 +11,7 @@
 #include <map>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -154,6 +155,9 @@ inline auto OnPort(uint32_t port) { return OnPort(DataplanePort{port}); }
 inline auto OnPort(std::string port) {
   return OnPort(P4RuntimePort{std::move(port)});
 }
+inline auto OnPort(std::string_view port) {
+  return OnPort(P4RuntimePort{std::string(port)});
+}
 
 inline auto HasPayload(::testing::Matcher<const std::string&> m) {
   return ::testing::ResultOf(
@@ -161,6 +165,13 @@ inline auto HasPayload(::testing::Matcher<const std::string&> m) {
         return p.payload();
       },
       std::move(m));
+}
+
+// OnPort with payload: "a packet on this port with this payload."
+template <typename Port, typename Payload>
+auto OnPort(Port port, Payload payload) {
+  return ::testing::AllOf(OnPort(std::move(port)),
+                          HasPayload(std::move(payload)));
 }
 
 // ---------------------------------------------------------------------------
@@ -298,6 +309,9 @@ inline auto HasIngress(uint32_t port) {
 }
 inline auto HasIngress(std::string port) {
   return HasIngress(P4RuntimePort{std::move(port)});
+}
+inline auto HasIngress(std::string_view port) {
+  return HasIngress(P4RuntimePort{std::string(port)});
 }
 
 // ---------------------------------------------------------------------------

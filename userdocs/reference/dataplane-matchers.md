@@ -81,7 +81,10 @@ using ::fourward::OnPort;
 using ::fourward::HasPayload;
 
 // Port and payload:
-EXPECT_THAT(response, OutcomeIs(AllOf(OnPort(1), HasPayload(expected_bytes))));
+EXPECT_THAT(response, OutcomeIs(OnPort(1, expected_bytes)));
+
+// With a payload matcher:
+EXPECT_THAT(response, OutcomeIs(OnPort(1, HasPayload(StartsWith("hello")))));
 
 // Multicast — two output packets:
 EXPECT_THAT(response, OutcomeIs(OnPort(1), OnPort(2)));
