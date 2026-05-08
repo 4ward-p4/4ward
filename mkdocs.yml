@@ -68,7 +68,9 @@ nav:
   - gRPC API:
       - Getting Started: getting-started/grpc.md
       - Reference: reference/grpc.md
-      - Embedding in C++: reference/embedding-cc.md
+  - C++ Library:
+      - Getting Started: reference/embedding-cc.md
+      - Dataplane Matchers: reference/dataplane-matchers.md
   - Concepts:
       - Trace Trees: concepts/traces.md
       - Type Translation: concepts/type-translation.md

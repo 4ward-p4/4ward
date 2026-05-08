@@ -324,9 +324,8 @@ report in about 5. No flakes, no "works on my machine." See for yourself on the
 
 **[User documentation](https://smolkaj.github.io/4ward/)** — getting started
 guides, reference pages, and concept explainers for the web playground, CLI,
-and gRPC API. Working in a C++ codebase?
-**[Embedding in C++](https://smolkaj.github.io/4ward/reference/embedding-cc/)**
-lets you treat 4ward like a native C++ library.
+gRPC API, and [C++ library](https://smolkaj.github.io/4ward/reference/embedding-cc/)
+(including composable [gtest matchers](https://smolkaj.github.io/4ward/reference/dataplane-matchers/)).
 
 **[Tutorial](examples/tutorial.t)** — a hands-on walkthrough from hello
 world to machine-readable trace output. Doubles as a regression test (cram
