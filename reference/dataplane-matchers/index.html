@@ -10,6 +10,10 @@
         <link rel="canonical" href="https://smolka.st/4ward/reference/dataplane-matchers/">
       
       
+        <link rel="prev" href="../embedding-cc/">
+      
+      
+        <link rel="next" href="../../concepts/traces/">
       
       
         
@@ -20,7 +24,7 @@
     
     
       
-        <title>Dataplane matchers - 4ward</title>
+        <title>Dataplane Matchers - 4ward</title>
       
     
     
@@ -59,7 +63,7 @@
 
 <!-- Open Graph -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="Dataplane matchers - 4ward">
+<meta property="og:title" content="Dataplane Matchers - 4ward">
 <meta property="og:description" content="gtest matchers for asserting on dataplane packet results — composable with gmock's standard vocabulary.">
 <meta property="og:image" content="https://smolka.st/4ward/assets/social-card.png">
 <meta property="og:url" content="https://smolka.st/4ward/reference/dataplane-matchers/">
@@ -69,7 +73,7 @@
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Dataplane matchers - 4ward">
+<meta name="twitter:title" content="Dataplane Matchers - 4ward">
 <meta name="twitter:description" content="gtest matchers for asserting on dataplane packet results — composable with gmock's standard vocabulary.">
 <meta name="twitter:image" content="https://smolka.st/4ward/assets/social-card.png">
 
@@ -143,7 +147,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Dataplane matchers
+              Dataplane Matchers
             
           </span>
         </div>
@@ -680,6 +684,67 @@
 
               
             
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked="">
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++ Library
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C++ Library
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
               
                 
   
@@ -694,7 +759,7 @@
   <span class="md-ellipsis">
     
   
-    Embedding in C++
+    Getting Started
   
 
     
@@ -703,6 +768,169 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataplane Matchers
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataplane Matchers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#the-basics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The basics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#looking-at-individual-packets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Looking at individual packets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#handling-multiple-outcomes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Handling multiple outcomes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#container-level-matching-with-packets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Container-level matching with Packets(...)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#grouping-by-port" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grouping by port
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ingress-port" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ingress port
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#composing-with-packetlib" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Composing with packetlib
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bazel-dependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bazel dependency
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -737,10 +965,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5">
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6">
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -758,8 +986,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
