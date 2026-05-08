@@ -323,7 +323,8 @@ awk '
   /^SF:/ {
     sub(/^SF:fourward\//, "SF:")
     # Skip generated gRPC/proto sources — not our code.
-    if ($0 ~ /^SF:(p4|sim|dataplane)\//) { skip = 1; next }
+    if ($0 ~ /^SF:(p4|sim)\//) { skip = 1; next }
+    if ($0 ~ /Proto(Grpc|OuterClass|\.java)|GrpcKt\.kt$|Grpc\.java$/) { skip = 1; next }
     skip = 0
     lh = 0; lf = 0
     print; next

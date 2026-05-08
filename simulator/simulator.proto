@@ -4,7 +4,7 @@
 // server, STF runner, trace tree tests, BMv2 differential tests).
 //
 // The Dataplane gRPC service is defined separately in
-// p4runtime/dataplane.proto.
+// grpc/dataplane.proto.
 
 syntax = "proto3";
 

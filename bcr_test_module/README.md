@@ -19,7 +19,7 @@ A minimal Bzlmod module that depends on `@fourward` via
 
 Copy [`MODULE.bazel`](MODULE.bazel) as a starting point for your own
 project. The `known_contributing_modules` bless is only needed if you
-pull in `@fourward//p4runtime` (see the comment in that
+pull in `@fourward//grpc` (see the comment in that
 file for why); otherwise the `bazel_dep(name = "rules_jvm_external", ...)`
 and the `maven.install(...)` block can go away.
 

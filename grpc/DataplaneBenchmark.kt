@@ -29,7 +29,7 @@ import p4.v1.P4RuntimeOuterClass.Update
  * dedicated warmup phase runs ~500 packets before any measurement begins, ensuring JIT compilation
  * is complete.
  *
- * Run with: bazel test //p4runtime:DataplaneBenchmark --test_output=streamed
+ * Run with: bazel test //grpc:DataplaneBenchmark --test_output=streamed
  */
 @Suppress("FunctionNaming", "MagicNumber")
 class DataplaneBenchmark {
@@ -44,8 +44,8 @@ class DataplaneBenchmark {
    *
    * Usage:
    * ```
-   * bazel build //p4runtime:DataplaneBenchmark -c opt
-   * ./bazel-bin/p4runtime/DataplaneBenchmark \
+   * bazel build //grpc:DataplaneBenchmark -c opt
+   * ./bazel-bin/grpc/DataplaneBenchmark \
    *     --jvm_flag=-DprofileWorkload=wcmp128 \
    *     --jvm_flag=-DprofileMode=parallel \
    *     --jvm_flag=-Dfourward.simulator.intraPacketParallelism=false \

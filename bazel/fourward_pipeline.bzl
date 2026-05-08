@@ -15,10 +15,10 @@ The rule produces one or more proto files. Each output is independently
 configurable; specify the outputs you need:
 
   - `out` + `out_format`: the combined pipeline config.
-      - `out_format = "native"` (default): `fourward.ir.PipelineConfig`
+      - `out_format = "native"` (default): `fourward.PipelineConfig`
       - `out_format = "p4runtime"`: `p4.v1.ForwardingPipelineConfig`
   - `out_p4info`: standalone `p4.config.v1.P4Info`.
-  - `out_p4_device_config`: standalone `fourward.ir.DeviceConfig`
+  - `out_p4_device_config`: standalone `fourward.DeviceConfig`
     (the payload 4ward places in `ForwardingPipelineConfig.p4_device_config`).
 
 At least one output attribute must be set.
@@ -129,14 +129,14 @@ fourward_pipeline = rule(
         ),
         "out": attr.output(
             doc = "Combined pipeline config. Message type is controlled by " +
-                  "`out_format`: `fourward.ir.PipelineConfig` (native) or " +
+                  "`out_format`: `fourward.PipelineConfig` (native) or " +
                   "`p4.v1.ForwardingPipelineConfig` (p4runtime). Extension " +
                   "must be `.txtpb` or `.binpb`.",
         ),
         "out_format": attr.string(
             default = "native",
             doc = "Message type for `out`. " +
-                  "`\"native\"` (default): `fourward.ir.PipelineConfig`. " +
+                  "`\"native\"` (default): `fourward.PipelineConfig`. " +
                   "`\"p4runtime\"`: `p4.v1.ForwardingPipelineConfig` " +
                   "(suitable for `SetForwardingPipelineConfig`). " +
                   "Ignored when `out` is unset.",
@@ -147,7 +147,7 @@ fourward_pipeline = rule(
                   "be `.txtpb` or `.binpb`.",
         ),
         "out_p4_device_config": attr.output(
-            doc = "Standalone `fourward.ir.DeviceConfig` output — the payload " +
+            doc = "Standalone `fourward.DeviceConfig` output — the payload " +
                   "4ward places in `ForwardingPipelineConfig.p4_device_config`. " +
                   "Extension must be `.txtpb` or `.binpb`.",
         ),
