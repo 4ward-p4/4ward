@@ -11,7 +11,7 @@ fourward_pipeline(
     name = "passthrough",
     src = "passthrough.p4",
     out = "passthrough.txtpb",
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )
 
 fourward_pipeline(
@@ -19,7 +19,7 @@ fourward_pipeline(
     src = "passthrough.p4",
     out = "passthrough_p4runtime.binpb",
     out_format = "p4runtime",
-    visibility = ["//p4runtime_cc:__pkg__"],
+    visibility = ["//fourward_cc:__pkg__"],
 )
 
 # Runs the passthrough STF test against the 4ward simulator.

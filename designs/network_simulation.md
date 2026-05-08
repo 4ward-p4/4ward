@@ -200,7 +200,7 @@ own design iteration once the core simulation works.
 
 ## P4Runtime
 
-Each switch gets its own `P4RuntimeServer` instance, listening on a separate
+Each switch gets its own `FourwardServer` instance, listening on a separate
 port. This matches real deployments and requires no changes to the existing
 P4Runtime layer. A network-level CLI command starts all servers:
 
@@ -226,7 +226,7 @@ forwarding outputs across links.
 | `ir.proto` | No | Per-switch IR, unchanged |
 | `simulator.proto` | Extend | Add `NetworkTrace`, `NetworkTopology` messages |
 | `PacketBroker` | Extend | Route cross-link packets to destination switch's broker |
-| `P4RuntimeServer` | No | One instance per switch, unchanged |
+| `FourwardServer` | No | One instance per switch, unchanged |
 | `DataplaneService` | Extend | Cross-switch packet delivery |
 | STF runner | Extend | Parse network topology + multi-switch commands |
 | CLI | Extend | `4ward network` subcommand |

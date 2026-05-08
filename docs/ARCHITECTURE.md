@@ -186,7 +186,7 @@ No other P4 tool gives you this. BMv2 picks one path. Hardware picks one path.
 4ward can show you *all* paths — making it a powerful tool for testing,
 verification, and understanding complex P4 programs.
 
-## P4Runtime (`p4runtime/`)
+## gRPC services (`grpc/`)
 
 The P4Runtime gRPC server is a thin translation layer between standard
 P4Runtime RPCs and the simulator's typed API. All P4 logic stays in the

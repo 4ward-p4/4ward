@@ -208,8 +208,8 @@ class Simulator(
   /**
    * Reads non-table entities matching the given filters.
    *
-   * Table entries are handled by [fourward.p4runtime.EntityReader] in the P4Runtime layer; this
-   * method handles all other entity types.
+   * Table entries are handled by [fourward.grpc.EntityReader] in the P4Runtime layer; this method
+   * handles all other entity types.
    */
   fun readEntries(
     filters: List<p4.v1.P4RuntimeOuterClass.Entity>

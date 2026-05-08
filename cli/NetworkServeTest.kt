@@ -45,7 +45,7 @@ class NetworkServeTest {
   fun `port collision on second switch cleans up first`() {
     val nstf = NetworkStf.parse(repoRoot.resolve("$PKG/two_switch_inline.nstf"))
     // Start a server on a known port, then try to start both switches on that same port.
-    val blocker = fourward.p4runtime.P4RuntimeServer(port = EPHEMERAL_PORT).start()
+    val blocker = fourward.grpc.FourwardServer(port = EPHEMERAL_PORT).start()
     val blockedPort = blocker.port()
     try {
       val e =

@@ -19,7 +19,7 @@ kt_jvm_library(
     ),
     deps = [
         "//bazel:runfiles",
-        "//p4runtime",
+        "//grpc",
         "//simulator",
         "//simulator:ir_java_proto",
         "//simulator:p4info_java_proto",
@@ -39,7 +39,7 @@ kt_jvm_library(
     srcs = ["PlaygroundServer.kt"],
     deps = [
         ":web",
-        "//p4runtime",
+        "//grpc",
         "//simulator",
         "//simulator:p4info_java_proto",
         "//simulator:p4runtime_java_proto",
@@ -82,7 +82,7 @@ kt_jvm_test(
     test_class = "fourward.web.WebServerTest",
     deps = [
         ":web",
-        "//p4runtime",
+        "//grpc",
         "//simulator",
         "//simulator:ir_java_proto",
         "@fourward_maven//:junit_junit",

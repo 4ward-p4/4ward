@@ -29,13 +29,13 @@ import p4.v1.P4RuntimeOuterClass.WriteRequest
  * Provides a REST API that wraps P4 compilation and P4Runtime operations, plus serves the
  * single-page frontend. Uses the JDK's built-in [HttpServer] to avoid adding external dependencies.
  *
- * All P4Runtime operations go through [P4RuntimeService][fourward.p4runtime.P4RuntimeService]:
- * pipeline loading via SetForwardingPipelineConfig, table writes via Write, and reads via Read.
- * Packet injection goes directly to the simulator (lock-free — reads the published snapshot).
+ * All P4Runtime operations go through [P4RuntimeService][fourward.grpc.P4RuntimeService]: pipeline
+ * loading via SetForwardingPipelineConfig, table writes via Write, and reads via Read. Packet
+ * injection goes directly to the simulator (lock-free — reads the published snapshot).
  */
 class WebServer(
   private val simulator: Simulator,
-  private val service: fourward.p4runtime.P4RuntimeService,
+  private val service: fourward.grpc.P4RuntimeService,
   private val httpPort: Int = DEFAULT_HTTP_PORT,
   private val staticDir: Path? = null,
 ) {

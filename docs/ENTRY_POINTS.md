@@ -42,8 +42,8 @@ See the [tutorial](../examples/tutorial.t) for a full walkthrough.
 
 ## P4Runtime server
 
-**Target:** `//p4runtime:p4runtime_server`
-**Start:** `bazel run //p4runtime:p4runtime_server -- [flags]`
+**Target:** `//grpc:fourward_server`
+**Start:** `bazel run //grpc:fourward_server -- [flags]`
 
 A standalone gRPC server implementing the full
 [P4Runtime spec](https://p4lang.github.io/p4runtime/spec/main/P4Runtime-Spec.html).
@@ -123,14 +123,14 @@ testing against BMv2.
 ## P4Runtime test harness
 
 **Target:** `//p4runtime` (library)
-**API:** `P4RuntimeTestHarness` in Kotlin
+**API:** `FourwardTestHarness` in Kotlin
 
 An in-process test harness that stands up a full P4Runtime + Dataplane gRPC
 server without opening any network ports. Uses gRPC's `InProcessTransport` for
 zero-overhead, deterministic test execution.
 
 ```kotlin
-P4RuntimeTestHarness().use { harness ->
+FourwardTestHarness().use { harness ->
   harness.loadPipeline(configPath)
   harness.write(listOf(tableEntry))
   val response = harness.injectPacket(ingressPort = 0, payload)
@@ -144,7 +144,7 @@ gRPC semantics (status codes, streaming) without network flakiness.
 
 ## C++ embedding wrapper
 
-**Target:** `//p4runtime_cc:fourward_server`
+**Target:** `//fourward_cc:fourward_server`
 **API:** `fourward::FourwardServer::Start()` (C++)
 
 Treat 4ward like a native C++ library. `Start()` spawns the P4Runtime +
@@ -155,7 +155,7 @@ API and a Bazel target — the server's implementation language is out of
 sight.
 
 ```cpp
-#include "p4runtime_cc/fourward_server.h"
+#include "fourward_cc/fourward_server.h"
 
 ASSIGN_OR_RETURN(fourward::FourwardServer server,
                  fourward::FourwardServer::Start());

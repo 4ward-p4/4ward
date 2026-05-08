@@ -15,13 +15,13 @@ The gRPC API is how test infrastructure (DVaaS, sonic-pins) integrates with
 ## Start the server
 
 ```sh
-bazel run //p4runtime:p4runtime_server
+bazel run //grpc:fourward_server
 ```
 
 The server listens on port **9559** by default. Override with `--port`:
 
 ```sh
-bazel run //p4runtime:p4runtime_server -- --port=50051
+bazel run //grpc:fourward_server -- --port=50051
 ```
 
 ## Typical workflow

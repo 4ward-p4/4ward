@@ -494,7 +494,7 @@ for the candidate ordering in "Path forward".
 ### Method
 
 ```sh
-bazel test //p4runtime:DataplaneBenchmark \
+bazel test //grpc:DataplaneBenchmark \
   --test_output=streamed --test_timeout=600 \
   --jvmopt="-DprofileMode=parallel" \
   --jvmopt="-DprofileWorkload=wcmp128" \

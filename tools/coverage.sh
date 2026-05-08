@@ -14,7 +14,7 @@
 # When these are fixed, this script should collapse to:
 #
 #   bazel coverage //... --combined_report=lcov \
-#     --instrumentation_filter='//simulator[/:],//p4runtime[/:]'
+#     --instrumentation_filter='//simulator[/:],//grpc[/:]'
 #   cp bazel-out/_coverage/lcov.dat coverage.lcov
 #
 # Until then, we work around both by:
@@ -24,7 +24,7 @@
 #     deploy jar already in the Bazel cache) with a small inline helper
 #     that bypasses the broken path filtering.
 #
-# Collects Kotlin test coverage for the simulator and p4runtime libraries.
+# Collects Kotlin test coverage for the simulator and grpc libraries.
 #
 # Coverage comes from two sources:
 #   1. Unit tests (kt_jvm_test targets) — instrumented directly by JaCoCo.
@@ -79,7 +79,7 @@ TARGETS=$(bazel query 'kind(kt_jvm_test, //...) - attr(tags, "manual|heavy", //.
 echo "Building with coverage instrumentation..."
 # shellcheck disable=SC2086
 bazel build --collect_code_coverage \
-  --instrumentation_filter='//simulator[/:],//p4runtime[/:]' \
+  --instrumentation_filter='//simulator[/:],//grpc[/:]' \
   ${TARGETS}
 
 BIN_DIR="$(bazel info bazel-bin)"
@@ -285,7 +285,7 @@ fi
 # ── Identify instrumented jars ───────────────────────────────────────────────
 
 INSTRUMENTED_JARS=()
-for jar in "${BIN_DIR}"/simulator/*.jar "${BIN_DIR}"/p4runtime/*.jar; do
+for jar in "${BIN_DIR}"/simulator/*.jar "${BIN_DIR}"/grpc/*.jar; do
   if "${JAR}" tf "${jar}" 2>/dev/null | grep -q '\.class\.uninstrumented$'; then
     INSTRUMENTED_JARS+=("${jar}")
   fi

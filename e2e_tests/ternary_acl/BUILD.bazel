@@ -11,7 +11,7 @@ fourward_pipeline(
     name = "ternary_acl",
     src = "ternary_acl.p4",
     out = "ternary_acl.txtpb",
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )
 
 kt_jvm_test(

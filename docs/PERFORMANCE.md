@@ -63,7 +63,7 @@ ternary ACL entries.
 
 Reproducing:
 ```sh
-bazel test //p4runtime:DataplaneBenchmark --test_output=streamed
+bazel test //grpc:DataplaneBenchmark --test_output=streamed
 ```
 
 ## BMv2 comparison
@@ -127,7 +127,7 @@ BMv2 has two tracing mechanisms with different performance implications:
 bazel test //e2e_tests/bmv2_diff:Bmv2Benchmark -c opt --test_output=streamed
 
 # 4ward
-bazel test //p4runtime:DataplaneBenchmark --test_output=streamed
+bazel test //grpc:DataplaneBenchmark --test_output=streamed
 ```
 
 ## Optimizations

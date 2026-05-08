@@ -10,33 +10,33 @@ fourward_pipeline(
     name = "stateful",
     src = "stateful.p4",
     out = "stateful.txtpb",
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )
 
 fourward_pipeline(
     name = "range_table",
     src = "range_table.p4",
     out = "range_table.txtpb",
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )
 
 fourward_pipeline(
     name = "value_set",
     src = "value_set.p4",
     out = "value_set.txtpb",
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )
 
 fourward_pipeline(
     name = "action_profile",
     src = "action_profile.p4",
     out = "action_profile.txtpb",
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )
 
 fourward_pipeline(
     name = "refers_to",
     src = "refers_to.p4",
     out = "refers_to.txtpb",
-    visibility = ["//p4runtime:__pkg__"],
+    visibility = ["//grpc:__pkg__"],
 )

@@ -55,9 +55,9 @@ build --@bazel_clang_tidy//:clang_tidy_config=//:clang_tidy_config
 build:clang-tidy --aspects @bazel_clang_tidy//clang_tidy:clang_tidy.bzl%clang_tidy_aspect
 build:clang-tidy --output_groups=report
 
-# Coverage: instrument simulator and p4runtime. Run via `bazel coverage //...`.
+# Coverage: instrument simulator and grpc. Run via `bazel coverage //...`.
 coverage --combined_report=lcov
-coverage --instrumentation_filter=//simulator[/:],//p4runtime[/:]
+coverage --instrumentation_filter=//simulator[/:],//grpc[/:]
 
 # Remote cache for CI (BuildBuddy). Activated by CI via ~/.bazelrc.
 # The API key is injected there too, keeping secrets out of the repo.

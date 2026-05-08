@@ -168,7 +168,7 @@ provider from `P4RuntimeService`:
 | `dataplane.proto` | New `InputPacket`/`OutputPacket` with dual encoding; `oneof ingress_port` on request |
 | `TypeTranslator.kt` | Tables keyed by type name; `PortTranslator` derived from `controller_packet_metadata` |
 | `DataplaneService.kt` | Translates ports on inject and populates P4Runtime ports in responses |
-| `P4RuntimeServer.kt` | Wires provider from service to dataplane service |
+| `FourwardServer.kt` | Wires provider from service to dataplane service |
 
 ## What doesn't change
 
