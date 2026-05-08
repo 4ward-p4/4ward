@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-08 07:10:03</td>
+            <td class="headerValue">2026-05-08 14:59:24</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">96.9&nbsp;%</td>
@@ -62,9 +62,9 @@
 <pre class="source">
 <span id="L1"><span class="lineNum">       1</span>              : package fourward.simulator</span>
 <span id="L2"><span class="lineNum">       2</span>              : </span>
-<span id="L3"><span class="lineNum">       3</span>              : import fourward.ir.PipelineConfig</span>
-<span id="L4"><span class="lineNum">       4</span>              : import fourward.sim.OutputPacket</span>
-<span id="L5"><span class="lineNum">       5</span>              : import fourward.sim.TraceTree</span>
+<span id="L3"><span class="lineNum">       3</span>              : import fourward.OutputPacket</span>
+<span id="L4"><span class="lineNum">       4</span>              : import fourward.PipelineConfig</span>
+<span id="L5"><span class="lineNum">       5</span>              : import fourward.TraceTree</span>
 <span id="L6"><span class="lineNum">       6</span>              : import java.util.concurrent.atomic.AtomicReference</span>
 <span id="L7"><span class="lineNum">       7</span>              : </span>
 <span id="L8"><span class="lineNum">       8</span>              : /**</span>
@@ -80,8 +80,8 @@
 <span id="L18"><span class="lineNum">      18</span>              :  * selectors have one possible outcome per alternative (Cartesian product when nested inside</span>
 <span id="L19"><span class="lineNum">      19</span>              :  * parallel forks).</span>
 <span id="L20"><span class="lineNum">      20</span>              :  *</span>
-<span id="L21"><span class="lineNum">      21</span>              :  * Decouples the simulator from the gRPC wire format ([fourward.dataplane.InjectPacketResponse]).</span>
-<span id="L22"><span class="lineNum">      22</span>              :  * Each RPC method builds its own wire proto from this data class.</span>
+<span id="L21"><span class="lineNum">      21</span>              :  * Decouples the simulator from the gRPC wire format ([fourward.InjectPacketResponse]). Each RPC</span>
+<span id="L22"><span class="lineNum">      22</span>              :  * method builds its own wire proto from this data class.</span>
 <span id="L23"><span class="lineNum">      23</span>              :  */</span>
 <span id="L24"><span class="lineNum">      24</span> <span class="tlaGNC tlaBgGNC">           1 : data class ProcessPacketResult(val trace: TraceTree, val possibleOutcomes: List&lt;List&lt;OutputPacket&gt;&gt;)</span></span>
 <span id="L25"><span class="lineNum">      25</span>              : </span>
@@ -270,8 +270,8 @@
 <span id="L208"><span class="lineNum">     208</span>              :   /**</span>
 <span id="L209"><span class="lineNum">     209</span>              :    * Reads non-table entities matching the given filters.</span>
 <span id="L210"><span class="lineNum">     210</span>              :    *</span>
-<span id="L211"><span class="lineNum">     211</span>              :    * Table entries are handled by [fourward.p4runtime.EntityReader] in the P4Runtime layer; this</span>
-<span id="L212"><span class="lineNum">     212</span>              :    * method handles all other entity types.</span>
+<span id="L211"><span class="lineNum">     211</span>              :    * Table entries are handled by [fourward.grpc.EntityReader] in the P4Runtime layer; this method</span>
+<span id="L212"><span class="lineNum">     212</span>              :    * handles all other entity types.</span>
 <span id="L213"><span class="lineNum">     213</span>              :    */</span>
 <span id="L214"><span class="lineNum">     214</span>              :   fun readEntries(</span>
 <span id="L215"><span class="lineNum">     215</span>              :     filters: List&lt;p4.v1.P4RuntimeOuterClass.Entity&gt;</span>

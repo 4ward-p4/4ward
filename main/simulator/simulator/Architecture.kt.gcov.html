@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-08 07:10:03</td>
+            <td class="headerValue">2026-05-08 14:59:24</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -62,8 +62,8 @@
 <pre class="source">
 <span id="L1"><span class="lineNum">       1</span>              : package fourward.simulator</span>
 <span id="L2"><span class="lineNum">       2</span>              : </span>
-<span id="L3"><span class="lineNum">       3</span>              : import fourward.sim.OutputPacket</span>
-<span id="L4"><span class="lineNum">       4</span>              : import fourward.sim.TraceTree</span>
+<span id="L3"><span class="lineNum">       3</span>              : import fourward.OutputPacket</span>
+<span id="L4"><span class="lineNum">       4</span>              : import fourward.TraceTree</span>
 <span id="L5"><span class="lineNum">       5</span>              : </span>
 <span id="L6"><span class="lineNum">       6</span>              : /**</span>
 <span id="L7"><span class="lineNum">       7</span>              :  * Interface for architecture-specific pipeline behaviour.</span>
@@ -73,7 +73,7 @@
 <span id="L11"><span class="lineNum">      11</span>              :  * 2. Standard metadata: the metadata struct passed between stages.</span>
 <span id="L12"><span class="lineNum">      12</span>              :  * 3. Extern semantics: what clone(), resubmit(), recirculate() etc. actually do.</span>
 <span id="L13"><span class="lineNum">      13</span>              :  *</span>
-<span id="L14"><span class="lineNum">      14</span>              :  * Points 1 and 2 are driven by the [fourward.ir.Architecture] proto in the loaded pipeline config.</span>
+<span id="L14"><span class="lineNum">      14</span>              :  * Points 1 and 2 are driven by the [fourward.Architecture] proto in the loaded pipeline config.</span>
 <span id="L15"><span class="lineNum">      15</span>              :  * Point 3 requires code here.</span>
 <span id="L16"><span class="lineNum">      16</span>              :  *</span>
 <span id="L17"><span class="lineNum">      17</span>              :  * To add a new architecture, implement this interface and register the implementation in</span>

@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-08 07:10:03</td>
+            <td class="headerValue">2026-05-08 14:59:24</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -62,17 +62,17 @@
 <pre class="source">
 <span id="L1"><span class="lineNum">       1</span>              : package fourward.simulator</span>
 <span id="L2"><span class="lineNum">       2</span>              : </span>
-<span id="L3"><span class="lineNum">       3</span>              : import fourward.ir.PipelineStage</span>
-<span id="L4"><span class="lineNum">       4</span>              : import fourward.sim.Drop</span>
-<span id="L5"><span class="lineNum">       5</span>              : import fourward.sim.DropReason</span>
-<span id="L6"><span class="lineNum">       6</span>              : import fourward.sim.Fork</span>
-<span id="L7"><span class="lineNum">       7</span>              : import fourward.sim.ForkBranch</span>
-<span id="L8"><span class="lineNum">       8</span>              : import fourward.sim.ForkReason</span>
-<span id="L9"><span class="lineNum">       9</span>              : import fourward.sim.PacketIngressEvent</span>
-<span id="L10"><span class="lineNum">      10</span>              : import fourward.sim.PacketOutcome</span>
-<span id="L11"><span class="lineNum">      11</span>              : import fourward.sim.PipelineStageEvent</span>
-<span id="L12"><span class="lineNum">      12</span>              : import fourward.sim.TraceEvent</span>
-<span id="L13"><span class="lineNum">      13</span>              : import fourward.sim.TraceTree</span>
+<span id="L3"><span class="lineNum">       3</span>              : import fourward.Drop</span>
+<span id="L4"><span class="lineNum">       4</span>              : import fourward.DropReason</span>
+<span id="L5"><span class="lineNum">       5</span>              : import fourward.Fork</span>
+<span id="L6"><span class="lineNum">       6</span>              : import fourward.ForkBranch</span>
+<span id="L7"><span class="lineNum">       7</span>              : import fourward.ForkReason</span>
+<span id="L8"><span class="lineNum">       8</span>              : import fourward.PacketIngressEvent</span>
+<span id="L9"><span class="lineNum">       9</span>              : import fourward.PacketOutcome</span>
+<span id="L10"><span class="lineNum">      10</span>              : import fourward.PipelineStage</span>
+<span id="L11"><span class="lineNum">      11</span>              : import fourward.PipelineStageEvent</span>
+<span id="L12"><span class="lineNum">      12</span>              : import fourward.TraceEvent</span>
+<span id="L13"><span class="lineNum">      13</span>              : import fourward.TraceTree</span>
 <span id="L14"><span class="lineNum">      14</span>              : </span>
 <span id="L15"><span class="lineNum">      15</span>              : /**</span>
 <span id="L16"><span class="lineNum">      16</span>              :  * Whether a fork's branches all happen (parallel) or only one happens (alternative).</span>
@@ -114,7 +114,7 @@
 <span id="L52"><span class="lineNum">      52</span>              : /** Builds a [TraceTree] representing a packet output on the given port. */</span>
 <span id="L53"><span class="lineNum">      53</span>              : internal fun buildOutputTrace(events: List&lt;TraceEvent&gt;, port: Int, payload: ByteArray): TraceTree {</span>
 <span id="L54"><span class="lineNum">      54</span> <span class="tlaGNC">           1 :   val output =</span></span>
-<span id="L55"><span class="lineNum">      55</span> <span class="tlaGNC">           1 :     fourward.sim.OutputPacket.newBuilder()</span></span>
+<span id="L55"><span class="lineNum">      55</span> <span class="tlaGNC">           1 :     fourward.OutputPacket.newBuilder()</span></span>
 <span id="L56"><span class="lineNum">      56</span> <span class="tlaGNC">           1 :       .setDataplaneEgressPort(port)</span></span>
 <span id="L57"><span class="lineNum">      57</span> <span class="tlaGNC">           1 :       .setPayload(com.google.protobuf.ByteString.copyFrom(payload))</span></span>
 <span id="L58"><span class="lineNum">      58</span> <span class="tlaGNC">           1 :       .build()</span></span>
