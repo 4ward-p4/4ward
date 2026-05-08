@@ -27,6 +27,7 @@ all possible outcomes in a single pass.
 | **[Web Playground](getting-started/playground.md)** | Edit P4 in the browser, install table entries, send packets, step through traces visually. |
 | **[CLI](getting-started/cli.md)** | Compile a P4 program, run an STF test, read the trace — all from the terminal. |
 | **[gRPC API](getting-started/grpc.md)** | Load pipelines and inject packets programmatically via the DataplaneService and P4Runtime gRPC services. |
+| **[C++ Library](reference/embedding-cc.md)** | Embed 4ward in a C++ project via Bazel, inject packets with designated-init call sites, assert with composable [gtest matchers](reference/dataplane-matchers.md). |
 
 ## Who is this for?
 
