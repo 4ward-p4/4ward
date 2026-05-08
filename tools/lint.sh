@@ -39,7 +39,7 @@ else
     cd "$REPO_ROOT" && git ls-files '*.cpp' '*.h' '*.cc'
   )
   if [[ ${#CPP_SOURCES[@]} -gt 0 ]]; then
-    (cd "$REPO_ROOT" && bazel run @pip//cpplint -- "${CPP_SOURCES[@]/#/$REPO_ROOT/}") \
+    (cd "$REPO_ROOT" && bazel run //tools:cpplint -- "${CPP_SOURCES[@]/#/$REPO_ROOT/}") \
       || rc=1
   fi
 fi
