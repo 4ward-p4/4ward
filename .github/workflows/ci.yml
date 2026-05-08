@@ -264,7 +264,8 @@ jobs:
           bazel build "${FLAGS[@]}" -- \
             @fourward//... \
             -@fourward//e2e_tests/... \
-            -@fourward//examples/...
+            -@fourward//examples/... \
+            -@fourward//tools/...
 
       - name: Calculate build duration
         if: always()
