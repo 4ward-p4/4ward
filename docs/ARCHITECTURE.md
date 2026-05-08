@@ -56,12 +56,61 @@ The north star is to replace BMv2 as the reference simulator in
 ┌─────────────────────────────────────────────────────────────────┐
 │ runtime                                                         │
 │                                                                 │
-│  Controller ──P4Runtime──▶ P4Runtime server                     │
-│                                  │                              │
-│                                  ▼                              │
-│  packet ──────────────────▶ 4ward sim ──▶ output packets       │
-│                               (Kotlin)  └▶ execution trace      │
+│                   P4Runtime writes ──▶ ┐                        │
+│                   (table entries,      │                        │
+│                    counters, etc.)     ▼                        │
+│                              ┌───────────────┐                  │
+│               packet ──────▶ │     4ward     │──▶ output pkts  │
+│                              │   Simulator   │──▶ trace tree    │
+│                              └───────────────┘                  │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+That's the core loop: compile a P4 program, load the config, push packets
+through, get traces out. Everything else is plumbing around that loop.
+
+Here's how all the pieces fit together:
+
+```
+                    program.p4
+                        │
+                        ▼
+               p4c + 4ward backend ─────────────────────────── p4c_backend/
+                        │
+                        ▼
+                 PipelineConfig.txtpb
+                        │
+        ┌───────────────┼───────────────────┐
+        │               │                   │
+        ▼               ▼                   ▼
+   4ward CLI        STF runner         FourwardServer ──────── grpc/
+   (compile,        (e2e tests)             │
+    sim, run)           │          ┌────────┴────────┐
+        │               │         │                  │
+        │               │    P4RuntimeService   DataplaneService
+        │               │         │                  │
+        ▼               ▼         ▼                  ▼
+       ┌─────────────────────────────────────────────────┐
+       │                  Simulator                       │── simulator/
+       │                  (Kotlin)                        │
+       │                                                  │
+       │  Interpreter ── Environment ── TableStore        │
+       │       │                                          │
+       │  V1Model / PSA / PNA Architecture                │
+       └──────────────────────┬──────────────────────────┘
+                              │
+                     output packets + trace tree
+
+                    ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+
+        C++ consumers see only this:
+
+        FourwardServer::Start() ──▶ DataplaneClient ────── fourward_cc/
+              │                          │
+              │                    InjectPacket()
+              ▼                    InjectPackets()
+         gRPC channel              SubscribeResults()
+         (localhost)
 ```
 
 ## Components
@@ -90,30 +139,37 @@ The simulator never guesses bit widths; p4c already figured that out.
 
 ### Simulator shared types (`simulator/simulator.proto`)
 
-Proto definitions shared between the simulator library and its callers (P4Runtime
-server, STF runner, trace tree tests). Defines `InjectPacketRequest`/`Response`,
-output packets, trace trees, and the Dataplane gRPC service.
+Proto definitions shared between the simulator library and everyone who talks
+to it: the gRPC services, the STF runner, the trace tree tests. This is
+where `InputPacket`, `OutputPacket`, and the trace tree types live.
 
 ### Simulator (`simulator/`) — where the magic happens
 
 A Kotlin/JVM library that walks the proto IR and actually *runs* your P4
-program, one packet at a time. Callers instantiate `Simulator` directly and
-use its typed API (`loadPipeline`, `processPacket`, `writeEntry`, `readEntries`).
+program. Callers instantiate `Simulator` directly and use its typed API
+(`loadPipeline`, `processPacket`, `writeEntry`, `readEntries`). Packet
+processing is fully parallelized: fork branches within a single packet run
+concurrently, and `InjectPackets` sends many packets through the pipeline at
+once.
 
 ```
 Simulator.kt             Top-level state: pipeline config, table entries
 Interpreter.kt           The big one: IR tree-walker for parsers, controls, actions
 Environment.kt           Variable bindings, packet state (headers + metadata)
-Values.kt                Runtime value types (BitVector, BoolVal, HeaderVal, ...)
-BitVector.kt             Bit-precise integer arithmetic (backed by BigInteger)
+Values.kt                Runtime value types (BitVal, BoolVal, HeaderVal, ...)
+BitVector.kt             Bit-precise integer arithmetic (Long for ≤63 bits, BigInteger for wider)
 Architecture.kt          Interface for architecture-specific behavior
 V1ModelArchitecture.kt   v1model specifics: recirculate, clone, resubmit, drop
 PSAArchitecture.kt       PSA specifics: two-pipeline orchestration, PSA externs
+PNAArchitecture.kt       PNA specifics: main-control orchestration, PNA externs
 ExternHandler.kt         Pluggable extern dispatch (architecture-provided)
 ```
 
-We use `BigInteger` for all `bit<N>` arithmetic because life is too short for
-overflow bugs at arbitrary bit widths.
+Life is too short for overflow bugs at arbitrary bit widths — but it's also
+too short to allocate `BigInteger` objects for every 16-bit field. `BitVector`
+uses a primitive `Long` for fields up to 63 bits (the vast majority) and
+falls back to `BigInteger` for the rare wide ones. Zero heap allocation on
+the hot path; correct at any width.
 
 ## Architecture genericity
 
@@ -137,8 +193,8 @@ semantics, and pipeline orchestration belong in the architecture layer.
 **Current status:** v1model, PSA, and PNA are all implemented. The interpreter is
 a pure IR tree-walker with no architecture-specific code — extern dispatch,
 fork semantics, and pipeline orchestration all live in the architecture layer
-(`V1ModelArchitecture.kt`, `PSAArchitecture.kt`). See [ROADMAP.md](ROADMAP.md)
-Track 6 for the multi-architecture plan.
+(`V1ModelArchitecture.kt`, `PSAArchitecture.kt`, `PNAArchitecture.kt`). See
+[ROADMAP.md](ROADMAP.md) Track 6 for the multi-architecture plan.
 
 ## Testing strategy
 
@@ -188,48 +244,87 @@ verification, and understanding complex P4 programs.
 
 ## gRPC services (`grpc/`)
 
-The P4Runtime gRPC server is a thin translation layer between standard
-P4Runtime RPCs and the simulator's typed API. All P4 logic stays in the
-simulator — the server just speaks gRPC.
+The `grpc/` directory hosts two gRPC services. All P4 logic stays in the
+simulator — the services just speak gRPC, validate inputs, and translate
+between P4Runtime's wire format and the simulator's typed API.
 
 ```
-Controller ──gRPC──▶ P4RuntimeService ──▶ Simulator
-                           │                    │
-                     translates protos      runs your program
-                     enforces preconditions  returns typed results
+Controller ──P4Runtime──▶ P4RuntimeService ──▶ Simulator
+                                                   ▲
+packet ──Dataplane RPC──▶ DataplaneService ──▶ PacketBroker
+                                                   │
+                                            output packets + trace
 ```
 
-**Implemented RPCs:**
+### P4RuntimeService
 
-| RPC | Status |
-|-----|--------|
-| `SetForwardingPipelineConfig` | Working — parses `DeviceConfig` from `p4_device_config` bytes |
-| `Write` | Working — forwards `Update` protos directly to the simulator |
-| `Read` | Working — wildcard, per-table, and per-entry reads |
-| `StreamChannel` | Working — arbitration + PacketOut→PacketIn via the simulator |
-| `GetForwardingPipelineConfig` | Working — returns p4info and/or device config per response type |
-| `Capabilities` | Working — returns P4Runtime API version |
+The standard P4Runtime gRPC server. Before a write reaches the simulator it
+passes through a gauntlet of validation: field widths and match kinds
+(`WriteValidator`), `@refers_to` referential integrity
+(`ReferenceValidator`), `@entry_restriction`/`@action_restriction`
+constraints (`ConstraintValidator`), `@p4runtime_translation` type
+translation (`TypeTranslator`), and role-based access control (`RoleMap`).
 
-**Key design decisions:**
+| RPC | What it does |
+|-----|--------------|
+| `SetForwardingPipelineConfig` | Parses `DeviceConfig` from `p4_device_config` bytes, loads pipeline |
+| `Write` | Validates, translates, forwards to the simulator |
+| `Read` | Wildcard, per-table, and per-entry reads |
+| `StreamChannel` | Arbitration + PacketOut/PacketIn |
+| `GetForwardingPipelineConfig` | Returns p4info and/or device config |
+| `Capabilities` | Returns P4Runtime API version |
+
+### DataplaneService
+
+A second gRPC service for test tooling that wants to inject packets and
+inspect outputs without going through P4Runtime's `PacketOut`/`PacketIn`
+ceremony. Defined in `grpc/dataplane.proto`.
+
+| RPC | What it does |
+|-----|--------------|
+| `InjectPacket` | Send one packet in, get outputs + trace back |
+| `InjectPackets` | Stream many packets concurrently for throughput |
+| `SubscribeResults` | Observe results from *all* injection sources |
+| `RegisterPrePacketHook` | Get called before every packet — with the write lock held |
+
+Behind both services sits `PacketBroker`, which coordinates everything:
+holds the write lock (shared with P4RuntimeService), fires pre-packet
+hooks, dispatches to the simulator, and fans out results to subscribers.
+
+### Key design decisions
 
 - **In-process library, not subprocess.** The server calls `Simulator` methods
   directly — no serialization overhead, no process management.
-- **grpc-kotlin with coroutine Flows.** `StreamChannel` is a bidirectional
-  stream — Kotlin Flows map naturally to gRPC's streaming model.
-- **`Mutex` for coroutine-safe serialization.** The simulator is
-  single-threaded; the gRPC server serializes concurrent requests with a
-  `kotlinx.coroutines.sync.Mutex` shared between P4RuntimeService and
-  DataplaneService.
-- **Full arbitration state machine (§5).** Election ID-based primary
-  selection with backup notification. The highest `election_id` becomes
-  primary and may write; all controllers may read.
+- **grpc-kotlin with coroutine Flows.** `StreamChannel` and
+  `RegisterPrePacketHook` are bidirectional streams — Kotlin Flows map
+  naturally to gRPC's streaming model.
+- **`Mutex` for coroutine-safe serialization.** Control-plane writes go
+  through a `kotlinx.coroutines.sync.Mutex` shared between P4RuntimeService
+  and DataplaneService. Data-plane reads (packet processing) are lock-free —
+  they read from a published snapshot, so packets never block on writes.
+- **Full arbitration (§5).** Not a subset — the complete state machine,
+  including demotion notifications and automatic promotion on disconnect.
+
+## C++ embedding API (`fourward_cc/`)
+
+Want to use 4ward from C++? `FourwardServer` is an RAII handle to a 4ward
+gRPC server running as a child process — `Start()` spawns it, the
+destructor kills it. `DataplaneClient` sits on top and gives you an
+ergonomic C++ interface for injecting packets and reading results. Your
+project sees a C++ API and a Bazel `deps` entry; the Kotlin server is an
+implementation detail. See the
+[embedding guide](../userdocs/reference/embedding-cc.md).
 
 ## Why these languages?
 
 - **Kotlin**: sealed classes and `when` expressions are *perfect* for
-  interpreting a tree-structured IR. Plus, `BigInteger` handles arbitrary-width
-  bit vectors without us having to write our own bignum library (no thank you).
-- **C++**: p4c is C++, so the backend has to be C++. Simple as that.
+  interpreting a tree-structured IR. The JVM gives us `BigInteger` for
+  arbitrary-width bit vectors (no hand-rolled bignum library, thank you)
+  and a mature concurrent runtime that makes parallelizing packet processing
+  almost free.
+- **C++**: p4c is C++, so the backend has to be C++. The embedding API
+  (`fourward_cc/`) is C++ because that's what its consumers speak (PINS,
+  DVaaS).
 
 ## Why proto edition 2024?
 
