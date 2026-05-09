@@ -13,7 +13,7 @@ import kotlinx.coroutines.sync.Mutex
 class FourwardServer(
   private val port: Int = DEFAULT_PORT,
   private val deviceId: Long = P4RuntimeService.DEFAULT_DEVICE_ID,
-  dropPortOverride: Int? = null,
+  dropPortOverride: PortOverride? = null,
   cpuPortConfig: CpuPortConfig = CpuPortConfig.Auto,
   private val disableRefersToChecking: Boolean = false,
   private val disableP4ConstraintsChecking: Boolean = false,
@@ -23,7 +23,7 @@ class FourwardServer(
    * The underlying simulator. Exposed for pre-configuration (loading pipelines, installing entries)
    * before the server starts accepting RPCs.
    */
-  val simulator = Simulator(dropPortOverride)
+  val simulator = Simulator()
   private val writeMutex = Mutex()
   private val broker = PacketBroker(simulator::processPacket, writeMutex)
   private val service =
@@ -33,6 +33,7 @@ class FourwardServer(
       writeMutex = writeMutex,
       deviceId = deviceId,
       cpuPortConfig = cpuPortConfig,
+      dropPortConfig = dropPortOverride,
       disableRefersToChecking = disableRefersToChecking,
       disableP4ConstraintsChecking = disableP4ConstraintsChecking,
     )
@@ -85,7 +86,7 @@ fun main(args: Array<String>) {
   val port = flagValue(args, "--port")?.toIntOrNull() ?: FourwardServer.DEFAULT_PORT
   val deviceId =
     flagValue(args, "--device-id")?.toLongOrNull() ?: P4RuntimeService.DEFAULT_DEVICE_ID
-  val dropPort = flagValue(args, "--drop-port")?.toIntOrNull()
+  val dropPort = flagValue(args, "--drop-port")?.let(PortOverride::fromFlag)
   val cpuPortConfig = CpuPortConfig.fromFlag(flagValue(args, "--cpu-port"))
   val portFile = flagValue(args, "--port-file")?.let(Path::of)
   val disableRefersToChecking = flagPresent(args, "--disable-refers-to-checking")

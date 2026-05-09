@@ -44,9 +44,9 @@ class StfRunner(private val pipelineConfigPath: Path, private val dropPortOverri
     val stf = StfFile.parse(stfPath)
     val config = loadPipelineConfig(pipelineConfigPath)
 
-    val sim = Simulator(dropPortOverride)
+    val sim = Simulator()
     try {
-      sim.loadPipeline(config)
+      sim.loadPipeline(config, dropPortOverride = dropPortOverride)
     } catch (e: IllegalArgumentException) {
       return TestResult.Failure("LoadPipeline failed: ${e.message}")
     }

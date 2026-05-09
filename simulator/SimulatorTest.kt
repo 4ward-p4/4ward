@@ -261,8 +261,8 @@ class SimulatorTest {
   fun `drop port override flows through to architecture`() {
     // Port 42 is not normally a drop port. With dropPortOverride=42, it should be.
     val config = v1modelPipelineConfig(egressPort = 42)
-    val sim = Simulator(dropPortOverride = 42)
-    sim.loadPipeline(config)
+    val sim = Simulator()
+    sim.loadPipeline(config, dropPortOverride = 42)
 
     val result = sim.processPacket(ingressPort = 0, payload = byteArrayOf(0x01))
     assertTrue(result.trace.hasPacketOutcome())
@@ -273,8 +273,8 @@ class SimulatorTest {
   fun `drop port override lets default drop port forward normally`() {
     // With dropPortOverride=42, port 511 (the default drop port) should forward normally.
     val config = v1modelPipelineConfig(egressPort = V1ModelArchitecture.DEFAULT_DROP_PORT.toLong())
-    val sim = Simulator(dropPortOverride = 42)
-    sim.loadPipeline(config)
+    val sim = Simulator()
+    sim.loadPipeline(config, dropPortOverride = 42)
 
     val result = sim.processPacket(ingressPort = 0, payload = byteArrayOf(0x01))
     val outputs = result.possibleOutcomes.single()

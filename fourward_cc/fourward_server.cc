@@ -198,7 +198,7 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
       absl::StrCat(kFlagPortFile, port_file),
   };
   if (options.drop_port.has_value()) {
-    args.push_back(absl::StrCat(kFlagDropPort, *options.drop_port));
+    args.push_back(absl::StrCat(kFlagDropPort, options.drop_port->ToFlagValue()));
   }
   switch (options.cpu_port.kind) {
     case CpuPort::Kind::kAuto:
@@ -207,7 +207,8 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
       args.push_back(absl::StrCat(kFlagCpuPort, kCpuPortNoneValue));
       break;
     case CpuPort::Kind::kOverride:
-      args.push_back(absl::StrCat(kFlagCpuPort, options.cpu_port.port));
+      args.push_back(absl::StrCat(
+          kFlagCpuPort, options.cpu_port.port_override.ToFlagValue()));
       break;
   }
   if (options.disable_refers_to_checking) {

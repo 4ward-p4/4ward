@@ -262,13 +262,16 @@ class PacketHeaderCodecTest {
   }
 
   @Test
-  fun `fromFlag integer returns Override`() {
-    assertEquals(CpuPortConfig.Override(510), CpuPortConfig.fromFlag("510"))
-    assertEquals(CpuPortConfig.Override(0), CpuPortConfig.fromFlag("0"))
+  fun `fromFlag integer returns Override with Dataplane port`() {
+    assertEquals(CpuPortConfig.Override(PortOverride.Dataplane(510)), CpuPortConfig.fromFlag("510"))
+    assertEquals(CpuPortConfig.Override(PortOverride.Dataplane(0)), CpuPortConfig.fromFlag("0"))
   }
 
-  @Test(expected = IllegalArgumentException::class)
-  fun `fromFlag invalid value throws`() {
-    CpuPortConfig.fromFlag("abc")
+  @Test
+  fun `fromFlag non-integer returns Override with P4rt port`() {
+    assertEquals(
+      CpuPortConfig.Override(PortOverride.P4rt("CpuPort")),
+      CpuPortConfig.fromFlag("CpuPort"),
+    )
   }
 }

@@ -12,30 +12,41 @@ import p4.config.v1.P4InfoOuterClass.P4Info
 import p4.v1.P4RuntimeOuterClass.PacketMetadata
 
 /**
+ * A port override that is either a raw dataplane port number or a P4Runtime port name that gets
+ * resolved at pipeline load time.
+ */
+sealed interface PortOverride {
+  data class Dataplane(val port: Int) : PortOverride
+
+  data class P4rt(val name: String) : PortOverride
+
+  companion object {
+    /** Parses a CLI flag value: integer → [Dataplane], anything else → [P4rt]. */
+    fun fromFlag(value: String): PortOverride = value.toIntOrNull()?.let(::Dataplane) ?: P4rt(value)
+  }
+}
+
+/**
  * Three-state configuration for the CPU port.
  * - [Auto]: derive from p4info (`2^portBits - 2`). This is the default.
- * - [Override]: use an explicit data-plane port value.
+ * - [Override]: use an explicit port value (dataplane integer or P4RT name).
  * - [Disabled]: no CPU port, even if the p4info has `ControllerPacketMetadata`. Packets egressing
  *   on what would have been the CPU port are treated as regular output; PacketOut is rejected.
  */
 sealed interface CpuPortConfig {
   data object Auto : CpuPortConfig
 
-  data class Override(val port: Int) : CpuPortConfig
+  data class Override(val portOverride: PortOverride) : CpuPortConfig
 
   data object Disabled : CpuPortConfig
 
   companion object {
-    /** Parses a CLI flag value: null → [Auto], "none" → [Disabled], integer → [Override]. */
+    /** Parses a CLI flag value: null → [Auto], "none" → [Disabled], otherwise → [Override]. */
     fun fromFlag(value: String?): CpuPortConfig =
       when {
         value == null -> Auto
         value.equals("none", ignoreCase = true) -> Disabled
-        else ->
-          Override(
-            value.toIntOrNull()
-              ?: throw IllegalArgumentException("invalid --cpu-port value: $value")
-          )
+        else -> Override(PortOverride.fromFlag(value))
       }
   }
 }

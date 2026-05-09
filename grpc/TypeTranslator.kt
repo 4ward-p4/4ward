@@ -81,6 +81,16 @@ class PortTranslator internal constructor(private val table: TranslationTable) {
     return dp.toUnsignedInt()
   }
 
+  /**
+   * Resolves a P4RT port name to a dataplane port number using only explicit mappings. Returns null
+   * if no explicit mapping exists — never auto-allocates.
+   *
+   * Only works for `sdn_string` port types (e.g. SAI P4). `sdn_bitwidth` types are not supported
+   * because the caller provides a string name, not a bitstring.
+   */
+  fun resolveExplicit(p4rtName: String): Int? =
+    table.lookupStringExplicit(p4rtName)?.toUnsignedInt()
+
   /** Translates a dataplane port number to a P4Runtime port ID, or null if no mapping exists. */
   fun dataplaneToP4rt(dataplanePort: Int): ByteString? =
     when (val p4rtValue = table.reverseLookupOrNull(encodeMinWidth(dataplanePort))) {
@@ -774,6 +784,8 @@ internal class TranslationTable(
   /** Like [reverseLookup] but returns null instead of throwing. */
   @Synchronized
   fun reverseLookupOrNull(dataplaneValue: ByteString): P4rtValue? = reverse[dataplaneValue]
+
+  @Synchronized fun lookupStringExplicit(p4rtStr: String): ByteString? = stringForward[p4rtStr]
 
   private fun <K> lookupOrAllocate(
     forward: MutableMap<K, ByteString>,

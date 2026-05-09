@@ -34,6 +34,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -44,18 +45,44 @@
 
 namespace fourward {
 
+// A port override: either a raw dataplane port number or a P4Runtime port
+// name that gets resolved at pipeline load time.
+struct PortOverride {
+  enum class Kind { kDataplane, kP4rt };
+
+  static PortOverride Dataplane(int port) {
+    return {Kind::kDataplane, port, ""};
+  }
+  static PortOverride P4rt(std::string name) {
+    return {Kind::kP4rt, 0, std::move(name)};
+  }
+
+  std::string ToFlagValue() const {
+    return kind == Kind::kDataplane ? absl::StrCat(port) : p4rt_name;
+  }
+
+  Kind kind;
+  int port = 0;           // meaningful only when kind == kDataplane
+  std::string p4rt_name;  // meaningful only when kind == kP4rt
+};
+
 // Packet-in/out CPU port configuration. Mirrors the Kotlin CpuPortConfig:
 // Auto (infer from P4Info's controller_header, the default), Disabled (no
 // CPU port — packet I/O rejected), or Override (use this specific port).
 struct CpuPort {
   enum class Kind { kAuto, kDisabled, kOverride };
 
-  static CpuPort Auto() { return {Kind::kAuto, 0}; }
-  static CpuPort Disabled() { return {Kind::kDisabled, 0}; }
-  static CpuPort Override(int port) { return {Kind::kOverride, port}; }
+  static CpuPort Auto() { return {Kind::kAuto, {}}; }
+  static CpuPort Disabled() { return {Kind::kDisabled, {}}; }
+  static CpuPort Override(int port) {
+    return {Kind::kOverride, PortOverride::Dataplane(port)};
+  }
+  static CpuPort Override(std::string p4rt_name) {
+    return {Kind::kOverride, PortOverride::P4rt(std::move(p4rt_name))};
+  }
 
   Kind kind = Kind::kAuto;
-  int port = 0;  // meaningful only when kind == kOverride
+  PortOverride port_override;  // meaningful only when kind == kOverride
 };
 
 struct FourwardServerOptions {
@@ -67,9 +94,9 @@ struct FourwardServerOptions {
   // servers run in parallel (e.g. in a test shard).
   std::optional<int> port = std::nullopt;
 
-  // v1model drop-port override (the `--drop-port` flag). If unset, the
-  // simulator's built-in default is used.
-  std::optional<int> drop_port = std::nullopt;
+  // v1model drop-port override (the `--drop-port` flag). Accepts a raw
+  // dataplane port number or a P4RT port name (resolved at pipeline load).
+  std::optional<PortOverride> drop_port = std::nullopt;
 
   // CPU port configuration (the `--cpu-port` flag).
   CpuPort cpu_port = CpuPort::Auto();

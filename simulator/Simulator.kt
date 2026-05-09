@@ -38,13 +38,7 @@ data class ProcessPacketResult(val trace: TraceTree, val possibleOutcomes: List<
  * mutations ([loadPipeline], [writeEntry]) must be serialized by the caller (the P4Runtime layer
  * does this via its write mutex), but they do not require packet processing to be quiesced.
  */
-class Simulator(
-  /**
-   * Override for the v1model drop port. When null (default), derived from `standard_metadata` port
-   * width: `2^N - 1` (511 for 9-bit ports). Passed through to [V1ModelArchitecture].
-   */
-  private val dropPortOverride: Int? = null
-) : TableDataReader {
+class Simulator : TableDataReader {
 
   /**
    * Atomically published bundle of "the currently loaded pipeline". Includes the [TableStore] so
@@ -75,9 +69,11 @@ class Simulator(
    * mutex). Concurrent [processPacket] callers are safe — they observe either the old or the new
    * pipeline as one atomic `(architecture, tableStore)` snapshot, never a torn mix.
    *
+   * @param dropPortOverride overrides the v1model drop port. When null (default), derived from
+   *   `standard_metadata` port width: `2^N - 1` (511 for 9-bit ports).
    * @throws IllegalArgumentException if the architecture is unsupported.
    */
-  fun loadPipeline(config: PipelineConfig) {
+  fun loadPipeline(config: PipelineConfig, dropPortOverride: Int? = null) {
     val tableStore = TableStore()
     tableStore.loadMappings(config.p4Info, config.device)
     val behavioral = config.device.behavioral
@@ -100,11 +96,11 @@ class Simulator(
    *
    * **Concurrency:** same as [loadPipeline] — single-writer.
    */
-  fun loadPipelinePreservingEntries(config: PipelineConfig) {
+  fun loadPipelinePreservingEntries(config: PipelineConfig, dropPortOverride: Int? = null) {
     val old = loaded()
     val oldSnapshot = old.tableStore.snapshot()
     val oldAliasByName = old.tableStore.tableAliasByName
-    loadPipeline(config)
+    loadPipeline(config, dropPortOverride)
     val newTableStore = loaded().tableStore
     newTableStore.restoreTableEntries(oldSnapshot.forwarding, oldAliasByName)
     newTableStore.publishSnapshot()

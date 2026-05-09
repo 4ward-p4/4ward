@@ -40,10 +40,10 @@ fun simulate(pipelinePath: Path, stfPath: Path, format: OutputFormat, dropPort: 
       System.err.println("error: $stfPath: no such file")
       return ExitCode.USAGE_ERROR
     }
-  val sim = Simulator(dropPort)
+  val sim = Simulator()
 
   try {
-    sim.loadPipeline(config)
+    sim.loadPipeline(config, dropPortOverride = dropPort)
   } catch (e: IllegalArgumentException) {
     System.err.println("error: failed to load pipeline: ${e.message}")
     return ExitCode.INTERNAL_ERROR
