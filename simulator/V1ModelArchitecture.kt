@@ -416,7 +416,7 @@ class V1ModelArchitecture(
         },
         pipelineTail = { _, s ->
           resetEgressSpec(s)
-          runControlStages(s, s.egressControls)
+          runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
           if (egressSpecIsDropPort(s))
             buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
           else runDeparser(s)
@@ -605,7 +605,12 @@ class V1ModelArchitecture(
     // An assert()/assume() failure anywhere in the pipeline drops the packet.
     try {
       // --- Ingress controls (verify checksum, ingress) ---
-      runControlStages(s, s.ingressControls, duringIngress = true)
+      runControlStages(
+        s,
+        s.ingressControls,
+        duringIngress = true,
+        dataplanePort = ctx.ingressPort.toInt(),
+      )
 
       // --- Ingress→egress boundary (traffic manager) ---
       ingressEgressBoundary(ctx, s)
@@ -626,7 +631,7 @@ class V1ModelArchitecture(
    */
   private fun runEgressAndDeparser(ctx: PipelineContext, s: PipelineState): TraceTree {
     resetEgressSpec(s)
-    runControlStages(s, s.egressControls)
+    runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
     postEgressBoundary(ctx, s)
 
     if (egressSpecIsDropPort(s)) {
@@ -677,6 +682,9 @@ class V1ModelArchitecture(
     return buildOutputTrace(s.packetCtx.getEvents(), egressPort, outputBytes)
   }
 
+  private fun readEgressPort(s: PipelineState): Int =
+    (s.standardMetadata.fields["egress_port"] as? BitVal)?.bits?.value?.toInt() ?: 0
+
   /** Runs the parser stage, returning true if the parser called exit (drop). */
   private fun runParser(s: PipelineState): Boolean {
     if (s.parserStage == null) return false
@@ -699,16 +707,17 @@ class V1ModelArchitecture(
     s: PipelineState,
     stages: List<PipelineStage>,
     duringIngress: Boolean = false,
+    dataplanePort: Int? = null,
   ) {
     for ((i, stage) in stages.withIndex()) {
-      s.packetCtx.addTraceEvent(stageEvent(stage, PipelineStageEvent.Direction.ENTER))
+      s.packetCtx.addTraceEvent(
+        stageEvent(stage, PipelineStageEvent.Direction.ENTER, dataplanePort)
+      )
       try {
         s.interpreter.runControl(stage.blockName, s.env)
       } catch (_: ExitException) {
         break
       } catch (fork: ActionSelectorFork) {
-        // Wrap with V1Model-specific fork-point state for fork-point resume.
-        // Stage EXIT still fires (via finally) — the fork-point events include it.
         throw V1ModelSelectorFork(
           fork,
           s.pendingOps.copy(),
@@ -718,7 +727,9 @@ class V1ModelArchitecture(
           s.postParserEnv,
         )
       } finally {
-        s.packetCtx.addTraceEvent(stageEvent(stage, PipelineStageEvent.Direction.EXIT))
+        s.packetCtx.addTraceEvent(
+          stageEvent(stage, PipelineStageEvent.Direction.EXIT, dataplanePort)
+        )
       }
     }
   }

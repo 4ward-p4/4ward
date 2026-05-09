@@ -1,12 +1,3 @@
-# Enriched trace for translated_port.p4: etherType=0x0800 → forward("Ethernet1"),
-# ingress on "Ethernet0".
-#
-# Uses the SAI forked v1model with @p4runtime_translation("", string) on port
-# types. The enriched p4rt_* fields show human-readable port names alongside
-# raw dataplane values:
-#   - p4rt_ingress_port: "Ethernet0"  (dataplane_ingress_port: 1)
-#   - p4rt_egress_port:  "Ethernet1"  (dataplane: 0)
-#   - p4rt_matched_entry action param: "Ethernet1" (dataplane: \000)
 events {
   packet_ingress {
     dataplane_ingress_port: 1
@@ -45,6 +36,7 @@ events {
     stage_name: "verify_checksum"
     stage_kind: CONTROL
     direction: ENTER
+    dataplane_port: 1
   }
 }
 events {
@@ -52,6 +44,7 @@ events {
     stage_name: "verify_checksum"
     stage_kind: CONTROL
     direction: EXIT
+    dataplane_port: 1
   }
 }
 events {
@@ -59,6 +52,7 @@ events {
     stage_name: "ingress"
     stage_kind: CONTROL
     direction: ENTER
+    dataplane_port: 1
   }
 }
 events {
@@ -130,6 +124,7 @@ events {
     stage_name: "ingress"
     stage_kind: CONTROL
     direction: EXIT
+    dataplane_port: 1
   }
 }
 events {
@@ -137,6 +132,7 @@ events {
     stage_name: "egress"
     stage_kind: CONTROL
     direction: ENTER
+    dataplane_port: 0
   }
 }
 events {
@@ -144,6 +140,7 @@ events {
     stage_name: "egress"
     stage_kind: CONTROL
     direction: EXIT
+    dataplane_port: 0
   }
 }
 events {
@@ -151,6 +148,7 @@ events {
     stage_name: "compute_checksum"
     stage_kind: CONTROL
     direction: ENTER
+    dataplane_port: 0
   }
 }
 events {
@@ -158,6 +156,7 @@ events {
     stage_name: "compute_checksum"
     stage_kind: CONTROL
     direction: EXIT
+    dataplane_port: 0
   }
 }
 events {
@@ -186,3 +185,4 @@ packet_outcome {
     p4rt_egress_port: "Ethernet1"
   }
 }
+

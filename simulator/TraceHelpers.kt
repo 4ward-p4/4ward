@@ -67,13 +67,18 @@ internal fun packetIngressEvent(ingressPort: UInt): TraceEvent =
     .build()
 
 /** Creates a [TraceEvent] marking the entry/exit of a pipeline stage. */
-internal fun stageEvent(stage: PipelineStage, direction: PipelineStageEvent.Direction): TraceEvent =
+internal fun stageEvent(
+  stage: PipelineStage,
+  direction: PipelineStageEvent.Direction,
+  dataplanePort: Int? = null,
+): TraceEvent =
   TraceEvent.newBuilder()
     .setPipelineStage(
       PipelineStageEvent.newBuilder()
         .setStageName(stage.name)
         .setStageKind(stage.kind)
         .setDirection(direction)
+        .apply { if (dataplanePort != null) setDataplanePort(dataplanePort) }
     )
     .build()
 

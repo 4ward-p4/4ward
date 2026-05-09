@@ -34,6 +34,7 @@ events {
     stage_name: "verify_checksum"
     stage_kind: CONTROL
     direction: ENTER
+    dataplane_port: 0
   }
 }
 events {
@@ -41,6 +42,7 @@ events {
     stage_name: "verify_checksum"
     stage_kind: CONTROL
     direction: EXIT
+    dataplane_port: 0
   }
 }
 events {
@@ -48,6 +50,7 @@ events {
     stage_name: "ingress"
     stage_kind: CONTROL
     direction: ENTER
+    dataplane_port: 0
   }
 }
 events {
@@ -90,6 +93,7 @@ events {
     stage_name: "ingress"
     stage_kind: CONTROL
     direction: EXIT
+    dataplane_port: 0
   }
 }
 packet_outcome {
