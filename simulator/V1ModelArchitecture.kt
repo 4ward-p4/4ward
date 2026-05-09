@@ -367,6 +367,7 @@ class V1ModelArchitecture(
         configure = { s ->
           s.standardMetadata.setBitField("instance_type", CLONE_I2E_INSTANCE_TYPE)
           s.standardMetadata.setBitField("egress_port", fork.clonePort)
+          s.standardMetadata.setBitField("egress_rid", fork.egressRid.toLong())
           applyPreservedMetadata(ctx, s.env, fork.preservedMetadata)
         },
         pipelineTail = { c, s -> runEgressAndDeparser(c, s) },
@@ -410,6 +411,7 @@ class V1ModelArchitecture(
           s.pendingOps.egressCloneSessionId = null
           s.standardMetadata.setBitField("instance_type", CLONE_E2E_INSTANCE_TYPE)
           s.standardMetadata.setBitField("egress_port", fork.clonePort)
+          s.standardMetadata.setBitField("egress_rid", fork.egressRid.toLong())
           applyPreservedMetadata(ctx, s.env, fork.preservedMetadata)
         },
         pipelineTail = { _, s ->
@@ -731,10 +733,11 @@ class V1ModelArchitecture(
   private fun ingressEgressBoundary(ctx: PipelineContext, s: PipelineState) {
     val pendingClone = s.pendingOps.cloneSessionId
     if (pendingClone != null) {
-      resolveCloneSession(ctx, s, pendingClone)?.let { clonePort ->
+      resolveCloneSession(ctx, s, pendingClone)?.let { replica ->
         throw CloneFork(
           pendingClone,
-          clonePort,
+          replica.port.toLong(),
+          replica.rid,
           s.packetCtx.getEvents(),
           snapshotPreservedMetadata(s, s.pendingOps.cloneFieldListId),
           s.env.deepCopy(),
@@ -777,10 +780,11 @@ class V1ModelArchitecture(
   private fun postEgressBoundary(ctx: PipelineContext, s: PipelineState) {
     val pendingE2EClone = s.pendingOps.egressCloneSessionId
     if (pendingE2EClone != null) {
-      resolveCloneSession(ctx, s, pendingE2EClone)?.let { clonePort ->
+      resolveCloneSession(ctx, s, pendingE2EClone)?.let { replica ->
         throw EgressCloneFork(
           pendingE2EClone,
-          clonePort,
+          replica.port.toLong(),
+          replica.rid,
           s.packetCtx.getEvents(),
           snapshotPreservedMetadata(s, s.pendingOps.egressCloneFieldListId),
           s.env.deepCopy(),
@@ -833,27 +837,35 @@ class V1ModelArchitecture(
     (s.standardMetadata.fields["egress_spec"] as? BitVal)?.bits?.value?.toLong() == s.dropPort
 
   /**
-   * Resolves a pending clone session: emits a [CloneSessionLookupEvent] and returns the clone port,
-   * or emits a miss event and returns null if the session doesn't exist.
+   * Resolves a pending clone session: emits a [CloneSessionLookupEvent] and returns the first
+   * replica, or emits a miss event and returns null if the session doesn't exist.
    */
-  private fun resolveCloneSession(ctx: PipelineContext, s: PipelineState, sessionId: Int): Long? {
+  private fun resolveCloneSession(
+    ctx: PipelineContext,
+    s: PipelineState,
+    sessionId: Int,
+  ): Replica? {
     val session = ctx.tableStore.getCloneSession(sessionId)
     if (session != null) {
-      val egressPort = replicaPort(session.replicasList.first())
-      s.packetCtx.addTraceEvent(cloneSessionLookupEvent(sessionId, egressPort))
-      return egressPort.toLong()
+      val firstReplica = session.replicasList.first()
+      val egressPort = replicaPort(firstReplica)
+      s.packetCtx.addTraceEvent(
+        cloneSessionLookupEvent(sessionId, egressPort, firstReplica.instance)
+      )
+      return Replica(firstReplica.instance, egressPort)
     }
     s.packetCtx.addTraceEvent(cloneSessionMissEvent(sessionId))
     return null
   }
 
-  private fun cloneSessionLookupEvent(sessionId: Int, egressPort: Int): TraceEvent =
+  private fun cloneSessionLookupEvent(sessionId: Int, egressPort: Int, egressRid: Int): TraceEvent =
     TraceEvent.newBuilder()
       .setCloneSessionLookup(
         CloneSessionLookupEvent.newBuilder()
           .setSessionId(sessionId)
           .setSessionFound(true)
           .setDataplaneEgressPort(egressPort)
+          .setEgressRid(egressRid)
       )
       .build()
 
@@ -1202,6 +1214,7 @@ internal class V1ModelSelectorFork(
 internal class CloneFork(
   val sessionId: Int,
   val clonePort: Long,
+  val egressRid: Int,
   eventsBeforeFork: List<TraceEvent>,
   val preservedMetadata: Map<String, Value>? = null,
   /** Deep copy of the post-ingress environment (for the "original" branch). */
@@ -1221,6 +1234,7 @@ internal class CloneFork(
 internal class EgressCloneFork(
   val sessionId: Int,
   val clonePort: Long,
+  val egressRid: Int,
   eventsBeforeFork: List<TraceEvent>,
   val preservedMetadata: Map<String, Value>? = null,
   /** Deep copy of the post-egress environment (for both branches). */

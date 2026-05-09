@@ -439,12 +439,11 @@ class SaiP4E2ETest {
     installCloneSessionDeprecated(COPY_TO_CPU_SESSION_ID, egressPort = 99)
 
     val packet = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
-    // The clone outputs on dataplane port 99, which has no reverse mapping.
-    // toDualEncoded should fail loudly per invariant #5. The IllegalStateException
-    // is caught and converted to a proper INTERNAL StatusException.
-    FourwardTestHarness.assertGrpcError(Status.Code.INTERNAL) {
-      harness.injectPacket(ingressPort = 0, payload = packet)
-    }
+    // With egress_rid correctly set from the replica's instance field,
+    // packet_io.p4 recognises the clone as a PacketIn (instance_type==1 &&
+    // egress_rid==1) and delivers it to the CPU — the unmapped port 99 is
+    // never reached as a regular output.
+    harness.injectPacket(ingressPort = 0, payload = packet)
   }
 
   @Test

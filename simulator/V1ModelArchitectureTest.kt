@@ -240,6 +240,7 @@ class V1ModelArchitectureTest {
     store: TableStore,
     sessionId: Int,
     egressPort: Int,
+    instance: Int = 0,
     usePortBytes: Boolean = false,
   ) {
     store.write(
@@ -252,7 +253,7 @@ class V1ModelArchitectureTest {
                 .setCloneSessionEntry(
                   P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
                     .setSessionId(sessionId)
-                    .addReplicas(buildReplica(egressPort, usePortBytes = usePortBytes))
+                    .addReplicas(buildReplica(egressPort, instance, usePortBytes = usePortBytes))
                 )
             )
         )
@@ -454,6 +455,44 @@ class V1ModelArchitectureTest {
   }
 
   @Test
+  fun `I2E clone sets egress_rid from clone session replica instance`() {
+    // Egress copies egress_rid into a user metadata field, then uses it to
+    // decide whether to drop. Verifies the replica's instance field flows
+    // through to standard_metadata.egress_rid in the clone branch.
+    val config =
+      v1modelConfig(
+        ingressStmts =
+          listOf(
+            externCall("clone", enumArg("I2E"), intArg(1, 32)),
+            assignField("sm", "egress_spec", 2, V1ModelArchitecture.DEFAULT_PORT_BITS),
+          ),
+        egressStmts =
+          listOf(
+            // In the clone branch, drop if egress_rid == 0 (the default / unfixed value).
+            ifFieldEquals(
+              "sm",
+              "instance_type",
+              1,
+              32,
+              ifFieldEquals("sm", "egress_rid", 0, 16, markToDrop),
+            )
+          ),
+      )
+    val tableStore = TableStore()
+    writeCloneSession(tableStore, sessionId = 1, egressPort = 7, instance = 42)
+
+    val result =
+      V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte()), tableStore)
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(2, outputs.size)
+    // Original: egress_spec=2, not a clone so egress doesn't drop.
+    assertEquals(2, outputs[0].dataplaneEgressPort)
+    // Clone: if egress_rid is correctly set to 42 (not 0), the clone survives.
+    assertEquals(7, outputs[1].dataplaneEgressPort)
+  }
+
+  @Test
   fun `I2E clone works with multi-byte Replica port`() {
     val config =
       v1modelConfig(
@@ -516,6 +555,64 @@ class V1ModelArchitectureTest {
     assertEquals(2, outputs.size)
     assertEquals(3, outputs[0].dataplaneEgressPort)
     assertEquals(8, outputs[1].dataplaneEgressPort)
+  }
+
+  @Test
+  fun `E2E clone sets egress_rid from clone session replica instance`() {
+    val config =
+      v1modelConfig(
+        ingressStmts =
+          listOf(assignField("sm", "egress_spec", 3, V1ModelArchitecture.DEFAULT_PORT_BITS)),
+        egressStmts =
+          listOf(
+            // First egress pass (instance_type == 0): trigger E2E clone.
+            ifFieldEquals(
+              "sm",
+              "instance_type",
+              0,
+              32,
+              externCall("clone", enumArg("E2E"), intArg(1, 32)),
+            ),
+            // Clone pass (instance_type == 2): drop if egress_rid == 0.
+            ifFieldEquals(
+              "sm",
+              "instance_type",
+              2,
+              32,
+              ifFieldEquals("sm", "egress_rid", 0, 16, markToDrop),
+            ),
+          ),
+      )
+    val tableStore = TableStore()
+    writeCloneSession(tableStore, sessionId = 1, egressPort = 8, instance = 7)
+
+    val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(2, outputs.size)
+    assertEquals(3, outputs[0].dataplaneEgressPort)
+    // Clone survives because egress_rid=7, not 0.
+    assertEquals(8, outputs[1].dataplaneEgressPort)
+  }
+
+  @Test
+  fun `clone session trace event includes egress_rid`() {
+    val config =
+      v1modelConfig(
+        externCall("clone", enumArg("I2E"), intArg(1, 32)),
+        assignField("sm", "egress_spec", 2, V1ModelArchitecture.DEFAULT_PORT_BITS),
+      )
+    val tableStore = TableStore()
+    writeCloneSession(tableStore, sessionId = 1, egressPort = 7, instance = 42)
+
+    val result =
+      V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte()), tableStore)
+    val cloneEvent = result.trace.eventsList.first { it.hasCloneSessionLookup() }.cloneSessionLookup
+
+    assertTrue(cloneEvent.sessionFound)
+    assertEquals(1, cloneEvent.sessionId)
+    assertEquals(7, cloneEvent.dataplaneEgressPort)
+    assertEquals(42, cloneEvent.egressRid)
   }
 
   @Test
