@@ -66,6 +66,28 @@ If you take a shortcut or skip a corner case, note it in
 Mark workarounds with a prominent `WORKAROUND` comment explaining what is
 broken and what the code should look like once the upstream issue is fixed.
 
+## Writing style (docs, READMEs, comments)
+
+Write the way you'd explain something to a colleague — clear, simple
+sentences that flow naturally. Not compressed noun phrases, not verbose
+filler. [Paul Graham](https://paulgraham.com/articles.html) and
+[Scott Galloway](https://www.profgalloway.com/) are good north stars.
+
+- **What → why → how.** First sentence: what is this thing? Then: why
+  does it exist? Implementation details come last.
+- **One big idea.** Every doc has a single most important message.
+  State it plainly up front. If someone reads only the first paragraph,
+  they should walk away with the right mental model.
+- **Be precise about scope.** "The gRPC interface" claims exclusivity;
+  "a gRPC interface" is honest when there are other ways in. Don't say
+  "test tooling" when controllers and debug scripts use it too.
+- **Match the existing voice.** The 4ward docs have personality ("where
+  the magic happens", "life is too short for overflow bugs"). Read the
+  surrounding prose before adding to it.
+- **Design docs are historical records.** Don't rewrite them to match
+  current code — add a revision note and leave the original reasoning
+  intact.
+
 ## Build and test
 
 ```sh
