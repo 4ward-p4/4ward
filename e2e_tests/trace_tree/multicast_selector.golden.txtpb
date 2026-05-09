@@ -54,6 +54,18 @@ events {
   }
 }
 events {
+  assignment {
+    target: "smeta.mcast_grp"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/multicast_selector.p4"
+    line: 35
+    column: 24
+    source_fragment: "smeta.mcast_grp = 16w1"
+  }
+  result_value: "1"
+}
+events {
   pipeline_stage {
     stage_name: "ingress"
     stage_kind: CONTROL
@@ -98,6 +110,10 @@ fork_outcome {
           column: 12
           source_fragment: "egress_selector.apply()"
         }
+        variable_values {
+          key: "1"
+          value: "281474976710655 (0xffffffffffff)"
+        }
       }
       fork_outcome {
         reason: ACTION_SELECTOR
@@ -114,6 +130,18 @@ fork_outcome {
                 column: 12
                 source_fragment: "egress_selector.apply()"
               }
+            }
+            events {
+              assignment {
+                target: "hdr.ethernet.dstAddr"
+              }
+              source_info {
+                file: "e2e_tests/trace_tree/multicast_selector.p4"
+                line: 42
+                column: 42
+                source_fragment: "hdr.ethernet.dstAddr = 48w0xaaaaaaaaaaaa"
+              }
+              result_value: "187649984473770 (0xaaaaaaaaaaaa)"
             }
             events {
               pipeline_stage {
@@ -177,6 +205,18 @@ fork_outcome {
                 column: 12
                 source_fragment: "egress_selector.apply()"
               }
+            }
+            events {
+              assignment {
+                target: "hdr.ethernet.dstAddr"
+              }
+              source_info {
+                file: "e2e_tests/trace_tree/multicast_selector.p4"
+                line: 43
+                column: 42
+                source_fragment: "hdr.ethernet.dstAddr = 48w0xbbbbbbbbbbbb"
+              }
+              result_value: "206414982921147 (0xbbbbbbbbbbbb)"
             }
             events {
               pipeline_stage {
@@ -265,6 +305,10 @@ fork_outcome {
           column: 12
           source_fragment: "egress_selector.apply()"
         }
+        variable_values {
+          key: "1"
+          value: "281474976710655 (0xffffffffffff)"
+        }
       }
       fork_outcome {
         reason: ACTION_SELECTOR
@@ -281,6 +325,18 @@ fork_outcome {
                 column: 12
                 source_fragment: "egress_selector.apply()"
               }
+            }
+            events {
+              assignment {
+                target: "hdr.ethernet.dstAddr"
+              }
+              source_info {
+                file: "e2e_tests/trace_tree/multicast_selector.p4"
+                line: 42
+                column: 42
+                source_fragment: "hdr.ethernet.dstAddr = 48w0xaaaaaaaaaaaa"
+              }
+              result_value: "187649984473770 (0xaaaaaaaaaaaa)"
             }
             events {
               pipeline_stage {
@@ -344,6 +400,18 @@ fork_outcome {
                 column: 12
                 source_fragment: "egress_selector.apply()"
               }
+            }
+            events {
+              assignment {
+                target: "hdr.ethernet.dstAddr"
+              }
+              source_info {
+                file: "e2e_tests/trace_tree/multicast_selector.p4"
+                line: 43
+                column: 42
+                source_fragment: "hdr.ethernet.dstAddr = 48w0xbbbbbbbbbbbb"
+              }
+              result_value: "206414982921147 (0xbbbbbbbbbbbb)"
             }
             events {
               pipeline_stage {

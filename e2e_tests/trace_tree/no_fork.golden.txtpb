@@ -83,6 +83,10 @@ events {
     column: 12
     source_fragment: "routing.apply()"
   }
+  variable_values {
+    key: "1"
+    value: "281474976710655 (0xffffffffffff)"
+  }
 }
 events {
   action_execution {
@@ -98,6 +102,22 @@ events {
     column: 12
     source_fragment: "routing.apply()"
   }
+}
+events {
+  assignment {
+    target: "smeta.egress_spec"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/no_fork.p4"
+    line: 33
+    column: 52
+    source_fragment: "smeta.egress_spec = port"
+  }
+  variable_values {
+    key: "port"
+    value: "1"
+  }
+  result_value: "1"
 }
 events {
   pipeline_stage {

@@ -129,9 +129,19 @@ message TraceEvent {
     LogMessageEvent log_message = 11;
     AssertionEvent assertion = 12;
     DeparserEmitEvent deparser_emit = 13;
+    AssignmentEvent assignment = 14;
   }
 
   SourceInfo source_info = 100;
+
+  // Runtime variable values referenced during this event's evaluation.
+  // Keys are P4 field paths (e.g. "standard_metadata.egress_rid"), values
+  // are the resolved values formatted as decimal integers or hex strings.
+  map<string, string> variable_values = 101;
+
+  // Result of the evaluation: boolean for branches/assertions, the
+  // assigned value for assignments.
+  string result_value = 102;
 }
 
 // Fired on every parser state transition, including the final transition to
@@ -248,6 +258,12 @@ message AssertionEvent {
 message DeparserEmitEvent {
   string header_type = 1;  // TypeDecl name (e.g. "ethernet_t")
   uint32 byte_length = 2;  // number of bytes emitted for this header
+}
+
+// Fired on every assignment statement. The target and assigned value are
+// in TraceEvent.variable_values and TraceEvent.result_value.
+message AssignmentEvent {
+  string target = 1;  // LHS field path (e.g. "standard_metadata.egress_spec")
 }
 
 enum DropReason {

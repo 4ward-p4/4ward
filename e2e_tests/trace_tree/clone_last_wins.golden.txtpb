@@ -54,6 +54,18 @@ events {
   }
 }
 events {
+  assignment {
+    target: "smeta.egress_spec"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/clone_last_wins.p4"
+    line: 34
+    column: 26
+    source_fragment: "smeta.egress_spec = 9w3"
+  }
+  result_value: "3"
+}
+events {
   clone {
     session_id: 200
   }

@@ -45,13 +45,14 @@ to read the test from stdin:
   > EOF
   packet received: port 0, 14 bytes
     parse: start -> accept
+    standard_metadata.egress_spec = 1
     output port 1, 14 bytes
   PASS
 
 Each packet trace starts with the port and size of the incoming packet. Then the
 events: the parser walked start -> accept (extracting the Ethernet
-header), and the packet exits port 1, all 14 bytes intact. PASS
-means the actual output matched the expected output.
+header), ingress sets egress_spec to 1, and the packet exits port 1, all 14
+bytes intact. PASS means the actual output matched the expected output.
 
 This is what glass-box means. Instead of a binary pass/fail, you see
 every decision the simulator made.
@@ -89,6 +90,7 @@ an IPv4 frame that matches, and an ARP frame that doesn't.
     parse: start -> accept
     table port_table: hit -> forward
     action forward(port=1)
+    standard_metadata.egress_spec = 1
     output port 1, 18 bytes
   packet received: port 0, 18 bytes
     parse: start -> accept
@@ -119,6 +121,7 @@ always outputs on port 1. Let's write a test that expects port 9:
   > EOF
   packet received: port 0, 14 bytes
     parse: start -> accept
+    standard_metadata.egress_spec = 1
     output port 1, 14 bytes
   FAIL
     expected packet on port 9 but got none
@@ -178,6 +181,7 @@ Step 2: simulate a test against the compiled pipeline.
   > EOF
   packet received: port 0, 14 bytes
     parse: start -> accept
+    standard_metadata.egress_spec = 1
     output port 1, 14 bytes
   PASS
 

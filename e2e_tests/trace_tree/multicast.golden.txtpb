@@ -54,6 +54,18 @@ events {
   }
 }
 events {
+  assignment {
+    target: "smeta.mcast_grp"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/multicast.p4"
+    line: 33
+    column: 24
+    source_fragment: "smeta.mcast_grp = 16w1"
+  }
+  result_value: "1"
+}
+events {
   pipeline_stage {
     stage_name: "ingress"
     stage_kind: CONTROL

@@ -103,6 +103,10 @@ events {
     column: 10
     source_fragment: "forwarding.apply()"
   }
+  variable_values {
+    key: "1"
+    value: "2048 (0x800)"
+  }
 }
 events {
   action_execution {
@@ -118,6 +122,22 @@ events {
     column: 10
     source_fragment: "forwarding.apply()"
   }
+}
+events {
+  assignment {
+    target: "smeta.egress_spec"
+  }
+  source_info {
+    file: "e2e_tests/translated_port/translated_port.p4"
+    line: 42
+    column: 53
+    source_fragment: "smeta.egress_spec = port"
+  }
+  variable_values {
+    key: "port"
+    value: "0"
+  }
+  result_value: "0"
 }
 events {
   pipeline_stage {

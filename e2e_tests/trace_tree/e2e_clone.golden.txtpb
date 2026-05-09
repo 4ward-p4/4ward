@@ -54,6 +54,18 @@ events {
   }
 }
 events {
+  assignment {
+    target: "smeta.egress_spec"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/e2e_clone.p4"
+    line: 34
+    column: 30
+    source_fragment: "smeta.egress_spec = 9w2"
+  }
+  result_value: "2"
+}
+events {
   pipeline_stage {
     stage_name: "ingress"
     stage_kind: CONTROL
@@ -80,6 +92,11 @@ events {
     column: 12
     source_fragment: "smeta.instance_type == 0"
   }
+  variable_values {
+    key: "smeta.instance_type"
+    value: "0"
+  }
+  result_value: "true"
 }
 events {
   clone {
@@ -119,6 +136,10 @@ events {
     column: 8
     source_fragment: "egress_classify.apply()"
   }
+  variable_values {
+    key: "1"
+    value: "0"
+  }
 }
 events {
   action_execution {
@@ -130,6 +151,18 @@ events {
     column: 8
     source_fragment: "egress_classify.apply()"
   }
+}
+events {
+  assignment {
+    target: "hdr.ethernet.dstAddr"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/e2e_clone.p4"
+    line: 39
+    column: 49
+    source_fragment: "hdr.ethernet.dstAddr = 48w0xaaaaaaaaaaaa"
+  }
+  result_value: "187649984473770 (0xaaaaaaaaaaaa)"
 }
 events {
   pipeline_stage {
@@ -217,6 +250,11 @@ fork_outcome {
           column: 12
           source_fragment: "smeta.instance_type == 0"
         }
+        variable_values {
+          key: "smeta.instance_type"
+          value: "2"
+        }
+        result_value: "false"
       }
       events {
         table_lookup {
@@ -245,6 +283,10 @@ fork_outcome {
           column: 8
           source_fragment: "egress_classify.apply()"
         }
+        variable_values {
+          key: "1"
+          value: "2"
+        }
       }
       events {
         action_execution {
@@ -256,6 +298,18 @@ fork_outcome {
           column: 8
           source_fragment: "egress_classify.apply()"
         }
+      }
+      events {
+        assignment {
+          target: "hdr.ethernet.srcAddr"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/e2e_clone.p4"
+          line: 40
+          column: 46
+          source_fragment: "hdr.ethernet.srcAddr = 48w0xbbbbbbbbbbbb"
+        }
+        result_value: "206414982921147 (0xbbbbbbbbbbbb)"
       }
       events {
         pipeline_stage {

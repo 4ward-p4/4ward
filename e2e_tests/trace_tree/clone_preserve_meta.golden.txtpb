@@ -54,6 +54,42 @@ events {
   }
 }
 events {
+  assignment {
+    target: "smeta.egress_spec"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
+    line: 43
+    column: 26
+    source_fragment: "smeta.egress_spec = 9w1"
+  }
+  result_value: "1"
+}
+events {
+  assignment {
+    target: "meta.preserved_value"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
+    line: 44
+    column: 29
+    source_fragment: "meta.preserved_value = 16w0xabcd"
+  }
+  result_value: "43981 (0xabcd)"
+}
+events {
+  assignment {
+    target: "meta.not_preserved_value"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
+    line: 45
+    column: 33
+    source_fragment: "meta.not_preserved_value = 16w0x1234"
+  }
+  result_value: "4660 (0x1234)"
+}
+events {
   clone {
     session_id: 100
   }
@@ -103,6 +139,11 @@ fork_outcome {
           column: 12
           source_fragment: "smeta.instance_type == 1"
         }
+        variable_values {
+          key: "smeta.instance_type"
+          value: "0"
+        }
+        result_value: "false"
       }
       events {
         pipeline_stage {
@@ -178,6 +219,27 @@ fork_outcome {
           column: 12
           source_fragment: "smeta.instance_type == 1"
         }
+        variable_values {
+          key: "smeta.instance_type"
+          value: "1"
+        }
+        result_value: "true"
+      }
+      events {
+        assignment {
+          target: "hdr.ethernet.etherType"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
+          line: 57
+          column: 35
+          source_fragment: "hdr.ethernet.etherType = meta.preserved_value"
+        }
+        variable_values {
+          key: "meta.preserved_value"
+          value: "43981 (0xabcd)"
+        }
+        result_value: "43981 (0xabcd)"
       }
       events {
         pipeline_stage {

@@ -77,6 +77,10 @@ events {
     column: 8
     source_fragment: "stage1.apply()"
   }
+  variable_values {
+    key: "1"
+    value: "281474976710655 (0xffffffffffff)"
+  }
 }
 fork_outcome {
   reason: ACTION_SELECTOR
@@ -97,6 +101,22 @@ fork_outcome {
           column: 8
           source_fragment: "stage1.apply()"
         }
+      }
+      events {
+        assignment {
+          target: "meta.tag"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/action_selector_nested.p4"
+          line: 35
+          column: 42
+          source_fragment: "meta.tag = tag"
+        }
+        variable_values {
+          key: "tag_1"
+          value: "1"
+        }
+        result_value: "1"
       }
       events {
         table_lookup {
@@ -122,6 +142,10 @@ fork_outcome {
           column: 8
           source_fragment: "stage2.apply()"
         }
+        variable_values {
+          key: "1"
+          value: "2048 (0x800)"
+        }
       }
       fork_outcome {
         reason: ACTION_SELECTOR
@@ -142,6 +166,22 @@ fork_outcome {
                 column: 8
                 source_fragment: "stage2.apply()"
               }
+            }
+            events {
+              assignment {
+                target: "smeta.egress_spec"
+              }
+              source_info {
+                file: "e2e_tests/trace_tree/action_selector_nested.p4"
+                line: 34
+                column: 53
+                source_fragment: "smeta.egress_spec = port"
+              }
+              variable_values {
+                key: "port"
+                value: "1"
+              }
+              result_value: "1"
             }
             events {
               pipeline_stage {
@@ -227,6 +267,22 @@ fork_outcome {
                 column: 8
                 source_fragment: "stage2.apply()"
               }
+            }
+            events {
+              assignment {
+                target: "smeta.egress_spec"
+              }
+              source_info {
+                file: "e2e_tests/trace_tree/action_selector_nested.p4"
+                line: 34
+                column: 53
+                source_fragment: "smeta.egress_spec = port"
+              }
+              variable_values {
+                key: "port"
+                value: "2"
+              }
+              result_value: "2"
             }
             events {
               pipeline_stage {
@@ -317,6 +373,22 @@ fork_outcome {
         }
       }
       events {
+        assignment {
+          target: "meta.tag"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/action_selector_nested.p4"
+          line: 35
+          column: 42
+          source_fragment: "meta.tag = tag"
+        }
+        variable_values {
+          key: "tag_1"
+          value: "2"
+        }
+        result_value: "2"
+      }
+      events {
         table_lookup {
           table_name: "stage2"
           hit: true
@@ -340,6 +412,10 @@ fork_outcome {
           column: 8
           source_fragment: "stage2.apply()"
         }
+        variable_values {
+          key: "1"
+          value: "2048 (0x800)"
+        }
       }
       fork_outcome {
         reason: ACTION_SELECTOR
@@ -360,6 +436,22 @@ fork_outcome {
                 column: 8
                 source_fragment: "stage2.apply()"
               }
+            }
+            events {
+              assignment {
+                target: "smeta.egress_spec"
+              }
+              source_info {
+                file: "e2e_tests/trace_tree/action_selector_nested.p4"
+                line: 34
+                column: 53
+                source_fragment: "smeta.egress_spec = port"
+              }
+              variable_values {
+                key: "port"
+                value: "1"
+              }
+              result_value: "1"
             }
             events {
               pipeline_stage {
@@ -445,6 +537,22 @@ fork_outcome {
                 column: 8
                 source_fragment: "stage2.apply()"
               }
+            }
+            events {
+              assignment {
+                target: "smeta.egress_spec"
+              }
+              source_info {
+                file: "e2e_tests/trace_tree/action_selector_nested.p4"
+                line: 34
+                column: 53
+                source_fragment: "smeta.egress_spec = port"
+              }
+              variable_values {
+                key: "port"
+                value: "2"
+              }
+              result_value: "2"
             }
             events {
               pipeline_stage {
