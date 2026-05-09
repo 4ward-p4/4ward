@@ -176,6 +176,8 @@ class GoldenErrorTest(private val testName: String) {
       "inject-packet-no-port-translation" -> triggerInjectPacketNoPortTranslation()
       "inject-packet-simulator-throws" -> triggerInjectPacketSimulatorThrows()
       "inject-packet-port-overflow" -> triggerInjectPacketPortOverflow()
+      "p4rt-cpu-port-no-translation" -> triggerP4rtCpuPortNoTranslation()
+      "p4rt-cpu-port-no-mapping" -> triggerP4rtCpuPortNoMapping()
       else -> error("unknown test: $name")
     }
   }
@@ -216,6 +218,21 @@ class GoldenErrorTest(private val testName: String) {
     // a setBitField overflow in the simulator.
     harness.loadPipeline(loadConfig("e2e_tests/passthrough/passthrough.txtpb"))
     harness.injectPacket(512, FourwardTestHarness.buildEthernetFrame(0x0800))
+  }
+
+  private fun triggerP4rtCpuPortNoTranslation() {
+    val cpuPort = CpuPortConfig.Override(PortOverride.P4rt("CpuPort"))
+    FourwardTestHarness(cpuPortConfig = cpuPort).use { h ->
+      h.loadPipeline(loadConfig("e2e_tests/passthrough/passthrough.txtpb"))
+    }
+  }
+
+  private fun triggerP4rtCpuPortNoMapping() {
+    val cpuPort = CpuPortConfig.Override(PortOverride.P4rt("UnknownPort"))
+    FourwardTestHarness(cpuPortConfig = cpuPort).use { h ->
+      val config = loadConfig("e2e_tests/translated_port/translated_port.txtpb")
+      h.loadPipeline(config)
+    }
   }
 
   private fun triggerInjectPacketNoPortTranslation() {
@@ -1724,6 +1741,8 @@ class GoldenErrorTest(private val testName: String) {
         "inject-packet-no-port-translation",
         "inject-packet-simulator-throws",
         "inject-packet-port-overflow",
+        "p4rt-cpu-port-no-translation",
+        "p4rt-cpu-port-no-mapping",
       )
 
     private val VALIDATOR_BINARY: Path =

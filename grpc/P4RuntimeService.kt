@@ -77,6 +77,7 @@ class P4RuntimeService(
   private val writeMutex: Mutex = Mutex(),
   private val deviceId: Long = DEFAULT_DEVICE_ID,
   private val cpuPortConfig: CpuPortConfig = CpuPortConfig.Auto,
+  private val dropPortConfig: PortOverride? = null,
   private val disableRefersToChecking: Boolean = false,
   private val disableP4ConstraintsChecking: Boolean = false,
 ) : P4RuntimeGrpcKt.P4RuntimeCoroutineImplBase(), Closeable {
@@ -90,6 +91,7 @@ class P4RuntimeService(
     val referenceValidator: ReferenceValidator?,
     val constraintValidator: ConstraintValidator?,
     val packetHeaderCodec: PacketHeaderCodec?,
+    val resolvedDropPort: Int?,
     val entityReader: EntityReader,
     val roleMap: RoleMap,
   )
@@ -252,8 +254,18 @@ class P4RuntimeService(
           is CpuPortConfig.Auto ->
             PacketHeaderCodec.create(fwdConfig.p4Info, deviceConfig.behavioral)
           is CpuPortConfig.Override ->
-            PacketHeaderCodec.create(fwdConfig.p4Info, deviceConfig.behavioral, cpuPortConfig.port)
+            PacketHeaderCodec.create(
+              fwdConfig.p4Info,
+              deviceConfig.behavioral,
+              resolvePortOverride(
+                cpuPortConfig.portOverride,
+                typeTranslator?.portTranslator,
+                "cpu-port",
+              )!!,
+            )
         },
+      resolvedDropPort =
+        resolvePortOverride(dropPortConfig, typeTranslator?.portTranslator, "drop-port"),
       // Placeholder — EntityReader needs simulator name maps that are only
       // available after loadPipeline; commitPipeline creates the real one.
       entityReader = EntityReader.EMPTY,
@@ -306,7 +318,9 @@ class P4RuntimeService(
       }
     }
 
-    activatePipeline(newState) { simulator.loadPipelinePreservingEntries(it) }
+    activatePipeline(newState) {
+      simulator.loadPipelinePreservingEntries(it, newState.resolvedDropPort)
+    }
   }
 
   /**
@@ -331,7 +345,7 @@ class P4RuntimeService(
 
   /** Loads a verified pipeline into the simulator and activates it. */
   private fun commitPipeline(state: PipelineState) {
-    activatePipeline(state) { simulator.loadPipeline(it) }
+    activatePipeline(state) { simulator.loadPipeline(it, state.resolvedDropPort) }
   }
 
   /**
@@ -1050,6 +1064,37 @@ class P4RuntimeService(
     pipeline?.constraintValidator?.close()
     savedPipeline?.constraintValidator?.close()
   }
+
+  /**
+   * Resolves a [PortOverride] to a dataplane port number. [PortOverride.Dataplane] passes through;
+   * [PortOverride.P4rt] looks up the name in the port translator's explicit mappings (no
+   * auto-allocation). Returns null if [portOverride] is null.
+   */
+  private fun resolvePortOverride(
+    portOverride: PortOverride?,
+    portTranslator: PortTranslator?,
+    flagName: String,
+  ): Int? =
+    when (portOverride) {
+      null -> null
+      is PortOverride.Dataplane -> portOverride.port
+      is PortOverride.P4rt -> {
+        val pt =
+          portTranslator
+            ?: throw Status.FAILED_PRECONDITION.withDescription(
+                "--$flagName uses P4RT name '${portOverride.name}', but the pipeline has no " +
+                  "@p4runtime_translation for ports"
+              )
+              .asException()
+        pt.resolveExplicit(portOverride.name)
+          ?: throw Status.FAILED_PRECONDITION.withDescription(
+              "--$flagName uses P4RT name '${portOverride.name}', but no explicit translation " +
+                "mapping exists for this name in the DeviceConfig. Add an explicit mapping or " +
+                "use a raw dataplane port number."
+            )
+            .asException()
+      }
+    }
 
   companion object {
     internal const val DEFAULT_DEVICE_ID = 1L

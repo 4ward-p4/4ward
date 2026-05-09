@@ -54,14 +54,14 @@ import p4.v1.P4RuntimeOuterClass.WriteResponse
  */
 class FourwardTestHarness(
   constraintValidatorBinary: Path? = null,
-  dropPortOverride: Int? = null,
+  dropPortOverride: PortOverride? = null,
   cpuPortConfig: CpuPortConfig = CpuPortConfig.Auto,
   disableRefersToChecking: Boolean = false,
   disableP4ConstraintsChecking: Boolean = false,
 ) : Closeable {
 
   private val serverName = InProcessServerBuilder.generateName()
-  private val simulator = Simulator(dropPortOverride)
+  private val simulator = Simulator()
   private val writeMutex = kotlinx.coroutines.sync.Mutex()
   private val broker = PacketBroker(simulator::processPacket, writeMutex)
   private val service =
@@ -71,6 +71,7 @@ class FourwardTestHarness(
       constraintValidatorBinary,
       writeMutex = writeMutex,
       cpuPortConfig = cpuPortConfig,
+      dropPortConfig = dropPortOverride,
       disableRefersToChecking = disableRefersToChecking,
       disableP4ConstraintsChecking = disableP4ConstraintsChecking,
     )

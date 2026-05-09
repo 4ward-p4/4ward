@@ -1,0 +1,1 @@
+FAILED_PRECONDITION: --cpu-port uses P4RT name 'UnknownPort', but no explicit translation mapping exists for this name in the DeviceConfig. Add an explicit mapping or use a raw dataplane port number.

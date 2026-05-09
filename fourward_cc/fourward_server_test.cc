@@ -136,7 +136,7 @@ TEST(FourwardServerTest, DropAndCpuPortFlagsAcceptedByServer) {
   // the server comes up. Deeper validation of drop/cpu port semantics belongs
   // in the Kotlin-side tests.
   absl::StatusOr<FourwardServer> with_drop =
-      FourwardServer::Start({.drop_port = 511});
+      FourwardServer::Start({.drop_port = PortOverride::Dataplane(511)});
   ASSERT_TRUE(with_drop.ok()) << with_drop.status();
   ExpectHealthy(*with_drop);
 

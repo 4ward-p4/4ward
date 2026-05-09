@@ -3,6 +3,7 @@ package fourward.web
 import fourward.grpc.DataplaneService
 import fourward.grpc.P4RuntimeService
 import fourward.grpc.PacketBroker
+import fourward.grpc.PortOverride
 import fourward.simulator.Simulator
 import io.grpc.netty.NettyServerBuilder
 import java.awt.Desktop
@@ -22,14 +23,20 @@ fun main(args: Array<String>) {
     flagValue(args, "--grpc-port")?.toIntOrNull() ?: fourward.grpc.FourwardServer.DEFAULT_PORT
   val staticDir = flagValue(args, "--static-dir")?.let { Path.of(it) }
 
-  val dropPort = flagValue(args, "--drop-port")?.toIntOrNull()
+  val dropPort = flagValue(args, "--drop-port")?.let(PortOverride::fromFlag)
   val cpuPortConfig = fourward.grpc.CpuPortConfig.fromFlag(flagValue(args, "--cpu-port"))
 
-  val simulator = Simulator(dropPort)
+  val simulator = Simulator()
   val writeMutex = kotlinx.coroutines.sync.Mutex()
   val broker = PacketBroker(simulator::processPacket, writeMutex)
   val service =
-    P4RuntimeService(simulator, broker, writeMutex = writeMutex, cpuPortConfig = cpuPortConfig)
+    P4RuntimeService(
+      simulator,
+      broker,
+      writeMutex = writeMutex,
+      cpuPortConfig = cpuPortConfig,
+      dropPortConfig = dropPort,
+    )
   val dataplaneService = DataplaneService(broker, typeTranslator = { service.typeTranslator })
   broker.readAllEntities = { service.readAllEntities() }
   broker.readP4Info = { service.p4Info() }
