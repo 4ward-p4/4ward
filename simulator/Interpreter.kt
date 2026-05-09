@@ -2,6 +2,7 @@ package fourward.simulator
 
 import fourward.ActionExecutionEvent
 import fourward.AssertionEvent
+import fourward.AssignmentEvent
 import fourward.BehavioralConfig
 import fourward.BinaryOperator
 import fourward.BranchEvent
@@ -370,8 +371,21 @@ class Interpreter internal constructor(config: BehavioralConfig) {
     private fun execStmt(stmt: Stmt, env: Environment) {
       if (stmt.hasSourceInfo()) currentSourceInfo = stmt.sourceInfo else currentSourceInfo = null
       when (stmt.kindCase) {
-        StmtKind.ASSIGNMENT ->
-          setLValue(stmt.assignment.lhs, evalExpr(stmt.assignment.rhs, env), env)
+        StmtKind.ASSIGNMENT -> {
+          val rhs = stmt.assignment.rhs
+          val value = evalExpr(rhs, env)
+          setLValue(stmt.assignment.lhs, value, env)
+          val targetPath = exprPath(stmt.assignment.lhs)
+          if (targetPath != null) {
+            packetCtx?.addTraceEvent(
+              traceEventBuilder()
+                .setAssignment(AssignmentEvent.newBuilder().setTarget(targetPath))
+                .putAllVariableValues(collectVariableValues(rhs, env))
+                .setResultValue(formatValue(value))
+                .build()
+            )
+          }
+        }
         StmtKind.METHOD_CALL -> evalExpr(stmt.methodCall.call, env) // result discarded
         StmtKind.IF_STMT -> execIf(stmt.ifStmt, env)
         StmtKind.SWITCH_STMT -> execSwitch(stmt.switchStmt, env)
@@ -391,6 +405,8 @@ class Interpreter internal constructor(config: BehavioralConfig) {
           .setBranch(
             branchEventPool.clear().setControlName(currentControlName ?: "").setTaken(condition)
           )
+          .putAllVariableValues(collectVariableValues(ifStmt.condition, env))
+          .setResultValue(condition.toString())
           .build()
       )
 
@@ -414,6 +430,122 @@ class Interpreter internal constructor(config: BehavioralConfig) {
     // -------------------------------------------------------------------------
     // Expressions
     // -------------------------------------------------------------------------
+
+    /**
+     * Collects all variable references in [expr] and resolves their current values from [env].
+     * Returns a map from P4 field paths (e.g. "standard_metadata.egress_rid") to formatted values.
+     */
+    private fun collectVariableValues(expr: Expr, env: Environment): Map<String, String> {
+      val result = mutableMapOf<String, String>()
+      collectVariableValuesRecursive(expr, env, result)
+      return result
+    }
+
+    private fun collectVariableValuesRecursive(
+      expr: Expr,
+      env: Environment,
+      out: MutableMap<String, String>,
+    ) {
+      when (expr.kindCase) {
+        ExprKind.NAME_REF -> {
+          val value = env.lookup(expr.nameRef.name)
+          if (value != null) out[expr.nameRef.name] = formatValue(value)
+        }
+        ExprKind.FIELD_ACCESS -> {
+          if (!expr.fieldAccess.expr.hasTableApply()) {
+            val path = fieldAccessPath(expr.fieldAccess)
+            if (path != null) {
+              val value = resolveFieldAccess(expr.fieldAccess, env)
+              if (value != null) out[path] = formatValue(value)
+            } else {
+              collectVariableValuesRecursive(expr.fieldAccess.expr, env, out)
+            }
+          }
+        }
+        ExprKind.BINARY_OP -> {
+          collectVariableValuesRecursive(expr.binaryOp.left, env, out)
+          collectVariableValuesRecursive(expr.binaryOp.right, env, out)
+        }
+        ExprKind.UNARY_OP -> collectVariableValuesRecursive(expr.unaryOp.expr, env, out)
+        ExprKind.MUX -> {
+          collectVariableValuesRecursive(expr.mux.condition, env, out)
+          collectVariableValuesRecursive(expr.mux.thenExpr, env, out)
+          collectVariableValuesRecursive(expr.mux.elseExpr, env, out)
+        }
+        ExprKind.CAST -> collectVariableValuesRecursive(expr.cast.expr, env, out)
+        ExprKind.SLICE -> collectVariableValuesRecursive(expr.slice.expr, env, out)
+        ExprKind.METHOD_CALL -> {
+          for (arg in expr.methodCall.argsList) {
+            collectVariableValuesRecursive(arg, env, out)
+          }
+        }
+        ExprKind.CONCAT -> {
+          collectVariableValuesRecursive(expr.concat.left, env, out)
+          collectVariableValuesRecursive(expr.concat.right, env, out)
+        }
+        ExprKind.LITERAL,
+        ExprKind.ARRAY_INDEX,
+        ExprKind.STRUCT_EXPR,
+        ExprKind.TABLE_APPLY,
+        ExprKind.KIND_NOT_SET,
+        null -> {}
+      }
+    }
+
+    /**
+     * Resolves a field access chain to its value without re-evaluating the full expression. Returns
+     * null if any link in the chain is undefined.
+     */
+    private fun resolveFieldAccess(fa: fourward.FieldAccess, env: Environment): Value? {
+      val target =
+        when {
+          fa.expr.hasNameRef() -> env.lookup(fa.expr.nameRef.name) ?: return null
+          fa.expr.hasFieldAccess() -> resolveFieldAccess(fa.expr.fieldAccess, env) ?: return null
+          else -> return null
+        }
+      return when (target) {
+        is StructVal -> target.fields[fa.fieldName]
+        is HeaderVal -> target.fields[fa.fieldName]
+        else -> null
+      }
+    }
+
+    /** Builds a dotted path from an expression (NameRef or FieldAccess chain). */
+    private fun exprPath(expr: Expr): String? =
+      when {
+        expr.hasNameRef() -> expr.nameRef.name
+        expr.hasFieldAccess() -> fieldAccessPath(expr.fieldAccess)
+        else -> null
+      }
+
+    /** Builds a dotted path like "standard_metadata.egress_rid" from nested FieldAccess. */
+    private fun fieldAccessPath(fa: fourward.FieldAccess): String? {
+      val prefix =
+        when {
+          fa.expr.hasNameRef() -> fa.expr.nameRef.name
+          fa.expr.hasFieldAccess() -> fieldAccessPath(fa.expr.fieldAccess) ?: return null
+          else -> return null
+        }
+      return "$prefix.${fa.fieldName}"
+    }
+
+    private fun formatValue(value: Value): String =
+      when (value) {
+        is BitVal -> formatBigInt(value.bits.value)
+        is BoolVal -> value.value.toString()
+        is InfIntVal -> formatBigInt(value.value)
+        is EnumVal -> value.member
+        is ErrorVal -> value.member
+        is StringVal -> "\"${value.value}\""
+        else -> value.toString()
+      }
+
+    private fun formatBigInt(v: java.math.BigInteger): String =
+      if (v >= java.math.BigInteger.ZERO && v <= maxDecimalOnly) {
+        v.toString()
+      } else {
+        "$v (0x${v.toString(16)})"
+      }
 
     // Dispatch on kindCase for exhaustive matching (compiler-enforced coverage of all oneof arms).
     fun evalExpr(expr: Expr, env: Environment): Value =
@@ -847,6 +979,11 @@ class Interpreter internal constructor(config: BehavioralConfig) {
               .setActionName(tableStore.actionDisplayName(result.actionName))
               .also { if (result.entry != null) it.setMatchedEntry(result.entry) }
           )
+          .also { builder ->
+            for ((fieldName, value) in keyValues) {
+              builder.putVariableValues(fieldName, formatValue(value))
+            }
+          }
           .build()
       )
 
@@ -1032,9 +1169,14 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       // At runtime, assume behaves identically to assert — the distinction is for
       // static analysis tools. On failure, emit a trace event and abort processing.
       if (funcName == "assert" || funcName == "assume") {
-        val condition = (evalExpr(call.argsList[0], env) as BoolVal).value
+        val assertExpr = call.argsList[0]
+        val condition = (evalExpr(assertExpr, env) as BoolVal).value
         packetCtx?.addTraceEvent(
-          traceEventBuilder().setAssertion(AssertionEvent.newBuilder().setPassed(condition)).build()
+          traceEventBuilder()
+            .setAssertion(AssertionEvent.newBuilder().setPassed(condition))
+            .putAllVariableValues(collectVariableValues(assertExpr, env))
+            .setResultValue(condition.toString())
+            .build()
         )
         if (!condition) throw AssertionFailureException("$funcName failed")
         return UnitVal
@@ -1388,6 +1530,8 @@ class Interpreter internal constructor(config: BehavioralConfig) {
     private const val STACK_PROPERTY_BITS = 32
     private val BOOL_TRUE_BITS = BitVector.ofInt(1, 1)
     private val BOOL_FALSE_BITS = BitVector.ofInt(0, 1)
+
+    @Suppress("MagicNumber") private val maxDecimalOnly = java.math.BigInteger.valueOf(9)
   }
 }
 

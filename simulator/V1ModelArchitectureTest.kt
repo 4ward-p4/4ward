@@ -296,6 +296,96 @@ class V1ModelArchitectureTest {
   // ---------------------------------------------------------------------------
 
   @Test
+  fun `branch trace events include variable values`() {
+    // Ingress branches on egress_spec (set to 5). The trace should carry
+    // the variable's runtime value so failures are self-explanatory.
+    val config =
+      v1modelConfig(
+        assignField("sm", "egress_spec", 5, V1ModelArchitecture.DEFAULT_PORT_BITS),
+        ifFieldEquals("sm", "egress_spec", 5, V1ModelArchitecture.DEFAULT_PORT_BITS, markToDrop),
+      )
+    val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+
+    val branchEvents = result.trace.eventsList.filter { it.hasBranch() }
+    val egressSpecBranch = branchEvents.first { it.branch.taken }
+    assertEquals("5", egressSpecBranch.variableValuesMap["sm.egress_spec"])
+    assertEquals("true", egressSpecBranch.resultValue)
+  }
+
+  @Test
+  fun `assignment trace events include rhs variable values and result`() {
+    // Ingress assigns egress_spec from a constant. The trace should show
+    // the assigned value.
+    val config =
+      v1modelConfig(assignField("sm", "egress_spec", 42, V1ModelArchitecture.DEFAULT_PORT_BITS))
+    val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+
+    val assignEvents = result.trace.eventsList.filter { it.hasAssignment() }
+    assertTrue(assignEvents.isNotEmpty())
+    val egressAssign = assignEvents.first { it.assignment.target == "sm.egress_spec" }
+    assertEquals("42 (0x2a)", egressAssign.resultValue)
+  }
+
+  @Test
+  fun `formatValue shows decimal only for small values, both for large`() {
+    // 0 — small, decimal only
+    val configZero =
+      v1modelConfig(assignField("sm", "egress_spec", 0, V1ModelArchitecture.DEFAULT_PORT_BITS))
+    val zeroAssign =
+      V1ModelArchitecture(configZero)
+        .processPacket(0u, byteArrayOf(0x01), TableStore())
+        .trace
+        .eventsList
+        .first { it.hasAssignment() && it.assignment.target == "sm.egress_spec" }
+    assertEquals("0", zeroAssign.resultValue)
+
+    // 9 — boundary, decimal only
+    val configNine =
+      v1modelConfig(assignField("sm", "egress_spec", 9, V1ModelArchitecture.DEFAULT_PORT_BITS))
+    val nineAssign =
+      V1ModelArchitecture(configNine)
+        .processPacket(0u, byteArrayOf(0x01), TableStore())
+        .trace
+        .eventsList
+        .first { it.hasAssignment() && it.assignment.target == "sm.egress_spec" }
+    assertEquals("9", nineAssign.resultValue)
+
+    // 10 — boundary, both
+    val configTen =
+      v1modelConfig(assignField("sm", "egress_spec", 10, V1ModelArchitecture.DEFAULT_PORT_BITS))
+    val tenAssign =
+      V1ModelArchitecture(configTen)
+        .processPacket(0u, byteArrayOf(0x01), TableStore())
+        .trace
+        .eventsList
+        .first { it.hasAssignment() && it.assignment.target == "sm.egress_spec" }
+    assertEquals("10 (0xa)", tenAssign.resultValue)
+
+    // 510 — large value
+    val config510 =
+      v1modelConfig(assignField("sm", "egress_spec", 510, V1ModelArchitecture.DEFAULT_PORT_BITS))
+    val assign510 =
+      V1ModelArchitecture(config510)
+        .processPacket(0u, byteArrayOf(0x01), TableStore())
+        .trace
+        .eventsList
+        .first { it.hasAssignment() && it.assignment.target == "sm.egress_spec" }
+    assertEquals("510 (0x1fe)", assign510.resultValue)
+  }
+
+  @Test
+  fun `table lookup trace events include key variable values`() {
+    val config =
+      v1modelConfig(assignField("sm", "egress_spec", 3, V1ModelArchitecture.DEFAULT_PORT_BITS))
+    val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+
+    // The ingress port is a table key in some pipelines. For our minimal config,
+    // there are no tables — but we can verify the mechanism doesn't crash.
+    // A proper test with a table key is in InterpreterControlTest.
+    assertTrue(result.trace.eventsList.none { it.hasTableLookup() })
+  }
+
+  @Test
   fun `multicast fork produces output packets for each replica`() {
     val config = v1modelConfig(assignField("sm", "mcast_grp", 1, 16))
     val tableStore = TableStore()

@@ -51,6 +51,18 @@ events {
   }
 }
 events {
+  assignment {
+    target: "smeta.mcast_grp"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/multicast_drop_replica.p4"
+    line: 34
+    column: 24
+    source_fragment: "smeta.mcast_grp = 16w1"
+  }
+  result_value: "1"
+}
+events {
   pipeline_stage {
     stage_name: "ingress"
     stage_kind: CONTROL
@@ -80,6 +92,11 @@ fork_outcome {
           column: 12
           source_fragment: "smeta.egress_port == 2"
         }
+        variable_values {
+          key: "smeta.egress_port"
+          value: "1"
+        }
+        result_value: "false"
       }
       events {
         pipeline_stage {
@@ -151,6 +168,11 @@ fork_outcome {
           column: 12
           source_fragment: "smeta.egress_port == 2"
         }
+        variable_values {
+          key: "smeta.egress_port"
+          value: "2"
+        }
+        result_value: "true"
       }
       events {
         mark_to_drop {
@@ -212,6 +234,11 @@ fork_outcome {
           column: 12
           source_fragment: "smeta.egress_port == 2"
         }
+        variable_values {
+          key: "smeta.egress_port"
+          value: "3"
+        }
+        result_value: "false"
       }
       events {
         pipeline_stage {

@@ -74,6 +74,10 @@ events {
     column: 12
     source_fragment: "ecmp.apply()"
   }
+  variable_values {
+    key: "1"
+    value: "281474976710655 (0xffffffffffff)"
+  }
 }
 fork_outcome {
   reason: ACTION_SELECTOR
@@ -94,6 +98,22 @@ fork_outcome {
           column: 12
           source_fragment: "ecmp.apply()"
         }
+      }
+      events {
+        assignment {
+          target: "smeta.egress_spec"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/action_selector_3.p4"
+          line: 34
+          column: 53
+          source_fragment: "smeta.egress_spec = port"
+        }
+        variable_values {
+          key: "port"
+          value: "1"
+        }
+        result_value: "1"
       }
       events {
         pipeline_stage {
@@ -177,6 +197,22 @@ fork_outcome {
         }
       }
       events {
+        assignment {
+          target: "smeta.egress_spec"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/action_selector_3.p4"
+          line: 34
+          column: 53
+          source_fragment: "smeta.egress_spec = port"
+        }
+        variable_values {
+          key: "port"
+          value: "2"
+        }
+        result_value: "2"
+      }
+      events {
         pipeline_stage {
           stage_name: "ingress"
           stage_kind: CONTROL
@@ -256,6 +292,22 @@ fork_outcome {
           column: 12
           source_fragment: "ecmp.apply()"
         }
+      }
+      events {
+        assignment {
+          target: "smeta.egress_spec"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/action_selector_3.p4"
+          line: 34
+          column: 53
+          source_fragment: "smeta.egress_spec = port"
+        }
+        variable_values {
+          key: "port"
+          value: "3"
+        }
+        result_value: "3"
       }
       events {
         pipeline_stage {

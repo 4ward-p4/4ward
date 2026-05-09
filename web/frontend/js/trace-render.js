@@ -206,6 +206,8 @@ function renderTraceEvent(event) {
     const result = event.assertion.passed ? 'passed' : 'FAILED';
     const cls = event.assertion.passed ? 'assert-pass' : 'assert-fail';
     return `<div ${attr} class="trace-event ${cls}">assert: ${result}</div>`;
+  } else if (event.assignment) {
+    text = `${escapeHtml(event.assignment.target)} = ${escapeHtml(event.result_value || '?')}`;
   } else {
     return '';
   }
@@ -215,8 +217,19 @@ function renderTraceEvent(event) {
     : event.branch ? 'branch'
     : event.extern_call ? 'extern'
     : event.mark_to_drop ? 'mark-to-drop'
-    : event.clone ? 'clone' : '';
-  return `<div ${attr} class="trace-event ${cls}">${text}</div>`;
+    : event.clone ? 'clone'
+    : event.assignment ? 'assignment' : '';
+
+  const vars = formatVariableValues(event.variable_values);
+  return `<div ${attr} class="trace-event ${cls}">${text}${vars}</div>`;
+}
+
+function formatVariableValues(vars) {
+  if (!vars || Object.keys(vars).length === 0) return '';
+  const entries = Object.entries(vars)
+    .map(([k, v]) => `${escapeHtml(k)}=${escapeHtml(v)}`)
+    .join(', ');
+  return ` <span class="trace-vars">[${entries}]</span>`;
 }
 
 function formatMatchedEntry(tl) {

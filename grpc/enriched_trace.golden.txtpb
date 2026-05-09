@@ -1,12 +1,3 @@
-# Enriched trace for translated_port.p4: etherType=0x0800 → forward("Ethernet1"),
-# ingress on "Ethernet0".
-#
-# Uses the SAI forked v1model with @p4runtime_translation("", string) on port
-# types. The enriched p4rt_* fields show human-readable port names alongside
-# raw dataplane values:
-#   - p4rt_ingress_port: "Ethernet0"  (dataplane_ingress_port: 1)
-#   - p4rt_egress_port:  "Ethernet1"  (dataplane: 0)
-#   - p4rt_matched_entry action param: "Ethernet1" (dataplane: \000)
 events {
   packet_ingress {
     dataplane_ingress_port: 1
@@ -109,6 +100,10 @@ events {
     column: 10
     source_fragment: "forwarding.apply()"
   }
+  variable_values {
+    key: "1"
+    value: "2048 (0x800)"
+  }
 }
 events {
   action_execution {
@@ -124,6 +119,22 @@ events {
     column: 10
     source_fragment: "forwarding.apply()"
   }
+}
+events {
+  assignment {
+    target: "smeta.egress_spec"
+  }
+  source_info {
+    file: "e2e_tests/translated_port/translated_port.p4"
+    line: 42
+    column: 53
+    source_fragment: "smeta.egress_spec = port"
+  }
+  variable_values {
+    key: "port"
+    value: "0"
+  }
+  result_value: "0"
 }
 events {
   pipeline_stage {
@@ -186,3 +197,4 @@ packet_outcome {
     p4rt_egress_port: "Ethernet1"
   }
 }
+

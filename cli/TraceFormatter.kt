@@ -81,6 +81,10 @@ object TraceFormatter {
         val result = if (event.assertion.passed) "passed" else "FAILED"
         appendLine("${prefix}assert: $result")
       }
+      TraceEvent.EventCase.ASSIGNMENT -> {
+        val a = event.assignment
+        appendLine("${prefix}${a.target} = ${event.resultValue}")
+      }
       TraceEvent.EventCase.PACKET_INGRESS,
       TraceEvent.EventCase.PIPELINE_STAGE,
       TraceEvent.EventCase.CLONE_SESSION_LOOKUP,

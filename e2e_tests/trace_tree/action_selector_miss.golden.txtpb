@@ -62,6 +62,10 @@ events {
     column: 12
     source_fragment: "ecmp.apply()"
   }
+  variable_values {
+    key: "1"
+    value: "281474976710655 (0xffffffffffff)"
+  }
 }
 events {
   action_execution {

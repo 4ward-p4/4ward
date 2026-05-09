@@ -51,6 +51,18 @@ events {
   }
 }
 events {
+  assignment {
+    target: "smeta.egress_spec"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/clone_with_egress.p4"
+    line: 36
+    column: 26
+    source_fragment: "smeta.egress_spec = 9w2"
+  }
+  result_value: "2"
+}
+events {
   clone {
     session_id: 100
   }
@@ -114,6 +126,10 @@ fork_outcome {
           column: 12
           source_fragment: "egress_classify.apply()"
         }
+        variable_values {
+          key: "1"
+          value: "0"
+        }
       }
       events {
         action_execution {
@@ -125,6 +141,18 @@ fork_outcome {
           column: 12
           source_fragment: "egress_classify.apply()"
         }
+      }
+      events {
+        assignment {
+          target: "hdr.ethernet.dstAddr"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/clone_with_egress.p4"
+          line: 43
+          column: 49
+          source_fragment: "hdr.ethernet.dstAddr = 48w0xaaaaaaaaaaaa"
+        }
+        result_value: "187649984473770 (0xaaaaaaaaaaaa)"
       }
       events {
         pipeline_stage {
@@ -212,6 +240,10 @@ fork_outcome {
           column: 12
           source_fragment: "egress_classify.apply()"
         }
+        variable_values {
+          key: "1"
+          value: "1"
+        }
       }
       events {
         action_execution {
@@ -223,6 +255,18 @@ fork_outcome {
           column: 12
           source_fragment: "egress_classify.apply()"
         }
+      }
+      events {
+        assignment {
+          target: "hdr.ethernet.srcAddr"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/clone_with_egress.p4"
+          line: 44
+          column: 46
+          source_fragment: "hdr.ethernet.srcAddr = 48w0xbbbbbbbbbbbb"
+        }
+        result_value: "206414982921147 (0xbbbbbbbbbbbb)"
       }
       events {
         pipeline_stage {

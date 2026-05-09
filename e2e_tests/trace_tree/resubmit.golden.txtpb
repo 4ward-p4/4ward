@@ -51,6 +51,18 @@ events {
   }
 }
 events {
+  assignment {
+    target: "smeta.egress_spec"
+  }
+  source_info {
+    file: "e2e_tests/trace_tree/resubmit.p4"
+    line: 34
+    column: 26
+    source_fragment: "smeta.egress_spec = 9w1"
+  }
+  result_value: "1"
+}
+events {
   branch {
     control_name: "MyIngress"
     taken: true
@@ -61,6 +73,11 @@ events {
     column: 12
     source_fragment: "smeta.instance_type == 0"
   }
+  variable_values {
+    key: "smeta.instance_type"
+    value: "0"
+  }
+  result_value: "true"
 }
 events {
   pipeline_stage {
@@ -127,6 +144,18 @@ fork_outcome {
         }
       }
       events {
+        assignment {
+          target: "smeta.egress_spec"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/resubmit.p4"
+          line: 34
+          column: 26
+          source_fragment: "smeta.egress_spec = 9w1"
+        }
+        result_value: "1"
+      }
+      events {
         branch {
           control_name: "MyIngress"
           taken: false
@@ -137,6 +166,11 @@ fork_outcome {
           column: 12
           source_fragment: "smeta.instance_type == 0"
         }
+        variable_values {
+          key: "smeta.instance_type"
+          value: "6"
+        }
+        result_value: "false"
       }
       events {
         pipeline_stage {

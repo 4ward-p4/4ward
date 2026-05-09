@@ -74,6 +74,10 @@ events {
     column: 8
     source_fragment: "selector_table.apply()"
   }
+  variable_values {
+    key: "1"
+    value: "281474976710655 (0xffffffffffff)"
+  }
 }
 fork_outcome {
   reason: ACTION_SELECTOR
@@ -94,6 +98,22 @@ fork_outcome {
           column: 8
           source_fragment: "selector_table.apply()"
         }
+      }
+      events {
+        assignment {
+          target: "smeta.egress_spec"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/selector_exit.p4"
+          line: 36
+          column: 53
+          source_fragment: "smeta.egress_spec = port"
+        }
+        variable_values {
+          key: "port"
+          value: "1"
+        }
+        result_value: "1"
       }
       events {
         table_lookup {
@@ -122,6 +142,10 @@ fork_outcome {
           column: 8
           source_fragment: "after_selector.apply()"
         }
+        variable_values {
+          key: "1"
+          value: "2048 (0x800)"
+        }
       }
       events {
         action_execution {
@@ -133,6 +157,18 @@ fork_outcome {
           column: 8
           source_fragment: "after_selector.apply()"
         }
+      }
+      events {
+        assignment {
+          target: "smeta.egress_spec"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/selector_exit.p4"
+          line: 52
+          column: 43
+          source_fragment: "smeta.egress_spec = 9w9"
+        }
+        result_value: "9"
       }
       events {
         pipeline_stage {
@@ -214,6 +250,22 @@ fork_outcome {
           column: 8
           source_fragment: "selector_table.apply()"
         }
+      }
+      events {
+        assignment {
+          target: "smeta.egress_spec"
+        }
+        source_info {
+          file: "e2e_tests/trace_tree/selector_exit.p4"
+          line: 37
+          column: 62
+          source_fragment: "smeta.egress_spec = port"
+        }
+        variable_values {
+          key: "port_2"
+          value: "1"
+        }
+        result_value: "1"
       }
       events {
         pipeline_stage {
