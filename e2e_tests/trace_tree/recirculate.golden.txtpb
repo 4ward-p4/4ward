@@ -34,6 +34,7 @@ events {
     stage_name: "verify_checksum"
     stage_kind: CONTROL
     direction: ENTER
+    dataplane_port: 0
   }
 }
 events {
@@ -41,6 +42,7 @@ events {
     stage_name: "verify_checksum"
     stage_kind: CONTROL
     direction: EXIT
+    dataplane_port: 0
   }
 }
 events {
@@ -48,6 +50,7 @@ events {
     stage_name: "ingress"
     stage_kind: CONTROL
     direction: ENTER
+    dataplane_port: 0
   }
 }
 events {
@@ -55,6 +58,7 @@ events {
     stage_name: "ingress"
     stage_kind: CONTROL
     direction: EXIT
+    dataplane_port: 0
   }
 }
 events {
@@ -62,6 +66,7 @@ events {
     stage_name: "egress"
     stage_kind: CONTROL
     direction: ENTER
+    dataplane_port: 1
   }
 }
 events {
@@ -81,6 +86,7 @@ events {
     stage_name: "egress"
     stage_kind: CONTROL
     direction: EXIT
+    dataplane_port: 1
   }
 }
 events {
@@ -88,6 +94,7 @@ events {
     stage_name: "compute_checksum"
     stage_kind: CONTROL
     direction: ENTER
+    dataplane_port: 1
   }
 }
 events {
@@ -95,6 +102,7 @@ events {
     stage_name: "compute_checksum"
     stage_kind: CONTROL
     direction: EXIT
+    dataplane_port: 1
   }
 }
 events {
@@ -158,6 +166,7 @@ fork_outcome {
           stage_name: "verify_checksum"
           stage_kind: CONTROL
           direction: ENTER
+          dataplane_port: 0
         }
       }
       events {
@@ -165,6 +174,7 @@ fork_outcome {
           stage_name: "verify_checksum"
           stage_kind: CONTROL
           direction: EXIT
+          dataplane_port: 0
         }
       }
       events {
@@ -172,6 +182,7 @@ fork_outcome {
           stage_name: "ingress"
           stage_kind: CONTROL
           direction: ENTER
+          dataplane_port: 0
         }
       }
       events {
@@ -179,6 +190,7 @@ fork_outcome {
           stage_name: "ingress"
           stage_kind: CONTROL
           direction: EXIT
+          dataplane_port: 0
         }
       }
       events {
@@ -186,6 +198,7 @@ fork_outcome {
           stage_name: "egress"
           stage_kind: CONTROL
           direction: ENTER
+          dataplane_port: 1
         }
       }
       events {
@@ -205,6 +218,7 @@ fork_outcome {
           stage_name: "egress"
           stage_kind: CONTROL
           direction: EXIT
+          dataplane_port: 1
         }
       }
       events {
@@ -212,6 +226,7 @@ fork_outcome {
           stage_name: "compute_checksum"
           stage_kind: CONTROL
           direction: ENTER
+          dataplane_port: 1
         }
       }
       events {
@@ -219,6 +234,7 @@ fork_outcome {
           stage_name: "compute_checksum"
           stage_kind: CONTROL
           direction: EXIT
+          dataplane_port: 1
         }
       }
       events {

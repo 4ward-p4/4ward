@@ -227,6 +227,11 @@ message PipelineStageEvent {
     EXIT = 2;
   }
   Direction direction = 3;
+  // Port the packet is destined for at this stage. Populated on egress
+  // ENTER; the simulator sets the dataplane port, enrichment layers add
+  // the P4Runtime encoding.
+  optional uint32 dataplane_port = 4;
+  bytes p4rt_port = 5;
 }
 
 // Fired when the P4 program calls log_msg().
