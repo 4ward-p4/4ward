@@ -204,6 +204,8 @@ message CloneSessionLookupEvent {
       3;  // clone destination; only meaningful when session_found
   // P4Runtime port ID. Populated by enrichment layers, never by the simulator.
   bytes p4rt_egress_port = 4;
+  // Replica instance from the clone session entry, mapped to egress_rid.
+  uint32 egress_rid = 5;
 }
 
 // Fired when a packet arrives at the pipeline — the very first event in any

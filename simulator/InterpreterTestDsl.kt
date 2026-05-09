@@ -95,6 +95,35 @@ fun assignField(target: String, fieldName: String, value: Long, width: Int): Stm
     )
     .build()
 
+/** Assignment statement: `lhsTarget.lhsField = rhsTarget.rhsField`. */
+fun assignFieldFromField(
+  lhsTarget: String,
+  lhsField: String,
+  lhsWidth: Int,
+  rhsTarget: String,
+  rhsField: String,
+  rhsWidth: Int,
+): Stmt =
+  Stmt.newBuilder()
+    .setAssignment(
+      AssignmentStmt.newBuilder()
+        .setLhs(
+          Expr.newBuilder()
+            .setFieldAccess(
+              FieldAccess.newBuilder().setExpr(nameRef(lhsTarget)).setFieldName(lhsField)
+            )
+            .setType(bitType(lhsWidth))
+        )
+        .setRhs(
+          Expr.newBuilder()
+            .setFieldAccess(
+              FieldAccess.newBuilder().setExpr(nameRef(rhsTarget)).setFieldName(rhsField)
+            )
+            .setType(bitType(rhsWidth))
+        )
+    )
+    .build()
+
 /** Assignment statement: `varName = rhs`. */
 fun assign(varName: String, rhs: Expr): Stmt =
   Stmt.newBuilder()
