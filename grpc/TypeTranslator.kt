@@ -773,6 +773,10 @@ internal class TranslationTable(
       "no mapping for P4Runtime string '$p4rtStr' (auto-allocate off)",
     )
 
+  private fun putReverse(dataplaneValue: ByteString, p4rtValue: P4rtValue) {
+    reverse[encodeMinWidth(dataplaneValue.toUnsignedInt())] = p4rtValue
+  }
+
   /** Reverse-translates a data-plane value to its P4Runtime representation. */
   @Synchronized
   fun reverseLookup(dataplaneValue: ByteString): P4rtValue =
@@ -799,7 +803,7 @@ internal class TranslationTable(
     if (!autoAllocate) throw TranslationException(errorMsg)
     val dp = allocateNext()
     forward[key] = dp
-    reverse[dp] = wrapP4rt(key)
+    putReverse(dp, wrapP4rt(key))
     return dp
   }
 
@@ -817,19 +821,24 @@ internal class TranslationTable(
       val table = TranslationTable(autoAllocate = proto.autoAllocate, isStringType = isStringType)
       for (entry in proto.entriesList) {
         val dp = entry.dataplaneValue
+        // Normalize to minimum-width so reverse lookups (which use
+        // encodeMinWidth) match regardless of the config's byte width.
+        val dpNorm = encodeMinWidth(dp.toUnsignedInt())
         table.reservedValues.add(dp.toUnsignedInt())
-        table.reverse[dp] =
+        table.putReverse(
+          dpNorm,
           when (entry.sdnValueCase) {
             TranslationEntry.SdnValueCase.SDN_BITSTRING -> {
-              table.bitstringForward[entry.sdnBitstring] = dp
+              table.bitstringForward[entry.sdnBitstring] = dpNorm
               P4rtValue.Bitstring(entry.sdnBitstring)
             }
             TranslationEntry.SdnValueCase.SDN_STR -> {
-              table.stringForward[entry.sdnStr] = dp
+              table.stringForward[entry.sdnStr] = dpNorm
               P4rtValue.Str(entry.sdnStr)
             }
             else -> throw IllegalArgumentException("TranslationEntry must have an sdn_value")
-          }
+          },
+        )
       }
       return table
     }

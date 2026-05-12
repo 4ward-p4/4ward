@@ -429,20 +429,17 @@ class SaiP4E2ETest {
   }
 
   @Test
-  fun `deprecated Replica egress_port causes loud error on unmapped port`() {
+  fun `deprecated Replica egress_port with egress_rid delivers PacketIn via CPU`() {
     installRoutingChain()
     installAclEntry(findAction("acl_trap"))
-    // Install the ingress_clone_table entry that triggers clone3() with session 255.
     installIngressCloneTableEntry()
-    // Install clone session using the deprecated Replica.egress_port (int32) which bypasses
-    // port translation. Port 99 has no P4RT reverse mapping.
+    // Port 99 has no P4RT mapping, but with egress_rid correctly set from the
+    // replica's instance field, packet_io.p4 recognises the clone as a
+    // PacketIn (instance_type==1 && egress_rid==1) and delivers it to the
+    // CPU — the unmapped port 99 is never reached as a regular output.
     installCloneSessionDeprecated(COPY_TO_CPU_SESSION_ID, egressPort = 99)
 
     val packet = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
-    // With egress_rid correctly set from the replica's instance field,
-    // packet_io.p4 recognises the clone as a PacketIn (instance_type==1 &&
-    // egress_rid==1) and delivers it to the CPU — the unmapped port 99 is
-    // never reached as a regular output.
     harness.injectPacket(ingressPort = 0, payload = packet)
   }
 

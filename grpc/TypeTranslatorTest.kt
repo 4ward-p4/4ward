@@ -150,6 +150,24 @@ class TypeTranslatorTest {
   }
 
   @Test
+  fun `reverse lookup works when config dataplane value is wider than minimum encoding`() {
+    // Config stores dataplane value as 4 bytes (bit<32>): \x00\x00\x01\xfe = 510.
+    // Reverse lookup encodes port 510 in minimum width: \x01\xfe (2 bytes).
+    // These must match despite different byte widths.
+    val translator =
+      buildTranslator(
+        translation {
+          typeName = "port_id_t"
+          autoAllocate = true
+          addEntries(stringEntry("510", byteArrayOf(0, 0, 0x01, 0xfe.toByte())))
+        }
+      )
+
+    val result = translator.dataplaneToP4rt("port_id_t", dpBytes(510))
+    assertEquals(P4rtValue.Str("510"), result)
+  }
+
+  @Test
   fun `auto-allocate reverse lookup works after allocation`() {
     val translator =
       buildTranslator(

@@ -220,10 +220,8 @@ private fun enrichTrace(trace: TraceTree, translator: TypeTranslator?): TraceTre
 /**
  * Returns a copy of this [OutputPacket] enriched with the P4Runtime port ID.
  *
- * When a [PortTranslator] is present, every egress port must be reverse-translatable — either
- * forward-allocated by a controller Write or installed via `Replica.port` (bytes). A missing
- * mapping means the clone session or multicast group used the deprecated `Replica.egress_port`
- * (int32), which bypasses port translation.
+ * When a [PortTranslator] is present, every egress port must have a reverse mapping — either from
+ * an explicit `@p4runtime_translation_mappings` entry or auto-allocated by a prior P4Runtime Write.
  */
 private fun OutputPacket.toDualEncoded(pt: PortTranslator?): OutputPacket =
   OutputPacket.newBuilder()
@@ -233,10 +231,9 @@ private fun OutputPacket.toDualEncoded(pt: PortTranslator?): OutputPacket =
         val p4rtPort =
           pt.dataplaneToP4rt(dataplaneEgressPort)
             ?: error(
-              "PortTranslator has no reverse mapping for dataplane egress port " +
-                "$dataplaneEgressPort. Use Replica.port (bytes) instead of the deprecated " +
-                "Replica.egress_port (int32) to enable port translation for clone sessions " +
-                "and multicast groups."
+              "No P4Runtime port name for dataplane egress port $dataplaneEgressPort. " +
+                "Ensure the port has a @p4runtime_translation_mappings entry or was " +
+                "auto-allocated via a prior P4Runtime Write."
             )
         setP4RtEgressPort(p4rtPort)
       }
