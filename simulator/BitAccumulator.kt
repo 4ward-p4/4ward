@@ -63,8 +63,8 @@ class BitAccumulator {
     }
   }
 
-  /** Appends a value that fits in a Long, avoiding BigInteger allocation. */
   private fun appendSmall(value: Long, width: Int) {
+    require(width in 0..8)
     val space = 8 - pendingCount
     if (width < space) {
       pendingBits = (pendingBits shl width) or (value and ((1L shl width) - 1))
