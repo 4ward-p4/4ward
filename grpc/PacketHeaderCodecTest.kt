@@ -260,6 +260,59 @@ class PacketHeaderCodecTest {
     )
   }
 
+  @Test
+  @Suppress("MagicNumber")
+  fun `stripPacketInHeader with non-byte-aligned payload rounds to whole bytes`() {
+    // 6-bit packet_in header + 6-bit tag payload = 12 bits = 2 bytes (4 pad bits).
+    // After stripping 6 header bits, the payload is 6 bits — but bytes can only
+    // represent whole bytes. The result is 1 byte: the 6 payload bits left-aligned
+    // with 2 trailing zeros.
+    //
+    // This matches what a real target would produce (ceil(6/8) = 1 byte), but
+    // the receiver can't distinguish a 6-bit payload from an 8-bit payload.
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+        )
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_in"))
+            .addMetadata(metaWithBitwidth(2, "field_a", 6))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_in_header_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("field_a", 6)))
+        )
+        .build()
+    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+
+    // Deparsed: 6 header bits (zeros) + 6 payload bits (0x3F = 0b111111) + 4 pad zeros
+    // = 000000_11 1111_0000 = 0x03 0xF0
+    val deparsed = com.google.protobuf.ByteString.copyFrom(byteArrayOf(0x03, 0xF0.toByte()))
+    val stripped = codec.stripPacketInHeader(deparsed)
+
+    // Integer division: (16 - 6) / 8 * 8 = 8 bits = 1 byte.
+    // The 6 payload bits (111111) are shifted to the front: 0b11111100 = 0xFC.
+    assertEquals("stripped payload should be 1 byte", 1, stripped.size())
+    assertEquals(
+      "6 payload bits (0x3F) left-aligned with 2 trailing zeros = 0xFC",
+      0xFC,
+      stripped.toByteArray()[0].toInt() and 0xFF,
+    )
+  }
+
   // =========================================================================
   // Helpers
   // =========================================================================

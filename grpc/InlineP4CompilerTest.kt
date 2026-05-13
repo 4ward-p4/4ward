@@ -398,4 +398,90 @@ class InlineP4CompilerTest {
       )
     }
   }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `non-byte-aligned packet_out header corrupts payload on PacketOut`() {
+    // A 5-bit @controller_header("packet_out") header. serializePacketOut produces
+    // ceil(5/8) = 1 byte (5 data bits + 3 padding zeros). This byte is prepended to
+    // the payload via byte concatenation: [header_byte] [payload_byte_0] ...
+    //
+    // The parser extracts 5 bits for the header, then tries to extract ethernet
+    // starting at bit 5. But bits 5-7 are padding zeros from the byte-aligned
+    // serialization — they're not part of the original payload. The parser reads
+    // garbage, and the output packet is corrupted.
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      @controller_header("packet_out")
+      header packet_out_t { bit<5> port; }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { packet_out_t pkt_out; ethernet_t eth; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start {
+          pkt.extract(hdr.pkt_out);
+          pkt.extract(hdr.eth);
+          transition accept;
+        }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = (bit<9>) h.pkt_out.port; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) { apply {} }
+      control D(packet_out pkt, in headers_t h) { apply { pkt.emit(h.eth); } }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val harness = FourwardTestHarness()
+    harness.use {
+      it.loadPipeline(config)
+
+      // Manually construct what the P4Runtime server does: serialize the 5-bit
+      // header and prepend it to the payload.
+      val headerByte = byteArrayOf(0x08) // port=1 → 00001 left-aligned = 00001_000 = 0x08
+      val ethernetPayload =
+        byteArrayOf(
+          0xAA.toByte(),
+          0xAA.toByte(),
+          0xAA.toByte(),
+          0xAA.toByte(),
+          0xAA.toByte(),
+          0xAA.toByte(),
+          0xBB.toByte(),
+          0xBB.toByte(),
+          0xBB.toByte(),
+          0xBB.toByte(),
+          0xBB.toByte(),
+          0xBB.toByte(),
+          0x08,
+          0x06,
+        )
+      val packet = headerByte + ethernetPayload
+
+      // The simulator receives this as a byte array. The parser extracts 5 bits
+      // for the header (port=1), then 112 bits for ethernet starting at bit 5.
+      // But bits 5-7 are padding zeros, not ethernet data.
+      val response = it.simulatePacket(ingressPort = 0, payload = packet)
+      val output = response.single().packetsList.single()
+      val outputBytes = output.payload.toByteArray()
+
+      // If the parser correctly handled the 5-bit header, the ethernet dst_mac
+      // would be 0xAA repeated. But because of the 3 padding bits, the parser
+      // reads 000_10101010... instead of 10101010..., corrupting the MAC.
+      assertTrue(
+        "ethernet dst_mac should be corrupted by 3 padding bits between header and payload " +
+          "(first byte: expected != 0xAA, got 0x${"%02X".format(outputBytes[0])})",
+        outputBytes[0] != 0xAA.toByte(),
+      )
+    }
+  }
 }
