@@ -97,7 +97,6 @@ kt_jvm_library(
         exclude = [
             "*Test.kt",
             "*TestHarness.kt",
-            "InlineP4Compiler.kt",
             "*Benchmark.kt",
         ],
     ),
@@ -215,7 +214,6 @@ kt_jvm_test(
     name = "InlineP4CompilerTest",
     srcs = [
         "FourwardTestHarness.kt",
-        "InlineP4Compiler.kt",
         "InlineP4CompilerTest.kt",
     ],
     data = [
@@ -234,6 +232,7 @@ kt_jvm_test(
         ":grpc",
         ":p4runtime_kt_grpc",
         "//bazel:runfiles",
+        "//e2e_tests:inline_p4_compiler",
         "//simulator",
         "//simulator:ir_java_proto",
         "//simulator:p4data_java_proto",

@@ -117,7 +117,9 @@ in low-level details; the diff already has those.
 
 Before submitting:
 
-- Proactively add unit test.
+- Proactively add unit test. For one-off P4 programs, use
+  `compileInlineP4()` (`e2e_tests/InlineP4Compiler.kt`) to compile P4
+  source at test time without a dedicated BUILD target.
 - Run `./tools/format.sh` and `./tools/lint.sh`. Fix all warnings, even
   pre-existing ones.
 - Check whether your change affects [LIMITATIONS.md](docs/LIMITATIONS.md) or

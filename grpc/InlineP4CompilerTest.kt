@@ -1,5 +1,6 @@
 package fourward.grpc
 
+import fourward.e2e.compileInlineP4
 import org.junit.Assert.assertTrue
 import org.junit.Test
 

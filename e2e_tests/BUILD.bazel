@@ -42,6 +42,17 @@ bzl_library(
 )
 
 kt_jvm_library(
+    name = "inline_p4_compiler",
+    srcs = ["InlineP4Compiler.kt"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel:runfiles",
+        "//simulator:ir_java_proto",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+kt_jvm_library(
     name = "golden_file",
     srcs = ["GoldenFile.kt"],
     visibility = ["//visibility:public"],

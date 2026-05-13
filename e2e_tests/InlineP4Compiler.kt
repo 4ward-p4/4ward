@@ -1,4 +1,4 @@
-package fourward.grpc
+package fourward.e2e
 
 import com.google.protobuf.TextFormat
 import fourward.PipelineConfig
