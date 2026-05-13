@@ -138,6 +138,46 @@ private constructor(
   }
 
   /**
+   * Packs the PacketOut header and payload into a continuous bit stream. The header fields are
+   * packed at bit granularity followed immediately by the payload bits — no inter-field padding.
+   * This avoids the corruption that byte-concatenation causes for non-byte-aligned headers.
+   */
+  @Suppress("MagicNumber")
+  fun packPacketOut(metadata: List<PacketMetadata>, payload: ByteArray): ByteArray {
+    val headerBits = packetOutFields.sumOf { it.bitWidth }
+    if (headerBits % 8 == 0) return serializePacketOut(metadata) + payload
+    val metadataById = metadata.associateBy { it.metadataId }
+    val totalBits = headerBits + payload.size * 8
+    val outBytes = (totalBits + 7) / 8
+    val result = ByteArray(outBytes)
+    // Pack header fields into bit positions 0..headerBits-1.
+    var bitPos = 0
+    for (field in packetOutFields) {
+      val raw = metadataById[field.id]?.value?.toByteArray() ?: ByteArray(0)
+      var v = 0L
+      for (b in raw) v = (v shl 8) or (b.toLong() and 0xFF)
+      if (field.bitWidth < Long.SIZE_BITS) v = v and ((1L shl field.bitWidth) - 1)
+      for (bit in field.bitWidth - 1 downTo 0) {
+        if (v and (1L shl bit) != 0L) {
+          result[bitPos / 8] = (result[bitPos / 8].toInt() or (0x80 ushr (bitPos % 8))).toByte()
+        }
+        bitPos++
+      }
+    }
+    // Pack payload bytes immediately after the header bits.
+    for (b in payload) {
+      val byteIdx = bitPos / 8
+      val bitOff = bitPos % 8
+      result[byteIdx] = (result[byteIdx].toInt() or ((b.toInt() and 0xFF) ushr bitOff)).toByte()
+      if (bitOff > 0 && byteIdx + 1 < outBytes) {
+        result[byteIdx + 1] = ((b.toInt() and 0xFF) shl (8 - bitOff)).toByte()
+      }
+      bitPos += 8
+    }
+    return result
+  }
+
+  /**
    * Builds PacketIn metadata from ingress and egress port values.
    *
    * Metadata is constructed from the simulation context rather than parsed from the deparsed

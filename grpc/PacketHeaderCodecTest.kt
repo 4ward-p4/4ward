@@ -54,6 +54,101 @@ class PacketHeaderCodecTest {
   }
 
   // =========================================================================
+  // packPacketOut
+  // =========================================================================
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `packPacketOut bit-packs non-byte-aligned header with payload`() {
+    // 5-bit packet_out header (port=1 = 0b00001) + 2-byte payload (0xAA 0xBB).
+    // Continuous bit stream: 00001_10101010_10111011_000
+    // = 00001101 01010101 11011000
+    // = 0x0D     0x55     0xD8
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "port", 5))
+        )
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_in"))
+            .addMetadata(metaWithBitwidth(2, "ingress_port", 8))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("port", 5)))
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_in_header_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("ingress_port", 8)))
+        )
+        .build()
+    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+
+    val metadata = listOf(buildMetadata(id = 1, value = byteArrayOf(1))) // port=1
+    val payload = byteArrayOf(0xAA.toByte(), 0xBB.toByte())
+    val packed = codec.packPacketOut(metadata, payload)
+
+    assertEquals(3, packed.size)
+    assertArrayEquals(byteArrayOf(0x0D, 0x55, 0xD8.toByte()), packed)
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `packPacketOut byte-aligned header matches serializePacketOut + concat`() {
+    // 16-bit packet_out header (two 8-bit fields) — byte-aligned.
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+            .addMetadata(metaWithBitwidth(2, "submit_to_ingress", 8))
+        )
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_in"))
+            .addMetadata(metaWithBitwidth(3, "ingress_port", 8))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(
+              HeaderDecl.newBuilder()
+                .addFields(bitField("egress_port", 8))
+                .addFields(bitField("submit_to_ingress", 8))
+            )
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_in_header_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("ingress_port", 8)))
+        )
+        .build()
+    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+
+    val metadata =
+      listOf(
+        buildMetadata(id = 1, value = byteArrayOf(1)),
+        buildMetadata(id = 2, value = byteArrayOf(0)),
+      )
+    val payload = byteArrayOf(0xDE.toByte(), 0xAD.toByte())
+    val packed = codec.packPacketOut(metadata, payload)
+
+    assertArrayEquals(codec.serializePacketOut(metadata) + payload, packed)
+  }
+
+  // =========================================================================
   // serializePacketOut
   // =========================================================================
 
