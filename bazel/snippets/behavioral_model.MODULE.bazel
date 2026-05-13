@@ -1,0 +1,19 @@
+module(
+    name = "behavioral_model",
+    version = "head",
+)
+
+bazel_dep(name = "platforms", version = "0.0.10")
+bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "boost.container", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.filesystem", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.functional", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.multiprecision", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.program_options", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.thread", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.variant", version = "1.90.0.bcr.1")
+
+# For the bm_dataplane_interface_cc_grpc target — diff-harness only.
+bazel_dep(name = "grpc", version = "1.80.0")
+bazel_dep(name = "protobuf", version = "33.5")
+bazel_dep(name = "rules_proto", version = "7.1.0")

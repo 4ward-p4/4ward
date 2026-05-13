@@ -1,10 +1,12 @@
-diff --color -ruN a/BUILD.bazel b/BUILD.bazel
---- a/BUILD.bazel	2026-03-06 06:27:42
-+++ b/BUILD.bazel	2026-03-06 06:47:28
-@@ -0,0 +1,223 @@
+diff -ruN a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -0,0 +1,295 @@
 +# Native Bazel build for behavioral-model (BMv2).
 +# Minimal build: no Thrift, no nanomsg, no debugger, no PI.
 +
++load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
++load("@protobuf//bazel:proto_library.bzl", "proto_library")
 +load("@rules_cc//cc:defs.bzl", "cc_library")
 +
 +# --- System libraries ---
@@ -13,6 +15,8 @@ diff --color -ruN a/BUILD.bazel b/BUILD.bazel
 +# Linux: apt install libgmp-dev libpcap-dev.
 +# The genrules copy headers into the build tree so Bazel's include-path
 +# validation doesn't reject absolute system paths.
++
++load("@grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 +
 +_GMP_SEARCH_PATHS = [
 +    "/opt/homebrew/include",  # macOS (Apple Silicon Homebrew)
@@ -25,21 +29,27 @@ diff --color -ruN a/BUILD.bazel b/BUILD.bazel
 +    name = "gen_gmp_h",
 +    outs = ["system_include/gmp.h"],
 +    cmd = " || ".join([
-+        '([ -f {p}/gmp.h ] && cp {p}/gmp.h $@)'.format(p = p)
++        "([ -f {p}/gmp.h ] && cp {p}/gmp.h $@)".format(p = p)
 +        for p in _GMP_SEARCH_PATHS
 +    ]) + ' || { echo "ERROR: gmp.h not found -- install libgmp-dev" >&2; exit 1; }',
 +    # No build inputs capture host state; must re-run every time.
-+    tags = ["no-cache", "no-remote-cache"],
++    tags = [
++        "no-cache",
++        "no-remote-cache",
++    ],
 +)
 +
 +genrule(
 +    name = "gen_gmpxx_h",
 +    outs = ["system_include/gmpxx.h"],
 +    cmd = " || ".join([
-+        '([ -f {p}/gmpxx.h ] && cp {p}/gmpxx.h $@)'.format(p = p)
++        "([ -f {p}/gmpxx.h ] && cp {p}/gmpxx.h $@)".format(p = p)
 +        for p in _GMP_SEARCH_PATHS
 +    ]) + ' || { echo "ERROR: gmpxx.h not found -- install libgmp-dev" >&2; exit 1; }',
-+    tags = ["no-cache", "no-remote-cache"],
++    tags = [
++        "no-cache",
++        "no-remote-cache",
++    ],
 +)
 +
 +cc_library(
@@ -225,10 +235,89 @@ diff --color -ruN a/BUILD.bazel b/BUILD.bazel
 +    visibility = ["//visibility:public"],
 +    deps = [":bm_sim"],
 +)
-diff --color -ruN a/MODULE.bazel b/MODULE.bazel
---- a/MODULE.bazel	2026-03-06 06:27:42
-+++ b/MODULE.bazel	2026-03-06 06:46:30
-@@ -0,0 +1,14 @@
++
++# --- Source filegroups for the P4Runtime diff harness ---
++# 4ward's e2e_tests/p4runtime_diff package compiles the libbmpi PI integration,
++# the dataplane_interface gRPC service, and the simple_switch_grpc binary in
++# its own tree. These filegroups expose the source files; cc_library/cc_binary
++# rules live in the consumer to avoid a Bzlmod dep cycle with @p4lang_pi.
++
++filegroup(
++    name = "libbmpi_srcs",
++    srcs = glob([
++        "PI/src/*.cpp",
++        "PI/src/*.h",
++    ]),
++    visibility = ["//visibility:public"],
++)
++
++cc_library(
++    name = "bmpi_public_hdrs",
++    hdrs = glob(["PI/bm/PI/*.h"]),
++    includes = ["PI"],
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "simple_switch_grpc_srcs",
++    srcs = [
++        "targets/simple_switch_grpc/main.cpp",
++        "targets/simple_switch_grpc/switch_runner.cpp",
++        "targets/simple_switch_grpc/switch_runner.h",
++    ],
++    visibility = ["//visibility:public"],
++)
++
++cc_library(
++    name = "bm_grpc_pem",
++    hdrs = ["include/bm/bm_grpc/pem.h"],
++    strip_include_prefix = "include",
++    visibility = ["//visibility:public"],
++)
++
++# --- Dataplane gRPC service proto ---
++
++proto_library(
++    name = "bm_dataplane_interface_proto",
++    srcs = ["services/p4/bm/dataplane_interface.proto"],
++    strip_import_prefix = "services",
++    visibility = ["//visibility:public"],
++)
++
++cc_proto_library(
++    name = "bm_dataplane_interface_cc_proto",
++    visibility = ["//visibility:public"],
++    deps = [":bm_dataplane_interface_proto"],
++)
++
++cc_grpc_library(
++    name = "bm_dataplane_interface_cc_grpc",
++    srcs = [":bm_dataplane_interface_proto"],
++    grpc_only = True,
++    visibility = ["//visibility:public"],
++    deps = [":bm_dataplane_interface_cc_proto"],
++)
+diff -ruN a/include/bm/bm_sim/dynamic_bitset.h b/include/bm/bm_sim/dynamic_bitset.h
+--- a/include/bm/bm_sim/dynamic_bitset.h
++++ b/include/bm/bm_sim/dynamic_bitset.h
+@@ -48,6 +48,13 @@
+       find_lowest_bit<uint32_t>(sw);
+ }
+ 
++#if defined(__APPLE__) && defined(__aarch64__)
++template<>
++inline int find_lowest_bit<unsigned long>(unsigned long v) {
++  return find_lowest_bit<uint64_t>(static_cast<uint64_t>(v));
++}
++#endif
++
+ class DynamicBitset {
+  public:
+   using Block = unsigned long;  // NOLINT(runtime/int)
+diff -ruN a/MODULE.bazel b/MODULE.bazel
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -0,0 +1,19 @@
 +module(
 +    name = "behavioral_model",
 +    version = "head",
@@ -243,23 +332,8 @@ diff --color -ruN a/MODULE.bazel b/MODULE.bazel
 +bazel_dep(name = "boost.program_options", version = "1.90.0.bcr.1")
 +bazel_dep(name = "boost.thread", version = "1.90.0.bcr.1")
 +bazel_dep(name = "boost.variant", version = "1.90.0.bcr.1")
-diff --color -ruN a/include/bm/bm_sim/dynamic_bitset.h b/include/bm/bm_sim/dynamic_bitset.h
---- a/include/bm/bm_sim/dynamic_bitset.h	2026-03-06 06:52:00
-+++ b/include/bm/bm_sim/dynamic_bitset.h	2026-03-06 06:52:16
-@@ -48,6 +48,16 @@
-       find_lowest_bit<uint32_t>(sw);
- }
-
-+// On arm64 macOS, unsigned long is 64-bit but distinct from uint64_t
-+// (unsigned long long). DynamicBitset::Block is unsigned long, so we need
-+// this specialization to avoid linker errors.
-+#if defined(__APPLE__) && defined(__aarch64__)
-+template<>
-+inline int find_lowest_bit<unsigned long>(unsigned long v) {
-+  return find_lowest_bit<uint64_t>(static_cast<uint64_t>(v));
-+}
-+#endif
 +
- class DynamicBitset {
-  public:
-   using Block = unsigned long;  // NOLINT(runtime/int)
++# For the bm_dataplane_interface_cc_grpc target — diff-harness only.
++bazel_dep(name = "grpc", version = "1.80.0")
++bazel_dep(name = "protobuf", version = "33.5")
++bazel_dep(name = "rules_proto", version = "7.1.0")

@@ -1,0 +1,203 @@
+load("@p4c//bazel:p4_library.bzl", "p4_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+load("//bazel:fourward_pipeline.bzl", "fourward_pipeline")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = True,
+    licenses = ["notice"],
+)
+
+# =============================================================================
+# Canonicalize-and-diff helpers (response-level)
+# =============================================================================
+
+kt_jvm_library(
+    name = "response_diff",
+    srcs = ["ResponseDiff.kt"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//grpc",  # Bytestrings.canonicalizeTableEntry (spec §8.3 padding canonicalization).
+        "//simulator:p4runtime_java_proto",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+kt_jvm_test(
+    name = "ResponseDiffTest",
+    srcs = ["ResponseDiffTest.kt"],
+    test_class = "fourward.e2e.p4runtimediff.ResponseDiffTest",
+    deps = [
+        ":response_diff",
+        "//simulator:p4runtime_java_proto",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@fourward_maven//:junit_junit",
+    ],
+)
+
+# =============================================================================
+# Test fixture — basic_table P4 program compiled for both backends.
+# =============================================================================
+
+# 4ward PipelineConfig (P4Info + behavioral IR + DeviceConfig).
+fourward_pipeline(
+    name = "basic_table_fourward",
+    src = "//e2e_tests/basic_table:basic_table.p4",
+    out = "basic_table_fourward.txtpb",
+)
+
+# BMv2 JSON device config.
+p4_library(
+    name = "basic_table_bmv2_json",
+    src = "//e2e_tests/basic_table:basic_table.p4",
+    target = "bmv2",
+    target_out = "basic_table.json",
+)
+
+# =============================================================================
+# Diff harness — spawns simple_switch_grpc + 4ward, runs P4Runtime scenarios.
+# =============================================================================
+
+kt_jvm_library(
+    name = "runners",
+    srcs = [
+        "Bmv2P4RuntimeRunner.kt",
+        "FourwardP4RuntimeRunner.kt",
+        "P4RuntimeRunner.kt",
+    ],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//grpc",
+        "//grpc:p4runtime_java_grpc",
+        "//simulator:p4runtime_java_proto",
+        "@fourward_maven//:io_grpc_grpc_api",
+        "@fourward_maven//:io_grpc_grpc_netty",
+    ],
+)
+
+kt_jvm_test(
+    name = "P4RuntimeDiffSmokeTest",
+    srcs = ["P4RuntimeDiffSmokeTest.kt"],
+    data = [":simple_switch_grpc"],
+    tags = ["heavy"],
+    # The bmv2/PI build chain is Linux-only — PI's lib/vector.c trips the
+    # newer macOS SDK's stricter -Wimplicit-function-declaration on
+    # `__assert_rtn` (an Apple SDK-specific assert.h expansion). The harness's
+    # purpose (cross-validate against simple_switch_grpc) is also Linux-only
+    # in practice, so don't carry the macOS porting cost.
+    target_compatible_with = ["@platforms//os:linux"],
+    test_class = "fourward.e2e.p4runtimediff.P4RuntimeDiffSmokeTest",
+    deps = [
+        ":runners",
+        "//bazel:runfiles",
+        "//simulator:p4runtime_java_proto",
+        "@fourward_maven//:io_grpc_grpc_api",
+        "@fourward_maven//:junit_junit",
+    ],
+)
+
+kt_jvm_test(
+    name = "P4RuntimeDiffScenariosTest",
+    srcs = ["P4RuntimeDiffScenariosTest.kt"],
+    data = [
+        ":basic_table_bmv2_json",
+        ":basic_table_fourward",
+        ":simple_switch_grpc",
+    ],
+    tags = ["heavy"],
+    # See P4RuntimeDiffSmokeTest above for the Linux-only rationale.
+    target_compatible_with = ["@platforms//os:linux"],
+    test_class = "fourward.e2e.p4runtimediff.P4RuntimeDiffScenariosTest",
+    deps = [
+        ":response_diff",
+        ":runners",
+        "//bazel:runfiles",
+        "//grpc:p4runtime_java_grpc",
+        "//simulator:ir_java_proto",  # PipelineConfig (return type of loadPipelineConfig).
+        "//simulator:p4info_java_proto",
+        "//simulator:p4runtime_java_proto",
+        "//stf",  # loadPipelineConfig
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@fourward_maven//:io_grpc_grpc_api",
+        "@fourward_maven//:junit_junit",
+    ],
+)
+
+# =============================================================================
+# bmv2 simple_switch_grpc binary build chain
+# =============================================================================
+#
+# The diff harness needs an external implementation of P4Runtime to compare
+# against. We build one from upstream source: bmv2's `simple_switch_grpc`,
+# which links bmv2's data-plane (`@behavioral_model//:simple_switch_lib`,
+# already built natively) against bmv2's PI integration adapter (`libbmpi`,
+# also from behavioral-model — the Thrift-free alternative to PI's
+# `libpi_bmv2`) and PI's P4Runtime gRPC handler (`@p4lang_pi//proto/server:piserver`).
+#
+# Targets live here rather than in PI or behavioral-model patches because they
+# cross both modules — `simple_switch_grpc` needs PI's piserver, and PI's
+# pi_server.cpp needs gnmi types from behavioral-model. Putting the rules in
+# either upstream patch would create a Bzlmod dep cycle.
+
+# ---------------------------------------------------------------------------
+# bmv2's PI target adapter (libbmpi). Symbol-equivalent to PI's libpi_bmv2
+# but uses bm_sim's in-process C++ API instead of Thrift IPC. This is what
+# lets us avoid Apache Thrift entirely.
+# ---------------------------------------------------------------------------
+
+cc_library(
+    name = "libbmpi",
+    srcs = ["@behavioral_model//:libbmpi_srcs"],
+    copts = [
+        "-std=c++17",
+        "-w",
+    ],
+    tags = ["manual"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "@behavioral_model//:bm_sim",
+        "@behavioral_model//:bmpi_public_hdrs",
+        "@behavioral_model//:simple_switch_lib",
+        "@p4lang_pi//:pi",
+        "@p4lang_pi//:pip4info",
+    ],
+)
+
+# ---------------------------------------------------------------------------
+# simple_switch_grpc: the upstream BMv2 binary. Compiled without WITH_THRIFT
+# and without WITH_SYSREPO, so all Thrift / sysrepo IPC blocks preprocess
+# out cleanly. Links bm_sim + libbmpi + piserver + gRPC dataplane service.
+# ---------------------------------------------------------------------------
+
+cc_binary(
+    name = "simple_switch_grpc",
+    srcs = ["@behavioral_model//:simple_switch_grpc_srcs"],
+    copts = [
+        "-std=c++17",
+        "-w",
+    ],
+    # WORKAROUND: bm_sim_c bundles RFC-1321 MD5 with the same symbol names
+    # (MD5_Init / MD5_Update / MD5_Final) as BoringSSL's crypto, which gRPC
+    # transitively links. Both end up in the link; --allow-multiple-definition
+    # lets the first occurrence win. Implementations are functionally identical
+    # but this is brittle to the link order. Should be fixed upstream by
+    # putting bm_sim_c's md5 in a private namespace.
+    linkopts = ["-Wl,--allow-multiple-definition"],
+    tags = ["manual"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":libbmpi",
+        "@behavioral_model//:bm_dataplane_interface_cc_grpc",
+        "@behavioral_model//:bm_grpc_pem",
+        "@behavioral_model//:bm_sim",
+        "@behavioral_model//:bmpi_public_hdrs",
+        "@behavioral_model//:simple_switch_lib",
+        "@grpc//:grpc++",
+        "@grpc//:grpc++_reflection",
+        "@p4lang_pi//:pi",
+        "@p4lang_pi//:pip4info",
+        "@p4lang_pi//proto/frontend:pifeproto",
+        "@p4lang_pi//proto/server:piserver",
+    ],
+)

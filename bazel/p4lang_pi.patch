@@ -1,0 +1,166 @@
+diff -ruN a/MODULE.bazel b/MODULE.bazel
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -0,0 +1,19 @@
++# Bzlmod shim for p4lang/PI consumed via 4ward.
++#
++# PI's existing BUILD files use the WORKSPACE-style apparent names
++# `@com_github_grpc_grpc`, `@com_google_protobuf`, `@com_github_p4lang_p4runtime`,
++# `@com_google_googleapis`, `@com_google_absl`, `@com_github_openconfig_gnmi`.
++# We declare each as a `bazel_dep` with `repo_name` pointing at the legacy
++# name so PI's BUILD files resolve under Bzlmod without source modification.
++module(
++    name = "p4lang_pi",
++    version = "head",
++)
++
++bazel_dep(name = "rules_cc", version = "0.2.17")
++bazel_dep(name = "rules_proto", version = "7.1.0")
++bazel_dep(name = "protobuf", version = "33.5", repo_name = "com_google_protobuf")
++bazel_dep(name = "grpc", version = "1.80.0", repo_name = "com_github_grpc_grpc")
++bazel_dep(name = "p4runtime", version = "1.5.0.bcr.1", repo_name = "com_github_p4lang_p4runtime")
++bazel_dep(name = "googleapis", version = "0.0.0-20260402-c8ca5bce", repo_name = "com_google_googleapis")
++bazel_dep(name = "abseil-cpp", version = "20260107.1", repo_name = "com_google_absl")
+diff -ruN a/proto/BUILD b/proto/BUILD
+--- a/proto/BUILD
++++ b/proto/BUILD
+@@ -9,7 +9,7 @@
+     srcs = ["src/util.cpp"],
+     hdrs = ["PI/proto/util.h"],
+     includes = ["."],
+-    deps = ["@com_github_p4lang_p4runtime//:p4info_cc_proto"],
++    deps = ["@com_github_p4lang_p4runtime//proto/p4/config/v1:p4info_cc_proto"],
+ )
+ 
+ proto_library(
+diff -ruN a/proto/frontend/BUILD b/proto/frontend/BUILD
+--- a/proto/frontend/BUILD
++++ b/proto/frontend/BUILD
+@@ -9,8 +9,8 @@
+             "PI/frontends/proto/logging.h"],
+     includes = ["."],
+     copts = ["-DUSE_ABSL=1"],
+-    deps = ["@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+-            "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
++    deps = ["@com_github_p4lang_p4runtime//proto/p4/v1:p4runtime_cc_grpc",
++            "@com_github_p4lang_p4runtime//proto/p4/v1:p4runtime_cc_proto",
+             "@com_google_googleapis//google/rpc:code_cc_proto",
+             "@com_google_protobuf//:protobuf",
+             "@com_github_grpc_grpc//:grpc++",
+
+diff -ruN a/proto/openconfig/gnmi/proto/gnmi/BUILD b/proto/openconfig/gnmi/proto/gnmi/BUILD
+--- a/proto/openconfig/gnmi/proto/gnmi/BUILD
++++ b/proto/openconfig/gnmi/proto/gnmi/BUILD
+@@ -0,0 +1,24 @@
++package(default_visibility = ["//visibility:public"])
++
++load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
++
++proto_library(
++    name = "gnmi_proto",
++    srcs = ["gnmi.proto"],
++    deps = [
++        "@com_google_protobuf//:any_proto",
++        "@com_google_protobuf//:descriptor_proto",
++    ],
++)
++
++cc_proto_library(
++    name = "gnmi_cc_proto",
++    deps = [":gnmi_proto"],
++)
++
++cc_grpc_library(
++    name = "gnmi_cc_grpc",
++    srcs = [":gnmi_proto"],
++    grpc_only = True,
++    deps = [":gnmi_cc_proto"],
++)
+diff -ruN a/proto/p4info/BUILD b/proto/p4info/BUILD
+--- a/proto/p4info/BUILD
++++ b/proto/p4info/BUILD
+@@ -8,7 +8,7 @@
+     hdrs = ["PI/proto/p4info_to_and_from_proto.h"],
+     includes = ["."],
+     deps = ["//:pip4info",
+-            "@com_github_p4lang_p4runtime//:p4info_cc_proto"],
++            "@com_github_p4lang_p4runtime//proto/p4/config/v1:p4info_cc_proto"],
+ )
+ 
+ cc_binary(
+diff -ruN a/proto/server/BUILD b/proto/server/BUILD
+--- a/proto/server/BUILD
++++ b/proto/server/BUILD
+@@ -11,12 +11,13 @@
+             "uint128.h",
+             "uint128.cpp"],
+     hdrs = ["PI/proto/pi_server.h", "pi_server_testing.h", "gnmi.h"],
++    includes = ["."],
+     copts = ["-DUSE_ABSL=1"],
+-    deps = ["@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
++    deps = ["@com_github_p4lang_p4runtime//proto/p4/v1:p4runtime_cc_grpc",
+             "@com_google_googleapis//google/rpc:code_cc_proto",
+             "@com_google_protobuf//:protobuf",
+             "@com_github_grpc_grpc//:grpc++",
+-            "@com_github_openconfig_gnmi//:gnmi_cc_grpc",
++            "//proto/gnmi:gnmi_cc_grpc",
+             "//proto:p4serverconfig_cc_grpc",
+             "//proto/frontend:pifeproto",
+             "@com_google_absl//absl/synchronization:synchronization"],
+diff -ruN a/proto/server/shared_mutex.h b/proto/server/shared_mutex.h
+--- a/proto/server/shared_mutex.h
++++ b/proto/server/shared_mutex.h
+@@ -31,9 +31,9 @@
+ #ifdef USE_ABSL
+ // The absl versions delete the default move constructor and default move
+ // assignment operator, so I define my own versions here.
+-class SCOPED_LOCKABLE ReaderMutexLock {
++class ABSL_SCOPED_LOCKABLE ReaderMutexLock {
+  public:
+-  explicit ReaderMutexLock(absl::Mutex *mu) SHARED_LOCK_FUNCTION(mu)
++  explicit ReaderMutexLock(absl::Mutex *mu) ABSL_SHARED_LOCK_FUNCTION(mu)
+       :  mu_(mu) {
+     mu->ReaderLock();
+   }
+@@ -43,7 +43,7 @@
+   ReaderMutexLock& operator=(const ReaderMutexLock&) = delete;
+   ReaderMutexLock& operator=(ReaderMutexLock&&) = default;
+ 
+-  ~ReaderMutexLock() UNLOCK_FUNCTION() {
++  ~ReaderMutexLock() ABSL_UNLOCK_FUNCTION() {
+     this->mu_->ReaderUnlock();
+   }
+ 
+@@ -51,9 +51,9 @@
+   absl::Mutex *const mu_;
+ };
+ 
+-class SCOPED_LOCKABLE WriterMutexLock {
++class ABSL_SCOPED_LOCKABLE WriterMutexLock {
+  public:
+-  explicit WriterMutexLock(absl::Mutex *mu) EXCLUSIVE_LOCK_FUNCTION(mu)
++  explicit WriterMutexLock(absl::Mutex *mu) ABSL_EXCLUSIVE_LOCK_FUNCTION(mu)
+       : mu_(mu) {
+     mu->WriterLock();
+   }
+@@ -63,7 +63,7 @@
+   WriterMutexLock& operator=(const WriterMutexLock&) = delete;
+   WriterMutexLock& operator=(WriterMutexLock&&) = default;
+ 
+-  ~WriterMutexLock() UNLOCK_FUNCTION() {
++  ~WriterMutexLock() ABSL_UNLOCK_FUNCTION() {
+     this->mu_->WriterUnlock();
+   }
+ 
+diff -ruN a/proto/third_party/fmt/format.h b/proto/third_party/fmt/format.h
+--- a/proto/third_party/fmt/format.h
++++ b/proto/third_party/fmt/format.h
+@@ -816,7 +816,7 @@
+   std::size_t new_capacity = this->capacity_ + this->capacity_ / 2;
+   if (size > new_capacity)
+       new_capacity = size;
+-  T *new_ptr = this->allocate(new_capacity, FMT_NULL);
++  T *new_ptr = this->allocate(new_capacity);
+   // The following code doesn't throw, so the raw pointer above doesn't leak.
+   std::uninitialized_copy(this->ptr_, this->ptr_ + this->size_,
+                           make_ptr(new_ptr, new_capacity));
