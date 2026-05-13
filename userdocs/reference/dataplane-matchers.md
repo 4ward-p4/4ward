@@ -22,7 +22,7 @@ They compose with gmock's standard vocabulary — `AllOf`, `ElementsAre`,
 `Contains`, and friends all work. Here's the full set at a glance:
 
 ```
-Shorthands   ForwardsTo  Drops
+Shorthands   ForwardsTo  Forwards  Drops
 Outcomes     OutcomeIs  OutcomesAre  EachOutcome  AnyOutcome  Outcome
 Packets      OnPort  HasPayload  OnPorts  Packets
 Input        HasIngress
@@ -93,8 +93,14 @@ EXPECT_THAT(response, OutcomeIs(OnPort(1), OnPort(2)));
 `HasPayload` takes any `Matcher<const std::string&>`, so it plays nicely
 with `Eq`, `StartsWith`, `ResultOf`, and anything else gmock offers.
 
-`ForwardsTo(port)` is just `OutcomeIs(OnPort(port))`, and `Drops()` is
+`ForwardsTo(port)` is just `OutcomeIs(OnPort(port))`, `Forwards()` is
+"forwarded to some port" (without caring which), and `Drops()` is
 `OutcomeIs()` (zero packets).
+
+```cpp
+// Don't care which port — just that the packet wasn't dropped:
+EXPECT_THAT(dataplane.InjectPacket({...}), IsOkAndHolds(Forwards()));
+```
 
 ## Handling multiple outcomes
 
@@ -234,6 +240,30 @@ EXPECT_THAT(response, OutcomeIs(OnPort(1), HasParsedPayload(
 4ward doesn't depend on packetlib — `HasPayload` just hands its matcher
 whatever `ResultOf` returns, so any `bytes → T` parser works the same
 way.
+
+## Trace on failure
+
+When an outcome-level matcher fails (`ForwardsTo`, `Forwards`, `Drops`,
+`OutcomeIs`, `OutcomesAre`, `EachOutcome`, `AnyOutcome`), the full
+simulator trace is automatically appended to the failure message — if the
+response carries one. This gives you immediate visibility into how the
+packet was processed without rerunning the test:
+
+```
+Expected: drop the packet
+  Actual: (has 1 possible outcomes),
+full trace:
+events {
+  table_lookup {
+    table_name: "ingress.acl"
+    hit: true
+    ...
+  }
+}
+...
+```
+
+No opt-in needed — the trace shows up whenever the response has one.
 
 ## Bazel dependency
 
