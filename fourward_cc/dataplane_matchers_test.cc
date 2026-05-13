@@ -60,6 +60,14 @@ fourward::ProcessPacketResult MakeResult(uint32_t ingress,
   return result;
 }
 
+template <typename M, typename T>
+std::string ExplainMatch(M polymorphic_matcher, const T& value) {
+  ::testing::Matcher<const T&> matcher = polymorphic_matcher;
+  ::testing::StringMatchResultListener listener;
+  matcher.MatchAndExplain(value, &listener);
+  return listener.str();
+}
+
 // --- ForwardsTo ---
 
 TEST(ForwardsToTest, Matches) {
@@ -85,6 +93,18 @@ TEST(ForwardsToTest, Multicast) {
 }
 TEST(ForwardsToTest, MulticastWrongPorts) {
   EXPECT_THAT(Multicast(1, 2), Not(ForwardsTo(1, 3)));
+}
+
+// --- Forwards ---
+
+TEST(ForwardsTest, Matches) { EXPECT_THAT(Forward(1), Forwards()); }
+TEST(ForwardsTest, Multicast) { EXPECT_THAT(Multicast(1, 2), Forwards()); }
+TEST(ForwardsTest, Drop) { EXPECT_THAT(Drop(), Not(Forwards())); }
+TEST(ForwardsTest, NonDeterministic) {
+  EXPECT_THAT(NonDeterministic(1, 2), Not(Forwards()));
+}
+TEST(ForwardsTest, WorksOnProcessPacketResult) {
+  EXPECT_THAT(MakeResult(0, 3), Forwards());
 }
 
 // --- Drops ---
@@ -320,6 +340,14 @@ TEST(ErrorMessageTest, ForwardsToDescribes) {
   EXPECT_THAT(os.str(), ::testing::HasSubstr("outcomes"));
 }
 
+TEST(ErrorMessageTest, ForwardsDescribes) {
+  ::testing::Matcher<const fourward::InjectPacketResponse&> m =
+      Forwards();
+  std::ostringstream os;
+  m.DescribeTo(&os);
+  EXPECT_THAT(os.str(), ::testing::HasSubstr("forward"));
+}
+
 TEST(ErrorMessageTest, DropsDescribes) {
   ::testing::Matcher<const fourward::InjectPacketResponse&> m =
       Drops();
@@ -334,6 +362,38 @@ TEST(ErrorMessageTest, HasIngressDescribes) {
   std::ostringstream os;
   m.DescribeTo(&os);
   EXPECT_THAT(os.str(), ::testing::HasSubstr("5"));
+}
+
+TEST(ErrorMessageTest, FailureIncludesTrace) {
+  fourward::InjectPacketResponse resp;
+  resp.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
+  resp.mutable_trace()->add_events()->mutable_table_lookup()->set_table_name(
+      "my_table");
+  EXPECT_THAT(ExplainMatch(Drops(), resp),
+              ::testing::HasSubstr("my_table"));
+}
+
+TEST(ErrorMessageTest, FailureIncludesTraceOnProcessPacketResult) {
+  fourward::ProcessPacketResult result;
+  result.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
+  result.mutable_trace()->add_events()->mutable_table_lookup()->set_table_name(
+      "ingress_table");
+  EXPECT_THAT(ExplainMatch(Drops(), result),
+              ::testing::HasSubstr("ingress_table"));
+}
+
+TEST(ErrorMessageTest, FailureOmitsTraceWhenAbsent) {
+  EXPECT_THAT(ExplainMatch(Drops(), Forward(1)),
+              Not(::testing::HasSubstr("trace")));
+}
+
+TEST(ErrorMessageTest, NoTraceWhenMatches) {
+  fourward::InjectPacketResponse resp;
+  resp.add_possible_outcomes();
+  resp.mutable_trace()->add_events()->mutable_table_lookup()->set_table_name(
+      "my_table");
+  EXPECT_THAT(ExplainMatch(Drops(), resp),
+              Not(::testing::HasSubstr("my_table")));
 }
 
 // --- Composition ---
