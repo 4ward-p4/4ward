@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class InlineP4CompilerTest {
+class BitLevelSerializationTest {
 
   @Test
   fun `compiles minimal passthrough program`() {

@@ -9,6 +9,8 @@ package fourward.grpc
 import com.google.protobuf.ByteString
 import fourward.BehavioralConfig
 import fourward.Type
+import fourward.simulator.BitAccumulator
+import java.math.BigInteger
 import p4.config.v1.P4InfoOuterClass.P4Info
 import p4.v1.P4RuntimeOuterClass.PacketMetadata
 
@@ -91,10 +93,7 @@ private constructor(
   @Suppress("MagicNumber")
   fun stripPacketInHeader(payload: ByteString): ByteString {
     if (packetInHeaderBits == 0) return payload
-    // Fast path: byte-aligned header, no bit-shifting needed.
     if (packetInHeaderBits % 8 == 0) return payload.substring(packetInHeaderBytes)
-    // Bit-level strip: remove exactly packetInHeaderBits from the front of the
-    // continuous bit stream and repack the remaining bits into bytes.
     val bytes = payload.toByteArray()
     // The deparsed byte array contains: headerBits + payloadBits + trailingPadBits,
     // where trailingPadBits < 8 are zeros added by byte-alignment at the end.
@@ -115,20 +114,9 @@ private constructor(
         } — payload after @controller_header may not be byte-aligned"
       }
     }
-    val outBytes = payloadBits / 8
-    val result = ByteArray(outBytes)
-    val skipBits = packetInHeaderBits
-    for (i in 0 until outBytes) {
-      val bitPos = skipBits + i * 8
-      val byteIdx = bitPos / 8
-      val bitOff = bitPos % 8
-      var value = (bytes[byteIdx].toInt() and 0xFF) shl bitOff
-      if (bitOff > 0 && byteIdx + 1 < bytes.size) {
-        value = value or ((bytes[byteIdx + 1].toInt() and 0xFF) ushr (8 - bitOff))
-      }
-      result[i] = (value and 0xFF).toByte()
-    }
-    return ByteString.copyFrom(result)
+    val acc = BitAccumulator()
+    acc.appendRawBytes(bytes, packetInHeaderBits, payloadBits)
+    return ByteString.copyFrom(acc.toByteArray())
   }
 
   /** Packs PacketOut metadata into a bit-packed binary header. */
@@ -147,34 +135,16 @@ private constructor(
     val headerBits = packetOutFields.sumOf { it.bitWidth }
     if (headerBits % 8 == 0) return serializePacketOut(metadata) + payload
     val metadataById = metadata.associateBy { it.metadataId }
-    val totalBits = headerBits + payload.size * 8
-    val outBytes = (totalBits + 7) / 8
-    val result = ByteArray(outBytes)
-    // Pack header fields into bit positions 0..headerBits-1.
-    var bitPos = 0
+    val acc = BitAccumulator()
     for (field in packetOutFields) {
       val raw = metadataById[field.id]?.value?.toByteArray() ?: ByteArray(0)
       var v = 0L
       for (b in raw) v = (v shl 8) or (b.toLong() and 0xFF)
       if (field.bitWidth < Long.SIZE_BITS) v = v and ((1L shl field.bitWidth) - 1)
-      for (bit in field.bitWidth - 1 downTo 0) {
-        if (v and (1L shl bit) != 0L) {
-          result[bitPos / 8] = (result[bitPos / 8].toInt() or (0x80 ushr (bitPos % 8))).toByte()
-        }
-        bitPos++
-      }
+      acc.append(BigInteger.valueOf(v), field.bitWidth)
     }
-    // Pack payload bytes immediately after the header bits.
-    for (b in payload) {
-      val byteIdx = bitPos / 8
-      val bitOff = bitPos % 8
-      result[byteIdx] = (result[byteIdx].toInt() or ((b.toInt() and 0xFF) ushr bitOff)).toByte()
-      if (bitOff > 0 && byteIdx + 1 < outBytes) {
-        result[byteIdx + 1] = ((b.toInt() and 0xFF) shl (8 - bitOff)).toByte()
-      }
-      bitPos += 8
-    }
-    return result
+    acc.appendRawBytes(payload, 0, payload.size * 8)
+    return acc.toByteArray()
   }
 
   /**
