@@ -101,10 +101,12 @@ header packet_in_header_t {
   // The initial intended egress port decided for the packet by the pipeline.
   @id(PACKET_IN_TARGET_EGRESS_PORT_ID)
   port_id_t target_egress_port;
-  // Padding field to align the header to an 8-bit multiple.
+  // Padding field to align the header to an 8-bit multiple, as required by BMv2.
+#if defined(PLATFORM_BMV2) || defined(PLATFORM_P4SYMBOLIC)
   @id(PACKET_IN_UNUSED_PAD_ID)
   @padding
   bit<6> unused_pad;
+#endif
 }
 
 @controller_header("packet_out")

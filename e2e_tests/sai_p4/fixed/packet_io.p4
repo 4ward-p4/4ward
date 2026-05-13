@@ -28,8 +28,10 @@ control packet_in_encap(inout headers_t headers,
         headers.packet_in_header = {
           ingress_port = (port_id_t) local_metadata.packet_in_ingress_port,
           target_egress_port =
-            (port_id_t) local_metadata.packet_in_target_egress_port,
-          unused_pad = 0
+            (port_id_t) local_metadata.packet_in_target_egress_port
+#if defined(PLATFORM_BMV2) || defined(PLATFORM_P4SYMBOLIC)
+          , unused_pad = 0
+#endif
         };
       } else {
         // CPU-bound packets that are not packet-ins get terminated by the

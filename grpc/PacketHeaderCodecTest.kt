@@ -139,7 +139,7 @@ class PacketHeaderCodecTest {
     val codec = PacketHeaderCodec.create(p4info, behavioral)!!
 
     val metadata = codec.buildPacketInMetadata(ingressPort = 510, egressPort = 1)
-    assertEquals(3, metadata.size)
+    assertEquals(2, metadata.size)
 
     // First field = ingress_port (metadata_id=3 in our test config)
     assertEquals(3, metadata[0].metadataId)
@@ -150,10 +150,6 @@ class PacketHeaderCodecTest {
     assertEquals(4, metadata[1].metadataId)
     val egressBytes = metadata[1].value.toByteArray()
     assertEquals(1, bytesToInt(egressBytes))
-
-    // Third field = unused_pad (metadata_id=5) — always 0
-    assertEquals(5, metadata[2].metadataId)
-    assertEquals(0, bytesToInt(metadata[2].value.toByteArray()))
   }
 
   // =========================================================================
@@ -163,12 +159,43 @@ class PacketHeaderCodecTest {
   @Test
   @Suppress("MagicNumber")
   fun `stripPacketInHeader removes byte-aligned header correctly`() {
-    val (p4info, behavioral) = buildSaiLikeConfig()
+    // 16-bit packet_in header (two 8-bit fields) — byte-aligned, exercises the fast path.
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+        )
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_in"))
+            .addMetadata(metaWithBitwidth(2, "ingress_port", 8))
+            .addMetadata(metaWithBitwidth(3, "egress_port", 8))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_in_header_t")
+            .setHeader(
+              HeaderDecl.newBuilder()
+                .addFields(bitField("ingress_port", 8))
+                .addFields(bitField("egress_port", 8))
+            )
+        )
+        .build()
     val codec = PacketHeaderCodec.create(p4info, behavioral)!!
-    // 24-bit header (3 bytes) + 4-byte payload = 7 bytes total.
+    // 16-bit header (2 bytes) + 4-byte payload = 6 bytes total.
     val deparsed =
       com.google.protobuf.ByteString.copyFrom(
-        byteArrayOf(0x00, 0x00, 0x00, 0xDE.toByte(), 0xAD.toByte(), 0xBE.toByte(), 0xEF.toByte())
+        byteArrayOf(0x00, 0x00, 0xDE.toByte(), 0xAD.toByte(), 0xBE.toByte(), 0xEF.toByte())
       )
     val stripped = codec.stripPacketInHeader(deparsed)
     assertArrayEquals(
@@ -252,7 +279,7 @@ class PacketHeaderCodecTest {
   /**
    * Builds a SAI-like p4info + behavioral config:
    * - packet_out: egress_port (9-bit, id=1), submit_to_ingress (1-bit, id=2), unused_pad (6-bit)
-   * - packet_in: ingress_port (9-bit, id=3), target_egress_port (9-bit, id=4), unused_pad (6-bit)
+   * - packet_in: ingress_port (9-bit, id=3), target_egress_port (9-bit, id=4)
    * - Behavioral config with header types for field width resolution.
    */
   @Suppress("MagicNumber")
@@ -270,7 +297,6 @@ class PacketHeaderCodecTest {
             .setPreamble(Preamble.newBuilder().setName("packet_in"))
             .addMetadata(meta(3, "ingress_port"))
             .addMetadata(meta(4, "target_egress_port"))
-            .addMetadata(metaWithBitwidth(5, "unused_pad", 6))
         )
         .build()
 
@@ -293,7 +319,6 @@ class PacketHeaderCodecTest {
               HeaderDecl.newBuilder()
                 .addFields(bitField("ingress_port", 9))
                 .addFields(bitField("target_egress_port", 9))
-                .addFields(bitField("unused_pad", 6))
             )
         )
         .build()
