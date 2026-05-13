@@ -17,6 +17,12 @@ local_path_override(
 # skip this — those targets resolve entirely through @fourward_maven.
 bazel_dep(name = "rules_jvm_external", version = "6.10")
 
+# WORKAROUND: direct dep so --@protobuf//bazel/toolchains:prefer_prebuilt_protoc
+# resolves from .bazelrc, avoiding a ~5 min protoc-from-source build. Remove
+# once we upgrade to protobuf 34+ where prebuilt is the default (blocked on
+# gRPC compatibility — no released gRPC supports protobuf 34 yet).
+bazel_dep(name = "protobuf", version = "33.5")
+
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
     known_contributing_modules = [
