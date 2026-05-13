@@ -134,10 +134,7 @@ class EnvironmentTest {
   @Suppress("MagicNumber")
   fun `multiple emitBits calls form continuous bit stream`() {
     val pktCtx = PacketContext(byteArrayOf())
-    // 6 bits: 0b111111 = 0x3F, then 10 bits: 0b1010101010 = 0x2AA
-    // Continuous: 111111_1010101010 = 16 bits = 0xFAAA? Let's compute:
-    // 111111_10_10101010 = 0xFAAA? No:
-    // 111111 10 10101010 = byte 0: 11111110 = 0xFE, byte 1: 10101010 = 0xAA
+    // 6 bits (0b111111) ++ 10 bits (0b1010101010) → 0b11111110_10101010 = 0xFE 0xAA
     pktCtx.emitBits(BigInteger.valueOf(0x3F), 6)
     pktCtx.emitBits(BigInteger.valueOf(0x2AA), 10)
     assertArrayEquals(byteArrayOf(0xFE.toByte(), 0xAA.toByte()), pktCtx.outputPayload())

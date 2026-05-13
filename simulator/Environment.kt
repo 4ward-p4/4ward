@@ -209,7 +209,7 @@ private class ParserCursor(private val data: ByteArray, initialByteOffset: Int =
 
   private fun remainingBits(): Int = data.size * 8 - bitOffset
 
-  /** Returns all bytes from the current byte-aligned position to the end. */
+  /** Returns all bytes from the next byte boundary to the end (sub-byte remainder is discarded). */
   fun readAll(): ByteArray {
     val byteStart = (bitOffset + 7) / 8
     bitOffset = data.size * 8
