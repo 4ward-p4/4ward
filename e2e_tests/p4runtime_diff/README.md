@@ -25,8 +25,10 @@ Top-level targets:
   `piserver` / `pifeproto`. No Apache Thrift in the runtime.
 - `:libbmpi` — bmv2's Thrift-free PI integration adapter
   (sources from `@behavioral_model//:libbmpi_srcs`).
-- `:basic_table_fourward` / `:basic_table_bmv2_json` — the test
-  fixture P4 program compiled for both backends.
+- `:basic_table_fourward` / `:basic_table_bmv2_json` — `basic_table.p4`
+  compiled for both backends (scenarios 1-7).
+- `:action_selector_fourward` / `:action_selector_bmv2_json` —
+  `action_selector_3.p4` compiled for both backends (scenarios 8-10).
 
 Test targets:
 
@@ -34,9 +36,7 @@ Test targets:
   helpers ([`ResponseDiff.kt`](ResponseDiff.kt)). Always runnable.
 - `:P4RuntimeDiffSmokeTest` — spawns both servers, exercises
   `Capabilities` RPC. Skipped via `Assume` if the binary isn't built.
-- `:P4RuntimeDiffScenariosTest` — the five spec scenarios from the
-  design doc. Skipped via `Assume` if the fixtures aren't built.
-
-The Kotlin runners `Bmv2P4RuntimeRunner` and `FourwardP4RuntimeRunner`
-expose a uniform `P4RuntimeBlockingStub` over both implementations so
-test code is symmetric.
+- `:P4RuntimeDiffScenariosTest` — table entry scenarios (encoding,
+  error semantics, wildcard reads, default actions).
+- `:P4RuntimeDiffActionProfileTest` — action profile scenarios
+  (member CRUD, groups, table entries referencing groups).
