@@ -2,6 +2,7 @@ package fourward.grpc
 
 import fourward.e2e.compileInlineP4
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -482,6 +483,112 @@ class BitLevelSerializationTest {
           "(first byte: expected != 0xAA, got 0x${"%02X".format(outputBytes[0])})",
         outputBytes[0] != 0xAA.toByte(),
       )
+    }
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `PacketOut with non-byte-aligned header preserves payload through P4Runtime`() {
+    // A 5-bit @controller_header("packet_out") + 5-bit @controller_header("packet_in").
+    // The program always forwards to CPU port (510), so the PacketOut produces a
+    // PacketIn response whose payload we can check for corruption.
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      @controller_header("packet_out")
+      header packet_out_t { bit<5> tag; }
+
+      @controller_header("packet_in")
+      header packet_in_t { bit<5> tag; }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { packet_out_t pkt_out; packet_in_t pkt_in; ethernet_t eth; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start {
+          pkt.extract(hdr.pkt_out);
+          pkt.extract(hdr.eth);
+          transition accept;
+        }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = 510; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply {
+          h.pkt_out.setInvalid();
+          h.pkt_in.setValid();
+          h.pkt_in.tag = 0;
+        }
+      }
+      control D(packet_out pkt, in headers_t h) {
+        apply {
+          pkt.emit(h.pkt_out);
+          pkt.emit(h.pkt_in);
+          pkt.emit(h.eth);
+        }
+      }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val harness = FourwardTestHarness()
+    harness.use {
+      it.loadPipeline(config)
+
+      it.openStream().use { session ->
+        session.arbitrate()
+
+        val packetOut =
+          p4.v1.P4RuntimeOuterClass.PacketOut.newBuilder()
+            .setPayload(
+              com.google.protobuf.ByteString.copyFrom(
+                byteArrayOf(
+                  0xAA.toByte(),
+                  0xAA.toByte(),
+                  0xAA.toByte(),
+                  0xAA.toByte(),
+                  0xAA.toByte(),
+                  0xAA.toByte(),
+                  0xBB.toByte(),
+                  0xBB.toByte(),
+                  0xBB.toByte(),
+                  0xBB.toByte(),
+                  0xBB.toByte(),
+                  0xBB.toByte(),
+                  0x08,
+                  0x06,
+                )
+              )
+            )
+            .addMetadata(
+              p4.v1.P4RuntimeOuterClass.PacketMetadata.newBuilder()
+                .setMetadataId(1)
+                .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(0)))
+            )
+            .build()
+
+        val response = session.sendPacketOut(packetOut)
+
+        // If packPacketOut correctly bit-packed the 5-bit header with the payload,
+        // the parser reads the correct ethernet frame. If it used byte-concat,
+        // 3 padding zeros would corrupt the dst_mac.
+        assertNotNull("should get PacketIn response from CPU port", response)
+        assertTrue("response should be PacketIn", response!!.hasPacket())
+        val payload = response.packet.payload.toByteArray()
+
+        assertEquals(
+          "dst_mac first byte should be 0xAA (not corrupted by padding)",
+          0xAA.toByte(),
+          payload[0],
+        )
+      }
     }
   }
 }

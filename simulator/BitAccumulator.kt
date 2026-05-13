@@ -63,6 +63,9 @@ class BitAccumulator {
     }
   }
 
+  val isByteAligned: Boolean
+    get() = pendingCount == 0
+
   fun copy(): BitAccumulator {
     val clone = BitAccumulator()
     clone.bytes.write(bytes.toByteArray())

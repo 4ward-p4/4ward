@@ -123,6 +123,11 @@ class PacketContext(payload: ByteArray, initialOffset: Int = 0) {
    */
   fun deparsedPayload(): ByteArray {
     if (!buffer.hasRemaining()) return outputBits.toByteArray()
+    // When both sides are byte-aligned, plain byte concatenation is correct and
+    // avoids copying the BitAccumulator.
+    if (outputBits.isByteAligned && buffer.isByteAligned) {
+      return outputBits.toByteArray() + buffer.readAll()
+    }
     val combined = outputBits.copy()
     buffer.appendRemainingTo(combined)
     return combined.toByteArray()
@@ -173,6 +178,9 @@ private class ParserCursor(private val data: ByteArray, initialByteOffset: Int =
     get() = (bitOffset + 7) / 8
 
   fun hasRemaining(): Boolean = bitOffset < data.size * 8
+
+  val isByteAligned: Boolean
+    get() = bitOffset % 8 == 0
 
   fun appendRemainingTo(acc: BitAccumulator) {
     acc.appendRawBytes(data, bitOffset, data.size * 8 - bitOffset)
