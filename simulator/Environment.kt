@@ -2,6 +2,7 @@ package fourward.simulator
 
 import fourward.TraceEvent
 import java.io.ByteArrayOutputStream
+import java.math.BigInteger
 
 /**
  * Variable scope stack for a single packet traversal.
@@ -96,8 +97,8 @@ class PacketContext(payload: ByteArray, initialOffset: Int = 0) {
   val bytesConsumed: Int
     get() = buffer.bytesConsumed
 
-  /** Output packet bytes, written by deparser emit(). */
-  private val outputBuffer = ByteArrayOutputStream()
+  /** Bit-level output buffer, written by deparser emit(). */
+  private val outputBits = BitAccumulator()
 
   fun extractBytes(count: Int): ByteArray = buffer.read(count)
 
@@ -105,11 +106,12 @@ class PacketContext(payload: ByteArray, initialOffset: Int = 0) {
 
   fun advanceBits(bits: Int) = buffer.advanceBits(bits)
 
-  fun emitBytes(bytes: ByteArray) {
-    outputBuffer.write(bytes)
+  fun emitBits(value: BigInteger, width: Int) {
+    outputBits.append(value, width)
   }
 
-  fun outputPayload(): ByteArray = outputBuffer.toByteArray()
+  /** Returns the accumulated output bits as bytes (zero-padded to byte boundary). */
+  fun outputPayload(): ByteArray = outputBits.toByteArray()
 
   /** Returns all bytes not yet consumed by the parser (the un-parsed packet body). */
   fun drainRemainingInput(): ByteArray = buffer.readAll()
@@ -128,6 +130,55 @@ class PacketContext(payload: ByteArray, initialOffset: Int = 0) {
   }
 
   fun getEvents(): List<TraceEvent> = traceEvents.toList()
+}
+
+/**
+ * Accumulates bits from deparser emit() calls into a continuous bit stream, producing a
+ * byte-aligned output with trailing zero padding — matching real P4 target behavior.
+ */
+@Suppress("MagicNumber")
+class BitAccumulator {
+  private val bytes = ByteArrayOutputStream()
+  private var pendingBits = 0L
+  private var pendingCount = 0
+
+  fun append(value: BigInteger, width: Int) {
+    var remaining = width
+    var bits = value
+    while (remaining > 0) {
+      val space = 8 - pendingCount
+      if (remaining >= space) {
+        val shift = remaining - space
+        val top =
+          if (shift < 64) (bits shr shift).toLong() and ((1L shl space) - 1)
+          else bits.shiftRight(shift).toLong() and ((1L shl space) - 1)
+        pendingBits = (pendingBits shl space) or top
+        bytes.write(pendingBits.toInt() and 0xFF)
+        pendingBits = 0
+        pendingCount = 0
+        remaining -= space
+        if (remaining > 0 && remaining < 64) {
+          bits = bits.and(BigInteger.ONE.shiftLeft(remaining).subtract(BigInteger.ONE))
+        }
+      } else {
+        val top =
+          if (remaining < 64) bits.toLong() and ((1L shl remaining) - 1)
+          else bits.and(BigInteger.ONE.shiftLeft(remaining).subtract(BigInteger.ONE)).toLong()
+        pendingBits = (pendingBits shl remaining) or top
+        pendingCount += remaining
+        remaining = 0
+      }
+    }
+  }
+
+  fun toByteArray(): ByteArray {
+    if (pendingCount > 0) {
+      bytes.write((pendingBits shl (8 - pendingCount)).toInt() and 0xFF)
+      pendingBits = 0
+      pendingCount = 0
+    }
+    return bytes.toByteArray()
+  }
 }
 
 /**

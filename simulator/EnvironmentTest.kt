@@ -115,24 +115,31 @@ class EnvironmentTest {
   // ---------------------------------------------------------------------------
 
   @Test
-  fun `outputPayload is empty before any emitBytes call`() {
+  fun `outputPayload is empty before any emitBits call`() {
     val pktCtx = PacketContext(byteArrayOf())
     assertArrayEquals(byteArrayOf(), pktCtx.outputPayload())
   }
 
   @Test
-  fun `emitBytes appends bytes to the output buffer`() {
+  @Suppress("MagicNumber")
+  fun `emitBits appends bits to the output buffer`() {
     val pktCtx = PacketContext(byteArrayOf())
-    pktCtx.emitBytes(byteArrayOf(0x08, 0x00))
+    // 16 bits = 0x0800
+    pktCtx.emitBits(java.math.BigInteger.valueOf(0x0800), 16)
     assertArrayEquals(byteArrayOf(0x08, 0x00), pktCtx.outputPayload())
   }
 
   @Test
-  fun `multiple emitBytes calls concatenate in order`() {
+  @Suppress("MagicNumber")
+  fun `multiple emitBits calls form continuous bit stream`() {
     val pktCtx = PacketContext(byteArrayOf())
-    pktCtx.emitBytes(byteArrayOf(0x01, 0x02))
-    pktCtx.emitBytes(byteArrayOf(0x03, 0x04))
-    assertArrayEquals(byteArrayOf(0x01, 0x02, 0x03, 0x04), pktCtx.outputPayload())
+    // 6 bits: 0b111111 = 0x3F, then 10 bits: 0b1010101010 = 0x2AA
+    // Continuous: 111111_1010101010 = 16 bits = 0xFAAA? Let's compute:
+    // 111111_10_10101010 = 0xFAAA? No:
+    // 111111 10 10101010 = byte 0: 11111110 = 0xFE, byte 1: 10101010 = 0xAA
+    pktCtx.emitBits(java.math.BigInteger.valueOf(0x3F), 6)
+    pktCtx.emitBits(java.math.BigInteger.valueOf(0x2AA), 10)
+    assertArrayEquals(byteArrayOf(0xFE.toByte(), 0xAA.toByte()), pktCtx.outputPayload())
   }
 
   // ---------------------------------------------------------------------------

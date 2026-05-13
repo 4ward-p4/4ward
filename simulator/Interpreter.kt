@@ -1454,14 +1454,13 @@ class Interpreter internal constructor(config: BehavioralConfig) {
         bitOffset += width
       }
       if (totalBits > 0) {
-        val bytes = BitVector(packedBits, totalBits).toByteArray()
-        packet.emitBytes(bytes)
+        packet.emitBits(packedBits, totalBits)
         packetCtx?.addTraceEvent(
           TraceEvent.newBuilder()
             .setDeparserEmit(
               DeparserEmitEvent.newBuilder()
                 .setHeaderType(header.typeName)
-                .setByteLength(bytes.size)
+                .setByteLength((totalBits + 7) / 8)
             )
             .build()
         )
