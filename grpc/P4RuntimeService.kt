@@ -707,8 +707,10 @@ class P4RuntimeService(
       .filter { it.dataplaneEgressPort == cpuPort }
       .map { outputPacket ->
         val metadata = codec.buildPacketInMetadata(ingressPort, outputPacket.dataplaneEgressPort)
-        val rawPacketIn =
-          PacketIn.newBuilder().setPayload(outputPacket.payload).addAllMetadata(metadata).build()
+        // The deparser emits the @controller_header("packet_in") as part of the
+        // payload. Strip it — metadata is constructed from the simulation context.
+        val payload = outputPacket.payload.substring(codec.packetInHeaderBytes)
+        val rawPacketIn = PacketIn.newBuilder().setPayload(payload).addAllMetadata(metadata).build()
         StreamMessageResponse.newBuilder()
           .setPacket(translator?.translatePacketIn(rawPacketIn) ?: rawPacketIn)
           .build()

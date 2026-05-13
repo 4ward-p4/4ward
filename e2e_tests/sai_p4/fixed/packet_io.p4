@@ -7,8 +7,6 @@
 #include "ids.h"
 #include "bmv2_intrinsics.h"
 
-// TODO: Clean up once we have better solution to handle packet-in
-// across platforms.
 control packet_in_encap(inout headers_t headers,
                         inout local_metadata_t local_metadata,
                         inout standard_metadata_t standard_metadata) {
@@ -25,7 +23,6 @@ control packet_in_encap(inout headers_t headers,
       // CPU-bound packets do not traverse the egress pipeline.
       local_metadata.bypass_egress = true;
 
-#if defined(PLATFORM_BMV2) || defined(PLATFORM_P4SYMBOLIC)
       if (IS_PACKET_IN_COPY(standard_metadata)) {
         headers.packet_out_header.setInvalid();
         headers.packet_in_header = {
@@ -39,8 +36,7 @@ control packet_in_encap(inout headers_t headers,
         // local switch CPU.
         // From a modeling perspective, this is like dropping the packet.
         mark_to_drop(standard_metadata);
-      }    
-#endif
+      }
     }
   }
 }  // control populate_packet_in_header

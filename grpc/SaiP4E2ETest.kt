@@ -545,6 +545,39 @@ class SaiP4E2ETest {
 
   @Test
   @Suppress("MagicNumber")
+  fun `ACL trap PacketIn payload does not include controller header bytes`() {
+    installRoutingChain()
+    installAclEntry(findAction("acl_trap"))
+    installCopyToCpuCloneSession()
+
+    val originalPacket = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
+    harness.openStream().use { session ->
+      session.arbitrate()
+      val packetOut = buildCpuPacketOut(submitToIngress = true)
+      val response = session.sendPacketOut(packetOut)
+      assertNotNull("ACL trap should produce PacketIn", response)
+
+      val packetIn = response!!.packet
+      val payload = packetIn.payload.toByteArray()
+      // The deparser emits a @controller_header("packet_in") before the Ethernet frame.
+      // The P4Runtime server must strip it — the payload should be the original packet.
+      assertEquals(
+        "PacketIn payload should match original packet size (no controller header)",
+        originalPacket.size,
+        payload.size,
+      )
+      // The I2E clone uses post-parser (pre-ingress) headers, so the Ethernet and IP
+      // fields are unmodified. The IPv4 checksum may differ because v1model's
+      // ComputeChecksum stage recomputes it.
+      assertBytesEqual("dst_mac", UNICAST_MAC, payload, 0)
+      assertBytesEqual("src_mac", SRC_MAC, payload, MAC_LEN)
+      assertBytesEqual("src_ip", SRC_IP, payload, SRC_IP_OFFSET)
+      assertBytesEqual("dst_ip", DST_IP, payload, DST_IP_OFFSET)
+    }
+  }
+
+  @Test
+  @Suppress("MagicNumber")
   fun `ACL copy produces both outputs but only CPU clone becomes PacketIn`() {
     installRoutingChain()
     // ACL: copy packets to CPU without dropping (forward normally + clone to CPU).

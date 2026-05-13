@@ -71,6 +71,9 @@ private constructor(
   /** Total bytes of the serialized packet_out header. */
   val packetOutHeaderBytes: Int = (packetOutFields.sumOf { it.bitWidth } + 7) / 8
 
+  /** Total bytes of the serialized packet_in header (stripped from deparsed payload on punt). */
+  val packetInHeaderBytes: Int = (packetInFields.sumOf { it.bitWidth } + 7) / 8
+
   /** Packs PacketOut metadata into a bit-packed binary header. */
   fun serializePacketOut(metadata: List<PacketMetadata>): ByteArray {
     val metadataById = metadata.associateBy { it.metadataId }
@@ -80,8 +83,9 @@ private constructor(
   /**
    * Builds PacketIn metadata from ingress and egress port values.
    *
-   * On non-BMv2 platforms, the P4 program does not prepend a packet_in header to CPU-bound packets.
-   * Instead, the service constructs metadata from the simulation context.
+   * Metadata is constructed from the simulation context rather than parsed from the deparsed
+   * payload. The caller is responsible for stripping the `@controller_header("packet_in")` bytes
+   * from the payload (see [packetInHeaderBytes]).
    */
   fun buildPacketInMetadata(ingressPort: Int, egressPort: Int): List<PacketMetadata> =
     packetInFields.map { field ->
@@ -175,7 +179,24 @@ private constructor(
           )
         } ?: emptyList()
 
+      // The deparser emits the full header type (including @padding fields). Byte
+      // alignment is required so that stripping the header preserves the remaining
+      // payload byte-for-byte. Validate using the behavioral config widths, which
+      // include @padding fields that p4info metadata may omit.
+      requireByteAligned("packet_out_header_t", packetOutType)
+      requireByteAligned("packet_in_header_t", packetInType)
+
       return PacketHeaderCodec(packetOutFields, packetInFields, cpuPort)
+    }
+
+    @Suppress("MagicNumber")
+    private fun requireByteAligned(headerName: String, fieldWidths: Map<String, Int>?) {
+      if (fieldWidths == null) return
+      val totalBits = fieldWidths.values.sum()
+      require(totalBits % 8 == 0) {
+        "@controller_header $headerName is $totalBits bits, which is not byte-aligned. " +
+          "Add a @padding field to round to a multiple of 8."
+      }
     }
 
     private const val DEFAULT_PORT_BITS = 9

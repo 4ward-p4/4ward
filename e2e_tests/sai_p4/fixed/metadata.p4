@@ -101,18 +101,10 @@ header packet_in_header_t {
   // The initial intended egress port decided for the packet by the pipeline.
   @id(PACKET_IN_TARGET_EGRESS_PORT_ID)
   port_id_t target_egress_port;
-  // Padding field to align the header to 8-bit multiple, as required by BMv2.
-  // Carries no information.
-  //
-  // Contrary to the corresponding field in the `packet_out` header, we include
-  // this field only on BMv2, as clients will generally ignore this field anyhow
-  // and thus not observe this minor API deviation.
-  // TODO: Handle packet-in uniformly for all platforms.
-#if defined(PLATFORM_BMV2) || defined(PLATFORM_P4SYMBOLIC)
+  // Padding field to align the header to an 8-bit multiple.
   @id(PACKET_IN_UNUSED_PAD_ID)
   @padding
   bit<6> unused_pad;
-#endif
 }
 
 @controller_header("packet_out")
@@ -140,13 +132,9 @@ header packet_out_header_t {
 
 // LINT.IfChange
 struct headers_t {
-// TODO: Clean up once we have better solution to handle packet-in
-// across platforms.
-#if defined(PLATFORM_BMV2) || defined(PLATFORM_P4SYMBOLIC)
   // Never extracted during parsing, but serialized during deparsing for packets
   // punted to the controller.
   packet_in_header_t packet_in_header;
-#endif
 
   // PacketOut header; extracted only for packets received from the controller.
   packet_out_header_t packet_out_header;
