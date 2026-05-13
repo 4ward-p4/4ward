@@ -102,7 +102,11 @@ class PacketContext(payload: ByteArray, initialOffset: Int = 0) {
 
   fun extractBytes(count: Int): ByteArray = buffer.read(count)
 
+  fun extractBits(bitCount: Int): BigInteger = buffer.readBits(bitCount)
+
   fun peekBytes(count: Int): ByteArray = buffer.peek(count)
+
+  fun peekBits(bitCount: Int): BigInteger = buffer.peekBits(bitCount)
 
   fun advanceBits(bits: Int) = buffer.advanceBits(bits)
 
@@ -192,48 +196,100 @@ class PacketTooShortException(message: String) : ParserErrorException("PacketToo
 /** Thrown by the interpreter when a parser error occurs (P4 spec §12.8). */
 open class ParserErrorException(val errorName: String, message: String) : Exception(message)
 
-/** A simple byte-level cursor over a packet buffer, used by the parser. */
-private class ParserCursor(private val data: ByteArray, initialOffset: Int = 0) {
-  private var offset: Int = initialOffset
+/**
+ * Bit-level cursor over a packet buffer, used by the parser.
+ *
+ * Tracks a bit offset so that sub-byte header extracts (e.g., a 4-bit tag followed by a 12-bit
+ * length) consume exactly the right number of bits without over-reading.
+ */
+@Suppress("MagicNumber")
+private class ParserCursor(private val data: ByteArray, initialByteOffset: Int = 0) {
+  private var bitOffset: Int = initialByteOffset * 8
 
-  /** Number of bytes consumed from the start of the buffer. */
+  /** Number of whole bytes consumed from the start of the buffer. */
   val bytesConsumed: Int
-    get() = offset
+    get() = (bitOffset + 7) / 8
 
-  fun remaining(): Int = data.size - offset
+  private fun remainingBits(): Int = data.size * 8 - bitOffset
 
-  fun readAll(): ByteArray = data.copyOfRange(offset, data.size).also { offset = data.size }
+  /** Returns all bytes from the current byte-aligned position to the end. */
+  fun readAll(): ByteArray {
+    val byteStart = (bitOffset + 7) / 8
+    bitOffset = data.size * 8
+    return data.copyOfRange(byteStart, data.size)
+  }
 
-  /** Returns all remaining bytes without advancing the cursor. */
-  fun peekAll(): ByteArray = data.copyOfRange(offset, data.size)
+  /** Returns all bytes from the current byte-aligned position without advancing. */
+  fun peekAll(): ByteArray {
+    val byteStart = (bitOffset + 7) / 8
+    return data.copyOfRange(byteStart, data.size)
+  }
 
+  /** Reads [count] bytes from the current position (must be byte-aligned). */
   fun read(count: Int): ByteArray {
-    if (count > remaining()) {
+    val bitsNeeded = count * 8
+    if (bitsNeeded > remainingBits()) {
       throw PacketTooShortException(
-        "attempted to extract $count bytes but only ${remaining()} remain in packet"
+        "attempted to extract $count bytes but only ${remainingBits() / 8} remain in packet"
       )
     }
-    return data.copyOfRange(offset, offset + count).also { offset += count }
+    val byteStart = bitOffset / 8
+    bitOffset += bitsNeeded
+    return data.copyOfRange(byteStart, byteStart + count)
   }
 
-  /** Peeks at the next [count] bytes without advancing the cursor (P4 spec §12.8.2). */
+  /** Reads [bitCount] bits from the current position as a BigInteger, MSB-first. */
+  fun readBits(bitCount: Int): BigInteger {
+    if (bitCount > remainingBits()) {
+      throw PacketTooShortException(
+        "attempted to extract $bitCount bits but only ${remainingBits()} remain in packet"
+      )
+    }
+    val result = peekBitsInternal(bitCount)
+    bitOffset += bitCount
+    return result
+  }
+
+  /** Peeks at [count] bytes without advancing (must be byte-aligned). */
   fun peek(count: Int): ByteArray {
-    if (count > remaining()) {
+    val bitsNeeded = count * 8
+    if (bitsNeeded > remainingBits()) {
       throw PacketTooShortException(
-        "lookahead: need $count bytes but only ${remaining()} remain in packet"
+        "lookahead: need $count bytes but only ${remainingBits() / 8} remain in packet"
       )
     }
-    return data.copyOfRange(offset, offset + count)
+    val byteStart = bitOffset / 8
+    return data.copyOfRange(byteStart, byteStart + count)
   }
 
-  /** Advances the cursor by [bits] bits, which must be a multiple of 8 (P4 spec §12.8.3). */
-  fun advanceBits(bits: Int) {
-    val bytes = bits / 8
-    if (bytes > remaining()) {
+  /** Peeks at [bitCount] bits without advancing, MSB-first. */
+  fun peekBits(bitCount: Int): BigInteger {
+    if (bitCount > remainingBits()) {
       throw PacketTooShortException(
-        "advance: need $bytes bytes but only ${remaining()} remain in packet"
+        "lookahead: need $bitCount bits but only ${remainingBits()} remain in packet"
       )
     }
-    offset += bytes
+    return peekBitsInternal(bitCount)
+  }
+
+  /** Advances the cursor by [bits] bits. */
+  fun advanceBits(bits: Int) {
+    if (bits > remainingBits()) {
+      throw PacketTooShortException(
+        "advance: need $bits bits but only ${remainingBits()} remain in packet"
+      )
+    }
+    bitOffset += bits
+  }
+
+  private fun peekBitsInternal(bitCount: Int): BigInteger {
+    if (bitCount == 0) return BigInteger.ZERO
+    val startByte = bitOffset / 8
+    val endByte = (bitOffset + bitCount - 1) / 8
+    val raw = BigInteger(1, data.copyOfRange(startByte, endByte + 1))
+    val trailingBits = (endByte + 1) * 8 - (bitOffset + bitCount)
+    val shifted = raw.shiftRight(trailingBits)
+    val mask = BigInteger.ONE.shiftLeft(bitCount).subtract(BigInteger.ONE)
+    return shifted.and(mask)
   }
 }
