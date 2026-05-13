@@ -96,11 +96,25 @@ private constructor(
     // Bit-level strip: remove exactly packetInHeaderBits from the front of the
     // continuous bit stream and repack the remaining bits into bytes.
     val bytes = payload.toByteArray()
-    // Assumes the original payload was N whole bytes. The deparsed stream is
-    // ceil((headerBits + N*8) / 8) bytes. We recover N via integer division,
-    // which truncates any sub-byte remainder — only whole payload bytes survive.
-    val payloadBits = (bytes.size * 8 - packetInHeaderBits) / 8 * 8
+    // The deparsed byte array contains: headerBits + payloadBits + trailingPadBits,
+    // where trailingPadBits < 8 are zeros added by byte-alignment at the end.
+    // The payload (everything after the controller header) is always a whole number
+    // of bytes: it consists of deparser-emitted headers (byte-aligned by the P4
+    // spec for all real targets) followed by the unparsed packet remainder (a suffix
+    // of the original byte-array input). Integer division by 8 recovers the exact
+    // payload byte count, discarding only the trailing pad zeros.
+    val totalBits = bytes.size * 8
+    val payloadBits = (totalBits - packetInHeaderBits) / 8 * 8
     if (payloadBits <= 0) return ByteString.EMPTY
+    val discardedBits = totalBits - packetInHeaderBits - payloadBits
+    if (discardedBits > 0) {
+      val trailingMask = (1 shl discardedBits) - 1
+      check(bytes.last().toInt() and trailingMask == 0) {
+        "expected $discardedBits trailing zero-pad bits, but last byte is 0x${
+          "%02X".format(bytes.last())
+        } — payload after @controller_header may not be byte-aligned"
+      }
+    }
     val outBytes = payloadBits / 8
     val result = ByteArray(outBytes)
     val skipBits = packetInHeaderBits
