@@ -7,6 +7,12 @@ package(
     licenses = ["notice"],
 )
 
+# Shared so e2e_tests/p4runtime_diff can compile the same fixture for BMv2.
+exports_files(
+    ["basic_table.p4"],
+    visibility = ["//e2e_tests/p4runtime_diff:__pkg__"],
+)
+
 fourward_pipeline(
     name = "basic_table",
     src = "basic_table.p4",

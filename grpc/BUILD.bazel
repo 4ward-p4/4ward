@@ -76,6 +76,7 @@ kt_jvm_grpc_library(
 java_grpc_library(
     name = "p4runtime_java_grpc",
     srcs = ["@p4runtime//proto/p4/v1:p4runtime_proto"],
+    visibility = ["//e2e_tests/p4runtime_diff:__pkg__"],
     deps = ["//simulator:p4runtime_java_proto"],
 )
 
@@ -83,6 +84,7 @@ java_grpc_library(
 kt_jvm_grpc_library(
     name = "p4runtime_kt_grpc",
     srcs = ["@p4runtime//proto/p4/v1:p4runtime_proto"],
+    visibility = ["//e2e_tests/p4runtime_diff:__pkg__"],
     deps = ["//simulator:p4runtime_java_proto"],
 )
 

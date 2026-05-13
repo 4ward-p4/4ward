@@ -87,6 +87,21 @@ git_override(
     remote = "https://github.com/p4lang/behavioral-model.git",
 )
 
+# p4lang/PI — the P4Runtime backend library used by BMv2's simple_switch_grpc.
+# Native Bazel rules: PI's existing BUILD files for the C core (`:pi`,
+# `:pip4info`, etc.) reference no external @-deps and work cleanly under
+# Bzlmod with just a MODULE.bazel shim. The bmv2 adapter and proto/server
+# pieces are added incrementally on top. Dev-only — only //e2e_tests/p4runtime_diff.
+bazel_dep(name = "p4lang_pi", version = "head", dev_dependency = True)
+git_override(
+    module_name = "p4lang_pi",
+    commit = "51805c0108cb49e85e4812dd05bb6693b1f48f85",
+    init_submodules = True,
+    patch_strip = 1,
+    patches = ["//bazel:p4lang_pi.patch"],
+    remote = "https://github.com/p4lang/PI.git",
+)
+
 # --- JVM dependencies ---
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")

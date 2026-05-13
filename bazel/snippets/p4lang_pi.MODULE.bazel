@@ -1,0 +1,19 @@
+# Bzlmod shim for p4lang/PI consumed via 4ward.
+#
+# PI's existing BUILD files use the WORKSPACE-style apparent names
+# `@com_github_grpc_grpc`, `@com_google_protobuf`, `@com_github_p4lang_p4runtime`,
+# `@com_google_googleapis`, `@com_google_absl`, `@com_github_openconfig_gnmi`.
+# We declare each as a `bazel_dep` with `repo_name` pointing at the legacy
+# name so PI's BUILD files resolve under Bzlmod without source modification.
+module(
+    name = "p4lang_pi",
+    version = "head",
+)
+
+bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "rules_proto", version = "7.1.0")
+bazel_dep(name = "protobuf", version = "33.5", repo_name = "com_google_protobuf")
+bazel_dep(name = "grpc", version = "1.80.0", repo_name = "com_github_grpc_grpc")
+bazel_dep(name = "p4runtime", version = "1.5.0.bcr.1", repo_name = "com_github_p4lang_p4runtime")
+bazel_dep(name = "googleapis", version = "0.0.0-20260402-c8ca5bce", repo_name = "com_google_googleapis")
+bazel_dep(name = "abseil-cpp", version = "20260107.1", repo_name = "com_google_absl")
