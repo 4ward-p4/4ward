@@ -362,7 +362,8 @@ class OnPortsMatcher {
   template <typename Container>
   bool MatchAndExplain(const Container& packets,
                        ::testing::MatchResultListener* listener) const {
-    absl::btree_map<internal::PortKey, internal::PacketList, internal::PortKeyLess>
+    absl::btree_map<internal::PortKey, internal::PacketList,
+                    internal::PortKeyLess>
         groups;
     // Port type is inferred from the first entry — all entries must use the
     // same type (DataplanePort or P4RuntimePort).

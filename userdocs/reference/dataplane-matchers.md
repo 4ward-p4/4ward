@@ -174,8 +174,7 @@ EXPECT_THAT(by_port, UnorderedElementsAreArray({
 ```cpp
 using ::fourward::PacketsByP4RuntimePort;
 
-auto by_port = PacketsByP4RuntimePort(response);
-EXPECT_THAT(by_port, UnorderedElementsAreArray({
+EXPECT_THAT(PacketsByP4RuntimePort(response), UnorderedElementsAreArray({
     Pair("Ethernet0", SizeIs(1)),
     Pair("Ethernet1", SizeIs(1)),
 }));
@@ -289,6 +288,30 @@ EXPECT_THAT(response, OutcomeIs(OnPort(1), HasParsedPayload(
 4ward doesn't depend on packetlib — `HasPayload` just hands its matcher
 whatever `ResultOf` returns, so any `bytes → T` parser works the same
 way.
+
+## Trace on failure
+
+When an outcome-level matcher fails (`ForwardsTo`, `Forwards`, `Drops`,
+`OutcomeIs`, `OutcomesAre`, `EachOutcome`, `AnyOutcome`), the full
+simulator trace is automatically appended to the failure message — if the
+response carries one. This gives you immediate visibility into how the
+packet was processed without rerunning the test:
+
+```
+Expected: drop the packet
+  Actual: (has 1 possible outcomes),
+full trace:
+events {
+  table_lookup {
+    table_name: "ingress.acl"
+    hit: true
+    ...
+  }
+}
+...
+```
+
+No opt-in needed — the trace shows up whenever the response has one.
 
 ## Bazel dependency
 
