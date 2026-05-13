@@ -269,7 +269,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       )
     }
 
-    val deparsedBytes = ctx.outputPayload() + ctx.drainRemainingInput()
+    val deparsedBytes = ctx.deparsedPayload()
     return IngressResult(ctx.getEvents(), output, deparsedBytes, dropped = false)
   }
 
@@ -457,7 +457,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     bindStageParams(egressEnv, p.egressDeparser.blockName, p.blockParams, egressValues)
     runControlStage(egressInterpreter, egressCtx, egressEnv, p.egressDeparser)
 
-    val outputBytes = egressCtx.outputPayload() + egressCtx.drainRemainingInput()
+    val outputBytes = egressCtx.deparsedPayload()
     return EgressCoreResult(egressCtx.getEvents(), dropped, outputBytes, egressOutput)
   }
 

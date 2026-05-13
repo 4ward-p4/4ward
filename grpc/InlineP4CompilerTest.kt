@@ -336,4 +336,66 @@ class InlineP4CompilerTest {
       assertEquals("len should parse as 0xBC3 (written into etype)", 0x0BC3, etype)
     }
   }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `unparsed remainder after sub-byte extract is preserved`() {
+    // Parse a 4-bit tag from byte 0, leave the remaining 12 bits + bytes 1..13 unparsed.
+    // The deparser emits nothing — the output should be the unparsed remainder, which
+    // starts at bit 4 of the input. On a real target the output is a continuous bit
+    // stream: the 4 remaining bits of byte 0 followed by bytes 1..13, totaling
+    // 4 + 13*8 = 108 bits = 14 bytes (with 4 trailing pad bits).
+    //
+    // If drainRemainingInput() rounds up to the next byte boundary, it skips the
+    // remaining 4 bits of byte 0 and returns only bytes 1..13 = 13 bytes.
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      header tag_t { bit<4> value; }
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { tag_t tag; ethernet_t eth; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start {
+          pkt.extract(hdr.tag);
+          transition accept;
+        }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = 1; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) { apply {} }
+      control D(packet_out pkt, in headers_t h) { apply {} }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val harness = FourwardTestHarness()
+    harness.use {
+      it.loadPipeline(config)
+      // Byte 0 = 0xAB = 0b10101011. Tag extracts top 4 bits (0xA).
+      // Remaining: 0b1011 ++ bytes 1..13.
+      val packet = byteArrayOf(0xAB.toByte()) + ByteArray(13) { 0xFF.toByte() }
+      val response = it.injectPacket(ingressPort = 0, payload = packet)
+      val output = response.possibleOutcomesList.single().packetsList.single()
+      val payload = output.payload.toByteArray()
+
+      // The deparser emits 0 bits. The output should be the unparsed remainder:
+      // 4 bits from byte 0 (0b1011) + 13 bytes (0xFF each) = 108 bits = 14 bytes
+      // (with 4 trailing pad bits). The first byte should be 0b1011_1111 = 0xBF
+      // (4 remaining bits from byte 0 + first 4 bits of byte 1 = 0xFF).
+      assertEquals("output should preserve all unparsed bits (14 bytes)", 14, payload.size)
+      assertEquals(
+        "first byte should be 0xBF (remaining 4 bits of byte 0 + start of byte 1)",
+        0xBF,
+        payload[0].toInt() and 0xFF,
+      )
+    }
+  }
 }

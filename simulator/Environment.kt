@@ -117,6 +117,18 @@ class PacketContext(payload: ByteArray, initialOffset: Int = 0) {
   /** Returns the accumulated output bits as bytes (zero-padded to byte boundary). */
   fun outputPayload(): ByteArray = outputBits.toByteArray()
 
+  /**
+   * Returns the deparser output concatenated with the unparsed remainder as a continuous bit
+   * stream. This is the complete output packet — deparser-emitted headers followed by whatever the
+   * parser didn't consume, with trailing zero padding to byte boundary.
+   */
+  fun deparsedPayload(): ByteArray {
+    if (!buffer.hasRemaining()) return outputBits.toByteArray()
+    val combined = outputBits.copy()
+    buffer.appendRemainingTo(combined)
+    return combined.toByteArray()
+  }
+
   /** Returns all bytes not yet consumed by the parser (the un-parsed packet body). */
   fun drainRemainingInput(): ByteArray = buffer.readAll()
 
@@ -172,6 +184,31 @@ class BitAccumulator {
     }
   }
 
+  /** Appends raw bytes from [data] starting at bit offset [bitOff] for [bitCount] bits. */
+  fun appendRawBytes(data: ByteArray, bitOff: Int, bitCount: Int) {
+    var pos = bitOff
+    var remaining = bitCount
+    while (remaining > 0) {
+      val byteIdx = pos / 8
+      val bitInByte = pos % 8
+      val available = 8 - bitInByte
+      val take = minOf(available, remaining)
+      val shift = available - take
+      val bits = ((data[byteIdx].toInt() and 0xFF) ushr shift) and ((1 shl take) - 1)
+      append(BigInteger.valueOf(bits.toLong()), take)
+      pos += take
+      remaining -= take
+    }
+  }
+
+  fun copy(): BitAccumulator {
+    val clone = BitAccumulator()
+    clone.bytes.write(bytes.toByteArray())
+    clone.pendingBits = pendingBits
+    clone.pendingCount = pendingCount
+    return clone
+  }
+
   fun toByteArray(): ByteArray {
     val result = bytes.toByteArray()
     if (pendingCount == 0) return result
@@ -206,6 +243,12 @@ private class ParserCursor(private val data: ByteArray, initialByteOffset: Int =
   /** Number of whole bytes consumed from the start of the buffer. */
   val bytesConsumed: Int
     get() = (bitOffset + 7) / 8
+
+  fun hasRemaining(): Boolean = bitOffset < data.size * 8
+
+  fun appendRemainingTo(acc: BitAccumulator) {
+    acc.appendRawBytes(data, bitOffset, data.size * 8 - bitOffset)
+  }
 
   private fun remainingBits(): Int = data.size * 8 - bitOffset
 
