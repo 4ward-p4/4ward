@@ -472,5 +472,22 @@ TEST(PacketsByP4RuntimePortTest, MissingPortReturnsEmpty) {
   EXPECT_THAT(by_port["Eth99"], IsEmpty());
 }
 
+TEST(PacketsByP4RuntimePortTest, PreservesPayloads) {
+  fourward::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  auto* pkt = ps->add_packets();
+  pkt->set_p4rt_egress_port("Eth0");
+  pkt->set_payload("hello");
+
+  auto by_port = PacketsByP4RuntimePort(resp);
+  ASSERT_THAT(by_port["Eth0"], SizeIs(1));
+  EXPECT_EQ(by_port["Eth0"][0].payload(), "hello");
+}
+
+TEST(PacketsByP4RuntimePortTest, DropReturnsEmptyMap) {
+  auto by_port = PacketsByP4RuntimePort(Drop());
+  EXPECT_THAT(by_port, IsEmpty());
+}
+
 }  // namespace
 }  // namespace fourward

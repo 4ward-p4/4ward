@@ -421,8 +421,9 @@ template <typename T>
 absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>>
 PacketsByDataplanePort(const T& result) {
   absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>> groups;
-  for (const auto& pkt : internal::DeterministicPackets(result)) {
-    groups[pkt.dataplane_egress_port()].push_back(pkt);
+  auto packets = internal::DeterministicPackets(result);
+  for (auto& pkt : packets) {
+    groups[pkt.dataplane_egress_port()].push_back(std::move(pkt));
   }
   return groups;
 }
@@ -431,8 +432,9 @@ template <typename T>
 absl::btree_map<std::string, std::vector<fourward::OutputPacket>>
 PacketsByP4RuntimePort(const T& result) {
   absl::btree_map<std::string, std::vector<fourward::OutputPacket>> groups;
-  for (const auto& pkt : internal::DeterministicPackets(result)) {
-    groups[pkt.p4rt_egress_port()].push_back(pkt);
+  auto packets = internal::DeterministicPackets(result);
+  for (auto& pkt : packets) {
+    groups[pkt.p4rt_egress_port()].push_back(std::move(pkt));
   }
   return groups;
 }
