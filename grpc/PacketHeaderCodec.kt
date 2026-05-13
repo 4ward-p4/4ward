@@ -71,8 +71,10 @@ private constructor(
 ) {
   data class FieldDef(val id: Int, val name: String, val bitWidth: Int)
 
+  private val packetOutHeaderBits: Int = packetOutFields.sumOf { it.bitWidth }
+
   /** Total bytes of the serialized packet_out header. */
-  val packetOutHeaderBytes: Int = (packetOutFields.sumOf { it.bitWidth } + 7) / 8
+  val packetOutHeaderBytes: Int = (packetOutHeaderBits + 7) / 8
 
   /**
    * Total bits of the serialized packet_in header, derived from p4info field widths. Correctness
@@ -132,10 +134,9 @@ private constructor(
    */
   @Suppress("MagicNumber")
   fun packPacketOut(metadata: List<PacketMetadata>, payload: ByteArray): ByteArray {
-    val headerBits = packetOutFields.sumOf { it.bitWidth }
     // When the header is byte-aligned, serializePacketOut produces exact-width bytes
     // and byte-concatenation with the payload introduces no padding gap.
-    if (headerBits % 8 == 0) return serializePacketOut(metadata) + payload
+    if (packetOutHeaderBits % 8 == 0) return serializePacketOut(metadata) + payload
     val metadataById = metadata.associateBy { it.metadataId }
     val acc = BitAccumulator()
     for (field in packetOutFields) {

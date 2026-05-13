@@ -57,9 +57,29 @@ class BitAccumulator {
       val take = minOf(available, remaining)
       val shift = available - take
       val bits = ((data[byteIdx].toInt() and 0xFF) ushr shift) and ((1 shl take) - 1)
-      append(BigInteger.valueOf(bits.toLong()), take)
+      appendSmall(bits.toLong(), take)
       pos += take
       remaining -= take
+    }
+  }
+
+  /** Appends a value that fits in a Long, avoiding BigInteger allocation. */
+  private fun appendSmall(value: Long, width: Int) {
+    val space = 8 - pendingCount
+    if (width < space) {
+      pendingBits = (pendingBits shl width) or (value and ((1L shl width) - 1))
+      pendingCount += width
+    } else {
+      val top = (value ushr (width - space)) and ((1L shl space) - 1)
+      pendingBits = (pendingBits shl space) or top
+      bytes.write(pendingBits.toInt() and 0xFF)
+      pendingBits = 0
+      pendingCount = 0
+      val leftover = width - space
+      if (leftover > 0) {
+        pendingBits = value and ((1L shl leftover) - 1)
+        pendingCount = leftover
+      }
     }
   }
 

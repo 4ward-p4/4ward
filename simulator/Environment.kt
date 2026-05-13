@@ -229,7 +229,7 @@ private class ParserCursor(private val data: ByteArray, initialByteOffset: Int =
 
   /** Peeks at [count] bytes without advancing (must be byte-aligned). */
   fun peek(count: Int): ByteArray {
-    require(bitOffset % 8 == 0) { "peek() requires byte-aligned cursor, but bitOffset=$bitOffset" }
+    require(isByteAligned) { "peek() requires byte-aligned cursor, but bitOffset=$bitOffset" }
     val bitsNeeded = count * 8
     if (bitsNeeded > remainingBits()) {
       throw PacketTooShortException(
