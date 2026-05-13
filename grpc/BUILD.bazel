@@ -97,6 +97,7 @@ kt_jvm_library(
         exclude = [
             "*Test.kt",
             "*TestHarness.kt",
+            "InlineP4Compiler.kt",
             "*Benchmark.kt",
         ],
     ),
@@ -207,6 +208,44 @@ kt_jvm_test(
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
+    ],
+)
+
+kt_jvm_test(
+    name = "InlineP4CompilerTest",
+    srcs = [
+        "FourwardTestHarness.kt",
+        "InlineP4Compiler.kt",
+        "InlineP4CompilerTest.kt",
+    ],
+    data = [
+        "//p4c_backend:p4c-4ward",
+        "@p4c//p4include",
+        "@p4c//p4include:core.p4",
+    ],
+    jvm_flags = [
+        "-Dp4c_4ward=$(rlocationpath //p4c_backend:p4c-4ward)",
+        "-Dp4include=$(rlocationpath @p4c//p4include:core.p4)",
+    ],
+    test_class = "fourward.grpc.InlineP4CompilerTest",
+    deps = [
+        ":dataplane_java_proto",
+        ":dataplane_kt_grpc",
+        ":grpc",
+        ":p4runtime_kt_grpc",
+        "//bazel:runfiles",
+        "//simulator",
+        "//simulator:ir_java_proto",
+        "//simulator:p4data_java_proto",
+        "//simulator:p4info_java_proto",
+        "//simulator:p4runtime_java_proto",
+        "//simulator:simulator_java_proto",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@fourward_maven//:io_grpc_grpc_api",
+        "@fourward_maven//:io_grpc_grpc_inprocess",
+        "@fourward_maven//:junit_junit",
+        "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
+        "@googleapis//google/rpc:rpc_java_proto",
     ],
 )
 
