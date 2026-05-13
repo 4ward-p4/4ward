@@ -9,6 +9,11 @@ common --noenable_workspace
 build --cxxopt=-std=c++20
 build --host_cxxopt=-std=c++20
 
+# Match the root .bazelrc's compiler selection so C++ action hashes
+# align with the main build — enabling BuildBuddy remote cache hits.
+build --action_env=CC=clang
+build --action_env=CXX=clang++
+
 # Hermetic JDK so local builds don't depend on whatever system Java
 # happens to be installed (same rationale as the root `.bazelrc`).
 build --java_runtime_version=remotejdk_21
