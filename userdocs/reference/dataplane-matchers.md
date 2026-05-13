@@ -31,7 +31,7 @@ Extraction   PacketsByDataplanePort  PacketsByP4RuntimePort
 
 ## The basics
 
-Most tests only need the shorthands. They work on both
+Many tests only need the shorthands. They work on both
 `InjectPacketResponse` (from `InjectPacket`) and `ProcessPacketResult`
 (from `ResultStream::Next`):
 
@@ -103,60 +103,6 @@ with `Eq`, `StartsWith`, `ResultOf`, and anything else gmock offers.
 EXPECT_THAT(dataplane.InjectPacket({...}), IsOkAndHolds(Forwards()));
 ```
 
-## Handling multiple outcomes
-
-P4 programs with action selectors can produce multiple possible outcomes
-— each representing one "possible world."
-
-**`OutcomesAre`** pins the exact set of outcomes (order-independent).
-Each argument is a packet matcher for a single-packet outcome; use
-`Outcome(...)` to spell out a multi-packet outcome:
-
-```cpp
-using ::fourward::OutcomesAre;
-using ::fourward::Outcome;
-
-// Action selector: forwards to port 1 or port 2.
-EXPECT_THAT(response, OutcomesAre(OnPort(1), OnPort(2)));
-
-// One outcome multicasts, the other drops:
-EXPECT_THAT(response, OutcomesAre(
-    Outcome(OnPort(1), OnPort(2)),
-    Outcome()));
-```
-
-**`EachOutcome`** and **`AnyOutcome`** quantify when you don't need to
-pin the exact set:
-
-```cpp
-using ::fourward::EachOutcome;
-using ::fourward::AnyOutcome;
-
-// No matter what the selector picks, the packet reaches port 1:
-EXPECT_THAT(response, EachOutcome(OnPort(1)));
-
-// At least one branch drops:
-EXPECT_THAT(response, AnyOutcome(Packets(IsEmpty())));
-```
-
-## Container-level matching with Packets(...)
-
-When you need to match properties of the packet *list* rather than
-individual packets — size, port grouping, etc. — wrap the matcher in
-`Packets(...)`:
-
-```cpp
-using ::fourward::Packets;
-
-// Exactly 7 output packets:
-EXPECT_THAT(response, OutcomeIs(Packets(SizeIs(7))));
-
-// At least one output packet on port 1:
-EXPECT_THAT(response, OutcomeIs(Packets(Contains(OnPort(1)))));
-```
-
-`Packets(...)` works inside `OutcomeIs`, `EachOutcome`, and `AnyOutcome`.
-
 ## Grouping by port
 
 `OnPorts` groups packets by egress port and applies per-group matchers —
@@ -226,6 +172,60 @@ Both functions fail the test if the response has more than one possible
 outcome. Indexing a port that received no packets returns an empty
 vector.
 
+## Handling multiple outcomes
+
+P4 programs with action selectors can produce multiple possible outcomes
+— each representing one "possible world."
+
+**`OutcomesAre`** pins the exact set of outcomes (order-independent).
+Each argument is a packet matcher for a single-packet outcome; use
+`Outcome(...)` to spell out a multi-packet outcome:
+
+```cpp
+using ::fourward::OutcomesAre;
+using ::fourward::Outcome;
+
+// Action selector: forwards to port 1 or port 2.
+EXPECT_THAT(response, OutcomesAre(OnPort(1), OnPort(2)));
+
+// One outcome multicasts, the other drops:
+EXPECT_THAT(response, OutcomesAre(
+    Outcome(OnPort(1), OnPort(2)),
+    Outcome()));
+```
+
+**`EachOutcome`** and **`AnyOutcome`** quantify when you don't need to
+pin the exact set:
+
+```cpp
+using ::fourward::EachOutcome;
+using ::fourward::AnyOutcome;
+
+// No matter what the selector picks, the packet reaches port 1:
+EXPECT_THAT(response, EachOutcome(OnPort(1)));
+
+// At least one branch drops:
+EXPECT_THAT(response, AnyOutcome(Packets(IsEmpty())));
+```
+
+## Container-level matching with Packets(...)
+
+When you need to match properties of the packet *list* rather than
+individual packets — size, port grouping, etc. — wrap the matcher in
+`Packets(...)`:
+
+```cpp
+using ::fourward::Packets;
+
+// Exactly 7 output packets:
+EXPECT_THAT(response, OutcomeIs(Packets(SizeIs(7))));
+
+// At least one output packet on port 1:
+EXPECT_THAT(response, OutcomeIs(Packets(Contains(OnPort(1)))));
+```
+
+`Packets(...)` works inside `OutcomeIs`, `EachOutcome`, and `AnyOutcome`.
+
 ## Ingress port
 
 `HasIngress` works on `ProcessPacketResult` (which carries the input
@@ -276,30 +276,6 @@ EXPECT_THAT(response, OutcomeIs(OnPort(1), HasParsedPayload(
 4ward doesn't depend on packetlib — `HasPayload` just hands its matcher
 whatever `ResultOf` returns, so any `bytes → T` parser works the same
 way.
-
-## Trace on failure
-
-When an outcome-level matcher fails (`ForwardsTo`, `Forwards`, `Drops`,
-`OutcomeIs`, `OutcomesAre`, `EachOutcome`, `AnyOutcome`), the full
-simulator trace is automatically appended to the failure message — if the
-response carries one. This gives you immediate visibility into how the
-packet was processed without rerunning the test:
-
-```
-Expected: drop the packet
-  Actual: (has 1 possible outcomes),
-full trace:
-events {
-  table_lookup {
-    table_name: "ingress.acl"
-    hit: true
-    ...
-  }
-}
-...
-```
-
-No opt-in needed — the trace shows up whenever the response has one.
 
 ## Bazel dependency
 
