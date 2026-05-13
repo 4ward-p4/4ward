@@ -414,7 +414,8 @@ inline auto OnPorts(
 // by port
 //
 // Returns a map from port to packets for the single deterministic outcome.
-// Fails the test if the result has != 1 possible outcome.
+// Fails the test if the result has != 1 possible outcome. Uses btree_map
+// for deterministic iteration order in test failure messages.
 // ---------------------------------------------------------------------------
 
 template <typename T>

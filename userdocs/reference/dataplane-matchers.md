@@ -81,14 +81,17 @@ using ::fourward::OutcomeIs;
 using ::fourward::OnPort;
 using ::fourward::HasPayload;
 
+// Single packet on port 1:
+EXPECT_THAT(response, OutcomeIs(OnPort(1)));
+
+// Multicast — two output packets:
+EXPECT_THAT(response, OutcomeIs(OnPort(1), OnPort(2)));
+
 // Port and payload:
 EXPECT_THAT(response, OutcomeIs(OnPort(1, expected_bytes)));
 
 // With a payload matcher:
-EXPECT_THAT(response, OutcomeIs(OnPort(1, HasPayload(StartsWith("hello")))));
-
-// Multicast — two output packets:
-EXPECT_THAT(response, OutcomeIs(OnPort(1), OnPort(2)));
+EXPECT_THAT(response, OutcomeIs(OnPort(1, HasPayload(EndsWith("hello")))));
 ```
 
 `HasPayload` takes any `Matcher<const std::string&>`, so it plays nicely
@@ -110,8 +113,7 @@ use it when a single `EXPECT_THAT` covers everything you need. When you
 need packets in variables for more involved follow-up, see
 [Extracting packets by port](#extracting-packets-by-port) below.
 
-`OnPorts` doesn't need a `Packets(...)` wrapper — use it directly
-inside `OutcomeIs`:
+Use `OnPorts` directly inside `OutcomeIs`:
 
 ```cpp
 using ::fourward::OnPorts;
@@ -146,26 +148,37 @@ EXPECT_THAT(response, OutcomeIs(OnPorts({
 `PacketsByDataplanePort` and `PacketsByP4RuntimePort` are the
 variable-extraction counterpart to [`OnPorts`](#grouping-by-port) —
 same grouping, but the result lands in a map you can index directly
-for follow-up work (parsing headers, computing deltas, feeding into
-helpers):
+or match exhaustively with gmock's container matchers:
 
 ```cpp
 using ::fourward::PacketsByDataplanePort;
 
 auto by_port = PacketsByDataplanePort(response);
-auto& port1 = by_port[1];
-auto& port2 = by_port[2];
 
-EXPECT_THAT(port1, SizeIs(2));
-EXPECT_THAT(port2, ElementsAre(HasPayload(expected_bytes)));
+// Index into individual ports:
+EXPECT_THAT(by_port[1], SizeIs(2));
+EXPECT_THAT(by_port[2], ElementsAre(HasPayload(expected_bytes)));
+
+// Or match the whole map — exhaustive, no stray ports:
+EXPECT_THAT(by_port, UnorderedElementsAreArray({
+    Pair(1, UnorderedElementsAreArray({
+        HasPayload(packet_a),
+        HasPayload(packet_b),
+    })),
+    Pair(2, UnorderedElementsAreArray({
+        HasPayload(packet_c),
+    })),
+}));
 ```
 
 ```cpp
 using ::fourward::PacketsByP4RuntimePort;
 
 auto by_port = PacketsByP4RuntimePort(response);
-auto& eth0 = by_port["Ethernet0"];
-auto& eth1 = by_port["Ethernet1"];
+EXPECT_THAT(by_port, UnorderedElementsAreArray({
+    Pair("Ethernet0", SizeIs(1)),
+    Pair("Ethernet1", SizeIs(1)),
+}));
 ```
 
 Both functions fail the test if the response has more than one possible
