@@ -37,22 +37,37 @@ kt_jvm_test(
 )
 
 # =============================================================================
-# Test fixture — basic_table P4 program compiled for both backends.
+# Test fixtures — P4 programs compiled for both backends.
 # =============================================================================
 
-# 4ward PipelineConfig (P4Info + behavioral IR + DeviceConfig).
+# --- basic_table: single exact-match table (scenarios 1-6) ---
+
 fourward_pipeline(
     name = "basic_table_fourward",
     src = "//e2e_tests/basic_table:basic_table.p4",
     out = "basic_table_fourward.txtpb",
 )
 
-# BMv2 JSON device config.
 p4_library(
     name = "basic_table_bmv2_json",
     src = "//e2e_tests/basic_table:basic_table.p4",
     target = "bmv2",
     target_out = "basic_table.json",
+)
+
+# --- action_selector_3: exact-match table with action selector (scenarios 7+) ---
+
+fourward_pipeline(
+    name = "action_selector_fourward",
+    src = "//e2e_tests/trace_tree:action_selector_3.p4",
+    out = "action_selector_fourward.txtpb",
+)
+
+p4_library(
+    name = "action_selector_bmv2_json",
+    src = "//e2e_tests/trace_tree:action_selector_3.p4",
+    target = "bmv2",
+    target_out = "action_selector.json",
 )
 
 # =============================================================================
@@ -97,6 +112,20 @@ kt_jvm_test(
     ],
 )
 
+_DIFF_TEST_DEPS = [
+    ":response_diff",
+    ":runners",
+    "//bazel:runfiles",
+    "//grpc:p4runtime_java_grpc",
+    "//simulator:ir_java_proto",
+    "//simulator:p4info_java_proto",
+    "//simulator:p4runtime_java_proto",
+    "//stf",
+    "@fourward_maven//:com_google_protobuf_protobuf_java",
+    "@fourward_maven//:io_grpc_grpc_api",
+    "@fourward_maven//:junit_junit",
+]
+
 kt_jvm_test(
     name = "P4RuntimeDiffScenariosTest",
     srcs = ["P4RuntimeDiffScenariosTest.kt"],
@@ -106,22 +135,23 @@ kt_jvm_test(
         ":simple_switch_grpc",
     ],
     tags = ["heavy"],
-    # See P4RuntimeDiffSmokeTest above for the Linux-only rationale.
     target_compatible_with = ["@platforms//os:linux"],
     test_class = "fourward.e2e.p4runtimediff.P4RuntimeDiffScenariosTest",
-    deps = [
-        ":response_diff",
-        ":runners",
-        "//bazel:runfiles",
-        "//grpc:p4runtime_java_grpc",
-        "//simulator:ir_java_proto",  # PipelineConfig (return type of loadPipelineConfig).
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
-        "//stf",  # loadPipelineConfig
-        "@fourward_maven//:com_google_protobuf_protobuf_java",
-        "@fourward_maven//:io_grpc_grpc_api",
-        "@fourward_maven//:junit_junit",
+    deps = _DIFF_TEST_DEPS,
+)
+
+kt_jvm_test(
+    name = "P4RuntimeDiffActionProfileTest",
+    srcs = ["P4RuntimeDiffActionProfileTest.kt"],
+    data = [
+        ":action_selector_bmv2_json",
+        ":action_selector_fourward",
+        ":simple_switch_grpc",
     ],
+    tags = ["heavy"],
+    target_compatible_with = ["@platforms//os:linux"],
+    test_class = "fourward.e2e.p4runtimediff.P4RuntimeDiffActionProfileTest",
+    deps = _DIFF_TEST_DEPS,
 )
 
 # =============================================================================

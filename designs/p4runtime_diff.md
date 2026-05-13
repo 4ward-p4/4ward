@@ -69,13 +69,22 @@ Pipeline fixture: `basic_table.p4` compiled both ways
 for BMv2 `.json`). Each scenario sets the pipeline config on both
 servers, runs gRPC operations, diffs responses.
 
-| # | Scenario | Status |
-|---|----------|--------|
-| 1 | Round-trip canonical form (§8.3 regression test, externally validated) | ✓ pass |
-| 2 | Modify-after-padded-write (same logical key across encodings) | ✓ pass |
-| 3 | Out-of-range values (both reject; gRPC status code divergence accepted) | ✓ pass |
-| 4 | Batch atomicity (read-back after partial failure agrees) | ✓ pass |
-| 5 | Default action modify | ✓ pass |
+Two fixtures: `basic_table.p4` (single exact-match table, scenarios
+1-7) and `action_selector_3.p4` (exact-match table with action
+selector, scenarios 8-10).
+
+| # | Scenario | Fixture | Status |
+|---|----------|---------|--------|
+| 1 | Round-trip canonical form (§8.3 bytestring padding) | basic_table | ✓ pass |
+| 2 | Modify-after-padded-write (key matches across encodings) | basic_table | ✓ pass |
+| 3 | Out-of-range values (both reject) | basic_table | ✓ pass |
+| 4 | Batch atomicity (read-back after partial failure) | basic_table | ✓ pass |
+| 5 | Default action modify (§9.1.6 read-back) | basic_table | ✓ pass |
+| 6 | Error semantics (DELETE/INSERT/MODIFY non-existent/duplicate) | basic_table | ✓ pass |
+| 7 | Wildcard read with multiple entries | basic_table | ✓ pass |
+| 8 | Action profile member CRUD | action_selector | ✓ pass |
+| 9 | Action profile group with members | action_selector | ✓ pass |
+| 10 | Table entry referencing action profile group | action_selector | ✓ pass |
 
 ## Canonicalizations before diff
 
@@ -108,11 +117,7 @@ over them.
 ## Future work
 
 - **Corpus growth.** Add scenarios as P4Runtime features land. Strong
-  candidates: status code semantics, role config, idle timeout,
-  action-profile group membership rules.
-- **macOS support.** Linux-only today. PI's lib/vector.c trips the
-  macOS SDK's stricter `-Wimplicit-function-declaration`; fixing
-  that and the genrule sandbox would be the main porting cost.
+  candidates: role config, idle timeout.
 
 ## Alternatives considered
 

@@ -25,7 +25,7 @@ import p4.v1.P4RuntimeOuterClass.Update
 import p4.v1.P4RuntimeOuterClass.WriteRequest
 
 /**
- * The five P4Runtime scenarios from `designs/p4runtime_diff.md`. Each scenario sends the same gRPC
+ * P4Runtime differential scenarios using the basic_table fixture. Each scenario sends the same gRPC
  * operations to 4ward and BMv2, then diffs responses with the canonicalizations in [ResponseDiff].
  *
  * Both servers and the pipeline config are class-scoped — spawning is the dominant cost, and the
@@ -43,19 +43,19 @@ class P4RuntimeDiffScenariosTest {
     deleteAllEntries(bmv2)
   }
 
-  // §designs/p4runtime_diff.md scenario 1: the §8.3 regression test, externally validated.
+  // ===========================================================================
+  // Scenarios 1-5: table entry encoding and semantics
+  // ===========================================================================
+
   @Test
-  fun `round-trip canonical form — both servers return shortest bytestrings`() {
-    // Send a non-canonical (zero-padded) match value. After Read, both must return the same
-    // canonical form per §8.3.
-    val padded = byteArrayOf(0x00, 0x08, 0x00) // 0x0800 in 3 bytes; canonical is 2.
+  fun `1 — round-trip canonical form — both servers return shortest bytestrings`() {
+    val padded = byteArrayOf(0x00, 0x08, 0x00)
     writeOnBoth(Update.Type.INSERT, exactEntry(ByteString.copyFrom(padded), port = 1))
     assertReadAgrees()
   }
 
-  // §designs/p4runtime_diff.md scenario 2.
   @Test
-  fun `modify-after-padded-write — same logical key matches across encodings`() {
+  fun `2 — modify-after-padded-write — same logical key matches across encodings`() {
     val padded = byteArrayOf(0x00, 0x08, 0x00)
     val canonical = byteArrayOf(0x08, 0x00)
     writeOnBoth(Update.Type.INSERT, exactEntry(ByteString.copyFrom(padded), port = 1))
@@ -63,21 +63,16 @@ class P4RuntimeDiffScenariosTest {
     assertReadAgrees()
   }
 
-  // §designs/p4runtime_diff.md scenario 3.
   @Test
-  fun `out-of-range values — both servers reject`() {
-    val tooLarge = byteArrayOf(0x01, 0x00, 0x00) // overflows bit<16> etherType
+  fun `3 — out-of-range values — both servers reject`() {
+    val tooLarge = byteArrayOf(0x01, 0x00, 0x00)
     val entry = exactEntry(ByteString.copyFrom(tooLarge), port = 1)
-    // Both servers must reject. The exact gRPC status code may differ — 4ward returns OUT_OF_RANGE
-    // per §8.3. Tighten when the BMv2 side aligns with the spec.
     expectStatusFrom { writeUpdate(fourward, Update.Type.INSERT, entry) }
     expectStatusFrom { writeUpdate(bmv2, Update.Type.INSERT, entry) }
   }
 
-  // §designs/p4runtime_diff.md scenario 4.
   @Test
-  fun `batch atomicity — partial failure under default atomicity`() {
-    // Two-update batch: one valid INSERT, one INSERT with overflowing value.
+  fun `4 — batch atomicity — partial failure under default atomicity`() {
     val valid = exactEntry(ByteString.copyFrom(byteArrayOf(0x08, 0x00)), port = 1)
     val invalid = exactEntry(ByteString.copyFrom(byteArrayOf(0x01, 0x00, 0x00)), port = 2)
     val req =
@@ -86,18 +81,15 @@ class P4RuntimeDiffScenariosTest {
         .addUpdates(Update.newBuilder().setType(Update.Type.INSERT).setEntity(asEntity(valid)))
         .addUpdates(Update.newBuilder().setType(Update.Type.INSERT).setEntity(asEntity(invalid)))
         .build()
-    // Both servers may reject differently (scenario 4 is about the post-failure read state, not the
-    // exact error). Tolerate any gRPC-level rejection; let other exceptions bubble.
     ignoreGrpcStatus { fourward.stub.write(req) }
     ignoreGrpcStatus { bmv2.stub.write(req) }
     assertReadAgrees()
   }
 
-  // §designs/p4runtime_diff.md scenario 5.
   // Previously @Ignore'd: 4ward included defaults in wildcard reads, BMv2 didn't.
-  // Resolved per §9.1.6 — wildcard reads with is_default_action=false (default) exclude defaults.
+  // Resolved per §9.1.6.
   @Test
-  fun `default action modify — both servers read it back identically`() {
+  fun `5 — default action modify — both servers read it back identically`() {
     val defaultEntry =
       TableEntry.newBuilder()
         .setTableId(schema.tableId)
@@ -105,14 +97,55 @@ class P4RuntimeDiffScenariosTest {
         .setAction(forwardAction(port = 7))
         .build()
     writeOnBoth(Update.Type.MODIFY, defaultEntry)
-    // §9.1.6: wildcard read excludes defaults — both servers should agree on empty.
     assertReadAgrees()
-    // Read with is_default_action=true — both servers should return the same modified default.
     assertDefaultReadAgrees()
   }
 
+  // ===========================================================================
+  // Scenario 6: table entry error codes
+  // ===========================================================================
+
+  @Test
+  fun `6 — error semantics — DELETE non-existent, INSERT duplicate, MODIFY non-existent`() {
+    val entry = exactEntry(ByteString.copyFrom(byteArrayOf(0x08, 0x00)), port = 1)
+
+    // DELETE a non-existent entry — both should reject.
+    expectStatusFrom { writeUpdate(fourward, Update.Type.DELETE, entry) }
+    expectStatusFrom { writeUpdate(bmv2, Update.Type.DELETE, entry) }
+
+    // INSERT then INSERT duplicate — both should reject the second.
+    writeOnBoth(Update.Type.INSERT, entry)
+    expectStatusFrom { writeUpdate(fourward, Update.Type.INSERT, entry) }
+    expectStatusFrom { writeUpdate(bmv2, Update.Type.INSERT, entry) }
+
+    // After the duplicate failure, the original entry should still be readable.
+    assertReadAgrees()
+
+    // DELETE it, then MODIFY — both should reject the MODIFY.
+    writeOnBoth(Update.Type.DELETE, entry)
+    expectStatusFrom { writeUpdate(fourward, Update.Type.MODIFY, entry) }
+    expectStatusFrom { writeUpdate(bmv2, Update.Type.MODIFY, entry) }
+  }
+
+  // ===========================================================================
+  // Scenario 7: wildcard reads across multiple entries
+  // ===========================================================================
+
+  @Test
+  fun `7 — wildcard read with multiple entries — both servers agree on content`() {
+    val entries =
+      listOf(0x0800, 0x0806, 0x86DD).map { etherType ->
+        exactEntry(
+          ByteString.copyFrom(byteArrayOf((etherType shr 8).toByte(), etherType.toByte())),
+          port = 1,
+        )
+      }
+    for (entry in entries) writeOnBoth(Update.Type.INSERT, entry)
+    assertReadAgrees()
+  }
+
   // ---------------------------------------------------------------------------
-  // Per-test helpers — delegate to class-scoped fixture state.
+  // Helpers
   // ---------------------------------------------------------------------------
 
   private fun writeOnBoth(type: Update.Type, entry: TableEntry) {
@@ -129,9 +162,11 @@ class P4RuntimeDiffScenariosTest {
     runner.stub.write(req)
   }
 
-  /** Reads all table entries from each server, canonicalizes them, asserts equal. */
-  private fun assertReadAgrees() {
-    val req = wildcardTableReadRequest()
+  private fun assertReadAgrees() = assertReadAgrees(wildcardTableReadRequest())
+
+  private fun assertDefaultReadAgrees() = assertReadAgrees(defaultTableReadRequest())
+
+  private fun assertReadAgrees(req: ReadRequest) {
     assertProtosEqual(
       canonicalizeReadResponse(readAll(fourward, req)),
       canonicalizeReadResponse(readAll(bmv2, req)),
@@ -140,18 +175,6 @@ class P4RuntimeDiffScenariosTest {
     )
   }
 
-  /** Reads default entries from each server, canonicalizes, asserts equal. */
-  private fun assertDefaultReadAgrees() {
-    val req = defaultTableReadRequest()
-    assertProtosEqual(
-      canonicalizeReadResponse(readAll(fourward, req)),
-      canonicalizeReadResponse(readAll(bmv2, req)),
-      leftLabel = "4ward",
-      rightLabel = "bmv2",
-    )
-  }
-
-  /** Wildcard read of every entry in the harness's target table. */
   private fun wildcardTableReadRequest(): ReadRequest =
     ReadRequest.newBuilder()
       .setDeviceId(DEVICE_ID)
@@ -160,7 +183,6 @@ class P4RuntimeDiffScenariosTest {
       )
       .build()
 
-  /** Read the default entry from the harness's target table. */
   private fun defaultTableReadRequest(): ReadRequest =
     ReadRequest.newBuilder()
       .setDeviceId(DEVICE_ID)
@@ -172,7 +194,6 @@ class P4RuntimeDiffScenariosTest {
       )
       .build()
 
-  /** Concatenates every entity from a streaming Read response. Empty stream → empty response. */
   private fun readAll(runner: P4RuntimeRunner, req: ReadRequest): ReadResponse {
     val builder = ReadResponse.newBuilder()
     val stream = runner.stub.read(req)
@@ -188,13 +209,10 @@ class P4RuntimeDiffScenariosTest {
       e
     }
 
-  /** Runs [block]; absorbs a [StatusRuntimeException] but lets every other exception propagate. */
   private inline fun ignoreGrpcStatus(block: () -> Unit) {
     try {
       block()
-    } catch (_: StatusRuntimeException) {
-      // expected — caller doesn't care about the exact rejection
-    }
+    } catch (_: StatusRuntimeException) {}
   }
 
   private fun asEntity(entry: TableEntry): Entity = Entity.newBuilder().setTableEntry(entry).build()
@@ -223,7 +241,6 @@ class P4RuntimeDiffScenariosTest {
       )
       .build()
 
-  /** Wildcard-DELETE every entry from [runner]'s table, ignoring "no such entry" failures. */
   private fun deleteAllEntries(runner: P4RuntimeRunner) {
     val deletes =
       readAll(runner, wildcardTableReadRequest()).entitiesList.mapNotNull { entity ->
@@ -240,7 +257,7 @@ class P4RuntimeDiffScenariosTest {
   }
 
   // ---------------------------------------------------------------------------
-  // Class-scoped fixture: spawn both servers + push pipeline config once.
+  // Class-scoped fixture
   // ---------------------------------------------------------------------------
 
   /** P4Info IDs the scenarios need, discovered once from the loaded pipeline. */
@@ -251,12 +268,6 @@ class P4RuntimeDiffScenariosTest {
     val forwardParamId: Int,
   ) {
     companion object {
-      /**
-       * Identifies the harness's target table structurally: exactly one EXACT match field, plus
-       * exactly one referenced action that takes one parameter. Fails loudly if zero or multiple
-       * tables/actions match — the harness owner must extend [TableSchema] before adding fixtures
-       * with multiple matching shapes.
-       */
       fun discover(p4Info: P4Info): TableSchema {
         val candidateTables =
           p4Info.tablesList.filter { t ->
