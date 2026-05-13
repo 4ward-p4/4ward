@@ -133,6 +133,8 @@ private constructor(
   @Suppress("MagicNumber")
   fun packPacketOut(metadata: List<PacketMetadata>, payload: ByteArray): ByteArray {
     val headerBits = packetOutFields.sumOf { it.bitWidth }
+    // When the header is byte-aligned, serializePacketOut produces exact-width bytes
+    // and byte-concatenation with the payload introduces no padding gap.
     if (headerBits % 8 == 0) return serializePacketOut(metadata) + payload
     val metadataById = metadata.associateBy { it.metadataId }
     val acc = BitAccumulator()

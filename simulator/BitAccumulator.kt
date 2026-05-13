@@ -4,8 +4,12 @@ import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 
 /**
- * Accumulates bits into a continuous bit stream, producing a byte-aligned output with trailing zero
- * padding — matching real P4 target behavior.
+ * Accumulates bits into a continuous MSB-first bit stream, producing a byte-aligned output with
+ * trailing zero padding — matching real P4 target behavior.
+ *
+ * Bits are packed from the most significant bit of each byte toward the least significant. For
+ * example, appending 6 bits `0b111111` followed by 10 bits `0b1010101010` produces the bytes
+ * `[0xFE, 0xAA]` (= `0b11111110 10101010`).
  *
  * Used by the deparser (emit), the output assembly (deparsedPayload), and the P4Runtime codec
  * (PacketOut packing, PacketIn stripping).

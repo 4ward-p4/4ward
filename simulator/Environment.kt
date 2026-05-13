@@ -221,6 +221,7 @@ private class ParserCursor(private val data: ByteArray, initialByteOffset: Int =
 
   /** Peeks at [count] bytes without advancing (must be byte-aligned). */
   fun peek(count: Int): ByteArray {
+    require(bitOffset % 8 == 0) { "peek() requires byte-aligned cursor, but bitOffset=$bitOffset" }
     val bitsNeeded = count * 8
     if (bitsNeeded > remainingBits()) {
       throw PacketTooShortException(
@@ -253,11 +254,12 @@ private class ParserCursor(private val data: ByteArray, initialByteOffset: Int =
 
   private fun peekBitsInternal(bitCount: Int): BigInteger {
     if (bitCount == 0) return BigInteger.ZERO
-    // Fast path: byte-aligned reads skip the shift/mask entirely.
     if (bitOffset % 8 == 0 && bitCount % 8 == 0) {
       val startByte = bitOffset / 8
       return BigInteger(1, data.copyOfRange(startByte, startByte + bitCount / 8))
     }
+    // Read the minimal span of bytes that covers [bitOffset, bitOffset+bitCount),
+    // then right-shift to discard trailing bits and mask to the desired width.
     val startByte = bitOffset / 8
     val endByte = (bitOffset + bitCount - 1) / 8
     val raw = BigInteger(1, data.copyOfRange(startByte, endByte + 1))
