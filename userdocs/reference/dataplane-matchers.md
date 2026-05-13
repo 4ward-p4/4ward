@@ -159,9 +159,13 @@ EXPECT_THAT(response, OutcomeIs(Packets(Contains(OnPort(1)))));
 
 ## Grouping by port
 
-`OnPorts` groups packets by egress port and applies per-group matchers.
-It doesn't need a `Packets(...)` wrapper — use it directly inside
-`OutcomeIs`:
+`OnPorts` groups packets by egress port and applies per-group matchers —
+use it when a single `EXPECT_THAT` covers everything you need. When you
+need packets in variables for more involved follow-up, see
+[Extracting packets by port](#extracting-packets-by-port) below.
+
+`OnPorts` doesn't need a `Packets(...)` wrapper — use it directly
+inside `OutcomeIs`:
 
 ```cpp
 using ::fourward::OnPorts;
@@ -193,10 +197,11 @@ EXPECT_THAT(response, OutcomeIs(OnPorts({
 
 ## Extracting packets by port
 
-When you need packets in variables for follow-up work — parsing headers,
-computing deltas, feeding into helpers — `PacketsByDataplanePort` and
-`PacketsByP4RuntimePort` group the single deterministic outcome into a
-map you can index directly:
+`PacketsByDataplanePort` and `PacketsByP4RuntimePort` are the
+variable-extraction counterpart to [`OnPorts`](#grouping-by-port) —
+same grouping, but the result lands in a map you can index directly
+for follow-up work (parsing headers, computing deltas, feeding into
+helpers):
 
 ```cpp
 using ::fourward::PacketsByDataplanePort;
@@ -217,9 +222,9 @@ auto& eth0 = by_port["Ethernet0"];
 auto& eth1 = by_port["Ethernet1"];
 ```
 
-All three functions fail the test if the response has more than one
-possible outcome. Indexing a port that received no packets returns an
-empty vector.
+Both functions fail the test if the response has more than one possible
+outcome. Indexing a port that received no packets returns an empty
+vector.
 
 ## Ingress port
 
