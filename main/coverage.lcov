@@ -353,7 +353,7 @@ FN:203,fourward/grpc/DataplaneServiceKt::missingPortTranslation (Lcom/google/pro
 FNDA:1,fourward/grpc/DataplaneServiceKt::missingPortTranslation (Lcom/google/protobuf/ByteString;Lfourward/grpc/TypeTranslator;)Lio/grpc/StatusException;
 FN:218,fourward/grpc/DataplaneServiceKt::enrichTrace (Lfourward/TraceTree;Lfourward/grpc/TypeTranslator;)Lfourward/TraceTree;
 FNDA:1,fourward/grpc/DataplaneServiceKt::enrichTrace (Lfourward/TraceTree;Lfourward/grpc/TypeTranslator;)Lfourward/TraceTree;
-FN:229,fourward/grpc/DataplaneServiceKt::toDualEncoded (Lfourward/OutputPacket;Lfourward/grpc/PortTranslator;)Lfourward/OutputPacket;
+FN:227,fourward/grpc/DataplaneServiceKt::toDualEncoded (Lfourward/OutputPacket;Lfourward/grpc/PortTranslator;)Lfourward/OutputPacket;
 FNDA:1,fourward/grpc/DataplaneServiceKt::toDualEncoded (Lfourward/OutputPacket;Lfourward/grpc/PortTranslator;)Lfourward/OutputPacket;
 BRDA:51,0,0,1
 BRDA:51,0,1,0
@@ -382,10 +382,10 @@ BRDA:218,0,0,1
 BRDA:218,0,1,0
 BRDA:218,0,2,0
 BRDA:218,0,3,1
-BRDA:232,0,0,1
+BRDA:230,0,0,1
+BRDA:230,0,1,1
+BRDA:232,0,0,0
 BRDA:232,0,1,1
-BRDA:234,0,0,0
-BRDA:234,0,1,1
 DA:37,1
 DA:38,1
 DA:39,1
@@ -494,21 +494,20 @@ DA:210,1
 DA:211,1
 DA:214,1
 DA:218,1
+DA:227,1
+DA:228,1
 DA:229,1
 DA:230,1
 DA:231,1
 DA:232,1
-DA:233,1
-DA:234,1
-DA:235,0
-DA:236,0
-DA:237,0
+DA:233,0
+DA:234,0
+DA:238,1
+DA:240,1
 DA:241,1
-DA:243,1
-DA:244,1
-DA:245,1
+DA:242,1
 LH:98
-LF:121
+LF:120
 end_of_record
 SF:grpc/EntityReader.kt
 FN:18,fourward/grpc/EntityReader::<init> (Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;I)V
@@ -2482,19 +2481,21 @@ FN:759,fourward/grpc/TranslationTable::lookupOrAllocateBitstring (Lcom/google/pr
 FNDA:1,fourward/grpc/TranslationTable::lookupOrAllocateBitstring (Lcom/google/protobuf/ByteString;)Lcom/google/protobuf/ByteString;
 FN:769,fourward/grpc/TranslationTable::lookupOrAllocateString (Ljava/lang/String;)Lcom/google/protobuf/ByteString;
 FNDA:1,fourward/grpc/TranslationTable::lookupOrAllocateString (Ljava/lang/String;)Lcom/google/protobuf/ByteString;
-FN:779,fourward/grpc/TranslationTable::reverseLookup (Lcom/google/protobuf/ByteString;)Lfourward/grpc/P4rtValue;
+FN:777,fourward/grpc/TranslationTable::putReverse (Lcom/google/protobuf/ByteString;Lfourward/grpc/P4rtValue;)V
+FNDA:1,fourward/grpc/TranslationTable::putReverse (Lcom/google/protobuf/ByteString;Lfourward/grpc/P4rtValue;)V
+FN:783,fourward/grpc/TranslationTable::reverseLookup (Lcom/google/protobuf/ByteString;)Lfourward/grpc/P4rtValue;
 FNDA:1,fourward/grpc/TranslationTable::reverseLookup (Lcom/google/protobuf/ByteString;)Lfourward/grpc/P4rtValue;
-FN:786,fourward/grpc/TranslationTable::reverseLookupOrNull (Lcom/google/protobuf/ByteString;)Lfourward/grpc/P4rtValue;
+FN:790,fourward/grpc/TranslationTable::reverseLookupOrNull (Lcom/google/protobuf/ByteString;)Lfourward/grpc/P4rtValue;
 FNDA:1,fourward/grpc/TranslationTable::reverseLookupOrNull (Lcom/google/protobuf/ByteString;)Lfourward/grpc/P4rtValue;
-FN:788,fourward/grpc/TranslationTable::lookupStringExplicit (Ljava/lang/String;)Lcom/google/protobuf/ByteString;
+FN:792,fourward/grpc/TranslationTable::lookupStringExplicit (Ljava/lang/String;)Lcom/google/protobuf/ByteString;
 FNDA:1,fourward/grpc/TranslationTable::lookupStringExplicit (Ljava/lang/String;)Lcom/google/protobuf/ByteString;
-FN:796,fourward/grpc/TranslationTable::lookupOrAllocate (Ljava/util/Map;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Ljava/lang/String;)Lcom/google/protobuf/ByteString;
+FN:800,fourward/grpc/TranslationTable::lookupOrAllocate (Ljava/util/Map;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Ljava/lang/String;)Lcom/google/protobuf/ByteString;
 FNDA:1,fourward/grpc/TranslationTable::lookupOrAllocate (Ljava/util/Map;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Ljava/lang/String;)Lcom/google/protobuf/ByteString;
-FN:808,fourward/grpc/TranslationTable::allocateNext ()Lcom/google/protobuf/ByteString;
+FN:812,fourward/grpc/TranslationTable::allocateNext ()Lcom/google/protobuf/ByteString;
 FNDA:1,fourward/grpc/TranslationTable::allocateNext ()Lcom/google/protobuf/ByteString;
-FN:817,fourward/grpc/TranslationTable$Companion::fromProto (Lfourward/TypeTranslation;Z)Lfourward/grpc/TranslationTable;
+FN:821,fourward/grpc/TranslationTable$Companion::fromProto (Lfourward/TypeTranslation;Z)Lfourward/grpc/TranslationTable;
 FNDA:1,fourward/grpc/TranslationTable$Companion::fromProto (Lfourward/TypeTranslation;Z)Lfourward/grpc/TranslationTable;
-FN:816,fourward/grpc/TranslationTable$Companion::fromProto$default (Lfourward/grpc/TranslationTable$Companion;Lfourward/TypeTranslation;ZILjava/lang/Object;)Lfourward/grpc/TranslationTable;
+FN:820,fourward/grpc/TranslationTable$Companion::fromProto$default (Lfourward/grpc/TranslationTable$Companion;Lfourward/TypeTranslation;ZILjava/lang/Object;)Lfourward/grpc/TranslationTable;
 FNDA:0,fourward/grpc/TranslationTable$Companion::fromProto$default (Lfourward/grpc/TranslationTable$Companion;Lfourward/TypeTranslation;ZILjava/lang/Object;)Lfourward/grpc/TranslationTable;
 FN:120,fourward/grpc/TypeTranslator::<init> (Ljava/util/concurrent/ConcurrentHashMap;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Lfourward/grpc/PortTranslator;)V
 FNDA:1,fourward/grpc/TypeTranslator::<init> (Ljava/util/concurrent/ConcurrentHashMap;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Lfourward/grpc/PortTranslator;)V
@@ -2590,19 +2591,19 @@ BRDA:98,0,0,0
 BRDA:98,0,1,1
 BRDA:99,0,0,1
 BRDA:99,0,1,0
-BRDA:779,0,0,1
-BRDA:779,0,1,1
-BRDA:796,0,0,1
-BRDA:796,0,1,1
-BRDA:799,0,0,1
-BRDA:799,0,1,1
-BRDA:810,0,0,1
-BRDA:810,0,1,1
-BRDA:818,0,0,1
-BRDA:818,0,1,1
-BRDA:822,0,0,0
+BRDA:783,0,0,1
+BRDA:783,0,1,1
+BRDA:800,0,0,1
+BRDA:800,0,1,1
+BRDA:803,0,0,1
+BRDA:803,0,1,1
+BRDA:814,0,0,1
+BRDA:814,0,1,1
+BRDA:822,0,0,1
 BRDA:822,0,1,1
-BRDA:822,0,2,1
+BRDA:830,0,0,0
+BRDA:830,0,1,1
+BRDA:830,0,2,1
 BRDA:135,0,0,1
 BRDA:135,0,1,1
 BRDA:135,0,2,1
@@ -3089,37 +3090,41 @@ DA:771,1
 DA:772,1
 DA:773,1
 DA:774,1
-DA:779,1
-DA:780,1
-DA:781,1
-DA:782,1
+DA:777,1
+DA:778,1
+DA:783,1
+DA:784,1
+DA:785,1
 DA:786,1
-DA:788,1
-DA:796,1
-DA:797,1
-DA:799,1
+DA:790,1
+DA:792,1
 DA:800,1
 DA:801,1
-DA:802,1
 DA:803,1
-DA:808,1
-DA:809,1
-DA:810,1
-DA:816,0
-DA:817,1
-DA:818,1
-DA:819,1
-DA:820,1
+DA:804,1
+DA:805,1
+DA:806,1
+DA:807,1
+DA:812,1
+DA:813,1
+DA:814,1
+DA:820,0
 DA:821,1
 DA:822,1
-DA:824,1
-DA:825,1
+DA:823,1
+DA:826,1
+DA:827,1
 DA:828,1
 DA:829,1
-DA:831,1
-DA:834,1
-LH:330
-LF:359
+DA:830,1
+DA:832,1
+DA:833,1
+DA:836,1
+DA:837,1
+DA:839,0
+DA:843,1
+LH:333
+LF:363
 end_of_record
 SF:grpc/WriteValidator.kt
 FN:24,fourward/grpc/WriteValidator::<init> (Lp4/config/v1/P4InfoOuterClass$P4Info;)V

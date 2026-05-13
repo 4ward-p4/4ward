@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryMed">81.0&nbsp;%</td>
-            <td class="headerCovTableEntry">121</td>
+            <td class="headerCovTableEntryMed">81.7&nbsp;%</td>
+            <td class="headerCovTableEntry">120</td>
             <td class="headerCovTableEntry">98</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-09 01:47:21</td>
+            <td class="headerValue">2026-05-13 00:00:06</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryMed">78.3&nbsp;%</td>
@@ -282,29 +282,26 @@
 <span id="L220"><span class="lineNum">     220</span>              : /**</span>
 <span id="L221"><span class="lineNum">     221</span>              :  * Returns a copy of this [OutputPacket] enriched with the P4Runtime port ID.</span>
 <span id="L222"><span class="lineNum">     222</span>              :  *</span>
-<span id="L223"><span class="lineNum">     223</span>              :  * When a [PortTranslator] is present, every egress port must be reverse-translatable — either</span>
-<span id="L224"><span class="lineNum">     224</span>              :  * forward-allocated by a controller Write or installed via `Replica.port` (bytes). A missing</span>
-<span id="L225"><span class="lineNum">     225</span>              :  * mapping means the clone session or multicast group used the deprecated `Replica.egress_port`</span>
-<span id="L226"><span class="lineNum">     226</span>              :  * (int32), which bypasses port translation.</span>
-<span id="L227"><span class="lineNum">     227</span>              :  */</span>
-<span id="L228"><span class="lineNum">     228</span>              : private fun OutputPacket.toDualEncoded(pt: PortTranslator?): OutputPacket =</span>
-<span id="L229"><span class="lineNum">     229</span> <span class="tlaGNC">           1 :   OutputPacket.newBuilder()</span></span>
-<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC">           1 :     .setDataplaneEgressPort(dataplaneEgressPort)</span></span>
-<span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :     .apply {</span></span>
-<span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :       if (pt != null) {</span></span>
-<span id="L233"><span class="lineNum">     233</span> <span class="tlaGNC">           1 :         val p4rtPort =</span></span>
-<span id="L234"><span class="lineNum">     234</span> <span class="tlaGNC">           1 :           pt.dataplaneToP4rt(dataplaneEgressPort)</span></span>
-<span id="L235"><span class="lineNum">     235</span> <span class="tlaUNC tlaBgUNC">           0 :             ?: error(</span></span>
-<span id="L236"><span class="lineNum">     236</span> <span class="tlaUNC">           0 :               &quot;PortTranslator has no reverse mapping for dataplane egress port &quot; +</span></span>
-<span id="L237"><span class="lineNum">     237</span> <span class="tlaUNC">           0 :                 &quot;$dataplaneEgressPort. Use Replica.port (bytes) instead of the deprecated &quot; +</span></span>
-<span id="L238"><span class="lineNum">     238</span>              :                 &quot;Replica.egress_port (int32) to enable port translation for clone sessions &quot; +</span>
-<span id="L239"><span class="lineNum">     239</span>              :                 &quot;and multicast groups.&quot;</span>
-<span id="L240"><span class="lineNum">     240</span>              :             )</span>
-<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC tlaBgGNC">           1 :         setP4RtEgressPort(p4rtPort)</span></span>
-<span id="L242"><span class="lineNum">     242</span>              :       }</span>
-<span id="L243"><span class="lineNum">     243</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L244"><span class="lineNum">     244</span> <span class="tlaGNC">           1 :     .setPayload(payload)</span></span>
-<span id="L245"><span class="lineNum">     245</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L223"><span class="lineNum">     223</span>              :  * When a [PortTranslator] is present, every egress port must have a reverse mapping — either from</span>
+<span id="L224"><span class="lineNum">     224</span>              :  * an explicit `@p4runtime_translation_mappings` entry or auto-allocated by a prior P4Runtime Write.</span>
+<span id="L225"><span class="lineNum">     225</span>              :  */</span>
+<span id="L226"><span class="lineNum">     226</span>              : private fun OutputPacket.toDualEncoded(pt: PortTranslator?): OutputPacket =</span>
+<span id="L227"><span class="lineNum">     227</span> <span class="tlaGNC">           1 :   OutputPacket.newBuilder()</span></span>
+<span id="L228"><span class="lineNum">     228</span> <span class="tlaGNC">           1 :     .setDataplaneEgressPort(dataplaneEgressPort)</span></span>
+<span id="L229"><span class="lineNum">     229</span> <span class="tlaGNC">           1 :     .apply {</span></span>
+<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC">           1 :       if (pt != null) {</span></span>
+<span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :         val p4rtPort =</span></span>
+<span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :           pt.dataplaneToP4rt(dataplaneEgressPort)</span></span>
+<span id="L233"><span class="lineNum">     233</span> <span class="tlaUNC tlaBgUNC">           0 :             ?: error(</span></span>
+<span id="L234"><span class="lineNum">     234</span> <span class="tlaUNC">           0 :               &quot;No P4Runtime port name for dataplane egress port $dataplaneEgressPort. &quot; +</span></span>
+<span id="L235"><span class="lineNum">     235</span>              :                 &quot;Ensure the port has a @p4runtime_translation_mappings entry or was &quot; +</span>
+<span id="L236"><span class="lineNum">     236</span>              :                 &quot;auto-allocated via a prior P4Runtime Write.&quot;</span>
+<span id="L237"><span class="lineNum">     237</span>              :             )</span>
+<span id="L238"><span class="lineNum">     238</span> <span class="tlaGNC tlaBgGNC">           1 :         setP4RtEgressPort(p4rtPort)</span></span>
+<span id="L239"><span class="lineNum">     239</span>              :       }</span>
+<span id="L240"><span class="lineNum">     240</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :     .setPayload(payload)</span></span>
+<span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :     .build()</span></span>
         </pre>
               </td>
             </tr>
