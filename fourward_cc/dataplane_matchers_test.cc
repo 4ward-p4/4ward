@@ -16,12 +16,9 @@ namespace {
 
 using ::testing::AllOf;
 using ::testing::Contains;
-using ::testing::ElementsAre;
 using ::testing::IsEmpty;
 using ::testing::Not;
-using ::testing::Pair;
 using ::testing::SizeIs;
-using ::testing::UnorderedElementsAre;
 
 // --- Test helpers ---
 
@@ -403,23 +400,6 @@ TEST(ErrorMessageTest, NoTraceWhenMatches) {
 
 TEST(CompositionTest, ForwardsToWithIngress) {
   EXPECT_THAT(MakeResult(5, 1), AllOf(ForwardsTo(1), HasIngress(5)));
-}
-
-// --- DeterministicPackets ---
-
-TEST(DeterministicPacketsTest, ExtractsPackets) {
-  auto packets = DeterministicPackets(Multicast(1, 2));
-  EXPECT_THAT(packets, UnorderedElementsAre(OnPort(1), OnPort(2)));
-}
-
-TEST(DeterministicPacketsTest, Drop) {
-  auto packets = DeterministicPackets(Drop());
-  EXPECT_THAT(packets, IsEmpty());
-}
-
-TEST(DeterministicPacketsTest, WorksOnProcessPacketResult) {
-  auto packets = DeterministicPackets(MakeResult(0, 3));
-  EXPECT_THAT(packets, ElementsAre(OnPort(3)));
 }
 
 // --- PacketsByDataplanePort ---

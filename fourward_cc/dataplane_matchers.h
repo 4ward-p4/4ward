@@ -136,6 +136,16 @@ inline void PrintPortKey(std::ostream* os, const PortKey& key) {
   }
 }
 
+template <typename T>
+PacketList DeterministicPackets(const T& result) {
+  auto outcomes = ExtractOutcomes(result);
+  if (outcomes.size() != 1) {
+    ADD_FAILURE() << "expected 1 outcome, got " << outcomes.size();
+    return {};
+  }
+  return std::move(outcomes[0]);
+}
+
 }  // namespace internal
 
 // ---------------------------------------------------------------------------
@@ -400,34 +410,18 @@ inline auto OnPorts(
 }
 
 // ---------------------------------------------------------------------------
-// DeterministicPackets — extract packets from a single deterministic outcome
-//
-// Fails the test if the result has != 1 possible outcome.
-// ---------------------------------------------------------------------------
-
-template <typename T>
-std::vector<fourward::OutputPacket> DeterministicPackets(const T& result) {
-  auto outcomes = internal::ExtractOutcomes(result);
-  if (outcomes.size() != 1) {
-    ADD_FAILURE() << "DeterministicPackets: expected 1 outcome, got "
-                  << outcomes.size();
-    return {};
-  }
-  return std::move(outcomes[0]);
-}
-
-// ---------------------------------------------------------------------------
 // PacketsByDataplanePort / PacketsByP4RuntimePort — extract packets grouped
 // by port
 //
-// Convenience wrappers around DeterministicPackets that group by egress port.
+// Returns a map from port to packets for the single deterministic outcome.
+// Fails the test if the result has != 1 possible outcome.
 // ---------------------------------------------------------------------------
 
 template <typename T>
 absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>>
 PacketsByDataplanePort(const T& result) {
   absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>> groups;
-  for (const auto& pkt : DeterministicPackets(result)) {
+  for (const auto& pkt : internal::DeterministicPackets(result)) {
     groups[pkt.dataplane_egress_port()].push_back(pkt);
   }
   return groups;
@@ -437,7 +431,7 @@ template <typename T>
 absl::btree_map<std::string, std::vector<fourward::OutputPacket>>
 PacketsByP4RuntimePort(const T& result) {
   absl::btree_map<std::string, std::vector<fourward::OutputPacket>> groups;
-  for (const auto& pkt : DeterministicPackets(result)) {
+  for (const auto& pkt : internal::DeterministicPackets(result)) {
     groups[pkt.p4rt_egress_port()].push_back(pkt);
   }
   return groups;

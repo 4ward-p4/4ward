@@ -26,7 +26,7 @@ Shorthands   ForwardsTo  Forwards  Drops
 Outcomes     OutcomeIs  OutcomesAre  EachOutcome  AnyOutcome  Outcome
 Packets      OnPort  HasPayload  OnPorts  Packets
 Input        HasIngress
-Extraction   DeterministicPackets  PacketsByDataplanePort  PacketsByP4RuntimePort
+Extraction   PacketsByDataplanePort  PacketsByP4RuntimePort
 ```
 
 ## The basics
@@ -191,24 +191,12 @@ EXPECT_THAT(response, OutcomeIs(OnPorts({
 })));
 ```
 
-## Extracting packets
+## Extracting packets by port
 
 When you need packets in variables for follow-up work — parsing headers,
-computing deltas, feeding into helpers — use the extraction functions.
-
-`DeterministicPackets` returns the flat packet list from a single
-deterministic outcome:
-
-```cpp
-using ::fourward::DeterministicPackets;
-
-auto packets = DeterministicPackets(response);
-EXPECT_THAT(packets, SizeIs(3));
-auto parsed = ParseHeader(packets[0].payload());
-```
-
-`PacketsByDataplanePort` and `PacketsByP4RuntimePort` go one step
-further and group by egress port:
+computing deltas, feeding into helpers — `PacketsByDataplanePort` and
+`PacketsByP4RuntimePort` group the single deterministic outcome into a
+map you can index directly:
 
 ```cpp
 using ::fourward::PacketsByDataplanePort;
