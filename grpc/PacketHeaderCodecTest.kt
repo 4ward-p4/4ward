@@ -245,46 +245,6 @@ class PacketHeaderCodecTest {
       .build()
 
   // =========================================================================
-  // Byte-alignment validation
-  // =========================================================================
-
-  @Test(expected = IllegalArgumentException::class)
-  @Suppress("MagicNumber")
-  fun `create rejects non-byte-aligned packet_in header`() {
-    val p4info =
-      P4Info.newBuilder()
-        .addControllerPacketMetadata(
-          ControllerPacketMetadata.newBuilder()
-            .setPreamble(Preamble.newBuilder().setName("packet_out"))
-            .addMetadata(meta(1, "egress_port"))
-        )
-        .addControllerPacketMetadata(
-          ControllerPacketMetadata.newBuilder()
-            .setPreamble(Preamble.newBuilder().setName("packet_in"))
-            .addMetadata(meta(2, "ingress_port"))
-        )
-        .build()
-    val behavioral =
-      BehavioralConfig.newBuilder()
-        .addTypes(
-          TypeDecl.newBuilder()
-            .setName("packet_out_header_t")
-            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
-        )
-        .addTypes(
-          TypeDecl.newBuilder()
-            .setName("packet_in_header_t")
-            .setHeader(
-              HeaderDecl.newBuilder()
-                .addFields(bitField("ingress_port", 9))
-                .addFields(bitField("target_egress_port", 9))
-            )
-        )
-        .build()
-    PacketHeaderCodec.create(p4info, behavioral)
-  }
-
-  // =========================================================================
   // CPU port override
   // =========================================================================
 

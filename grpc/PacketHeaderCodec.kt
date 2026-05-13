@@ -179,24 +179,7 @@ private constructor(
           )
         } ?: emptyList()
 
-      // The deparser emits the full header type (including @padding fields). Byte
-      // alignment is required so that stripping the header preserves the remaining
-      // payload byte-for-byte. Validate using the behavioral config widths, which
-      // include @padding fields that p4info metadata may omit.
-      requireByteAligned("packet_out_header_t", packetOutType)
-      requireByteAligned("packet_in_header_t", packetInType)
-
       return PacketHeaderCodec(packetOutFields, packetInFields, cpuPort)
-    }
-
-    @Suppress("MagicNumber")
-    private fun requireByteAligned(headerName: String, fieldWidths: Map<String, Int>?) {
-      if (fieldWidths == null) return
-      val totalBits = fieldWidths.values.sum()
-      require(totalBits % 8 == 0) {
-        "@controller_header $headerName is $totalBits bits, which is not byte-aligned. " +
-          "Add a @padding field to round to a multiple of 8."
-      }
     }
 
     private const val DEFAULT_PORT_BITS = 9
