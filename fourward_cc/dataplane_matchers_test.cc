@@ -60,6 +60,14 @@ fourward::ProcessPacketResult MakeResult(uint32_t ingress,
   return result;
 }
 
+template <typename M, typename T>
+std::string ExplainMatch(M polymorphic_matcher, const T& value) {
+  ::testing::Matcher<const T&> matcher = polymorphic_matcher;
+  ::testing::StringMatchResultListener listener;
+  matcher.MatchAndExplain(value, &listener);
+  return listener.str();
+}
+
 // --- ForwardsTo ---
 
 TEST(ForwardsToTest, Matches) {
@@ -359,13 +367,10 @@ TEST(ErrorMessageTest, HasIngressDescribes) {
 TEST(ErrorMessageTest, FailureIncludesTrace) {
   fourward::InjectPacketResponse resp;
   resp.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
-  auto* event = resp.mutable_trace()->add_events();
-  event->mutable_table_lookup()->set_table_name("my_table");
-
-  ::testing::Matcher<const fourward::InjectPacketResponse&> m = Drops();
-  ::testing::StringMatchResultListener listener;
-  EXPECT_FALSE(m.MatchAndExplain(resp, &listener));
-  EXPECT_THAT(listener.str(), ::testing::HasSubstr("my_table"));
+  resp.mutable_trace()->add_events()->mutable_table_lookup()->set_table_name(
+      "my_table");
+  EXPECT_THAT(ExplainMatch(Drops(), resp),
+              ::testing::HasSubstr("my_table"));
 }
 
 TEST(ErrorMessageTest, FailureIncludesTraceOnProcessPacketResult) {
@@ -373,18 +378,13 @@ TEST(ErrorMessageTest, FailureIncludesTraceOnProcessPacketResult) {
   result.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
   result.mutable_trace()->add_events()->mutable_table_lookup()->set_table_name(
       "ingress_table");
-
-  ::testing::Matcher<const fourward::ProcessPacketResult&> m = Drops();
-  ::testing::StringMatchResultListener listener;
-  EXPECT_FALSE(m.MatchAndExplain(result, &listener));
-  EXPECT_THAT(listener.str(), ::testing::HasSubstr("ingress_table"));
+  EXPECT_THAT(ExplainMatch(Drops(), result),
+              ::testing::HasSubstr("ingress_table"));
 }
 
 TEST(ErrorMessageTest, FailureOmitsTraceWhenAbsent) {
-  ::testing::Matcher<const fourward::InjectPacketResponse&> m = Drops();
-  ::testing::StringMatchResultListener listener;
-  EXPECT_FALSE(m.MatchAndExplain(Forward(1), &listener));
-  EXPECT_THAT(listener.str(), Not(::testing::HasSubstr("trace")));
+  EXPECT_THAT(ExplainMatch(Drops(), Forward(1)),
+              Not(::testing::HasSubstr("trace")));
 }
 
 TEST(ErrorMessageTest, NoTraceWhenMatches) {
@@ -392,11 +392,8 @@ TEST(ErrorMessageTest, NoTraceWhenMatches) {
   resp.add_possible_outcomes();
   resp.mutable_trace()->add_events()->mutable_table_lookup()->set_table_name(
       "my_table");
-
-  ::testing::Matcher<const fourward::InjectPacketResponse&> m = Drops();
-  ::testing::StringMatchResultListener listener;
-  EXPECT_TRUE(m.MatchAndExplain(resp, &listener));
-  EXPECT_THAT(listener.str(), Not(::testing::HasSubstr("my_table")));
+  EXPECT_THAT(ExplainMatch(Drops(), resp),
+              Not(::testing::HasSubstr("my_table")));
 }
 
 // --- Composition ---
