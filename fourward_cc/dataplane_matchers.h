@@ -322,6 +322,12 @@ auto ForwardsTo(Ports... ports) {
   return OutcomeIs(OnPort(std::move(ports))...);
 }
 
+inline auto Forwards() {
+  return ::testing::MakePolymorphicMatcher(internal::OutcomesMatcherBase(
+      ::testing::ElementsAre(::testing::Not(::testing::IsEmpty())),
+      "forward the packet"));
+}
+
 inline auto Drops() { return OutcomeIs(); }
 
 // ---------------------------------------------------------------------------

@@ -87,6 +87,18 @@ TEST(ForwardsToTest, MulticastWrongPorts) {
   EXPECT_THAT(Multicast(1, 2), Not(ForwardsTo(1, 3)));
 }
 
+// --- Forwards ---
+
+TEST(ForwardsTest, Matches) { EXPECT_THAT(Forward(1), Forwards()); }
+TEST(ForwardsTest, Multicast) { EXPECT_THAT(Multicast(1, 2), Forwards()); }
+TEST(ForwardsTest, Drop) { EXPECT_THAT(Drop(), Not(Forwards())); }
+TEST(ForwardsTest, NonDeterministic) {
+  EXPECT_THAT(NonDeterministic(1, 2), Not(Forwards()));
+}
+TEST(ForwardsTest, WorksOnProcessPacketResult) {
+  EXPECT_THAT(MakeResult(0, 3), Forwards());
+}
+
 // --- Drops ---
 
 TEST(DropsTest, Matches) { EXPECT_THAT(Drop(), Drops()); }
@@ -318,6 +330,14 @@ TEST(ErrorMessageTest, ForwardsToDescribes) {
   std::ostringstream os;
   m.DescribeTo(&os);
   EXPECT_THAT(os.str(), ::testing::HasSubstr("outcomes"));
+}
+
+TEST(ErrorMessageTest, ForwardsDescribes) {
+  ::testing::Matcher<const fourward::InjectPacketResponse&> m =
+      Forwards();
+  std::ostringstream os;
+  m.DescribeTo(&os);
+  EXPECT_THAT(os.str(), ::testing::HasSubstr("forward"));
 }
 
 TEST(ErrorMessageTest, DropsDescribes) {
