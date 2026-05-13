@@ -111,12 +111,12 @@ class P4RuntimeConformanceTest {
     val config = loadBasicTableConfig()
     harness.loadPipeline(config)
     harness.installEntry(buildExactEntry(config, matchValue = 0x0800, port = 1))
-    val regularEntries = harness.readRegularEntries()
+    val regularEntries = harness.readEntries()
     assertEquals("entry should exist before reload", 1, regularEntries.size)
 
     // Reload the same pipeline — entries should be gone.
     harness.loadPipeline(config)
-    val afterReload = harness.readRegularEntries()
+    val afterReload = harness.readEntries()
     assertEquals("entries should be cleared after reload", 0, afterReload.size)
   }
 
@@ -725,7 +725,7 @@ class P4RuntimeConformanceTest {
     // Delete the exact entry.
     harness.deleteEntry(exactEntry)
 
-    val regular = harness.readRegularEntries()
+    val regular = harness.readEntries()
     assertEquals("2 entries should remain", 2, regular.size)
     assertTrue(
       "no exact table entries",
@@ -745,8 +745,7 @@ class P4RuntimeConformanceTest {
       harness.modifyEntry(FourwardTestHarness.buildDefaultActionEntity(table.preamble.id, dropId))
     }
 
-    val results = harness.readEntries()
-    val defaults = results.filter { it.tableEntry.isDefaultAction }
+    val defaults = harness.readDefaultEntries()
     assertTrue("should have multiple default entries", defaults.size >= 2)
     val tableIds = defaults.map { it.tableEntry.tableId }.toSet()
     assertTrue("defaults should span multiple tables", tableIds.size >= 2)
@@ -922,7 +921,7 @@ class P4RuntimeConformanceTest {
       stream.arbitrate(electionId = 5)
       val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
       harness.installEntry(entry, uint128(low = 5))
-      val results = harness.readRegularEntries()
+      val results = harness.readEntries()
       assertEquals(1, results.size)
     }
   }
@@ -935,7 +934,7 @@ class P4RuntimeConformanceTest {
     // No arbitration — write should still work.
     val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
     harness.installEntry(entry)
-    val regular = harness.readRegularEntries()
+    val regular = harness.readEntries()
     assertEquals(1, regular.size)
   }
 
@@ -950,7 +949,7 @@ class P4RuntimeConformanceTest {
       harness.installEntry(entry, uint128(low = 5))
     }
     // Read with no election_id (any controller) should succeed even after stream closes.
-    val results = harness.readRegularEntries()
+    val results = harness.readEntries()
     assertEquals("read should return the installed entry", 1, results.size)
   }
 
@@ -1237,7 +1236,7 @@ class P4RuntimeConformanceTest {
     val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
     harness.installEntry(entry)
 
-    val results = harness.readRegularEntries()
+    val results = harness.readEntries()
     assertEquals(1, results.size)
     val readEntry = results[0].tableEntry
     val readMatch = readEntry.matchList[0].exact.value
@@ -1331,11 +1330,10 @@ class P4RuntimeConformanceTest {
     // Install one regular entry.
     harness.installEntry(buildExactEntry(config, matchValue = 0x0800, port = 1))
 
-    // Before modifying the default, it should not appear in reads.
-    val beforeModify = harness.readEntries()
+    // Before modifying the default, it should not appear in default reads.
     assertTrue(
       "unmodified default should not appear",
-      beforeModify.none { it.tableEntry.isDefaultAction },
+      harness.readDefaultEntries(tableId).isEmpty(),
     )
 
     // MODIFY the default action (re-set it to drop).
@@ -1343,12 +1341,17 @@ class P4RuntimeConformanceTest {
       FourwardTestHarness.buildDefaultActionEntity(tableId, dropAction.preamble.id)
     )
 
-    val results = harness.readEntries()
-    val defaultEntries = results.filter { it.tableEntry.isDefaultAction }
-    val regularEntries = results.filter { !it.tableEntry.isDefaultAction }
-
+    // §9.1.6: wildcard read with is_default_action=false excludes defaults.
+    val regularEntries = harness.readEntries()
     assertEquals("should have 1 regular entry", 1, regularEntries.size)
-    assertTrue("should have 1 modified default entry", defaultEntries.isNotEmpty())
+    assertTrue(
+      "wildcard should not include defaults",
+      regularEntries.none { it.tableEntry.isDefaultAction },
+    )
+
+    // §9.1.6: is_default_action=true returns the modified default.
+    val defaultEntries = harness.readDefaultEntries(tableId)
+    assertEquals("should have 1 modified default entry", 1, defaultEntries.size)
 
     val defaultEntry = defaultEntries.first().tableEntry
     assertEquals("default entry should have correct table_id", tableId, defaultEntry.tableId)
@@ -1377,8 +1380,8 @@ class P4RuntimeConformanceTest {
     harness.modifyEntry(FourwardTestHarness.buildDefaultActionEntity(tableId, noActionId))
 
     // Read back and verify.
-    val defaults = harness.readEntries().filter { it.tableEntry.isDefaultAction }
-    val readBack = defaults.first { it.tableEntry.tableId == tableId }.tableEntry
+    val defaults = harness.readDefaultEntries(tableId)
+    val readBack = defaults.first().tableEntry
     assertEquals(
       "default action should now be NoAction",
       noActionId,
@@ -1424,7 +1427,7 @@ class P4RuntimeConformanceTest {
     // The clone_with_egress program has a table `egress_classify` with 2 const entries.
     val egressTable =
       config.p4Info.tablesList.first { it.preamble.name.contains("egress_classify") }
-    val entries = harness.readRegularTableEntries(egressTable.preamble.id)
+    val entries = harness.readTableEntries(egressTable.preamble.id)
     assertEquals("expected 2 const entries", 2, entries.size)
 
     // P4Runtime spec §9.1: const tables are immutable.
@@ -1502,7 +1505,7 @@ class P4RuntimeConformanceTest {
     harness.modifyEntry(directCounterEntity)
 
     // Read table entries — counter_data should be inlined.
-    val results = harness.readRegularEntries()
+    val results = harness.readEntries()
     assertEquals(1, results.size)
     assertTrue("should have counter_data", results[0].tableEntry.hasCounterData())
     assertEquals(42, results[0].tableEntry.counterData.packetCount)
@@ -1535,7 +1538,7 @@ class P4RuntimeConformanceTest {
     harness.modifyEntry(directMeterEntity)
 
     // Read table entries — meter_config should be inlined.
-    val results = harness.readRegularEntries()
+    val results = harness.readEntries()
     assertEquals(1, results.size)
     assertTrue("should have meter_config", results[0].tableEntry.hasMeterConfig())
     assertEquals(1000, results[0].tableEntry.meterConfig.cir)
@@ -1551,7 +1554,7 @@ class P4RuntimeConformanceTest {
     harness.installEntry(tableEntry)
 
     // Do NOT write any counter data — the read should still include counter_data with zeros.
-    val results = harness.readRegularEntries()
+    val results = harness.readEntries()
     assertEquals(1, results.size)
     assertTrue(
       "should have counter_data even without explicit write",
@@ -1570,7 +1573,7 @@ class P4RuntimeConformanceTest {
     harness.installEntry(tableEntry)
 
     // Do NOT write any meter config — the read should NOT include meter_config.
-    val results = harness.readRegularEntries()
+    val results = harness.readEntries()
     assertEquals(1, results.size)
     assertFalse(
       "should not have meter_config without explicit write",
@@ -1742,9 +1745,9 @@ class P4RuntimeConformanceTest {
     val config = loadBasicTableConfig()
     harness.loadPipeline(config)
     harness.installEntry(buildExactEntry(config, matchValue = 0x0800, port = 1))
-    assertEquals(1, harness.readRegularEntries().size)
+    assertEquals(1, harness.readEntries().size)
     sendPipelineAction(SetForwardingPipelineConfigRequest.Action.RECONCILE_AND_COMMIT, config)
-    assertEquals("entry should survive reconcile", 1, harness.readRegularEntries().size)
+    assertEquals("entry should survive reconcile", 1, harness.readEntries().size)
   }
 
   /** RECONCILE_AND_COMMIT with no prior pipeline is equivalent to VERIFY_AND_COMMIT. */
@@ -1753,7 +1756,7 @@ class P4RuntimeConformanceTest {
     val config = loadBasicTableConfig()
     sendPipelineAction(SetForwardingPipelineConfigRequest.Action.RECONCILE_AND_COMMIT, config)
     harness.installEntry(buildExactEntry(config, matchValue = 0x0800, port = 1))
-    assertEquals(1, harness.readRegularEntries().size)
+    assertEquals(1, harness.readEntries().size)
   }
 
   /** RECONCILE_AND_COMMIT rejects if a populated table is missing from the new pipeline. */
@@ -1890,7 +1893,7 @@ class P4RuntimeConformanceTest {
       newCookie,
     )
     assertEquals("cookie should be updated", 2, harness.getConfig().config.cookie.cookie)
-    assertEquals("entry should survive", 1, harness.readRegularEntries().size)
+    assertEquals("entry should survive", 1, harness.readEntries().size)
   }
 
   /** RECONCILE_AND_COMMIT preserves modified default actions. */
@@ -1901,11 +1904,11 @@ class P4RuntimeConformanceTest {
     val table = config.p4Info.tablesList.first()
     val dropId = FourwardTestHarness.findAction(config, "drop").preamble.id
     harness.modifyEntry(FourwardTestHarness.buildDefaultActionEntity(table.preamble.id, dropId))
-    // Verify the modified default is readable.
-    val beforeDefaults = harness.readEntries().filter { it.tableEntry.isDefaultAction }
+    // Verify the modified default is readable via is_default_action=true.
+    val beforeDefaults = harness.readDefaultEntries(table.preamble.id)
     assertTrue("modified default should be readable", beforeDefaults.isNotEmpty())
     sendPipelineAction(SetForwardingPipelineConfigRequest.Action.RECONCILE_AND_COMMIT, config)
-    val afterDefaults = harness.readEntries().filter { it.tableEntry.isDefaultAction }
+    val afterDefaults = harness.readDefaultEntries(table.preamble.id)
     assertTrue("modified default should survive reconcile", afterDefaults.isNotEmpty())
     assertEquals(
       "default action should be drop",
@@ -1933,7 +1936,7 @@ class P4RuntimeConformanceTest {
     p4Info.setTables(ternaryIdx, modifiedTernary)
     val newConfig = config.toBuilder().setP4Info(p4Info).build()
     sendPipelineAction(SetForwardingPipelineConfigRequest.Action.RECONCILE_AND_COMMIT, newConfig)
-    assertEquals("exact table entry should survive", 1, harness.readRegularEntries().size)
+    assertEquals("exact table entry should survive", 1, harness.readEntries().size)
   }
 
   // ---------------------------------------------------------------------------
@@ -2262,7 +2265,7 @@ class P4RuntimeConformanceTest {
     harness.loadPipeline(config)
     val entry = buildExactEntry(config, matchValue = 0, port = 1)
     harness.installEntry(entry)
-    val results = harness.readRegularEntries()
+    val results = harness.readEntries()
     assertEquals(1, results.size)
     // The match value should read back as all-zero bytes, not be dropped.
     val readMatch = results[0].tableEntry.matchList.first().exact.value
@@ -2380,7 +2383,7 @@ class P4RuntimeConformanceTest {
     val config = loadConstEntriesConfig()
     harness.loadPipeline(config)
     val constTable = checkNotNull(config.p4Info.tablesList.find { it.isConstTable })
-    val constEntries = harness.readRegularTableEntries(constTable.preamble.id)
+    val constEntries = harness.readTableEntries(constTable.preamble.id)
     assertTrue("const entries should appear in read", constEntries.isNotEmpty())
   }
 
@@ -2390,7 +2393,7 @@ class P4RuntimeConformanceTest {
     val config = loadConstEntriesConfig()
     harness.loadPipeline(config)
     val constTable = checkNotNull(config.p4Info.tablesList.find { it.isConstTable })
-    val existing = harness.readRegularTableEntries(constTable.preamble.id)
+    val existing = harness.readTableEntries(constTable.preamble.id)
     assertTrue(existing.isNotEmpty())
     assertGrpcError(Status.Code.INVALID_ARGUMENT) { harness.modifyEntry(existing[0]) }
   }

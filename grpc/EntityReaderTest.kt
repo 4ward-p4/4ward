@@ -39,12 +39,14 @@ class EntityReaderTest {
     assertTrue("unmodified defaults should not appear in reads", result.isEmpty())
   }
 
+  // §9.1.6: wildcard read with is_default_action=false (default) excludes default entries.
   @Test
-  fun `wildcard read returns modified default entries`() {
+  fun `wildcard read excludes modified default entries`() {
     stub.modifiedDefaults.add(TABLE_A_NAME)
+    stub.addEntry(TABLE_A_NAME, TABLE_A_ID, byteArrayOf(1))
     val result = readWildcard()
-    assertTrue("should only contain defaults", result.all { it.tableEntry.isDefaultAction })
     assertEquals(1, result.size)
+    assertTrue("wildcard should not include defaults", !result[0].tableEntry.isDefaultAction)
   }
 
   @Test
@@ -52,10 +54,26 @@ class EntityReaderTest {
     stub.addEntry(TABLE_A_NAME, TABLE_A_ID, byteArrayOf(1))
     stub.addEntry(TABLE_B_NAME, TABLE_B_ID, byteArrayOf(2))
 
-    val nonDefault = readWildcard().filter { !it.tableEntry.isDefaultAction }
-    assertEquals(2, nonDefault.size)
-    val tableIds = nonDefault.map { it.tableEntry.tableId }.toSet()
+    val result = readWildcard()
+    assertEquals(2, result.size)
+    val tableIds = result.map { it.tableEntry.tableId }.toSet()
     assertEquals(setOf(TABLE_A_ID, TABLE_B_ID), tableIds)
+  }
+
+  // §9.1.6: is_default_action=true returns only the default entry.
+  @Test
+  fun `wildcard read with is_default_action returns modified defaults`() {
+    stub.modifiedDefaults.add(TABLE_A_NAME)
+    stub.addEntry(TABLE_A_NAME, TABLE_A_ID, byteArrayOf(1))
+    val result = readDefaultWildcard()
+    assertEquals(1, result.size)
+    assertTrue(result[0].tableEntry.isDefaultAction)
+  }
+
+  @Test
+  fun `wildcard read with is_default_action excludes unmodified defaults`() {
+    val result = readDefaultWildcard()
+    assertTrue(result.isEmpty())
   }
 
   // ---------------------------------------------------------------------------
@@ -67,28 +85,35 @@ class EntityReaderTest {
     stub.addEntry(TABLE_A_NAME, TABLE_A_ID, byteArrayOf(1))
     stub.addEntry(TABLE_B_NAME, TABLE_B_ID, byteArrayOf(2))
 
-    val result = readTable(TABLE_A_ID).filter { !it.tableEntry.isDefaultAction }
+    val result = readTable(TABLE_A_ID)
     assertEquals(1, result.size)
     assertEquals(TABLE_A_ID, result[0].tableEntry.tableId)
   }
 
+  // §9.1.6: per-table read with is_default_action=false excludes defaults.
   @Test
-  fun `per-table read includes modified default entry`() {
+  fun `per-table read excludes modified default entry`() {
     stub.modifiedDefaults.add(TABLE_A_NAME)
+    stub.addEntry(TABLE_A_NAME, TABLE_A_ID, byteArrayOf(1))
     val result = readTable(TABLE_A_ID)
-    val defaults = result.filter { it.tableEntry.isDefaultAction }
-    assertEquals(1, defaults.size)
-    assertEquals(TABLE_A_ID, defaults[0].tableEntry.tableId)
-    assertEquals(DROP_ACTION_ID, defaults[0].tableEntry.action.action.actionId)
+    assertEquals(1, result.size)
+    assertTrue("per-table read should not include defaults", !result[0].tableEntry.isDefaultAction)
   }
 
   @Test
-  fun `per-table read excludes unmodified default entry`() {
-    val result = readTable(TABLE_A_ID)
-    assertTrue(
-      "unmodified defaults should not appear",
-      result.none { it.tableEntry.isDefaultAction },
-    )
+  fun `per-table read with is_default_action returns modified default`() {
+    stub.modifiedDefaults.add(TABLE_A_NAME)
+    val result = readDefaultTable(TABLE_A_ID)
+    assertEquals(1, result.size)
+    assertTrue(result[0].tableEntry.isDefaultAction)
+    assertEquals(TABLE_A_ID, result[0].tableEntry.tableId)
+    assertEquals(DROP_ACTION_ID, result[0].tableEntry.action.action.actionId)
+  }
+
+  @Test
+  fun `per-table read with is_default_action excludes unmodified default`() {
+    val result = readDefaultTable(TABLE_A_ID)
+    assertTrue(result.isEmpty())
   }
 
   // ---------------------------------------------------------------------------
@@ -132,9 +157,9 @@ class EntityReaderTest {
   @Test
   fun `default entry has correct table_id and is_default_action`() {
     stub.modifiedDefaults.add(TABLE_A_NAME)
-    val defaults = readTable(TABLE_A_ID).filter { it.tableEntry.isDefaultAction }
-    assertEquals(1, defaults.size)
-    val entry = defaults[0].tableEntry
+    val result = readDefaultTable(TABLE_A_ID)
+    assertEquals(1, result.size)
+    val entry = result[0].tableEntry
     assertTrue(entry.isDefaultAction)
     assertEquals(TABLE_A_ID, entry.tableId)
     assertEquals(DROP_ACTION_ID, entry.action.action.actionId)
@@ -150,9 +175,9 @@ class EntityReaderTest {
     stub.defaults[TABLE_A_NAME] = DefaultAction("drop", params)
     stub.modifiedDefaults.add(TABLE_A_NAME)
 
-    val defaults = readTable(TABLE_A_ID).filter { it.tableEntry.isDefaultAction }
-    assertEquals(1, defaults.size)
-    val action = defaults[0].tableEntry.action.action
+    val result = readDefaultTable(TABLE_A_ID)
+    assertEquals(1, result.size)
+    val action = result[0].tableEntry.action.action
     assertEquals(DROP_ACTION_ID, action.actionId)
     assertEquals(2, action.paramsCount)
     assertEquals(1, action.getParams(0).paramId)
@@ -163,11 +188,10 @@ class EntityReaderTest {
 
   @Test
   fun `modified default with no explicit action uses NoAction`() {
-    // Table B has no default action set but is marked as modified — falls back to NoAction.
     stub.modifiedDefaults.add(TABLE_B_NAME)
-    val defaults = readTable(TABLE_B_ID).filter { it.tableEntry.isDefaultAction }
-    assertEquals(1, defaults.size)
-    assertEquals(NO_ACTION_ID, defaults[0].tableEntry.action.action.actionId)
+    val result = readDefaultTable(TABLE_B_ID)
+    assertEquals(1, result.size)
+    assertEquals(NO_ACTION_ID, result[0].tableEntry.action.action.actionId)
   }
 
   // ---------------------------------------------------------------------------
@@ -181,7 +205,7 @@ class EntityReaderTest {
     stub.counterData[entry] =
       P4RuntimeOuterClass.CounterData.newBuilder().setByteCount(100).setPacketCount(5).build()
 
-    val result = readTable(TABLE_A_ID).filter { !it.tableEntry.isDefaultAction }
+    val result = readTable(TABLE_A_ID)
     assertEquals(1, result.size)
     assertTrue(result[0].tableEntry.hasCounterData())
     assertEquals(100, result[0].tableEntry.counterData.byteCount)
@@ -195,7 +219,7 @@ class EntityReaderTest {
     stub.meterData[entry] =
       P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(1000).setCburst(500).build()
 
-    val result = readTable(TABLE_A_ID).filter { !it.tableEntry.isDefaultAction }
+    val result = readTable(TABLE_A_ID)
     assertEquals(1, result.size)
     assertTrue(result[0].tableEntry.hasMeterConfig())
     assertEquals(1000, result[0].tableEntry.meterConfig.cir)
@@ -205,7 +229,7 @@ class EntityReaderTest {
   @Test
   fun `entry in table without direct counter has no counter data`() {
     stub.addEntry(TABLE_A_NAME, TABLE_A_ID, byteArrayOf(1))
-    val result = readTable(TABLE_A_ID).filter { !it.tableEntry.isDefaultAction }
+    val result = readTable(TABLE_A_ID)
     assertEquals(1, result.size)
     assertTrue("should not have counter data", !result[0].tableEntry.hasCounterData())
   }
@@ -227,8 +251,17 @@ class EntityReaderTest {
   private fun readWildcard(): List<Entity> =
     reader.readTableEntities(TableEntry.getDefaultInstance(), stub)
 
+  private fun readDefaultWildcard(): List<Entity> =
+    reader.readTableEntities(TableEntry.newBuilder().setIsDefaultAction(true).build(), stub)
+
   private fun readTable(tableId: Int): List<Entity> =
     reader.readTableEntities(TableEntry.newBuilder().setTableId(tableId).build(), stub)
+
+  private fun readDefaultTable(tableId: Int): List<Entity> =
+    reader.readTableEntities(
+      TableEntry.newBuilder().setTableId(tableId).setIsDefaultAction(true).build(),
+      stub,
+    )
 
   private fun entryFilter(tableId: Int, matchValue: ByteArray): TableEntry =
     TableEntry.newBuilder()

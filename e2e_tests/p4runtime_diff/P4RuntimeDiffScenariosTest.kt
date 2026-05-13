@@ -94,14 +94,8 @@ class P4RuntimeDiffScenariosTest {
   }
 
   // §designs/p4runtime_diff.md scenario 5.
-  //
-  // KNOWN DIVERGENCE on first run of this harness:
-  //   - 4ward returns the modified default entry on a wildcard read of the table.
-  //   - BMv2 returns zero entries (does not echo back the default).
-  // Spec §11.1 is ambiguous on whether default entries are part of a wildcard table read; both
-  // behaviors are defensible. Filed as future work (issue #595) — once the spec is clarified
-  // or both implementations align, drop the @Ignore.
-  @org.junit.Ignore("Known divergence — see comment above; first finding of the harness.")
+  // Previously @Ignore'd: 4ward included defaults in wildcard reads, BMv2 didn't.
+  // Resolved per §9.1.6 — wildcard reads with is_default_action=false (default) exclude defaults.
   @Test
   fun `default action modify — both servers read it back identically`() {
     val defaultEntry =
@@ -111,7 +105,10 @@ class P4RuntimeDiffScenariosTest {
         .setAction(forwardAction(port = 7))
         .build()
     writeOnBoth(Update.Type.MODIFY, defaultEntry)
+    // §9.1.6: wildcard read excludes defaults — both servers should agree on empty.
     assertReadAgrees()
+    // Read with is_default_action=true — both servers should return the same modified default.
+    assertDefaultReadAgrees()
   }
 
   // ---------------------------------------------------------------------------
@@ -143,12 +140,35 @@ class P4RuntimeDiffScenariosTest {
     )
   }
 
+  /** Reads default entries from each server, canonicalizes, asserts equal. */
+  private fun assertDefaultReadAgrees() {
+    val req = defaultTableReadRequest()
+    assertProtosEqual(
+      canonicalizeReadResponse(readAll(fourward, req)),
+      canonicalizeReadResponse(readAll(bmv2, req)),
+      leftLabel = "4ward",
+      rightLabel = "bmv2",
+    )
+  }
+
   /** Wildcard read of every entry in the harness's target table. */
   private fun wildcardTableReadRequest(): ReadRequest =
     ReadRequest.newBuilder()
       .setDeviceId(DEVICE_ID)
       .addEntities(
         Entity.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(schema.tableId))
+      )
+      .build()
+
+  /** Read the default entry from the harness's target table. */
+  private fun defaultTableReadRequest(): ReadRequest =
+    ReadRequest.newBuilder()
+      .setDeviceId(DEVICE_ID)
+      .addEntities(
+        Entity.newBuilder()
+          .setTableEntry(
+            TableEntry.newBuilder().setTableId(schema.tableId).setIsDefaultAction(true)
+          )
       )
       .build()
 
