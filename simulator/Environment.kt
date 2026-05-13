@@ -150,24 +150,21 @@ class BitAccumulator {
     var remaining = width
     var bits = value
     while (remaining > 0) {
+      // space is always 1..8, so the shifts below are always < 64.
       val space = 8 - pendingCount
       if (remaining >= space) {
         val shift = remaining - space
-        val top =
-          if (shift < 64) (bits shr shift).toLong() and ((1L shl space) - 1)
-          else bits.shiftRight(shift).toLong() and ((1L shl space) - 1)
+        val top = bits.shiftRight(shift).toLong() and ((1L shl space) - 1)
         pendingBits = (pendingBits shl space) or top
         bytes.write(pendingBits.toInt() and 0xFF)
         pendingBits = 0
         pendingCount = 0
         remaining -= space
-        if (remaining > 0 && remaining < 64) {
+        if (remaining > 0) {
           bits = bits.and(BigInteger.ONE.shiftLeft(remaining).subtract(BigInteger.ONE))
         }
       } else {
-        val top =
-          if (remaining < 64) bits.toLong() and ((1L shl remaining) - 1)
-          else bits.and(BigInteger.ONE.shiftLeft(remaining).subtract(BigInteger.ONE)).toLong()
+        val top = bits.toLong() and ((1L shl remaining) - 1)
         pendingBits = (pendingBits shl remaining) or top
         pendingCount += remaining
         remaining = 0
@@ -176,12 +173,12 @@ class BitAccumulator {
   }
 
   fun toByteArray(): ByteArray {
-    if (pendingCount > 0) {
-      bytes.write((pendingBits shl (8 - pendingCount)).toInt() and 0xFF)
-      pendingBits = 0
-      pendingCount = 0
-    }
-    return bytes.toByteArray()
+    val result = bytes.toByteArray()
+    if (pendingCount == 0) return result
+    // Append the pending partial byte without mutating accumulator state.
+    val padded = result.copyOf(result.size + 1)
+    padded[result.size] = ((pendingBits shl (8 - pendingCount)).toInt() and 0xFF).toByte()
+    return padded
   }
 }
 
@@ -227,6 +224,7 @@ private class ParserCursor(private val data: ByteArray, initialByteOffset: Int =
 
   /** Reads [count] bytes from the current position (must be byte-aligned). */
   fun read(count: Int): ByteArray {
+    require(bitOffset % 8 == 0) { "read() requires byte-aligned cursor, but bitOffset=$bitOffset" }
     val bitsNeeded = count * 8
     if (bitsNeeded > remainingBits()) {
       throw PacketTooShortException(
@@ -284,6 +282,11 @@ private class ParserCursor(private val data: ByteArray, initialByteOffset: Int =
 
   private fun peekBitsInternal(bitCount: Int): BigInteger {
     if (bitCount == 0) return BigInteger.ZERO
+    // Fast path: byte-aligned reads skip the shift/mask entirely.
+    if (bitOffset % 8 == 0 && bitCount % 8 == 0) {
+      val startByte = bitOffset / 8
+      return BigInteger(1, data.copyOfRange(startByte, startByte + bitCount / 8))
+    }
     val startByte = bitOffset / 8
     val endByte = (bitOffset + bitCount - 1) / 8
     val raw = BigInteger(1, data.copyOfRange(startByte, endByte + 1))

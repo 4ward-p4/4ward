@@ -72,7 +72,10 @@ private constructor(
   /** Total bytes of the serialized packet_out header. */
   val packetOutHeaderBytes: Int = (packetOutFields.sumOf { it.bitWidth } + 7) / 8
 
-  /** Total bits of the serialized packet_in header. */
+  /**
+   * Total bits of the serialized packet_in header, derived from p4info field widths. Correctness
+   * depends on p4info matching the behavioral config's `packet_in_header_t` type definition.
+   */
   val packetInHeaderBits: Int = packetInFields.sumOf { it.bitWidth }
 
   /** Total bytes of the serialized packet_in header (stripped from deparsed payload on punt). */
@@ -93,8 +96,9 @@ private constructor(
     // Bit-level strip: remove exactly packetInHeaderBits from the front of the
     // continuous bit stream and repack the remaining bits into bytes.
     val bytes = payload.toByteArray()
-    // The original payload was N whole bytes. The deparsed stream is
-    // ceil((headerBits + N*8) / 8) bytes. Recover N by integer division.
+    // Assumes the original payload was N whole bytes. The deparsed stream is
+    // ceil((headerBits + N*8) / 8) bytes. We recover N via integer division,
+    // which truncates any sub-byte remainder — only whole payload bytes survive.
     val payloadBits = (bytes.size * 8 - packetInHeaderBits) / 8 * 8
     if (payloadBits <= 0) return ByteString.EMPTY
     val outBytes = payloadBits / 8

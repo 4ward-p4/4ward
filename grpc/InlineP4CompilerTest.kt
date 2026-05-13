@@ -75,7 +75,7 @@ class InlineP4CompilerTest {
 
   @Test
   @Suppress("MagicNumber")
-  fun `non-byte-aligned header emitted by deparser adds padding byte to output`() {
+  fun `non-byte-aligned header in continuous bit stream increases output size`() {
     // A 6-bit header is not byte-aligned. The deparser pads it to 1 byte, so the
     // output payload is 1 byte larger than the original packet.
     val config =
