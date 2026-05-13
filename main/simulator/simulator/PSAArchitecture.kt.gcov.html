@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-13 21:27:07</td>
+            <td class="headerValue">2026-05-13 22:33:59</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryMed">85.9&nbsp;%</td>
@@ -331,7 +331,7 @@
 <span id="L269"><span class="lineNum">     269</span>              :       )</span>
 <span id="L270"><span class="lineNum">     270</span>              :     }</span>
 <span id="L271"><span class="lineNum">     271</span>              : </span>
-<span id="L272"><span class="lineNum">     272</span> <span class="tlaGNC tlaBgGNC">           1 :     val deparsedBytes = ctx.outputPayload() + ctx.drainRemainingInput()</span></span>
+<span id="L272"><span class="lineNum">     272</span> <span class="tlaGNC tlaBgGNC">           1 :     val deparsedBytes = ctx.deparsedPayload()</span></span>
 <span id="L273"><span class="lineNum">     273</span> <span class="tlaGNC">           1 :     return IngressResult(ctx.getEvents(), output, deparsedBytes, dropped = false)</span></span>
 <span id="L274"><span class="lineNum">     274</span>              :   }</span>
 <span id="L275"><span class="lineNum">     275</span>              : </span>
@@ -519,7 +519,7 @@
 <span id="L457"><span class="lineNum">     457</span> <span class="tlaGNC">           1 :     bindStageParams(egressEnv, p.egressDeparser.blockName, p.blockParams, egressValues)</span></span>
 <span id="L458"><span class="lineNum">     458</span> <span class="tlaGNC">           1 :     runControlStage(egressInterpreter, egressCtx, egressEnv, p.egressDeparser)</span></span>
 <span id="L459"><span class="lineNum">     459</span>              : </span>
-<span id="L460"><span class="lineNum">     460</span> <span class="tlaGNC">           1 :     val outputBytes = egressCtx.outputPayload() + egressCtx.drainRemainingInput()</span></span>
+<span id="L460"><span class="lineNum">     460</span> <span class="tlaGNC">           1 :     val outputBytes = egressCtx.deparsedPayload()</span></span>
 <span id="L461"><span class="lineNum">     461</span> <span class="tlaGNC">           1 :     return EgressCoreResult(egressCtx.getEvents(), dropped, outputBytes, egressOutput)</span></span>
 <span id="L462"><span class="lineNum">     462</span>              :   }</span>
 <span id="L463"><span class="lineNum">     463</span>              : </span>

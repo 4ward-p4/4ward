@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-13 21:27:07</td>
+            <td class="headerValue">2026-05-13 22:33:59</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">93.5&nbsp;%</td>
@@ -729,7 +729,7 @@
 <span id="L667"><span class="lineNum">     667</span>              :       }</span>
 <span id="L668"><span class="lineNum">     668</span>              :     }</span>
 <span id="L669"><span class="lineNum">     669</span>              : </span>
-<span id="L670"><span class="lineNum">     670</span> <span class="tlaGNC">           1 :     val outputBytes = s.packetCtx.outputPayload() + s.packetCtx.drainRemainingInput()</span></span>
+<span id="L670"><span class="lineNum">     670</span> <span class="tlaGNC">           1 :     val outputBytes = s.packetCtx.deparsedPayload()</span></span>
 <span id="L671"><span class="lineNum">     671</span>              : </span>
 <span id="L672"><span class="lineNum">     672</span> <span class="tlaGNC">           1 :     if (s.pendingOps.recirculate) {</span></span>
 <span id="L673"><span class="lineNum">     673</span> <span class="tlaGNC">           1 :       throw RecirculateFork(</span></span>

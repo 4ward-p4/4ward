@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-13 21:27:07</td>
+            <td class="headerValue">2026-05-13 22:33:59</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">94.6&nbsp;%</td>
@@ -260,7 +260,7 @@
 <span id="L198"><span class="lineNum">     198</span>              :     // the deparsed packet (post-modification), matching DPDK SoftNIC behavior.</span>
 <span id="L199"><span class="lineNum">     199</span> <span class="tlaGNC">           1 :     bindStageParams(env, pipeline.mainDeparser.blockName, pipeline.blockParams, values)</span></span>
 <span id="L200"><span class="lineNum">     200</span> <span class="tlaGNC">           1 :     runControlStage(interpreter, ctx, env, pipeline.mainDeparser)</span></span>
-<span id="L201"><span class="lineNum">     201</span> <span class="tlaGNC">           1 :     val deparsedBytes = ctx.outputPayload() + ctx.drainRemainingInput()</span></span>
+<span id="L201"><span class="lineNum">     201</span> <span class="tlaGNC">           1 :     val deparsedBytes = ctx.deparsedPayload()</span></span>
 <span id="L202"><span class="lineNum">     202</span>              : </span>
 <span id="L203"><span class="lineNum">     203</span> <span class="tlaGNC">           1 :     val mirrorBranches = buildMirrorBranches(pipeline, deparsedBytes, forwardingState)</span></span>
 <span id="L204"><span class="lineNum">     204</span>              : </span>
