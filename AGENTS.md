@@ -32,6 +32,12 @@ you want before you write the code. If you can't write a clear test, you
 don't understand the problem yet. A failing test is the starting point for
 every change, not an afterthought.
 
+**Write DAMP tests, not DRY tests.** Each test should be readable
+top-to-bottom without chasing helpers. Prefer duplicating setup over
+extracting it into a shared function — when a test fails, you want the
+full context right there. Three similar test bodies are better than one
+parameterized helper that obscures the scenario.
+
 ## Walking skeleton first
 
 Build a minimal end-to-end slice through the entire system before filling in

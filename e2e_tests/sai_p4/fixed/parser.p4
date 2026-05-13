@@ -212,11 +212,7 @@ control packet_deparser(packet_out packet, in headers_t headers) {
     // We always expect the packet_out_header to be invalid at the end of the
     // pipeline, so this line has no effect on the output packet.
     packet.emit(headers.packet_out_header);
-// TODO: Clean up once we have better solution to handle packet-in
-// across platforms.
-#if defined(PLATFORM_BMV2) || defined(PLATFORM_P4SYMBOLIC)
     packet.emit(headers.packet_in_header);
-#endif
     packet.emit(headers.mirror_encap_ethernet);
     packet.emit(headers.mirror_encap_vlan);
     packet.emit(headers.mirror_encap_ipv6);

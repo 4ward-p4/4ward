@@ -47,6 +47,8 @@ class PacketHeaderCodecTest {
     val codec = PacketHeaderCodec.create(p4info, behavioral)
     assertNotNull(codec)
     assertEquals(2, codec!!.packetOutHeaderBytes)
+    // packet_in: 9-bit ingress_port + 9-bit target_egress_port = 18 bits = 3 bytes
+    assertEquals(3, codec.packetInHeaderBytes)
     // CPU port = 2^9 - 2 = 510
     assertEquals(510, codec.cpuPort)
   }
@@ -151,6 +153,114 @@ class PacketHeaderCodecTest {
   }
 
   // =========================================================================
+  // stripPacketInHeader
+  // =========================================================================
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `stripPacketInHeader removes byte-aligned header correctly`() {
+    // 16-bit packet_in header (two 8-bit fields) — byte-aligned, exercises the fast path.
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+        )
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_in"))
+            .addMetadata(metaWithBitwidth(2, "ingress_port", 8))
+            .addMetadata(metaWithBitwidth(3, "egress_port", 8))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_in_header_t")
+            .setHeader(
+              HeaderDecl.newBuilder()
+                .addFields(bitField("ingress_port", 8))
+                .addFields(bitField("egress_port", 8))
+            )
+        )
+        .build()
+    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    // 16-bit header (2 bytes) + 4-byte payload = 6 bytes total.
+    val deparsed =
+      com.google.protobuf.ByteString.copyFrom(
+        byteArrayOf(0x00, 0x00, 0xDE.toByte(), 0xAD.toByte(), 0xBE.toByte(), 0xEF.toByte())
+      )
+    val stripped = codec.stripPacketInHeader(deparsed)
+    assertArrayEquals(
+      byteArrayOf(0xDE.toByte(), 0xAD.toByte(), 0xBE.toByte(), 0xEF.toByte()),
+      stripped.toByteArray(),
+    )
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `stripPacketInHeader handles non-byte-aligned header`() {
+    // 10-bit packet_in header (two 5-bit fields). The deparsed bit stream has
+    // the 10 header bits followed by the payload bits, packed continuously.
+    //
+    // Header: 10 bits of zeros. Payload: 0xDE 0xAD = 16 bits.
+    // Bit stream: 0000000000_11011110_10101101 + 6 pad zeros = 32 bits = 4 bytes.
+    // = 00000000 00110111 10101011 01000000
+    // = 0x00     0x37     0xAB     0x40
+    //
+    // After stripping 10 header bits, we should recover: 0xDE 0xAD (16 bits → 2 bytes).
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+        )
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_in"))
+            .addMetadata(metaWithBitwidth(2, "field_a", 5))
+            .addMetadata(metaWithBitwidth(3, "field_b", 5))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_in_header_t")
+            .setHeader(
+              HeaderDecl.newBuilder()
+                .addFields(bitField("field_a", 5))
+                .addFields(bitField("field_b", 5))
+            )
+        )
+        .build()
+    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    assertEquals(10, codec.packetInHeaderBits)
+
+    val deparsed =
+      com.google.protobuf.ByteString.copyFrom(byteArrayOf(0x00, 0x37, 0xAB.toByte(), 0x40))
+    val stripped = codec.stripPacketInHeader(deparsed)
+    assertArrayEquals(
+      "should recover original 0xDEAD after stripping 10-bit header",
+      byteArrayOf(0xDE.toByte(), 0xAD.toByte()),
+      stripped.toByteArray(),
+    )
+  }
+
+  // =========================================================================
   // Helpers
   // =========================================================================
 
@@ -168,7 +278,7 @@ class PacketHeaderCodecTest {
 
   /**
    * Builds a SAI-like p4info + behavioral config:
-   * - packet_out: egress_port (9-bit, id=1), submit_to_ingress (1-bit, id=2)
+   * - packet_out: egress_port (9-bit, id=1), submit_to_ingress (1-bit, id=2), unused_pad (6-bit)
    * - packet_in: ingress_port (9-bit, id=3), target_egress_port (9-bit, id=4)
    * - Behavioral config with header types for field width resolution.
    */
@@ -218,6 +328,17 @@ class PacketHeaderCodecTest {
 
   private fun meta(id: Int, name: String): ControllerPacketMetadata.Metadata =
     ControllerPacketMetadata.Metadata.newBuilder().setId(id).setName(name).build()
+
+  private fun metaWithBitwidth(
+    id: Int,
+    name: String,
+    bitwidth: Int,
+  ): ControllerPacketMetadata.Metadata =
+    ControllerPacketMetadata.Metadata.newBuilder()
+      .setId(id)
+      .setName(name)
+      .setBitwidth(bitwidth)
+      .build()
 
   private fun bitField(name: String, width: Int): FieldDecl =
     FieldDecl.newBuilder()

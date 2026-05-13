@@ -16,6 +16,7 @@ package fourward.simulator
 
 import fourward.MarkToDropEvent
 import fourward.TraceEvent
+import java.math.BigInteger
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
@@ -115,24 +116,28 @@ class EnvironmentTest {
   // ---------------------------------------------------------------------------
 
   @Test
-  fun `outputPayload is empty before any emitBytes call`() {
+  fun `outputPayload is empty before any emitBits call`() {
     val pktCtx = PacketContext(byteArrayOf())
     assertArrayEquals(byteArrayOf(), pktCtx.outputPayload())
   }
 
   @Test
-  fun `emitBytes appends bytes to the output buffer`() {
+  @Suppress("MagicNumber")
+  fun `emitBits appends bits to the output buffer`() {
     val pktCtx = PacketContext(byteArrayOf())
-    pktCtx.emitBytes(byteArrayOf(0x08, 0x00))
+    // 16 bits = 0x0800
+    pktCtx.emitBits(BigInteger.valueOf(0x0800), 16)
     assertArrayEquals(byteArrayOf(0x08, 0x00), pktCtx.outputPayload())
   }
 
   @Test
-  fun `multiple emitBytes calls concatenate in order`() {
+  @Suppress("MagicNumber")
+  fun `multiple emitBits calls form continuous bit stream`() {
     val pktCtx = PacketContext(byteArrayOf())
-    pktCtx.emitBytes(byteArrayOf(0x01, 0x02))
-    pktCtx.emitBytes(byteArrayOf(0x03, 0x04))
-    assertArrayEquals(byteArrayOf(0x01, 0x02, 0x03, 0x04), pktCtx.outputPayload())
+    // 6 bits (0b111111) ++ 10 bits (0b1010101010) → 0b11111110_10101010 = 0xFE 0xAA
+    pktCtx.emitBits(BigInteger.valueOf(0x3F), 6)
+    pktCtx.emitBits(BigInteger.valueOf(0x2AA), 10)
+    assertArrayEquals(byteArrayOf(0xFE.toByte(), 0xAA.toByte()), pktCtx.outputPayload())
   }
 
   // ---------------------------------------------------------------------------
@@ -164,5 +169,84 @@ class EnvironmentTest {
     val second = pktCtx.getEvents()
     assertEquals(first, second)
     assertNotSame(first, second)
+  }
+
+  // ---------------------------------------------------------------------------
+  // BitAccumulator
+  // ---------------------------------------------------------------------------
+
+  @Test
+  fun `BitAccumulator empty toByteArray returns empty`() {
+    val acc = BitAccumulator()
+    assertArrayEquals(byteArrayOf(), acc.toByteArray())
+  }
+
+  @Test
+  fun `BitAccumulator width-0 append is a no-op`() {
+    val acc = BitAccumulator()
+    acc.append(BigInteger.valueOf(0xFF), 0)
+    assertArrayEquals(byteArrayOf(), acc.toByteArray())
+  }
+
+  @Test
+  fun `BitAccumulator single-bit append`() {
+    val acc = BitAccumulator()
+    acc.append(BigInteger.ONE, 1)
+    // 1 bit = 0b1 → padded to 0b10000000 = 0x80
+    assertArrayEquals(byteArrayOf(0x80.toByte()), acc.toByteArray())
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `BitAccumulator wide value greater than 64 bits`() {
+    val acc = BitAccumulator()
+    // 72-bit value: 0xFF repeated 9 times.
+    val wide = BigInteger.ONE.shiftLeft(72).subtract(BigInteger.ONE)
+    acc.append(wide, 72)
+    val expected = ByteArray(9) { 0xFF.toByte() }
+    assertArrayEquals(expected, acc.toByteArray())
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `BitAccumulator toByteArray is idempotent`() {
+    val acc = BitAccumulator()
+    acc.append(BigInteger.valueOf(0x3F), 6)
+    val first = acc.toByteArray()
+    val second = acc.toByteArray()
+    assertArrayEquals(first, second)
+  }
+
+  // ---------------------------------------------------------------------------
+  // ParserCursor — bit-level reads
+  // ---------------------------------------------------------------------------
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `extractBits extracts sub-byte value`() {
+    // Byte 0xA5 = 0b10100101. Extract top 4 bits = 0b1010 = 10.
+    val pktCtx = PacketContext(byteArrayOf(0xA5.toByte()))
+    assertEquals(BigInteger.valueOf(0xA), pktCtx.extractBits(4))
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `peekBits does not advance cursor`() {
+    val pktCtx = PacketContext(byteArrayOf(0xA5.toByte()))
+    val first = pktCtx.peekBits(4)
+    val second = pktCtx.peekBits(4)
+    assertEquals(first, second)
+    // extractBits should still read the same value.
+    assertEquals(BigInteger.valueOf(0xA), pktCtx.extractBits(4))
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `extractBits across byte boundaries`() {
+    // Bytes: 0xA5 0xC3 = 0b10100101_11000011
+    // Skip 4 bits (0b1010), then extract 8 bits: 0b01011100 = 0x5C
+    val pktCtx = PacketContext(byteArrayOf(0xA5.toByte(), 0xC3.toByte()))
+    pktCtx.extractBits(4) // skip first 4 bits
+    assertEquals(BigInteger.valueOf(0x5C), pktCtx.extractBits(8))
   }
 }

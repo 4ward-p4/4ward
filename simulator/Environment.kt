@@ -2,6 +2,7 @@ package fourward.simulator
 
 import fourward.TraceEvent
 import java.io.ByteArrayOutputStream
+import java.math.BigInteger
 
 /**
  * Variable scope stack for a single packet traversal.
@@ -96,20 +97,37 @@ class PacketContext(payload: ByteArray, initialOffset: Int = 0) {
   val bytesConsumed: Int
     get() = buffer.bytesConsumed
 
-  /** Output packet bytes, written by deparser emit(). */
-  private val outputBuffer = ByteArrayOutputStream()
+  /** Bit-level output buffer, written by deparser emit(). */
+  private val outputBits = BitAccumulator()
 
   fun extractBytes(count: Int): ByteArray = buffer.read(count)
 
+  fun extractBits(bitCount: Int): BigInteger = buffer.readBits(bitCount)
+
   fun peekBytes(count: Int): ByteArray = buffer.peek(count)
+
+  fun peekBits(bitCount: Int): BigInteger = buffer.peekBits(bitCount)
 
   fun advanceBits(bits: Int) = buffer.advanceBits(bits)
 
-  fun emitBytes(bytes: ByteArray) {
-    outputBuffer.write(bytes)
+  fun emitBits(value: BigInteger, width: Int) {
+    outputBits.append(value, width)
   }
 
-  fun outputPayload(): ByteArray = outputBuffer.toByteArray()
+  /** Returns the accumulated output bits as bytes (zero-padded to byte boundary). */
+  fun outputPayload(): ByteArray = outputBits.toByteArray()
+
+  /**
+   * Returns the deparser output concatenated with the unparsed remainder as a continuous bit
+   * stream. This is the complete output packet — deparser-emitted headers followed by whatever the
+   * parser didn't consume, with trailing zero padding to byte boundary.
+   */
+  fun deparsedPayload(): ByteArray {
+    if (!buffer.hasRemaining()) return outputBits.toByteArray()
+    val combined = outputBits.copy()
+    buffer.appendRemainingTo(combined)
+    return combined.toByteArray()
+  }
 
   /** Returns all bytes not yet consumed by the parser (the un-parsed packet body). */
   fun drainRemainingInput(): ByteArray = buffer.readAll()
@@ -131,6 +149,77 @@ class PacketContext(payload: ByteArray, initialOffset: Int = 0) {
 }
 
 /**
+ * Accumulates bits from deparser emit() calls into a continuous bit stream, producing a
+ * byte-aligned output with trailing zero padding — matching real P4 target behavior.
+ */
+@Suppress("MagicNumber")
+class BitAccumulator {
+  private val bytes = ByteArrayOutputStream()
+  private var pendingBits = 0L
+  private var pendingCount = 0
+
+  fun append(value: BigInteger, width: Int) {
+    var remaining = width
+    var bits = value
+    while (remaining > 0) {
+      // space is always 1..8, so the shifts below are always < 64.
+      val space = 8 - pendingCount
+      if (remaining >= space) {
+        val shift = remaining - space
+        val top = bits.shiftRight(shift).toLong() and ((1L shl space) - 1)
+        pendingBits = (pendingBits shl space) or top
+        bytes.write(pendingBits.toInt() and 0xFF)
+        pendingBits = 0
+        pendingCount = 0
+        remaining -= space
+        if (remaining > 0) {
+          bits = bits.and(BigInteger.ONE.shiftLeft(remaining).subtract(BigInteger.ONE))
+        }
+      } else {
+        val top = bits.toLong() and ((1L shl remaining) - 1)
+        pendingBits = (pendingBits shl remaining) or top
+        pendingCount += remaining
+        remaining = 0
+      }
+    }
+  }
+
+  /** Appends raw bytes from [data] starting at bit offset [bitOff] for [bitCount] bits. */
+  fun appendRawBytes(data: ByteArray, bitOff: Int, bitCount: Int) {
+    var pos = bitOff
+    var remaining = bitCount
+    while (remaining > 0) {
+      val byteIdx = pos / 8
+      val bitInByte = pos % 8
+      val available = 8 - bitInByte
+      val take = minOf(available, remaining)
+      val shift = available - take
+      val bits = ((data[byteIdx].toInt() and 0xFF) ushr shift) and ((1 shl take) - 1)
+      append(BigInteger.valueOf(bits.toLong()), take)
+      pos += take
+      remaining -= take
+    }
+  }
+
+  fun copy(): BitAccumulator {
+    val clone = BitAccumulator()
+    clone.bytes.write(bytes.toByteArray())
+    clone.pendingBits = pendingBits
+    clone.pendingCount = pendingCount
+    return clone
+  }
+
+  fun toByteArray(): ByteArray {
+    val result = bytes.toByteArray()
+    if (pendingCount == 0) return result
+    // Append the pending partial byte without mutating accumulator state.
+    val padded = result.copyOf(result.size + 1)
+    padded[result.size] = ((pendingBits shl (8 - pendingCount)).toInt() and 0xFF).toByte()
+    return padded
+  }
+}
+
+/**
  * Thrown when the parser tries to extract more bytes than the packet contains.
  *
  * In v1model/BMv2, this corresponds to a `PacketTooShort` parser error. The packet is dropped
@@ -141,48 +230,112 @@ class PacketTooShortException(message: String) : ParserErrorException("PacketToo
 /** Thrown by the interpreter when a parser error occurs (P4 spec §12.8). */
 open class ParserErrorException(val errorName: String, message: String) : Exception(message)
 
-/** A simple byte-level cursor over a packet buffer, used by the parser. */
-private class ParserCursor(private val data: ByteArray, initialOffset: Int = 0) {
-  private var offset: Int = initialOffset
+/**
+ * Bit-level cursor over a packet buffer, used by the parser.
+ *
+ * Tracks a bit offset so that sub-byte header extracts (e.g., a 4-bit tag followed by a 12-bit
+ * length) consume exactly the right number of bits without over-reading.
+ */
+@Suppress("MagicNumber")
+private class ParserCursor(private val data: ByteArray, initialByteOffset: Int = 0) {
+  private var bitOffset: Int = initialByteOffset * 8
 
-  /** Number of bytes consumed from the start of the buffer. */
+  /** Number of whole bytes consumed from the start of the buffer. */
   val bytesConsumed: Int
-    get() = offset
+    get() = (bitOffset + 7) / 8
 
-  fun remaining(): Int = data.size - offset
+  fun hasRemaining(): Boolean = bitOffset < data.size * 8
 
-  fun readAll(): ByteArray = data.copyOfRange(offset, data.size).also { offset = data.size }
+  fun appendRemainingTo(acc: BitAccumulator) {
+    acc.appendRawBytes(data, bitOffset, data.size * 8 - bitOffset)
+  }
 
-  /** Returns all remaining bytes without advancing the cursor. */
-  fun peekAll(): ByteArray = data.copyOfRange(offset, data.size)
+  private fun remainingBits(): Int = data.size * 8 - bitOffset
 
+  /** Returns all bytes from the next byte boundary to the end (sub-byte remainder is discarded). */
+  fun readAll(): ByteArray {
+    val byteStart = (bitOffset + 7) / 8
+    bitOffset = data.size * 8
+    return data.copyOfRange(byteStart, data.size)
+  }
+
+  /** Returns all bytes from the current byte-aligned position without advancing. */
+  fun peekAll(): ByteArray {
+    val byteStart = (bitOffset + 7) / 8
+    return data.copyOfRange(byteStart, data.size)
+  }
+
+  /** Reads [count] bytes from the current position (must be byte-aligned). */
   fun read(count: Int): ByteArray {
-    if (count > remaining()) {
+    require(bitOffset % 8 == 0) { "read() requires byte-aligned cursor, but bitOffset=$bitOffset" }
+    val bitsNeeded = count * 8
+    if (bitsNeeded > remainingBits()) {
       throw PacketTooShortException(
-        "attempted to extract $count bytes but only ${remaining()} remain in packet"
+        "attempted to extract $count bytes but only ${remainingBits() / 8} remain in packet"
       )
     }
-    return data.copyOfRange(offset, offset + count).also { offset += count }
+    val byteStart = bitOffset / 8
+    bitOffset += bitsNeeded
+    return data.copyOfRange(byteStart, byteStart + count)
   }
 
-  /** Peeks at the next [count] bytes without advancing the cursor (P4 spec §12.8.2). */
+  /** Reads [bitCount] bits from the current position as a BigInteger, MSB-first. */
+  fun readBits(bitCount: Int): BigInteger {
+    if (bitCount > remainingBits()) {
+      throw PacketTooShortException(
+        "attempted to extract $bitCount bits but only ${remainingBits()} remain in packet"
+      )
+    }
+    val result = peekBitsInternal(bitCount)
+    bitOffset += bitCount
+    return result
+  }
+
+  /** Peeks at [count] bytes without advancing (must be byte-aligned). */
   fun peek(count: Int): ByteArray {
-    if (count > remaining()) {
+    val bitsNeeded = count * 8
+    if (bitsNeeded > remainingBits()) {
       throw PacketTooShortException(
-        "lookahead: need $count bytes but only ${remaining()} remain in packet"
+        "lookahead: need $count bytes but only ${remainingBits() / 8} remain in packet"
       )
     }
-    return data.copyOfRange(offset, offset + count)
+    val byteStart = bitOffset / 8
+    return data.copyOfRange(byteStart, byteStart + count)
   }
 
-  /** Advances the cursor by [bits] bits, which must be a multiple of 8 (P4 spec §12.8.3). */
-  fun advanceBits(bits: Int) {
-    val bytes = bits / 8
-    if (bytes > remaining()) {
+  /** Peeks at [bitCount] bits without advancing, MSB-first. */
+  fun peekBits(bitCount: Int): BigInteger {
+    if (bitCount > remainingBits()) {
       throw PacketTooShortException(
-        "advance: need $bytes bytes but only ${remaining()} remain in packet"
+        "lookahead: need $bitCount bits but only ${remainingBits()} remain in packet"
       )
     }
-    offset += bytes
+    return peekBitsInternal(bitCount)
+  }
+
+  /** Advances the cursor by [bits] bits. */
+  fun advanceBits(bits: Int) {
+    if (bits > remainingBits()) {
+      throw PacketTooShortException(
+        "advance: need $bits bits but only ${remainingBits()} remain in packet"
+      )
+    }
+    bitOffset += bits
+  }
+
+  private fun peekBitsInternal(bitCount: Int): BigInteger {
+    if (bitCount == 0) return BigInteger.ZERO
+    // Fast path: byte-aligned reads skip the shift/mask entirely.
+    if (bitOffset % 8 == 0 && bitCount % 8 == 0) {
+      val startByte = bitOffset / 8
+      return BigInteger(1, data.copyOfRange(startByte, startByte + bitCount / 8))
+    }
+    val startByte = bitOffset / 8
+    val endByte = (bitOffset + bitCount - 1) / 8
+    val raw = BigInteger(1, data.copyOfRange(startByte, endByte + 1))
+    val trailingBits = (endByte + 1) * 8 - (bitOffset + bitCount)
+    val shifted = raw.shiftRight(trailingBits)
+    val mask = BigInteger.ONE.shiftLeft(bitCount).subtract(BigInteger.ONE)
+    return shifted.and(mask)
   }
 }

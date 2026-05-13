@@ -198,7 +198,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     // the deparsed packet (post-modification), matching DPDK SoftNIC behavior.
     bindStageParams(env, pipeline.mainDeparser.blockName, pipeline.blockParams, values)
     runControlStage(interpreter, ctx, env, pipeline.mainDeparser)
-    val deparsedBytes = ctx.outputPayload() + ctx.drainRemainingInput()
+    val deparsedBytes = ctx.deparsedPayload()
 
     val mirrorBranches = buildMirrorBranches(pipeline, deparsedBytes, forwardingState)
 

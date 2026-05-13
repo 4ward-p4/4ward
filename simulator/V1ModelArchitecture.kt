@@ -667,7 +667,7 @@ class V1ModelArchitecture(
       }
     }
 
-    val outputBytes = s.packetCtx.outputPayload() + s.packetCtx.drainRemainingInput()
+    val outputBytes = s.packetCtx.deparsedPayload()
 
     if (s.pendingOps.recirculate) {
       throw RecirculateFork(

@@ -1255,7 +1255,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
 
       val widths = headerDecl.fieldsList.map { fieldWireWidth(it.type, varbitBits) }
       val totalBits = widths.sum()
-      val allBits = BigInteger(1, packet.extractBytes((totalBits + 7) / 8))
+      val allBits = packet.extractBits(totalBits)
       val newFields = unpackFields(headerDecl.fieldsList, widths, allBits, totalBits)
       if (!unionHandled) invalidateUnionSiblings(call.argsList[0], header, env)
       header.setValid(newFields)
@@ -1264,13 +1264,9 @@ class Interpreter internal constructor(config: BehavioralConfig) {
 
     /** P4 spec §12.8.2: peek at packet bits and construct a value of type T without consuming. */
     private fun execLookahead(returnType: Type): Value {
-      // Primitive bit<N> lookahead: peek N bits and return a BitVal.
       if (returnType.hasBit()) {
         val width = returnType.bit.width
-        val raw = BigInteger(1, packet.peekBytes((width + 7) / 8))
-        // Mask to exactly N bits (peekBytes may return extra high bits from byte alignment).
-        val mask = BigInteger.ONE.shiftLeft(width).subtract(BigInteger.ONE)
-        return BitVal(BitVector(raw.and(mask), width))
+        return BitVal(BitVector(packet.peekBits(width), width))
       }
 
       val typeName = returnType.named
@@ -1286,7 +1282,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
         }
       val widths = fields.map { fieldWireWidth(it.type) }
       val totalBits = widths.sum()
-      val allBits = BigInteger(1, packet.peekBytes((totalBits + 7) / 8))
+      val allBits = packet.peekBits(totalBits)
       val newFields = unpackFields(fields, widths, allBits, totalBits)
       return if (typeDecl.hasHeader()) {
         HeaderVal(typeName, newFields, valid = true)
@@ -1454,14 +1450,13 @@ class Interpreter internal constructor(config: BehavioralConfig) {
         bitOffset += width
       }
       if (totalBits > 0) {
-        val bytes = BitVector(packedBits, totalBits).toByteArray()
-        packet.emitBytes(bytes)
+        packet.emitBits(packedBits, totalBits)
         packetCtx?.addTraceEvent(
           TraceEvent.newBuilder()
             .setDeparserEmit(
               DeparserEmitEvent.newBuilder()
                 .setHeaderType(header.typeName)
-                .setByteLength(bytes.size)
+                .setByteLength((totalBits + 7) / 8)
             )
             .build()
         )
