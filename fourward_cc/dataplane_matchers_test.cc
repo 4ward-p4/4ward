@@ -356,6 +356,30 @@ TEST(ErrorMessageTest, HasIngressDescribes) {
   EXPECT_THAT(os.str(), ::testing::HasSubstr("5"));
 }
 
+TEST(ErrorMessageTest, FailureIncludesTrace) {
+  fourward::InjectPacketResponse resp;
+  resp.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
+  auto* event = resp.mutable_trace()->add_events();
+  event->mutable_table_lookup()->set_table_name("my_table");
+
+  ::testing::Matcher<const fourward::InjectPacketResponse&> m = Drops();
+  ::testing::StringMatchResultListener listener;
+  EXPECT_FALSE(m.MatchAndExplain(resp, &listener));
+  EXPECT_THAT(listener.str(), ::testing::HasSubstr("my_table"));
+}
+
+TEST(ErrorMessageTest, NoTraceWhenMatches) {
+  fourward::InjectPacketResponse resp;
+  resp.add_possible_outcomes();
+  resp.mutable_trace()->add_events()->mutable_table_lookup()->set_table_name(
+      "my_table");
+
+  ::testing::Matcher<const fourward::InjectPacketResponse&> m = Drops();
+  ::testing::StringMatchResultListener listener;
+  EXPECT_TRUE(m.MatchAndExplain(resp, &listener));
+  EXPECT_THAT(listener.str(), Not(::testing::HasSubstr("my_table")));
+}
+
 // --- Composition ---
 
 TEST(CompositionTest, ForwardsToWithIngress) {

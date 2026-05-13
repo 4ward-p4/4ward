@@ -75,7 +75,11 @@ class OutcomesMatcherBase {
   bool MatchAndExplain(const T& result,
                        ::testing::MatchResultListener* listener) const {
     auto outcomes = ExtractOutcomes(result);
-    return inner_.MatchAndExplain(outcomes, listener);
+    if (inner_.MatchAndExplain(outcomes, listener)) return true;
+    if (result.has_trace()) {
+      *listener << "\nfull trace:\n" << result.trace().DebugString();
+    }
+    return false;
   }
 
   void DescribeTo(std::ostream* os) const {
