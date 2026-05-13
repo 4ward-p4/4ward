@@ -26,6 +26,7 @@ Shorthands   ForwardsTo  Forwards  Drops
 Outcomes     OutcomeIs  OutcomesAre  EachOutcome  AnyOutcome  Outcome
 Packets      OnPort  HasPayload  OnPorts  Packets
 Input        HasIngress
+Extraction   PacketsByPort  PacketsByP4RuntimePort
 ```
 
 ## The basics
@@ -189,6 +190,39 @@ EXPECT_THAT(response, OutcomeIs(OnPorts({
     {P4RuntimePort{"Ethernet1"}, SizeIs(1)},
 })));
 ```
+
+## Extracting packets by port
+
+When you need packets in variables for follow-up work — parsing headers,
+computing deltas, feeding into helpers — `PacketsByPort` groups the
+single deterministic outcome into a `std::map` you can index directly:
+
+```cpp
+using ::fourward::PacketsByPort;
+
+auto by_port = PacketsByPort(response);
+auto& port1 = by_port[1];
+auto& port2 = by_port[2];
+
+EXPECT_THAT(port1, SizeIs(2));
+EXPECT_THAT(port2, ElementsAre(HasPayload(expected_bytes)));
+
+// Or do non-matcher work:
+auto parsed = ParseHeader(port1[0].payload());
+```
+
+For P4Runtime ports, use `PacketsByP4RuntimePort`:
+
+```cpp
+using ::fourward::PacketsByP4RuntimePort;
+
+auto by_port = PacketsByP4RuntimePort(response);
+auto& eth0 = by_port["Ethernet0"];
+auto& eth1 = by_port["Ethernet1"];
+```
+
+Both functions fail the test if the response has more than one possible
+outcome. Indexing a port that received no packets returns an empty vector.
 
 ## Ingress port
 

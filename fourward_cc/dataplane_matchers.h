@@ -399,6 +399,44 @@ inline auto OnPorts(
       OnPortsMatcher({expected.begin(), expected.end()})));
 }
 
+// ---------------------------------------------------------------------------
+// PacketsByPort / PacketsByP4RuntimePort — extract packets grouped by port
+//
+// Returns a map from port to packets for the single deterministic outcome.
+// Fails the test if the result has != 1 possible outcome.
+// ---------------------------------------------------------------------------
+
+template <typename T>
+std::map<uint32_t, internal::PacketList> PacketsByPort(const T& result) {
+  auto outcomes = internal::ExtractOutcomes(result);
+  if (outcomes.size() != 1) {
+    ADD_FAILURE() << "PacketsByPort: expected 1 outcome, got "
+                  << outcomes.size();
+    return {};
+  }
+  std::map<uint32_t, internal::PacketList> groups;
+  for (const auto& pkt : outcomes[0]) {
+    groups[pkt.dataplane_egress_port()].push_back(pkt);
+  }
+  return groups;
+}
+
+template <typename T>
+std::map<std::string, internal::PacketList> PacketsByP4RuntimePort(
+    const T& result) {
+  auto outcomes = internal::ExtractOutcomes(result);
+  if (outcomes.size() != 1) {
+    ADD_FAILURE() << "PacketsByP4RuntimePort: expected 1 outcome, got "
+                  << outcomes.size();
+    return {};
+  }
+  std::map<std::string, internal::PacketList> groups;
+  for (const auto& pkt : outcomes[0]) {
+    groups[pkt.p4rt_egress_port()].push_back(pkt);
+  }
+  return groups;
+}
+
 }  // namespace fourward
 
 #endif  // FOURWARD_CC_DATAPLANE_MATCHERS_H_
