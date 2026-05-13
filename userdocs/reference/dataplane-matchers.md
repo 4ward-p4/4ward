@@ -26,7 +26,7 @@ Shorthands   ForwardsTo  Forwards  Drops
 Outcomes     OutcomeIs  OutcomesAre  EachOutcome  AnyOutcome  Outcome
 Packets      OnPort  HasPayload  OnPorts  Packets
 Input        HasIngress
-Extraction   PacketsByDataplanePort  PacketsByP4RuntimePort
+Extraction   DeterministicPackets  PacketsByDataplanePort  PacketsByP4RuntimePort
 ```
 
 ## The basics
@@ -191,11 +191,24 @@ EXPECT_THAT(response, OutcomeIs(OnPorts({
 })));
 ```
 
-## Extracting packets by port
+## Extracting packets
 
 When you need packets in variables for follow-up work — parsing headers,
-computing deltas, feeding into helpers — `PacketsByDataplanePort` groups the
-single deterministic outcome into a map you can index directly:
+computing deltas, feeding into helpers — use the extraction functions.
+
+`DeterministicPackets` returns the flat packet list from a single
+deterministic outcome:
+
+```cpp
+using ::fourward::DeterministicPackets;
+
+auto packets = DeterministicPackets(response);
+EXPECT_THAT(packets, SizeIs(3));
+auto parsed = ParseHeader(packets[0].payload());
+```
+
+`PacketsByDataplanePort` and `PacketsByP4RuntimePort` go one step
+further and group by egress port:
 
 ```cpp
 using ::fourward::PacketsByDataplanePort;
@@ -206,12 +219,7 @@ auto& port2 = by_port[2];
 
 EXPECT_THAT(port1, SizeIs(2));
 EXPECT_THAT(port2, ElementsAre(HasPayload(expected_bytes)));
-
-// Or do non-matcher work:
-auto parsed = ParseHeader(port1[0].payload());
 ```
-
-For P4Runtime ports, use `PacketsByP4RuntimePort`:
 
 ```cpp
 using ::fourward::PacketsByP4RuntimePort;
@@ -221,8 +229,9 @@ auto& eth0 = by_port["Ethernet0"];
 auto& eth1 = by_port["Ethernet1"];
 ```
 
-Both functions fail the test if the response has more than one possible
-outcome. Indexing a port that received no packets returns an empty vector.
+All three functions fail the test if the response has more than one
+possible outcome. Indexing a port that received no packets returns an
+empty vector.
 
 ## Ingress port
 
