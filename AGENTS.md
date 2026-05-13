@@ -115,6 +115,12 @@ before submitting. Lead with the win — what changed for the project, how it
 fits into the big picture. Be concise and punchy. Don't drown achievements
 in low-level details; the diff already has those.
 
+**Churn is free.** Don't leave behind dead code, redundant helpers, or
+stale call sites because updating them would "touch too many files."
+You are an AI coding agent — mechanical refactoring across dozens of
+files is exactly what you're good at. If a cleanup is correct, do it;
+let the reviewer decide if it should be split out.
+
 Before submitting:
 
 - Proactively add unit test. For one-off P4 programs, use

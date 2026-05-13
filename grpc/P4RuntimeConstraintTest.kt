@@ -166,7 +166,7 @@ class P4RuntimeConstraintTest {
       basicHarness.loadPipeline(basicConfig)
       val entry = FourwardTestHarness.buildExactEntry(basicConfig, matchValue = 0x0800, port = 1)
       basicHarness.installEntry(entry)
-      assertEquals(1, basicHarness.readRegularEntries().size)
+      assertEquals(1, basicHarness.readEntries().size)
     }
   }
 

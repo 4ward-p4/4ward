@@ -75,15 +75,7 @@ servers, runs gRPC operations, diffs responses.
 | 2 | Modify-after-padded-write (same logical key across encodings) | ✓ pass |
 | 3 | Out-of-range values (both reject; gRPC status code divergence accepted) | ✓ pass |
 | 4 | Batch atomicity (read-back after partial failure agrees) | ✓ pass |
-| 5 | Default action modify | divergence — see below |
-
-### Known divergence: default-action read-back
-
-On a wildcard table read, 4ward includes the modified default entry;
-BMv2 returns zero entries. Spec §11.1 is ambiguous on whether default
-entries are part of a wildcard table read. The scenario ships
-`@Ignore`'d with the divergence documented inline; once the spec is
-clarified or one side aligns, drop the `@Ignore`.
+| 5 | Default action modify | ✓ pass |
 
 ## Canonicalizations before diff
 
@@ -115,9 +107,6 @@ over them.
 
 ## Future work
 
-- **Triage the default-action divergence.** File with the P4 API
-  working group; once resolved, drop the `@Ignore` and align whichever
-  side is wrong.
 - **Corpus growth.** Add scenarios as P4Runtime features land. Strong
   candidates: status code semantics, role config, idle timeout,
   action-profile group membership rules.

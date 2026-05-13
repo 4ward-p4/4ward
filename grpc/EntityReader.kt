@@ -36,21 +36,22 @@ private constructor(
 
     for (tableId in tableIds) {
       val tableName = tableNameById[tableId] ?: continue
-      val hasDirectCounter = tables.hasDirectCounter(tableName)
-      val hasDirectMeter = tables.hasDirectMeter(tableName)
-      val entries = tables.getTableEntries(tableName)
 
-      // Regular entries.
-      val matched =
-        if (hasMatchFilter) listOfNotNull(entries.find { it.sameKey(filter) }) else entries
-      for (entry in matched) {
-        result.add(buildTableEntryEntity(entry, hasDirectCounter, hasDirectMeter, tables))
-      }
-
-      // P4Runtime spec §9.1.6: only return default entries that have been explicitly
-      // configured via Write. Pipeline-loaded defaults are not included in reads.
-      if (!hasMatchFilter && tables.isDefaultModified(tableName)) {
-        buildDefaultEntryEntity(tableName, tableId, tables)?.let { result.add(it) }
+      // P4Runtime spec §9.1.6: is_default_action selects which entries to return.
+      // false (default) → non-default entries only. true → default entry only.
+      if (filter.isDefaultAction) {
+        if (!hasMatchFilter && tables.isDefaultModified(tableName)) {
+          buildDefaultEntryEntity(tableName, tableId, tables)?.let { result.add(it) }
+        }
+      } else {
+        val hasDirectCounter = tables.hasDirectCounter(tableName)
+        val hasDirectMeter = tables.hasDirectMeter(tableName)
+        val entries = tables.getTableEntries(tableName)
+        val matched =
+          if (hasMatchFilter) listOfNotNull(entries.find { it.sameKey(filter) }) else entries
+        for (entry in matched) {
+          result.add(buildTableEntryEntity(entry, hasDirectCounter, hasDirectMeter, tables))
+        }
       }
     }
     return result

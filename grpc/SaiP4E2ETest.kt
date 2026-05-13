@@ -112,7 +112,7 @@ class SaiP4E2ETest {
     harness.installEntry(vrfEntry)
 
     val vrfTable = findTable("vrf_table")
-    val entities = harness.readRegularTableEntries(vrfTable.preamble.id)
+    val entities = harness.readTableEntries(vrfTable.preamble.id)
     assertEquals("expected one vrf_table entry", 1, entities.size)
 
     // The match field (vrf_id) should round-trip as a UTF-8 string.
@@ -127,7 +127,7 @@ class SaiP4E2ETest {
     harness.installEntry(buildVrfEntry("vrf-3"))
 
     val vrfTable = findTable("vrf_table")
-    val entities = harness.readRegularTableEntries(vrfTable.preamble.id)
+    val entities = harness.readTableEntries(vrfTable.preamble.id)
     assertEquals("expected three vrf_table entries", 3, entities.size)
 
     val vrfIds = entities.map { it.tableEntry.matchList.first().exact.value.toStringUtf8() }.toSet()
@@ -151,7 +151,7 @@ class SaiP4E2ETest {
     harness.installEntry(ipv4Entry)
 
     val ipv4Table = findTable("ipv4_table")
-    val entities = harness.readRegularTableEntries(ipv4Table.preamble.id)
+    val entities = harness.readTableEntries(ipv4Table.preamble.id)
     assertEquals("expected one ipv4_table entry", 1, entities.size)
 
     val entry = entities[0].tableEntry
@@ -184,7 +184,7 @@ class SaiP4E2ETest {
     harness.installEntry(nexthopEntry)
 
     val nexthopTable = findTable("nexthop_table")
-    val entities = harness.readRegularTableEntries(nexthopTable.preamble.id)
+    val entities = harness.readTableEntries(nexthopTable.preamble.id)
     assertEquals("expected one nexthop_table entry", 1, entities.size)
 
     val entry = entities[0].tableEntry
@@ -211,7 +211,7 @@ class SaiP4E2ETest {
     harness.installEntry(rifEntry)
 
     val rifTable = findTable("router_interface_table")
-    val entities = harness.readRegularTableEntries(rifTable.preamble.id)
+    val entities = harness.readTableEntries(rifTable.preamble.id)
     assertEquals("expected one router_interface_table entry", 1, entities.size)
 
     val entry = entities[0].tableEntry
@@ -862,10 +862,10 @@ class SaiP4E2ETest {
     harness.installEntry(vrfEntry)
 
     val vrfTable = findTable("vrf_table")
-    assertEquals(1, harness.readRegularTableEntries(vrfTable.preamble.id).size)
+    assertEquals(1, harness.readTableEntries(vrfTable.preamble.id).size)
 
     harness.deleteEntry(vrfEntry)
-    assertEquals(0, harness.readRegularTableEntries(vrfTable.preamble.id).size)
+    assertEquals(0, harness.readTableEntries(vrfTable.preamble.id).size)
   }
 
   // =========================================================================
@@ -901,7 +901,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one ipv6_table entry", 1, entities.size)
     val entry = entities[0].tableEntry
     val vrfFieldId = matchFieldId(table, "vrf_id")
@@ -934,7 +934,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one ipv6_multicast_table entry", 1, entities.size)
     val vrfFieldId = matchFieldId(table, "vrf_id")
     assertEquals(
@@ -973,7 +973,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one tunnel_table entry", 1, entities.size)
     val entry = entities[0].tableEntry
     assertEquals("tunnel-1", entry.matchList.first().exact.value.toStringUtf8())
@@ -1005,7 +1005,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one ipv6_tunnel_termination_table entry", 1, entities.size)
   }
 
@@ -1039,7 +1039,7 @@ class SaiP4E2ETest {
     )
 
     // port should round-trip as string (port_id_t is sdn_string).
-    val entities = harness.readRegularTableEntries(memberTable.preamble.id)
+    val entities = harness.readTableEntries(memberTable.preamble.id)
     assertEquals("expected one vlan_membership_table entry", 1, entities.size)
     val portFieldId = matchFieldId(memberTable, "port")
     assertEquals(
@@ -1066,7 +1066,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one disable_ingress_vlan_checks_table entry", 1, entities.size)
   }
 
@@ -1082,7 +1082,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one disable_egress_vlan_checks_table entry", 1, entities.size)
   }
 
@@ -1110,7 +1110,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one l3_admit_table entry", 1, entities.size)
     val inPortId = matchFieldId(table, "in_port")
     assertEquals(
@@ -1156,7 +1156,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one mirror_session_table entry", 1, entities.size)
     val entry = entities[0].tableEntry
     assertEquals("mirror-1", entry.matchList.first().exact.value.toStringUtf8())
@@ -1186,7 +1186,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one multicast_router_interface_table entry", 1, entities.size)
     val portFieldId = matchFieldId(table, "multicast_replica_port")
     assertEquals(
@@ -1220,7 +1220,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one acl_egress_table entry", 1, entities.size)
     val outPortId = matchFieldId(table, "out_port")
     assertEquals(
@@ -1255,7 +1255,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one acl_ingress_mirror_and_redirect_table entry", 1, entities.size)
     val nexthopParamId = paramId(action, "nexthop_id")
     assertEquals(
@@ -1289,7 +1289,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one acl_ingress_security_table entry", 1, entities.size)
   }
 
@@ -1315,7 +1315,7 @@ class SaiP4E2ETest {
       )
     )
 
-    val entities = harness.readRegularTableEntries(table.preamble.id)
+    val entities = harness.readTableEntries(table.preamble.id)
     assertEquals("expected one ingress_clone_table entry", 1, entities.size)
     val mirrorPortId = matchFieldId(table, "mirror_egress_port")
     assertEquals(

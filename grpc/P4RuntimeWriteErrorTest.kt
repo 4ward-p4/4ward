@@ -368,7 +368,7 @@ class P4RuntimeWriteErrorTest {
       "second update should be NOT_FOUND"
     }
     // Good update was applied despite bad one failing.
-    val readBack = harness.readRegularEntries()
+    val readBack = harness.readEntries()
     assert(readBack.isNotEmpty()) { "good entry should have been applied" }
   }
 
@@ -394,7 +394,7 @@ class P4RuntimeWriteErrorTest {
         .setAtomicity(atomicity)
         .build()
     assertGrpcError(Status.Code.NOT_FOUND) { harness.writeRaw(request) }
-    val readBack = harness.readRegularEntries()
+    val readBack = harness.readEntries()
     assert(readBack.isEmpty()) { "$atomicity should have rolled back the good entry" }
   }
 
@@ -441,7 +441,7 @@ class P4RuntimeWriteErrorTest {
         .addUpdates(Update.newBuilder().setType(Update.Type.INSERT).setEntity(entry3))
         .build()
     harness.writeRaw(request)
-    val results = harness.readRegularEntries()
+    val results = harness.readEntries()
     assert(results.size == 2) { "expected 2 entries after mixed DELETE+INSERT batch" }
   }
 

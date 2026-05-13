@@ -239,15 +239,20 @@ class FourwardTestHarness(
     )
   }
 
-  /** Wildcard read: returns all table entries including defaults (table_id=0). */
+  /** Wildcard read: returns all non-default table entries (table_id=0). */
   fun readEntries(): List<Entity> = readTableEntries(0)
 
-  /** Like [readEntries] but excludes default entries (convenience for tests checking counts). */
-  fun readRegularEntries(): List<Entity> = readEntries().filter { !it.tableEntry.isDefaultAction }
-
-  /** Like [readTableEntries] but excludes default entries. */
-  fun readRegularTableEntries(tableId: Int): List<Entity> =
-    readTableEntries(tableId).filter { !it.tableEntry.isDefaultAction }
+  /** Reads default entries (is_default_action=true) from a single table or all tables. */
+  fun readDefaultEntries(tableId: Int = 0): List<Entity> =
+    readEntries(
+      ReadRequest.newBuilder()
+        .setDeviceId(1)
+        .addEntities(
+          Entity.newBuilder()
+            .setTableEntry(TableEntry.newBuilder().setTableId(tableId).setIsDefaultAction(true))
+        )
+        .build()
+    )
 
   /** Per-table read: returns entries from a single table (or all tables if tableId is 0). */
   fun readTableEntries(tableId: Int, role: String = ""): List<Entity> =
