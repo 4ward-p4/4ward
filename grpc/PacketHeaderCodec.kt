@@ -6,6 +6,7 @@
 
 package fourward.grpc
 
+import com.google.protobuf.ByteString
 import fourward.BehavioralConfig
 import fourward.Type
 import p4.config.v1.P4InfoOuterClass.P4Info
@@ -71,8 +72,46 @@ private constructor(
   /** Total bytes of the serialized packet_out header. */
   val packetOutHeaderBytes: Int = (packetOutFields.sumOf { it.bitWidth } + 7) / 8
 
+  /** Total bits of the serialized packet_in header. */
+  val packetInHeaderBits: Int = packetInFields.sumOf { it.bitWidth }
+
   /** Total bytes of the serialized packet_in header (stripped from deparsed payload on punt). */
-  val packetInHeaderBytes: Int = (packetInFields.sumOf { it.bitWidth } + 7) / 8
+  val packetInHeaderBytes: Int = (packetInHeaderBits + 7) / 8
+
+  /**
+   * Strips the `@controller_header("packet_in")` from the front of a deparsed payload.
+   *
+   * The deparser emits the controller header as a continuous bit stream before the remaining packet
+   * headers. This method removes exactly [packetInHeaderBits] bits from the front and returns the
+   * remaining payload, byte-aligned with trailing zero padding.
+   */
+  @Suppress("MagicNumber")
+  fun stripPacketInHeader(payload: ByteString): ByteString {
+    if (packetInHeaderBits == 0) return payload
+    // Fast path: byte-aligned header, no bit-shifting needed.
+    if (packetInHeaderBits % 8 == 0) return payload.substring(packetInHeaderBytes)
+    // Bit-level strip: remove exactly packetInHeaderBits from the front of the
+    // continuous bit stream and repack the remaining bits into bytes.
+    val bytes = payload.toByteArray()
+    // The original payload was N whole bytes. The deparsed stream is
+    // ceil((headerBits + N*8) / 8) bytes. Recover N by integer division.
+    val payloadBits = (bytes.size * 8 - packetInHeaderBits) / 8 * 8
+    if (payloadBits <= 0) return ByteString.EMPTY
+    val outBytes = payloadBits / 8
+    val result = ByteArray(outBytes)
+    val skipBits = packetInHeaderBits
+    for (i in 0 until outBytes) {
+      val bitPos = skipBits + i * 8
+      val byteIdx = bitPos / 8
+      val bitOff = bitPos % 8
+      var value = (bytes[byteIdx].toInt() and 0xFF) shl bitOff
+      if (bitOff > 0 && byteIdx + 1 < bytes.size) {
+        value = value or ((bytes[byteIdx + 1].toInt() and 0xFF) ushr (8 - bitOff))
+      }
+      result[i] = (value and 0xFF).toByte()
+    }
+    return ByteString.copyFrom(result)
+  }
 
   /** Packs PacketOut metadata into a bit-packed binary header. */
   fun serializePacketOut(metadata: List<PacketMetadata>): ByteArray {

@@ -709,7 +709,7 @@ class P4RuntimeService(
         val metadata = codec.buildPacketInMetadata(ingressPort, outputPacket.dataplaneEgressPort)
         // The deparser emits the @controller_header("packet_in") as part of the
         // payload. Strip it — metadata is constructed from the simulation context.
-        val payload = outputPacket.payload.substring(codec.packetInHeaderBytes)
+        val payload = codec.stripPacketInHeader(outputPacket.payload)
         val rawPacketIn = PacketIn.newBuilder().setPayload(payload).addAllMetadata(metadata).build()
         StreamMessageResponse.newBuilder()
           .setPacket(translator?.translatePacketIn(rawPacketIn) ?: rawPacketIn)
