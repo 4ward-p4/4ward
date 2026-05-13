@@ -368,6 +368,25 @@ TEST(ErrorMessageTest, FailureIncludesTrace) {
   EXPECT_THAT(listener.str(), ::testing::HasSubstr("my_table"));
 }
 
+TEST(ErrorMessageTest, FailureIncludesTraceOnProcessPacketResult) {
+  fourward::ProcessPacketResult result;
+  result.add_possible_outcomes()->add_packets()->set_dataplane_egress_port(1);
+  result.mutable_trace()->add_events()->mutable_table_lookup()->set_table_name(
+      "ingress_table");
+
+  ::testing::Matcher<const fourward::ProcessPacketResult&> m = Drops();
+  ::testing::StringMatchResultListener listener;
+  EXPECT_FALSE(m.MatchAndExplain(result, &listener));
+  EXPECT_THAT(listener.str(), ::testing::HasSubstr("ingress_table"));
+}
+
+TEST(ErrorMessageTest, FailureOmitsTraceWhenAbsent) {
+  ::testing::Matcher<const fourward::InjectPacketResponse&> m = Drops();
+  ::testing::StringMatchResultListener listener;
+  EXPECT_FALSE(m.MatchAndExplain(Forward(1), &listener));
+  EXPECT_THAT(listener.str(), Not(::testing::HasSubstr("trace")));
+}
+
 TEST(ErrorMessageTest, NoTraceWhenMatches) {
   fourward::InjectPacketResponse resp;
   resp.add_possible_outcomes();
