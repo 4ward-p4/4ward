@@ -8,7 +8,6 @@
 #define FOURWARD_CC_DATAPLANE_MATCHERS_H_
 
 #include <cstdint>
-#include <map>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -16,6 +15,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/container/btree_map.h"
 #include "fourward_cc/dataplane_client.h"
 #include "gmock/gmock.h"
 #include "grpc/dataplane.pb.h"
@@ -352,7 +352,7 @@ class OnPortsMatcher {
   template <typename Container>
   bool MatchAndExplain(const Container& packets,
                        ::testing::MatchResultListener* listener) const {
-    std::map<internal::PortKey, internal::PacketList, internal::PortKeyLess>
+    absl::btree_map<internal::PortKey, internal::PacketList, internal::PortKeyLess>
         groups;
     // Port type is inferred from the first entry — all entries must use the
     // same type (DataplanePort or P4RuntimePort).
@@ -400,21 +400,21 @@ inline auto OnPorts(
 }
 
 // ---------------------------------------------------------------------------
-// PacketsByPort / PacketsByP4RuntimePort — extract packets grouped by port
+// PacketsByDataplanePort / PacketsByP4RuntimePort — extract packets grouped by port
 //
 // Returns a map from port to packets for the single deterministic outcome.
 // Fails the test if the result has != 1 possible outcome.
 // ---------------------------------------------------------------------------
 
 template <typename T>
-std::map<uint32_t, internal::PacketList> PacketsByPort(const T& result) {
+absl::btree_map<uint32_t, internal::PacketList> PacketsByDataplanePort(const T& result) {
   auto outcomes = internal::ExtractOutcomes(result);
   if (outcomes.size() != 1) {
-    ADD_FAILURE() << "PacketsByPort: expected 1 outcome, got "
+    ADD_FAILURE() << "PacketsByDataplanePort: expected 1 outcome, got "
                   << outcomes.size();
     return {};
   }
-  std::map<uint32_t, internal::PacketList> groups;
+  absl::btree_map<uint32_t, internal::PacketList> groups;
   for (const auto& pkt : outcomes[0]) {
     groups[pkt.dataplane_egress_port()].push_back(pkt);
   }
@@ -422,7 +422,7 @@ std::map<uint32_t, internal::PacketList> PacketsByPort(const T& result) {
 }
 
 template <typename T>
-std::map<std::string, internal::PacketList> PacketsByP4RuntimePort(
+absl::btree_map<std::string, internal::PacketList> PacketsByP4RuntimePort(
     const T& result) {
   auto outcomes = internal::ExtractOutcomes(result);
   if (outcomes.size() != 1) {
@@ -430,7 +430,7 @@ std::map<std::string, internal::PacketList> PacketsByP4RuntimePort(
                   << outcomes.size();
     return {};
   }
-  std::map<std::string, internal::PacketList> groups;
+  absl::btree_map<std::string, internal::PacketList> groups;
   for (const auto& pkt : outcomes[0]) {
     groups[pkt.p4rt_egress_port()].push_back(pkt);
   }

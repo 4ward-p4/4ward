@@ -26,7 +26,7 @@ Shorthands   ForwardsTo  Forwards  Drops
 Outcomes     OutcomeIs  OutcomesAre  EachOutcome  AnyOutcome  Outcome
 Packets      OnPort  HasPayload  OnPorts  Packets
 Input        HasIngress
-Extraction   PacketsByPort  PacketsByP4RuntimePort
+Extraction   PacketsByDataplanePort  PacketsByP4RuntimePort
 ```
 
 ## The basics
@@ -194,13 +194,13 @@ EXPECT_THAT(response, OutcomeIs(OnPorts({
 ## Extracting packets by port
 
 When you need packets in variables for follow-up work — parsing headers,
-computing deltas, feeding into helpers — `PacketsByPort` groups the
-single deterministic outcome into a `std::map` you can index directly:
+computing deltas, feeding into helpers — `PacketsByDataplanePort` groups the
+single deterministic outcome into a map you can index directly:
 
 ```cpp
-using ::fourward::PacketsByPort;
+using ::fourward::PacketsByDataplanePort;
 
-auto by_port = PacketsByPort(response);
+auto by_port = PacketsByDataplanePort(response);
 auto& port1 = by_port[1];
 auto& port2 = by_port[2];
 
