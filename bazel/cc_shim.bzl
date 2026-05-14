@@ -26,10 +26,12 @@ def _cc_shim_impl(ctx):
         # compiler_executable is relative to the Bazel execroot, but in the
         # runfiles tree external repos are top-level siblings of _main/ — not
         # under _main/external/. Resolve from the runfiles root at runtime.
-        runfiles_path = cc.removeprefix("external/") if cc.startswith("external/") else "_main/" + cc
+        runfiles_path = cc[len("external/"):] if cc.startswith("external/") else "_main/" + cc
         script = "#!/bin/sh\n" + \
                  'SHIM_DIR="$(cd "$(dirname "$0")" && pwd)"\n' + \
-                 'exec "${{SHIM_DIR%/_main/*}}/{runfiles_path}" "$@"\n'.format(runfiles_path = runfiles_path)
+                 'RUNFILES="${{SHIM_DIR%/_main/*}}"\n'.format() + \
+                 'if [ "$RUNFILES" = "$SHIM_DIR" ]; then echo "cc_shim: cannot find runfiles root from $SHIM_DIR" >&2; exit 1; fi\n' + \
+                 'exec "$RUNFILES/{runfiles_path}" "$@"\n'.format(runfiles_path = runfiles_path)
 
     ctx.actions.write(
         output = shim,
