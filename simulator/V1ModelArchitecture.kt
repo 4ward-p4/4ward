@@ -359,16 +359,18 @@ class V1ModelArchitecture(
           else runEgressAndDeparser(c, s)
         },
       )
+    val cloneCtx = truncatePayload(ctx, fork.truncateBytes)
     val clone =
       runBranch(
-        ctx,
+        cloneCtx,
         fork.bytesConsumed,
         fork.postParserEnv,
         configure = { s ->
           s.standardMetadata.setBitField("instance_type", CLONE_I2E_INSTANCE_TYPE)
           s.standardMetadata.setBitField("egress_port", fork.clonePort)
           s.standardMetadata.setBitField("egress_rid", fork.egressRid.toLong())
-          applyPreservedMetadata(ctx, s.env, fork.preservedMetadata)
+          s.standardMetadata.setBitField("packet_length", cloneCtx.payload.size.toLong())
+          applyPreservedMetadata(cloneCtx, s.env, fork.preservedMetadata)
         },
         pipelineTail = { c, s -> runEgressAndDeparser(c, s) },
       )
@@ -401,9 +403,10 @@ class V1ModelArchitecture(
           else runDeparser(s)
         },
       )
+    val cloneCtx = truncatePayload(ctx, fork.truncateBytes)
     val clone =
       runBranch(
-        ctx,
+        cloneCtx,
         fork.bytesConsumed,
         fork.forkPointEnv,
         fork.forkPointPendingOps,
@@ -412,7 +415,8 @@ class V1ModelArchitecture(
           s.standardMetadata.setBitField("instance_type", CLONE_E2E_INSTANCE_TYPE)
           s.standardMetadata.setBitField("egress_port", fork.clonePort)
           s.standardMetadata.setBitField("egress_rid", fork.egressRid.toLong())
-          applyPreservedMetadata(ctx, s.env, fork.preservedMetadata)
+          s.standardMetadata.setBitField("packet_length", cloneCtx.payload.size.toLong())
+          applyPreservedMetadata(cloneCtx, s.env, fork.preservedMetadata)
         },
         pipelineTail = { _, s ->
           resetEgressSpec(s)
@@ -510,6 +514,11 @@ class V1ModelArchitecture(
     standardMetadata.setBitField("ingress_port", ctx.ingressPort.toLong())
     standardMetadata.setBitField("packet_length", ctx.payload.size.toLong())
     standardMetadata.fields["parser_error"] = ErrorVal.NO_ERROR
+    setTimestampField(
+      standardMetadata,
+      "ingress_global_timestamp",
+      System.nanoTime() / NANOS_PER_MICRO,
+    )
     if (decisions.instanceTypeOverride != null) {
       standardMetadata.setBitField("instance_type", decisions.instanceTypeOverride)
     }
@@ -631,6 +640,7 @@ class V1ModelArchitecture(
    */
   private fun runEgressAndDeparser(ctx: PipelineContext, s: PipelineState): TraceTree {
     resetEgressSpec(s)
+    setEgressTimestamps(s)
     runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
     postEgressBoundary(ctx, s)
 
@@ -744,17 +754,18 @@ class V1ModelArchitecture(
   private fun ingressEgressBoundary(ctx: PipelineContext, s: PipelineState) {
     val pendingClone = s.pendingOps.cloneSessionId
     if (pendingClone != null) {
-      resolveCloneSession(ctx, s, pendingClone)?.let { replica ->
+      resolveCloneSession(ctx, s, pendingClone)?.let { session ->
         throw CloneFork(
           pendingClone,
-          replica.port.toLong(),
-          replica.rid,
+          session.replica.port.toLong(),
+          session.replica.rid,
           s.packetCtx.getEvents(),
           snapshotPreservedMetadata(s, s.pendingOps.cloneFieldListId),
           s.env.deepCopy(),
           s.packetCtx.bytesConsumed,
           s.pendingOps.copy(),
           s.postParserEnv ?: error("no post-parser env for I2E clone"),
+          session.truncateBytes,
         )
       }
     }
@@ -791,16 +802,17 @@ class V1ModelArchitecture(
   private fun postEgressBoundary(ctx: PipelineContext, s: PipelineState) {
     val pendingE2EClone = s.pendingOps.egressCloneSessionId
     if (pendingE2EClone != null) {
-      resolveCloneSession(ctx, s, pendingE2EClone)?.let { replica ->
+      resolveCloneSession(ctx, s, pendingE2EClone)?.let { session ->
         throw EgressCloneFork(
           pendingE2EClone,
-          replica.port.toLong(),
-          replica.rid,
+          session.replica.port.toLong(),
+          session.replica.rid,
           s.packetCtx.getEvents(),
           snapshotPreservedMetadata(s, s.pendingOps.egressCloneFieldListId),
           s.env.deepCopy(),
           s.packetCtx.bytesConsumed,
           s.pendingOps.copy(),
+          session.truncateBytes,
         )
       }
     }
@@ -847,15 +859,19 @@ class V1ModelArchitecture(
   private fun egressSpecIsDropPort(s: PipelineState): Boolean =
     (s.standardMetadata.fields["egress_spec"] as? BitVal)?.bits?.value?.toLong() == s.dropPort
 
+  /** Resolved clone session: first replica and optional packet truncation length. */
+  private data class CloneSessionResult(val replica: Replica, val truncateBytes: Int)
+
   /**
    * Resolves a pending clone session: emits a [CloneSessionLookupEvent] and returns the first
-   * replica, or emits a miss event and returns null if the session doesn't exist.
+   * replica with truncation info, or emits a miss event and returns null if the session doesn't
+   * exist.
    */
   private fun resolveCloneSession(
     ctx: PipelineContext,
     s: PipelineState,
     sessionId: Int,
-  ): Replica? {
+  ): CloneSessionResult? {
     val session = ctx.tableStore.getCloneSession(sessionId)
     if (session != null) {
       val firstReplica = session.replicasList.first()
@@ -863,7 +879,10 @@ class V1ModelArchitecture(
       s.packetCtx.addTraceEvent(
         cloneSessionLookupEvent(sessionId, egressPort, firstReplica.instance)
       )
-      return Replica(firstReplica.instance, egressPort)
+      return CloneSessionResult(
+        Replica(firstReplica.instance, egressPort),
+        session.packetLengthBytes,
+      )
     }
     s.packetCtx.addTraceEvent(cloneSessionMissEvent(sessionId))
     return null
@@ -886,6 +905,35 @@ class V1ModelArchitecture(
         CloneSessionLookupEvent.newBuilder().setSessionId(sessionId).setSessionFound(false)
       )
       .build()
+
+  /**
+   * Populates egress-side timestamp fields if present in standard_metadata.
+   *
+   * BMv2 sets these at the traffic manager (enqueue) and dequeue points. In a zero-queue simulator,
+   * enqueue and dequeue happen at the same instant, so enq_timestamp and egress_global_timestamp
+   * share the same value and deq_timedelta is zero.
+   */
+  private fun setEgressTimestamps(s: PipelineState) {
+    val ts = System.nanoTime() / NANOS_PER_MICRO
+    setTimestampField(s.standardMetadata, "egress_global_timestamp", ts)
+    setTimestampField(s.standardMetadata, "enq_timestamp", ts)
+  }
+
+  /** Sets a timestamp field, truncating the value to fit the field's bit width. */
+  private fun setTimestampField(metadata: StructVal, field: String, microseconds: Long) {
+    val existing = metadata.fields[field] as? BitVal ?: return
+    val width = existing.bits.width
+    val mask = if (width >= Long.SIZE_BITS) -1L else (1L shl width) - 1
+    metadata.setBitField(field, microseconds and mask)
+  }
+
+  /** Returns [ctx] with payload truncated to [maxBytes], or [ctx] unchanged if no truncation. */
+  private fun truncatePayload(ctx: PipelineContext, maxBytes: Int): PipelineContext =
+    if (maxBytes > 0 && maxBytes < ctx.payload.size) {
+      ctx.copy(payload = ctx.payload.copyOf(maxBytes))
+    } else {
+      ctx
+    }
 
   // Trace helpers (buildDropTrace, buildOutputTrace, packetIngressEvent, stageEvent)
   // are shared with PSAArchitecture — see TraceHelpers.kt.
@@ -1152,6 +1200,8 @@ class V1ModelArchitecture(
 
     private const val MAX_PIPELINE_DEPTH = 10
 
+    private const val NANOS_PER_MICRO = 1000
+
     // v1model instance_type values (BMv2 PktInstanceType convention).
     private const val CLONE_I2E_INSTANCE_TYPE = 1L
     private const val CLONE_E2E_INSTANCE_TYPE = 2L
@@ -1236,6 +1286,8 @@ internal class CloneFork(
   val forkPointPendingOps: V1ModelPendingOps,
   /** Post-parser env (for the "clone" branch — BMv2: clone gets pre-ingress state). */
   val postParserEnv: Environment,
+  /** Clone session packet_length_bytes: 0 = no truncation, >0 = truncate to this many bytes. */
+  val truncateBytes: Int = 0,
 ) : ForkException(eventsBeforeFork)
 
 /**
@@ -1254,6 +1306,8 @@ internal class EgressCloneFork(
   val bytesConsumed: Int,
   /** Pending operations at the fork point. */
   val forkPointPendingOps: V1ModelPendingOps,
+  /** Clone session packet_length_bytes: 0 = no truncation, >0 = truncate to this many bytes. */
+  val truncateBytes: Int = 0,
 ) : ForkException(eventsBeforeFork)
 
 /** Fork at the ingress→egress boundary when mcast_grp is set — one branch per replica. */
