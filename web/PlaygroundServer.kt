@@ -37,7 +37,12 @@ fun main(args: Array<String>) {
       cpuPortConfig = cpuPortConfig,
       dropPortConfig = dropPort,
     )
-  val dataplaneService = DataplaneService(broker, typeTranslator = { service.typeTranslator })
+  val dataplaneService =
+    DataplaneService(broker) {
+      val config = simulator.pipelineConfig ?: return@DataplaneService null
+      val tableStore = simulator.tableStore ?: return@DataplaneService null
+      DataplaneService.PipelineSnapshot(config, tableStore, service.typeTranslator)
+    }
   broker.readAllEntities = { service.readAllEntities() }
   broker.readP4Info = { service.p4Info() }
   broker.applyUpdates = { updates -> service.applyHookUpdates(updates) }

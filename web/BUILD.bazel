@@ -41,6 +41,7 @@ kt_jvm_library(
         ":web",
         "//grpc",
         "//simulator",
+        "//simulator:ir_java_proto",
         "//simulator:p4info_java_proto",
         "//simulator:p4runtime_java_proto",
         "@fourward_maven//:io_grpc_grpc_netty",
