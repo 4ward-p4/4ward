@@ -102,12 +102,9 @@ message Reproducer {
   // Excludes const entries (already in pipeline_config.device.static_entries).
   repeated p4.v1.Entity entities = 2;
 
-  // The input packet that produced the trace.
-  InputPacket input_packet = 3;
-
-  // The trace being reproduced, including all possible outcomes.
-  TraceTree trace = 4;
-  repeated PacketSet possible_outcomes = 5;
+  // The packet result being reproduced: input packet, trace, and possible
+  // outcomes.
+  ProcessPacketResult result = 3;
 }
 
 // Result bundle for SubscribeResults: input + outputs + trace.

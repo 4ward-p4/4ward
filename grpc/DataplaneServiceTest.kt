@@ -119,10 +119,11 @@ class DataplaneServiceTest {
     val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
 
     assertEquals("pipeline config", config, reproducer.pipelineConfig)
-    assertEquals("ingress port", 0, reproducer.inputPacket.dataplaneIngressPort)
-    assertEquals("payload", ByteString.copyFrom(payload), reproducer.inputPacket.payload)
-    assertTrue("trace", reproducer.hasTrace())
-    assertTrue("possible outcomes", reproducer.possibleOutcomesCount > 0)
+    assertTrue("result", reproducer.hasResult())
+    assertEquals("ingress port", 0, reproducer.result.inputPacket.dataplaneIngressPort)
+    assertEquals("payload", ByteString.copyFrom(payload), reproducer.result.inputPacket.payload)
+    assertTrue("trace", reproducer.result.hasTrace())
+    assertTrue("possible outcomes", reproducer.result.possibleOutcomesCount > 0)
   }
 
   @Test

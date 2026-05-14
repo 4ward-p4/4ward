@@ -50,77 +50,84 @@ class DataplaneService(
   )
 
   override suspend fun injectPacket(request: InjectPacketRequest): InjectPacketResponse {
-    val translator = pipelineSnapshot()?.typeTranslator
-    val ingressPort = resolveIngressPort(request, translator)
-    val payload = request.payload.toByteArray()
-    // Translate anything thrown past this point into INTERNAL with a
-    // description, so the client never sees a bare UNKNOWN. See #499.
-    @Suppress("TooGenericExceptionCaught")
-    try {
-      val result = broker.processPacket(ingressPort, payload)
-      val pt = translator?.portTranslator
-      val possibleOutcomes =
-        result.possibleOutcomes.map { world ->
-          PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()
-        }
-      return InjectPacketResponse.newBuilder()
-        .addAllPossibleOutcomes(possibleOutcomes)
-        .setTrace(enrichTrace(result.trace, translator))
-        .build()
-    } catch (e: StatusException) {
-      throw e // already has a proper status; don't rewrap.
-    } catch (e: IllegalArgumentException) {
-      val detail = listOfNotNull("InjectPacket failed", e.message).joinToString(": ")
-      throw Status.INVALID_ARGUMENT.withDescription(detail).withCause(e).asException()
-    } catch (e: Exception) {
-      val detail = listOfNotNull("InjectPacket failed", e.message).joinToString(": ")
-      throw Status.INTERNAL.withDescription(detail).withCause(e).asException()
-    }
+    val (enrichedResult, _) = processAndEnrich(request, "InjectPacket")
+    return InjectPacketResponse.newBuilder()
+      .addAllPossibleOutcomes(enrichedResult.possibleOutcomes)
+      .setTrace(enrichedResult.trace)
+      .build()
   }
 
   override suspend fun reproduceTrace(request: InjectPacketRequest): Reproducer {
-    val pipeline =
-      pipelineSnapshot()
-        ?: throw Status.FAILED_PRECONDITION.withDescription(
-            "No pipeline loaded — call SetForwardingPipelineConfig first"
-          )
-          .asException()
-    val translator = pipeline.typeTranslator
-    val ingressPort = resolveIngressPort(request, translator)
-    val payload = request.payload.toByteArray()
-    @Suppress("TooGenericExceptionCaught")
-    try {
-      val result = broker.processPacket(ingressPort, payload)
-      val pt = translator?.portTranslator
-      val enrichedTrace = enrichTrace(result.trace, translator)
-      val possibleOutcomes =
-        result.possibleOutcomes.map { world ->
-          PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()
-        }
-      return Reproducer.newBuilder()
-        .setPipelineConfig(pipeline.config)
-        .addAllEntities(
-          extractReproducerEntities(
-            result.trace,
-            pipeline.tableStore,
-            pipeline.config.device.staticEntries.updatesList,
-          )
+    if (pipelineSnapshot() == null) {
+      throw Status.FAILED_PRECONDITION.withDescription(
+          "No pipeline loaded — call SetForwardingPipelineConfig first"
         )
+        .asException()
+    }
+    val (enrichedResult, pipeline) = processAndEnrich(request, "ReproduceTrace")
+    return Reproducer.newBuilder()
+      .setPipelineConfig(pipeline!!.config)
+      .addAllEntities(
+        extractReproducerEntities(
+          enrichedResult.rawTrace,
+          pipeline.tableStore,
+          pipeline.config.device.staticEntries.updatesList,
+        )
+      )
+      .setResult(enrichedResult.toProcessPacketResult())
+      .build()
+  }
+
+  private class EnrichedResult(
+    val ingressPort: Int,
+    val payload: ByteArray,
+    val rawTrace: TraceTree,
+    val trace: TraceTree,
+    val possibleOutcomes: List<PacketSet>,
+  ) {
+    fun toProcessPacketResult(): ProcessPacketResultProto =
+      ProcessPacketResultProto.newBuilder()
         .setInputPacket(
           InputPacket.newBuilder()
             .setDataplaneIngressPort(ingressPort)
             .setPayload(ByteString.copyFrom(payload))
         )
-        .setTrace(enrichedTrace)
+        .setTrace(trace)
         .addAllPossibleOutcomes(possibleOutcomes)
         .build()
+  }
+
+  private fun processAndEnrich(
+    request: InjectPacketRequest,
+    rpcName: String,
+  ): Pair<EnrichedResult, PipelineSnapshot?> {
+    val pipeline = pipelineSnapshot()
+    val translator = pipeline?.typeTranslator
+    val ingressPort = resolveIngressPort(request, translator)
+    val payload = request.payload.toByteArray()
+    @Suppress("TooGenericExceptionCaught")
+    try {
+      val result = broker.processPacket(ingressPort, payload)
+      val pt = translator?.portTranslator
+      val enrichedResult =
+        EnrichedResult(
+          ingressPort = ingressPort,
+          payload = payload,
+          rawTrace = result.trace,
+          trace = enrichTrace(result.trace, translator),
+          possibleOutcomes =
+            result.possibleOutcomes.map { world ->
+              PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()
+            },
+        )
+      return enrichedResult to pipeline
     } catch (e: StatusException) {
       throw e
     } catch (e: IllegalArgumentException) {
-      val detail = listOfNotNull("ReproduceTrace failed", e.message).joinToString(": ")
+      val detail = listOfNotNull("$rpcName failed", e.message).joinToString(": ")
       throw Status.INVALID_ARGUMENT.withDescription(detail).withCause(e).asException()
     } catch (e: Exception) {
-      val detail = listOfNotNull("ReproduceTrace failed", e.message).joinToString(": ")
+      val detail = listOfNotNull("$rpcName failed", e.message).joinToString(": ")
       throw Status.INTERNAL.withDescription(detail).withCause(e).asException()
     }
   }

@@ -45,9 +45,7 @@ service Dataplane {
 message Reproducer {
   PipelineConfig pipeline_config = 1;
   repeated p4.v1.Entity entities = 2;
-  InputPacket input_packet = 3;
-  TraceTree trace = 4;
-  repeated PacketSet possible_outcomes = 5;
+  ProcessPacketResult result = 3;
 }
 ```
 
