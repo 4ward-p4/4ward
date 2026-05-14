@@ -1,10 +1,16 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+load("//bazel:cc_shim.bzl", "cc_shim")
 
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = True,
     licenses = ["notice"],
+)
+
+cc_shim(
+    name = "cc_shim",
+    visibility = ["//visibility:public"],
 )
 
 bzl_library(

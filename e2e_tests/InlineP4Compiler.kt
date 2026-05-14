@@ -21,8 +21,13 @@ import java.nio.file.Files
  *
  * Requires the test's BUILD target to include:
  * ```
- * data = ["//p4c_backend:p4c-4ward", "@p4c//p4include"],
+ * data = [
+ *     "//e2e_tests:cc_shim",
+ *     "//p4c_backend:p4c-4ward",
+ *     "@p4c//p4include",
+ * ],
  * jvm_flags = [
+ *     "-Dcc_shim=$(rlocationpath //e2e_tests:cc_shim)",
  *     "-Dp4c_4ward=$(rlocationpath //p4c_backend:p4c-4ward)",
  *     "-Dp4include=$(rlocationpath @p4c//p4include:core.p4)",
  * ],
@@ -38,7 +43,7 @@ fun compileInlineP4(source: String): PipelineConfig {
     val outFile = tmpDir.resolve("pipeline.txtpb")
     Files.writeString(srcFile, source)
 
-    val process =
+    val pb =
       ProcessBuilder(
           p4cBinary.toString(),
           srcFile.toString(),
@@ -48,7 +53,8 @@ fun compileInlineP4(source: String): PipelineConfig {
           p4includeDir.toString(),
         )
         .redirectErrorStream(true)
-        .start()
+    fourward.bazel.ensureCcOnPath(pb)
+    val process = pb.start()
 
     val output = process.inputStream.bufferedReader().readText()
     val exitCode = process.waitFor()

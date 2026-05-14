@@ -333,16 +333,7 @@ class WebServer(
     cmd += source.toString()
 
     val pb = ProcessBuilder(cmd).redirectErrorStream(true)
-    // p4c shells out to `cc` for preprocessing. Hermetic sandboxes
-    // (blaze/google3) don't have `cc` on PATH, so fall back to a
-    // BUILD-provided shim that execs the CC toolchain compiler. Where
-    // system `cc` exists (Linux CI, macOS CLT), prefer it — the shim's
-    // transitive runfiles are toolchain-specific and can be finicky.
-    if (!hasSystemCc()) {
-      val shimDir = resolveRunfileProperty("fourward.cc_shim").parent
-      val env = pb.environment()
-      env["PATH"] = "$shimDir${File.pathSeparator}${env["PATH"] ?: ""}"
-    }
+    fourward.bazel.ensureCcOnPath(pb, shimPropertyKey = "fourward.cc_shim")
     val process = pb.start()
     val processOutput = process.inputStream.bufferedReader().readText()
     val exitCode = process.waitFor()
@@ -351,18 +342,13 @@ class WebServer(
 
   private fun findP4c(): Path? {
     repoRoot.resolve("p4c_backend/p4c-4ward").let { if (Files.isExecutable(it)) return it }
-    val pathDirs = System.getenv("PATH")?.split(":") ?: emptyList()
+    val pathDirs = System.getenv("PATH")?.split(File.pathSeparator) ?: emptyList()
     for (dir in pathDirs) {
       val candidate = Path.of(dir, "p4c-4ward")
       if (Files.isExecutable(candidate)) return candidate
     }
     return null
   }
-
-  private fun hasSystemCc(): Boolean =
-    System.getenv("PATH")?.split(":").orEmpty().any { dir ->
-      Files.isExecutable(Path.of(dir, "cc"))
-    }
 
   // ---------------------------------------------------------------------------
   // Helpers
