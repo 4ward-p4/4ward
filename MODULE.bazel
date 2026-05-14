@@ -102,6 +102,25 @@ git_override(
     remote = "https://github.com/p4lang/PI.git",
 )
 
+# sonic-pins P4 fuzzer — generates random P4Runtime WriteRequests and validates
+# response status codes against the spec. Dev-only — only //e2e_tests/p4_fuzzer.
+# We depend on sonic_pins for the fuzzer libraries, p4_infra for
+# P4RuntimeSession, and gutil for status matchers.
+bazel_dep(name = "sonic_pins", version = "0.0.0", dev_dependency = True)
+bazel_dep(name = "gutil", version = "20260309.0.bcr.1", dev_dependency = True)
+
+git_override(
+    module_name = "sonic_pins",
+    commit = "fa078fff753e144dfc3cc811ab96a3ceb5821af1",
+    remote = "https://github.com/smolkaj/sonic-pins.git",
+)
+
+git_override(
+    module_name = "p4_infra",
+    commit = "3f733593d4c2657ad8d8bc9d09cedab86a2eba94",
+    remote = "https://github.com/smolkaj/p4-infra.git",
+)
+
 # --- JVM dependencies ---
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
