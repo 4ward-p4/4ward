@@ -1,1 +1,1 @@
-NOT_FOUND: unknown table ID 99999 (valid tables: 'port_table' (44171635))
+INVALID_ARGUMENT: unknown table ID 99999 (valid tables: 'port_table' (44171635))

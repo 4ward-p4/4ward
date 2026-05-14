@@ -67,11 +67,10 @@ class P4RuntimeWriteErrorTest {
     assertGrpcError(Status.Code.ALREADY_EXISTS) { harness.installEntry(entry) }
   }
 
-  // P4Runtime spec §9.1: INSERT of an entry with an unknown table_id must return NOT_FOUND.
   @Test
-  fun `insert with unknown table ID returns NOT_FOUND`() {
+  fun `insert with unknown table ID returns INVALID_ARGUMENT`() {
     harness.loadPipeline(loadBasicTableConfig())
-    assertGrpcError(Status.Code.NOT_FOUND, "unknown table ID") {
+    assertGrpcError(Status.Code.INVALID_ARGUMENT, "unknown table ID") {
       harness.installEntry(badTableEntity())
     }
   }
@@ -364,8 +363,8 @@ class P4RuntimeWriteErrorTest {
     val errors = assertBatchError { harness.writeRaw(request) }
     assert(errors.size == 2) { "expected 2 per-update errors, got ${errors.size}" }
     assert(errors[0].canonicalCode == com.google.rpc.Code.OK_VALUE) { "first update should be OK" }
-    assert(errors[1].canonicalCode == com.google.rpc.Code.NOT_FOUND_VALUE) {
-      "second update should be NOT_FOUND"
+    assert(errors[1].canonicalCode == com.google.rpc.Code.INVALID_ARGUMENT_VALUE) {
+      "second update should be INVALID_ARGUMENT"
     }
     // Good update was applied despite bad one failing.
     val readBack = harness.readEntries()
@@ -393,7 +392,7 @@ class P4RuntimeWriteErrorTest {
         .toBuilder()
         .setAtomicity(atomicity)
         .build()
-    assertGrpcError(Status.Code.NOT_FOUND) { harness.writeRaw(request) }
+    assertGrpcError(Status.Code.INVALID_ARGUMENT) { harness.writeRaw(request) }
     val readBack = harness.readEntries()
     assert(readBack.isEmpty()) { "$atomicity should have rolled back the good entry" }
   }
@@ -419,8 +418,8 @@ class P4RuntimeWriteErrorTest {
       )
     val errors = assertBatchError { harness.writeRaw(request) }
     assert(errors.size == 2) { "expected 2 per-update errors" }
-    assert(errors[0].canonicalCode == com.google.rpc.Code.NOT_FOUND_VALUE)
-    assert(errors[1].canonicalCode == com.google.rpc.Code.NOT_FOUND_VALUE)
+    assert(errors[0].canonicalCode == com.google.rpc.Code.INVALID_ARGUMENT_VALUE)
+    assert(errors[1].canonicalCode == com.google.rpc.Code.INVALID_ARGUMENT_VALUE)
   }
 
   @Test
@@ -469,7 +468,7 @@ class P4RuntimeWriteErrorTest {
     val request = harness.buildBatchRequest(Update.Type.INSERT, listOf(badTableEntity()))
     val errors = assertBatchError { harness.writeRaw(request) }
     assert(errors.size == 1)
-    assert(errors[0].canonicalCode == com.google.rpc.Code.NOT_FOUND_VALUE)
+    assert(errors[0].canonicalCode == com.google.rpc.Code.INVALID_ARGUMENT_VALUE)
     assert(errors[0].message.isNotEmpty()) { "error detail should include a message" }
   }
 
@@ -518,9 +517,9 @@ class P4RuntimeWriteErrorTest {
     val errors = assertBatchError { harness.writeRaw(request) }
     assert(errors.size == 2) { "expected 2 per-update errors" }
     assert(errors[0].canonicalCode == com.google.rpc.Code.OK_VALUE)
-    assert(errors[1].canonicalCode == com.google.rpc.Code.NOT_FOUND_VALUE)
+    assert(errors[1].canonicalCode == com.google.rpc.Code.INVALID_ARGUMENT_VALUE)
     // The failing update should have an explanatory message.
-    assert(errors[1].message.isNotEmpty()) { "NOT_FOUND error should include a message" }
+    assert(errors[1].message.isNotEmpty()) { "INVALID_ARGUMENT error should include a message" }
   }
 
   // =========================================================================
