@@ -84,10 +84,10 @@ def _fourward_pipeline_impl(ctx):
         transitive = [ctx.attr._p4include[DefaultInfo].files],
     )
 
-    # p4c shells out to `cc` for preprocessing. Provide it via the CC
-    # toolchain rather than relying on PATH — remote execution sandboxes
-    # (e.g. google3/blaze) don't have a system `cc`.
-    # Pattern from @p4c//bazel:p4_library.bzl.
+    # WORKAROUND for https://github.com/p4lang/p4c/issues/5618: p4c hardcodes
+    # `popen("cc -E …")` for preprocessing with no flag to override the binary.
+    # Define a shell function so the toolchain compiler answers to `cc`.
+    # Once p4c supports `--cc <path>`, pass compiler_executable directly.
     cc_toolchain = find_cc_toolchain(ctx)
     p4c = ctx.executable._p4c_4ward
     ctx.actions.run_shell(
