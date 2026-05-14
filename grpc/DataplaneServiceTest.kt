@@ -108,64 +108,52 @@ class DataplaneServiceTest {
   }
 
   // =========================================================================
-  // Reproducer
+  // ReproduceTrace
   // =========================================================================
 
   @Test
-  fun `InjectPacket without include_reproducer omits reproducer`() {
-    harness.loadPipeline(loadPassthroughConfig())
-    val response = harness.injectPacket(ingressPort = 0, payload = byteArrayOf(0x01))
-    assertTrue("reproducer should not be present", !response.hasReproducer())
-  }
-
-  @Test
-  fun `reproducer is self-contained`() {
+  fun `ReproduceTrace is self-contained`() {
     val config = loadPassthroughConfig()
     harness.loadPipeline(config)
     val payload = byteArrayOf(0x01)
-    val response = harness.injectPacketWithReproducer(ingressPort = 0, payload = payload)
+    val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
 
-    assertTrue("reproducer should be present", response.hasReproducer())
-    val reproducer = response.reproducer
     assertEquals("pipeline config", config, reproducer.pipelineConfig)
     assertEquals("ingress port", 0, reproducer.inputPacket.dataplaneIngressPort)
     assertEquals("payload", ByteString.copyFrom(payload), reproducer.inputPacket.payload)
     assertTrue("trace", reproducer.hasTrace())
-    assertEquals(
-      "possible outcomes match response",
-      response.possibleOutcomesList,
-      reproducer.possibleOutcomesList,
-    )
+    assertTrue("possible outcomes", reproducer.possibleOutcomesCount > 0)
   }
 
   @Test
-  fun `reproducer contains matched table entry`() {
+  fun `ReproduceTrace contains matched table entry`() {
     val config = loadBasicTableConfig()
     harness.loadPipeline(config)
     val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
     harness.installEntry(entry)
 
     val payload = buildEthernetFrame(etherType = 0x0800)
-    val response = harness.injectPacketWithReproducer(ingressPort = 0, payload = payload)
+    val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
 
-    assertTrue("reproducer should be present", response.hasReproducer())
-    val tableEntities = response.reproducer.entitiesList.filter { it.hasTableEntry() }
+    val tableEntities = reproducer.entitiesList.filter { it.hasTableEntry() }
     assertTrue("reproducer should contain the matched entry", tableEntities.isNotEmpty())
   }
 
   @Test
-  fun `reproducer excludes entries on table miss`() {
+  fun `ReproduceTrace excludes entries on table miss`() {
     val config = loadBasicTableConfig()
     harness.loadPipeline(config)
-    // No table entries installed — default action is drop.
     val payload = buildEthernetFrame(etherType = 0x0800)
-    val response = harness.injectPacketWithReproducer(ingressPort = 0, payload = payload)
+    val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
 
-    assertTrue("reproducer should be present", response.hasReproducer())
-    assertTrue(
-      "reproducer should have no entities on miss",
-      response.reproducer.entitiesList.isEmpty(),
-    )
+    assertTrue("reproducer should have no entities on miss", reproducer.entitiesList.isEmpty())
+  }
+
+  @Test
+  fun `ReproduceTrace fails without loaded pipeline`() {
+    assertGrpcError(Status.Code.FAILED_PRECONDITION) {
+      harness.reproduceTrace(ingressPort = 0, payload = byteArrayOf(0x01))
+    }
   }
 
   // =========================================================================

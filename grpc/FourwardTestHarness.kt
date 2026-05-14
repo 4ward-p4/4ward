@@ -169,17 +169,15 @@ class FourwardTestHarness(
     )
   }
 
-  /** Injects a packet with the reproducer flag set. Returns outputs + trace + reproducer. */
-  fun injectPacketWithReproducer(ingressPort: Int, payload: ByteArray): InjectPacketResponse =
-    runBlocking {
-      dataplaneStub.injectPacket(
-        InjectPacketRequest.newBuilder()
-          .setDataplaneIngressPort(ingressPort)
-          .setPayload(ByteString.copyFrom(payload))
-          .setIncludeReproducer(true)
-          .build()
-      )
-    }
+  /** Injects a packet and returns a self-contained Reproducer for the trace. */
+  fun reproduceTrace(ingressPort: Int, payload: ByteArray): fourward.Reproducer = runBlocking {
+    dataplaneStub.reproduceTrace(
+      InjectPacketRequest.newBuilder()
+        .setDataplaneIngressPort(ingressPort)
+        .setPayload(ByteString.copyFrom(payload))
+        .build()
+    )
+  }
 
   /** Injects a packet using a P4Runtime port ID. Returns outputs + trace. */
   fun injectPacketP4rt(p4rtPort: ByteString, payload: ByteArray): InjectPacketResponse =

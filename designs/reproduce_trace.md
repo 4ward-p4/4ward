@@ -33,31 +33,15 @@ test stays as a guard.
 
 ### Proto
 
-An opt-in flag on `InjectPacketRequest` and a new `Reproducer`
-message, both in `grpc/dataplane.proto`:
+A new `ReproduceTrace` RPC on the `Dataplane` service, defined in
+`grpc/dataplane.proto`:
 
 ```proto
-message InjectPacketRequest {
-  oneof ingress_port {
-    uint32 dataplane_ingress_port = 1;
-    bytes p4rt_ingress_port = 2;
-  }
-  bytes payload = 3;
-
-  // When true, the response includes a Reproducer with the
-  // pipeline config and entities needed to reproduce this trace.
-  bool include_reproducer = 4;
+service Dataplane {
+  // ...existing RPCs...
+  rpc ReproduceTrace(InjectPacketRequest) returns (Reproducer);
 }
 
-message InjectPacketResponse {
-  TraceTree trace = 1;
-  repeated PacketSet possible_outcomes = 2;
-
-  // Populated when include_reproducer is set on the request.
-  Reproducer reproducer = 3;
-}
-
-// Self-contained reproduction case for a packet trace.
 message Reproducer {
   PipelineConfig pipeline_config = 1;
   repeated p4.v1.Entity entities = 2;
@@ -67,17 +51,10 @@ message Reproducer {
 }
 ```
 
-Why a flag on `InjectPacket` rather than a separate RPC: the user
-discovers the bug *during* an `InjectPacket` call. A separate
-`ReproduceTrace` RPC would require re-injecting the same packet — an
-extra step, and a TOCTOU risk if state changed between calls. The flag
-lets the user get the reproducer in the same call where the bug was
-observed.
-
-The `Reproducer` is fully self-contained: pipeline config, entities,
-input packet, trace, and possible outcomes. Serialize it to a file
-and hand it to someone — they have everything needed to reproduce
-the trace and see what happened.
+The RPC reuses `InjectPacketRequest` — same input as `InjectPacket` —
+and returns a self-contained `Reproducer`. Serialize it to a file and
+hand it to someone — they have everything needed to reproduce the
+trace and see what happened.
 
 ### Entity extraction
 
@@ -118,10 +95,10 @@ tradeoff: the reproducer is a recording, not a diagnosis.
 
 | Component | Change |
 |---|---|
-| `grpc/dataplane.proto` | Add `include_reproducer` flag, `Reproducer` message, and `reproducer` field on `InjectPacketResponse` |
-| `grpc/DataplaneService.kt` | When flag is set: extract entities from trace, bundle with pipeline config |
-| `simulator/` (new file) | Entity extraction logic: walk trace tree, collect referenced entities from `ForwardingSnapshot` |
-| `fourward_cc/dataplane_client.h` | Add `include_reproducer` to `InjectPacketArgs` |
+| `grpc/dataplane.proto` | Add `ReproduceTrace` RPC and `Reproducer` message |
+| `grpc/DataplaneService.kt` | Implement `reproduceTrace`: inject packet, extract entities, bundle with pipeline config |
+| `simulator/ReproducerExtractor.kt` | Entity extraction: walk trace tree, collect referenced entities from `TableStore` |
+| `fourward_cc/dataplane_client.h` | Add `ReproduceTrace` method to `DataplaneClient` |
 
 ### Future work
 

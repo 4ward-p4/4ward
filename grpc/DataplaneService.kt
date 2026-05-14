@@ -50,12 +50,44 @@ class DataplaneService(
   )
 
   override suspend fun injectPacket(request: InjectPacketRequest): InjectPacketResponse {
-    val pipeline = pipelineSnapshot()
-    val translator = pipeline?.typeTranslator
+    val translator = pipelineSnapshot()?.typeTranslator
     val ingressPort = resolveIngressPort(request, translator)
     val payload = request.payload.toByteArray()
     // Translate anything thrown past this point into INTERNAL with a
     // description, so the client never sees a bare UNKNOWN. See #499.
+    @Suppress("TooGenericExceptionCaught")
+    try {
+      val result = broker.processPacket(ingressPort, payload)
+      val pt = translator?.portTranslator
+      val possibleOutcomes =
+        result.possibleOutcomes.map { world ->
+          PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()
+        }
+      return InjectPacketResponse.newBuilder()
+        .addAllPossibleOutcomes(possibleOutcomes)
+        .setTrace(enrichTrace(result.trace, translator))
+        .build()
+    } catch (e: StatusException) {
+      throw e // already has a proper status; don't rewrap.
+    } catch (e: IllegalArgumentException) {
+      val detail = listOfNotNull("InjectPacket failed", e.message).joinToString(": ")
+      throw Status.INVALID_ARGUMENT.withDescription(detail).withCause(e).asException()
+    } catch (e: Exception) {
+      val detail = listOfNotNull("InjectPacket failed", e.message).joinToString(": ")
+      throw Status.INTERNAL.withDescription(detail).withCause(e).asException()
+    }
+  }
+
+  override suspend fun reproduceTrace(request: InjectPacketRequest): Reproducer {
+    val pipeline =
+      pipelineSnapshot()
+        ?: throw Status.FAILED_PRECONDITION.withDescription(
+            "No pipeline loaded — call SetForwardingPipelineConfig first"
+          )
+          .asException()
+    val translator = pipeline.typeTranslator
+    val ingressPort = resolveIngressPort(request, translator)
+    val payload = request.payload.toByteArray()
     @Suppress("TooGenericExceptionCaught")
     try {
       val result = broker.processPacket(ingressPort, payload)
@@ -65,38 +97,30 @@ class DataplaneService(
         result.possibleOutcomes.map { world ->
           PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()
         }
-      val response =
-        InjectPacketResponse.newBuilder()
-          .addAllPossibleOutcomes(possibleOutcomes)
-          .setTrace(enrichedTrace)
-      if (request.includeReproducer && pipeline != null) {
-        response.setReproducer(
-          Reproducer.newBuilder()
-            .setPipelineConfig(pipeline.config)
-            .addAllEntities(
-              extractReproducerEntities(
-                result.trace,
-                pipeline.tableStore,
-                pipeline.config.device.staticEntries.updatesList,
-              )
-            )
-            .setInputPacket(
-              InputPacket.newBuilder()
-                .setDataplaneIngressPort(ingressPort)
-                .setPayload(ByteString.copyFrom(payload))
-            )
-            .setTrace(enrichedTrace)
-            .addAllPossibleOutcomes(possibleOutcomes)
+      return Reproducer.newBuilder()
+        .setPipelineConfig(pipeline.config)
+        .addAllEntities(
+          extractReproducerEntities(
+            result.trace,
+            pipeline.tableStore,
+            pipeline.config.device.staticEntries.updatesList,
+          )
         )
-      }
-      return response.build()
+        .setInputPacket(
+          InputPacket.newBuilder()
+            .setDataplaneIngressPort(ingressPort)
+            .setPayload(ByteString.copyFrom(payload))
+        )
+        .setTrace(enrichedTrace)
+        .addAllPossibleOutcomes(possibleOutcomes)
+        .build()
     } catch (e: StatusException) {
-      throw e // already has a proper status; don't rewrap.
+      throw e
     } catch (e: IllegalArgumentException) {
-      val detail = listOfNotNull("InjectPacket failed", e.message).joinToString(": ")
+      val detail = listOfNotNull("ReproduceTrace failed", e.message).joinToString(": ")
       throw Status.INVALID_ARGUMENT.withDescription(detail).withCause(e).asException()
     } catch (e: Exception) {
-      val detail = listOfNotNull("InjectPacket failed", e.message).joinToString(": ")
+      val detail = listOfNotNull("ReproduceTrace failed", e.message).joinToString(": ")
       throw Status.INTERNAL.withDescription(detail).withCause(e).asException()
     }
   }

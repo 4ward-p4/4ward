@@ -57,7 +57,6 @@ struct P4RuntimePort {
 struct InjectPacketArgs {
   std::variant<DataplanePort, P4RuntimePort> ingress_port;
   std::string payload;
-  bool include_reproducer = false;
 };
 
 // RAII handle for an open SubscribeResults stream. Destructor cancels and
@@ -110,6 +109,12 @@ class DataplaneClient {
   // Results are delivered via SubscribeResults, not in the response.
   absl::Status InjectPackets(
       absl::Span<const InjectPacketArgs> args,
+      std::optional<absl::Duration> deadline = std::nullopt);
+
+  // Inject a packet and return a self-contained Reproducer for the
+  // resulting trace.
+  absl::StatusOr<fourward::Reproducer> ReproduceTrace(
+      const InjectPacketArgs& args,
       std::optional<absl::Duration> deadline = std::nullopt);
 
   // Blocks until the server confirms the subscription is active. The

@@ -60,7 +60,6 @@ fourward::InjectPacketRequest ToProto(
              },
              args.ingress_port);
   req.set_payload(args.payload);
-  if (args.include_reproducer) req.set_include_reproducer(true);
   return req;
 }
 
@@ -88,6 +87,18 @@ DataplaneClient::InjectPacket(const InjectPacketArgs& args,
   fourward::InjectPacketRequest req = ToProto(args);
   fourward::InjectPacketResponse resp;
   grpc::Status status = stub_->InjectPacket(&ctx, req, &resp);
+  if (!status.ok()) return ToAbsl(status);
+  return resp;
+}
+
+absl::StatusOr<fourward::Reproducer>
+DataplaneClient::ReproduceTrace(const InjectPacketArgs& args,
+                                std::optional<absl::Duration> deadline) {
+  grpc::ClientContext ctx;
+  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(deadline)));
+  fourward::InjectPacketRequest req = ToProto(args);
+  fourward::Reproducer resp;
+  grpc::Status status = stub_->ReproduceTrace(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
   return resp;
 }

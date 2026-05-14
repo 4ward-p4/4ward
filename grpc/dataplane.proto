@@ -31,6 +31,12 @@ service Dataplane {
   rpc SubscribeResults(SubscribeResultsRequest)
       returns (stream SubscribeResultsResponse);
 
+  // Inject a packet and return a self-contained Reproducer for the resulting
+  // trace. The Reproducer bundles the pipeline config, relevant entities,
+  // input packet, trace, and possible outcomes — everything needed to replay
+  // the trace in another 4ward instance.
+  rpc ReproduceTrace(InjectPacketRequest) returns (Reproducer);
+
   // Registers a pre-packet hook that fires before every dataplane RPC.
   //
   // Some systems need to update P4 state in response to external
@@ -64,10 +70,6 @@ message InjectPacketRequest {
     bytes p4rt_ingress_port = 2;
   }
   bytes payload = 3;
-
-  // When true, the response includes a Reproducer with the pipeline
-  // config and entities needed to reproduce this trace.
-  bool include_reproducer = 4;
 }
 
 // A set of output packets from one possible real execution.
@@ -86,10 +88,6 @@ message InjectPacketResponse {
   // Programs with alternative forks (action selectors) have one entry per
   // alternative — each representing a "possible world".
   repeated PacketSet possible_outcomes = 2;
-
-  // Populated when include_reproducer is set on the request. Contains the
-  // pipeline config and entities needed to reproduce this trace.
-  Reproducer reproducer = 3;
 }
 
 // Self-contained reproduction case for a packet trace. Load the pipeline,
