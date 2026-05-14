@@ -191,7 +191,7 @@ class P4RuntimeConformanceTest {
       Entity.newBuilder()
         .setTableEntry(p4.v1.P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(99999))
         .build()
-    assertGrpcError(Status.Code.NOT_FOUND) { harness.installEntry(entity) }
+    assertGrpcError(Status.Code.INVALID_ARGUMENT) { harness.installEntry(entity) }
   }
 
   // =========================================================================

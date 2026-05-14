@@ -47,13 +47,13 @@ class WriteValidatorTest {
   // =========================================================================
 
   @Test
-  fun `unknown table ID returns NOT_FOUND`() {
+  fun `unknown table ID returns INVALID_ARGUMENT`() {
     val v = validator()
     val e =
       assertThrows(StatusException::class.java) {
         v.validate(insertUpdate(99999, exactMatch(MATCH_FIELD_ID, bytes(2)), action()))
       }
-    assertEquals(Status.Code.NOT_FOUND, e.status.code)
+    assertEquals(Status.Code.INVALID_ARGUMENT, e.status.code)
   }
 
   // =========================================================================

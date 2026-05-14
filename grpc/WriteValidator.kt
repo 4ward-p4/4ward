@@ -87,7 +87,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
     val entry = update.entity.tableEntry
     val tableInfo =
       tableInfoById[entry.tableId]
-        ?: throw notFound(
+        ?: throw invalidArg(
           "unknown table ID ${entry.tableId} " +
             "(valid tables: ${formatOptions(
               tableInfoById.values.map { "'${it.tableName}' (${it.preamble.id})" }
@@ -103,6 +103,9 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
       validateDefaultEntry(update, entry, tableInfo)
       return
     }
+
+    // Validate match fields for all operations — DELETE needs a valid key too.
+    validateMatchFields(entry, tableInfo)
 
     // P4Runtime spec §9.1: DELETE only needs the match key; skip content validation.
     if (update.type == P4RuntimeOuterClass.Update.Type.DELETE) return
@@ -128,7 +131,6 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
         null -> {}
       }
     }
-    validateMatchFields(entry, tableInfo)
     validatePriority(entry, tableInfo)
   }
 
