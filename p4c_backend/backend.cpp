@@ -563,10 +563,13 @@ void FourWardBackend::emitTypeDecls(const IR::P4Program* program) {
                 fd->add_field_list_ids(c->asInt());
               } else if (const auto* ei =
                              P4::EnumInstance::resolve(arg, &typeMap_)) {
-                if (const auto* sei = ei->to<P4::SerEnumInstance>()) {
-                  if (const auto* val = sei->value->to<IR::Constant>()) {
-                    fd->add_field_list_ids(val->asInt());
-                  }
+                const auto* sei = ei->to<P4::SerEnumInstance>();
+                BUG_CHECK(sei != nullptr,
+                          "@field_list argument resolved to non-serializable "
+                          "enum %1%",
+                          arg);
+                if (const auto* val = sei->value->to<IR::Constant>()) {
+                  fd->add_field_list_ids(val->asInt());
                 }
               }
             }

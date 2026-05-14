@@ -910,31 +910,18 @@ class SaiP4E2ETest {
     )
 
     // 4. Clone session → replica on MIRROR_PORT with instance=MIRRORING (2).
-    harness.installEntry(
-      Entity.newBuilder()
-        .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-            .setCloneSessionEntry(
-              P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
-                .setSessionId(MIRROR_CLONE_SESSION_ID)
-                .addReplicas(
-                  P4RuntimeOuterClass.Replica.newBuilder()
-                    .setPort(ByteString.copyFromUtf8(MIRROR_PORT.toString()))
-                    .setInstance(REPLICA_INSTANCE_MIRRORING)
-                )
-            )
-        )
-        .build()
-    )
+    installCloneSession(MIRROR_CLONE_SESSION_ID, MIRROR_PORT.toString(), REPLICA_INSTANCE_MIRRORING)
 
     // Inject an IPv4 packet and check the mirrored output.
     val packet = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
     val result = harness.injectPacket(ingressPort = 0, payload = packet)
     val outputs = result.possibleOutcomesList.single().packetsList
-    val mirroredPacket = outputs.find { it.dataplaneEgressPort == MIRROR_PORT }
-    assertNotNull("expected a mirrored packet on port $MIRROR_PORT", mirroredPacket)
+    val mirroredPacket =
+      checkNotNull(outputs.find { it.dataplaneEgressPort == MIRROR_PORT }) {
+        "expected a mirrored packet on port $MIRROR_PORT"
+      }
 
-    val mirroredBytes = mirroredPacket!!.payload.toByteArray()
+    val mirroredBytes = mirroredPacket.payload.toByteArray()
     // The mirrored packet should be: Ethernet(14) + VLAN(4) + IPv6(40) + UDP(8) + IPFIX(16) +
     // PSAMP(28) + original_packet. Encap overhead = 110 bytes.
     val encapOverhead = 14 + 4 + 40 + 8 + 16 + 28
@@ -948,8 +935,8 @@ class SaiP4E2ETest {
     assertBytesEqual("encap dst_mac", mirrorEncapDstMac, mirroredBytes, 0)
     assertBytesEqual("encap src_mac", mirrorEncapSrcMac, mirroredBytes, 6)
     // EtherType = 0x8100 (802.1Q VLAN).
-    assertEquals("encap ethertype", 0x81.toByte(), mirroredBytes[12])
-    assertEquals("encap ethertype", 0x00.toByte(), mirroredBytes[13])
+    assertEquals("encap ethertype high", 0x81.toByte(), mirroredBytes[12])
+    assertEquals("encap ethertype low", 0x00.toByte(), mirroredBytes[13])
 
     // VLAN ethertype = 0x86DD (IPv6) at offset 16.
     assertEquals("vlan ethertype high", 0x86.toByte(), mirroredBytes[16])
@@ -963,8 +950,8 @@ class SaiP4E2ETest {
     // only the Ethernet header and IP src/dst addresses.
     assertBytesEqual("original dst_mac", UNICAST_MAC, mirroredBytes, encapOverhead)
     assertBytesEqual("original src_mac", SRC_MAC, mirroredBytes, encapOverhead + MAC_LEN)
-    assertEquals("original ethertype", 0x08.toByte(), mirroredBytes[encapOverhead + 12])
-    assertEquals("original ethertype", 0x00.toByte(), mirroredBytes[encapOverhead + 13])
+    assertEquals("original ethertype high", 0x08.toByte(), mirroredBytes[encapOverhead + 12])
+    assertEquals("original ethertype low", 0x00.toByte(), mirroredBytes[encapOverhead + 13])
     assertBytesEqual("original src_ip", SRC_IP, mirroredBytes, encapOverhead + SRC_IP_OFFSET)
     assertBytesEqual("original dst_ip", DST_IP, mirroredBytes, encapOverhead + DST_IP_OFFSET)
   }
@@ -1861,14 +1848,14 @@ class SaiP4E2ETest {
    * metadata and `p4rt_egress_port` in InjectPacket responses.
    */
   @Suppress("MagicNumber", "SameParameterValue")
-  private fun installCloneSession(sessionId: Int, p4rtPort: String) {
+  private fun installCloneSession(sessionId: Int, p4rtPort: String, instance: Int = 1) {
     val entry =
       P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
         .setSessionId(sessionId)
         .addReplicas(
           P4RuntimeOuterClass.Replica.newBuilder()
             .setPort(ByteString.copyFromUtf8(p4rtPort))
-            .setInstance(1)
+            .setInstance(instance)
         )
         .build()
     harness.installEntry(
