@@ -7,6 +7,7 @@
 #ifndef FOURWARD_CC_DATAPLANE_MATCHERS_H_
 #define FOURWARD_CC_DATAPLANE_MATCHERS_H_
 
+#include <concepts>
 #include <cstdint>
 #include <ostream>
 #include <string>
@@ -26,7 +27,14 @@ namespace internal {
 
 using PacketList = std::vector<fourward::OutputPacket>;
 
+// Satisfied by InjectPacketResponse and ProcessPacketResult.
 template <typename T>
+concept HasPossibleOutcomes = requires(const T& r) {
+  { r.possible_outcomes() };
+};
+
+template <typename T>
+  requires(HasPossibleOutcomes<T>)
 std::vector<PacketList> ExtractOutcomes(const T& result) {
   std::vector<PacketList> outcomes;
   for (const auto& ps : result.possible_outcomes()) {
@@ -72,6 +80,7 @@ class OutcomesMatcherBase {
       : inner_(std::move(inner)), description_(std::move(description)) {}
 
   template <typename T>
+    requires(HasPossibleOutcomes<T>)
   bool MatchAndExplain(const T& result,
                        ::testing::MatchResultListener* listener) const {
     auto outcomes = ExtractOutcomes(result);
@@ -137,6 +146,7 @@ inline void PrintPortKey(std::ostream* os, const PortKey& key) {
 }
 
 template <typename T>
+  requires(HasPossibleOutcomes<T>)
 PacketList DeterministicPackets(const T& result) {
   auto outcomes = ExtractOutcomes(result);
   if (outcomes.size() != 1) {
@@ -420,6 +430,7 @@ inline auto OnPorts(
 // ---------------------------------------------------------------------------
 
 template <typename T>
+  requires(internal::HasPossibleOutcomes<T>)
 absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>>
 PacketsByDataplanePort(const T& result) {
   absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>> groups;
@@ -431,6 +442,7 @@ PacketsByDataplanePort(const T& result) {
 }
 
 template <typename T>
+  requires(internal::HasPossibleOutcomes<T>)
 absl::btree_map<std::string, std::vector<fourward::OutputPacket>>
 PacketsByP4RuntimePort(const T& result) {
   absl::btree_map<std::string, std::vector<fourward::OutputPacket>> groups;
