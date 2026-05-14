@@ -73,6 +73,13 @@ events {
     dataplane_port: 0
   }
 }
+events {
+  multicast_group_lookup {
+    multicast_group_id: 1
+    group_found: true
+    replica_count: 2
+  }
+}
 fork_outcome {
   reason: MULTICAST
   branches {

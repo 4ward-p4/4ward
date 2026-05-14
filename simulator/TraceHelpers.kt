@@ -5,6 +5,7 @@ import fourward.DropReason
 import fourward.Fork
 import fourward.ForkBranch
 import fourward.ForkReason
+import fourward.MulticastGroupLookupEvent
 import fourward.PacketIngressEvent
 import fourward.PacketOutcome
 import fourward.PipelineStage
@@ -79,6 +80,25 @@ internal fun stageEvent(
         .setStageKind(stage.kind)
         .setDirection(direction)
         .apply { if (dataplanePort != null) setDataplanePort(dataplanePort) }
+    )
+    .build()
+
+/** Creates a [TraceEvent] recording a successful multicast group lookup. */
+internal fun multicastGroupLookupEvent(groupId: Int, replicaCount: Int): TraceEvent =
+  TraceEvent.newBuilder()
+    .setMulticastGroupLookup(
+      MulticastGroupLookupEvent.newBuilder()
+        .setMulticastGroupId(groupId)
+        .setGroupFound(true)
+        .setReplicaCount(replicaCount)
+    )
+    .build()
+
+/** Creates a [TraceEvent] recording a failed multicast group lookup. */
+internal fun multicastGroupMissEvent(groupId: Int): TraceEvent =
+  TraceEvent.newBuilder()
+    .setMulticastGroupLookup(
+      MulticastGroupLookupEvent.newBuilder().setMulticastGroupId(groupId).setGroupFound(false)
     )
     .build()
 

@@ -825,6 +825,7 @@ class V1ModelArchitecture(
     if (mcastGrp != 0) {
       val group = ctx.tableStore.getMulticastGroup(mcastGrp)
       if (group != null) {
+        s.packetCtx.addTraceEvent(multicastGroupLookupEvent(mcastGrp, group.replicasCount))
         val replicas = group.replicasList.map { r -> Replica(r.instance, replicaPort(r)) }
         throw MulticastFork(
           replicas,
@@ -834,6 +835,7 @@ class V1ModelArchitecture(
           s.pendingOps.copy(),
         )
       }
+      s.packetCtx.addTraceEvent(multicastGroupMissEvent(mcastGrp))
     }
     // Normal unicast: copy egress_spec → egress_port.
     s.standardMetadata.fields["egress_port"] =

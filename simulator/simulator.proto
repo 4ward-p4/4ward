@@ -116,20 +116,34 @@ message Drop {
 
 message TraceEvent {
   oneof event {
+    // Pipeline lifecycle.
+    PacketIngressEvent packet_ingress = 8;
+    PipelineStageEvent pipeline_stage = 9;
+
+    // Parser.
     ParserTransitionEvent parser_transition = 1;
+
+    // Control flow.
     TableLookupEvent table_lookup = 2;
     ActionExecutionEvent action_execution = 3;
     BranchEvent branch = 4;
+    AssignmentEvent assignment = 14;
+
+    // Externs.
     ExternCallEvent extern_call = 5;
-    MarkToDropEvent mark_to_drop = 6;
-    CloneEvent clone = 7;
-    PacketIngressEvent packet_ingress = 8;
-    PipelineStageEvent pipeline_stage = 9;
-    CloneSessionLookupEvent clone_session_lookup = 10;
     LogMessageEvent log_message = 11;
     AssertionEvent assertion = 12;
+
+    // Packet replication engine (PRE).
+    CloneEvent clone = 7;
+    CloneSessionLookupEvent clone_session_lookup = 10;
+    MulticastGroupLookupEvent multicast_group_lookup = 15;
+
+    // Packet fate.
+    MarkToDropEvent mark_to_drop = 6;
+
+    // Deparser.
     DeparserEmitEvent deparser_emit = 13;
-    AssignmentEvent assignment = 14;
   }
 
   SourceInfo source_info = 100;
@@ -219,6 +233,16 @@ message CloneSessionLookupEvent {
   // Total number of replicas in the clone session. Multi-replica sessions
   // (e.g., mirror-and-punt) produce one clone branch per replica.
   uint32 replica_count = 6;
+}
+
+// Fired at the ingress→egress boundary when the traffic manager resolves a
+// multicast group. Analogous to CloneSessionLookupEvent.
+message MulticastGroupLookupEvent {
+  uint32 multicast_group_id = 1;
+  optional bool group_found =
+      2;  // false = group not configured, multicast silently skipped
+  uint32 replica_count =
+      3;  // number of replicas in the group; only meaningful when found
 }
 
 // Fired when a packet arrives at the pipeline — the very first event in any

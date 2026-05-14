@@ -97,6 +97,13 @@ fork_outcome {
   branches {
     label: "original"
     subtree {
+      events {
+        multicast_group_lookup {
+          multicast_group_id: 1
+          group_found: true
+          replica_count: 2
+        }
+      }
       fork_outcome {
         reason: MULTICAST
         branches {

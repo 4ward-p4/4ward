@@ -285,11 +285,12 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     depth: Int,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): TraceTree {
-    val group =
-      egressState.pipeline.tableStore.getMulticastGroup(multicastGroup)
-        ?: // BMv2 psa_switch: unknown multicast group → silently drop.
-        return buildDropTrace(emptyList())
+    val group = egressState.pipeline.tableStore.getMulticastGroup(multicastGroup)
+    if (group == null) {
+      return buildDropTrace(listOf(multicastGroupMissEvent(multicastGroup)))
+    }
 
+    val lookupEvent = multicastGroupLookupEvent(multicastGroup, group.replicasCount)
     val branches =
       group.replicasList.map { replica ->
         val port = replicaPort(replica)
@@ -309,6 +310,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
           .build()
       }
     return TraceTree.newBuilder()
+      .addEvents(lookupEvent)
       .setForkOutcome(Fork.newBuilder().setReason(ForkReason.MULTICAST).addAllBranches(branches))
       .build()
   }
