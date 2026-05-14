@@ -16,14 +16,15 @@ git worktree remove ../4ward-<branch>
 git worktree prune
 ```
 
-## Understand ideal before settling for less
+## Build the ideal, not "good enough"
 
 Before committing to any design or implementation, define what the ideal
 solution looks like — unconstrained by schedule, legacy, or expedience.
-You don't have to build the ideal, but YOU MUST UNDERSTAND IT. A pragmatic
-shortcut is a legitimate engineering choice; a shortcut you took because you
-never considered the alternative is just a blind spot. Name the north star,
-name what you're trading away, and name why.
+Then build it. "Good enough" is how mediocre code happens; aim for the
+optimum. A pragmatic shortcut is a legitimate engineering choice when
+you've considered the ideal and have a concrete reason to defer it — but
+the default should be to do the right thing, not to stop early. Name the
+north star, name what you're trading away, and name why.
 
 ## Test-driven development
 
