@@ -25,18 +25,10 @@ def _compiler_shell_expr(cc):
     runfiles_path = cc[len("external/"):] if cc.startswith("external/") else "_main/" + cc
     return '"$RUNFILES/{}"'.format(runfiles_path)
 
-# Shell preamble that resolves the runfiles root from the shim's own location.
-# A no-op when all compiler paths are absolute (Linux), since $RUNFILES is
-# never referenced in that case.
-_RUNFILES_PREAMBLE = "\n".join([
-    'SHIM_DIR="$(cd "$(dirname "$0")" && pwd)"',
-    'RUNFILES="${SHIM_DIR%/_main/*}"',
-    'if [ "$RUNFILES" = "$SHIM_DIR" ]; then',
-    '  echo "cc_shim: cannot find runfiles root from $SHIM_DIR" >&2',
-    "  exit 1",
-    "fi",
-    "",
-])
+# Shell preamble that sets $RUNFILES from RUNFILES_DIR (set by Bazel/blaze
+# test runners and `bazel run`). When all compiler paths are absolute (Linux),
+# $RUNFILES is never referenced and the preamble is a harmless no-op.
+_RUNFILES_PREAMBLE = 'RUNFILES="${RUNFILES_DIR:-}"\n'
 
 def _cc_shim_impl(ctx):
     exec_cc = ctx.attr._exec_cc_toolchain[cc_common.CcToolchainInfo]
