@@ -48,7 +48,22 @@ guilt — just write it down so someone can find it later.
   `direct_meter.read()` always return GREEN (0). Rate limiting is not
   simulated — there are no real packet rates in STF tests.
 - **`digest` is a no-op stub.** PSA `Digest.pack()` is accepted but doesn't
-  deliver messages to the control plane. v1model `digest()` is not implemented.
+  deliver messages to the control plane. v1model `digest()` is not
+  implemented and will crash at runtime.
+
+## v1model gaps
+
+- **`truncate()` not implemented.** The v1model extern
+  `truncate(in bit<32> length)` — which caps the output packet to the
+  given number of bytes after the deparser — is not handled. Calling it
+  will crash the simulator.
+- **`random()` not implemented.** The v1model free-function form
+  `random(out bit<32> result, in bit<32> lo, in bit<32> hi)` is not
+  handled and will crash at runtime. (PSA/PNA `Random.read()` works.)
+- **`standard_metadata` queue depth fields are always zero.**
+  `enq_qdepth`, `deq_qdepth`, and `deq_timedelta` are never populated.
+  The simulator has no traffic manager queue model, so these fields stay
+  at their default zero values.
 
 ## P4Runtime server
 

@@ -242,6 +242,7 @@ class V1ModelArchitectureTest {
     egressPort: Int,
     instance: Int = 0,
     usePortBytes: Boolean = false,
+    packetLengthBytes: Int = 0,
   ) {
     store.write(
       P4RuntimeOuterClass.Update.newBuilder()
@@ -254,6 +255,7 @@ class V1ModelArchitectureTest {
                   P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
                     .setSessionId(sessionId)
                     .addReplicas(buildReplica(egressPort, instance, usePortBytes = usePortBytes))
+                    .setPacketLengthBytes(packetLengthBytes)
                 )
             )
         )
@@ -780,6 +782,86 @@ class V1ModelArchitectureTest {
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
     assertEquals(3, outputs[0].dataplaneEgressPort)
+  }
+
+  @Test
+  fun `I2E clone with packet_length_bytes truncates cloned packet`() {
+    val config =
+      v1modelConfig(
+        externCall("clone", enumArg("I2E"), intArg(1, 32)),
+        assignField("sm", "egress_spec", 2, V1ModelArchitecture.DEFAULT_PORT_BITS),
+      )
+    val tableStore = TableStore()
+    writeCloneSession(tableStore, sessionId = 1, egressPort = 7, packetLengthBytes = 3)
+
+    val payload =
+      byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte(), 0xEE.toByte())
+    val result = V1ModelArchitecture(config).processPacket(0u, payload, tableStore)
+
+    assertTrue(result.trace.hasForkOutcome())
+    val outputs = result.possibleOutcomes.single()
+    assertEquals(2, outputs.size)
+    assertEquals(5, outputs[0].payload.size())
+    assertEquals(3, outputs[1].payload.size())
+    assertEquals(payload.sliceArray(0..2).toList(), outputs[1].payload.toByteArray().toList())
+  }
+
+  @Test
+  fun `E2E clone with packet_length_bytes truncates cloned packet`() {
+    val config =
+      v1modelConfig(
+        ingressStmts =
+          listOf(assignField("sm", "egress_spec", 3, V1ModelArchitecture.DEFAULT_PORT_BITS)),
+        egressStmts = listOf(externCall("clone", enumArg("E2E"), intArg(1, 32))),
+      )
+    val tableStore = TableStore()
+    writeCloneSession(tableStore, sessionId = 1, egressPort = 8, packetLengthBytes = 2)
+
+    val payload = byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte())
+    val result = V1ModelArchitecture(config).processPacket(0u, payload, tableStore)
+
+    assertTrue(result.trace.hasForkOutcome())
+    val outputs = result.possibleOutcomes.single()
+    assertEquals(2, outputs.size)
+    assertEquals(4, outputs[0].payload.size())
+    assertEquals(2, outputs[1].payload.size())
+  }
+
+  @Test
+  fun `clone with packet_length_bytes=0 does not truncate`() {
+    val config =
+      v1modelConfig(
+        externCall("clone", enumArg("I2E"), intArg(1, 32)),
+        assignField("sm", "egress_spec", 2, V1ModelArchitecture.DEFAULT_PORT_BITS),
+      )
+    val tableStore = TableStore()
+    writeCloneSession(tableStore, sessionId = 1, egressPort = 7, packetLengthBytes = 0)
+
+    val payload = byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte())
+    val result = V1ModelArchitecture(config).processPacket(0u, payload, tableStore)
+
+    val outputs = result.possibleOutcomes.single()
+    assertEquals(2, outputs.size)
+    assertEquals(3, outputs[0].payload.size())
+    assertEquals(3, outputs[1].payload.size())
+  }
+
+  @Test
+  fun `clone truncation larger than packet is a no-op`() {
+    val config =
+      v1modelConfig(
+        externCall("clone", enumArg("I2E"), intArg(1, 32)),
+        assignField("sm", "egress_spec", 2, V1ModelArchitecture.DEFAULT_PORT_BITS),
+      )
+    val tableStore = TableStore()
+    writeCloneSession(tableStore, sessionId = 1, egressPort = 7, packetLengthBytes = 100)
+
+    val payload = byteArrayOf(0xAA.toByte(), 0xBB.toByte())
+    val result = V1ModelArchitecture(config).processPacket(0u, payload, tableStore)
+
+    val outputs = result.possibleOutcomes.single()
+    assertEquals(2, outputs.size)
+    assertEquals(2, outputs[1].payload.size())
   }
 
   @Test
