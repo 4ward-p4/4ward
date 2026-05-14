@@ -65,6 +65,9 @@ class DataplaneService(
         .asException()
     }
     val (enrichedResult, pipeline) = processAndEnrich(request, "ReproduceTrace")
+    // pipeline is non-null: the pre-check above rejects the no-pipeline case, and pipeline
+    // unload between the check and here requires a concurrent SetForwardingPipelineConfig
+    // that replaces the pipeline (not unloads it — there's no "unload" API).
     return Reproducer.newBuilder()
       .setPipelineConfig(pipeline!!.config)
       .addAllEntities(
@@ -107,6 +110,8 @@ class DataplaneService(
     val translator = pipeline?.typeTranslator
     val ingressPort = resolveIngressPort(request, translator)
     val payload = request.payload.toByteArray()
+    // Translate anything thrown past this point into INTERNAL with a
+    // description, so the client never sees a bare UNKNOWN. See #499.
     @Suppress("TooGenericExceptionCaught")
     try {
       val result = broker.processPacket(ingressPort, payload)
@@ -125,7 +130,7 @@ class DataplaneService(
         )
       return enrichedResult to pipeline
     } catch (e: StatusException) {
-      throw e
+      throw e // already has a proper status; don't rewrap.
     } catch (e: IllegalArgumentException) {
       val detail = listOfNotNull("$rpcName failed", e.message).joinToString(": ")
       throw Status.INVALID_ARGUMENT.withDescription(detail).withCause(e).asException()

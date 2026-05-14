@@ -229,6 +229,33 @@ class ReproducerExtractorTest {
     assertEquals(entry2, entities[1].tableEntry)
   }
 
+  private fun tableStoreWithActionProfile(
+    profileId: Int = 100,
+    tableId: Int = 1,
+    setup: TableStore.ForwardingSnapshot.() -> Unit,
+  ): TableStore {
+    val store = TableStore()
+    val p4info =
+      p4.config.v1.P4InfoOuterClass.P4Info.newBuilder()
+        .addTables(
+          p4.config.v1.P4InfoOuterClass.Table.newBuilder()
+            .setPreamble(
+              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(tableId).setAlias("t")
+            )
+            .setImplementationId(profileId)
+        )
+        .addActionProfiles(
+          p4.config.v1.P4InfoOuterClass.ActionProfile.newBuilder()
+            .setPreamble(
+              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(profileId).setAlias("ap")
+            )
+        )
+        .build()
+    store.loadMappings(p4info, fourward.DeviceConfig.getDefaultInstance())
+    store.snapshot.setup()
+    return store
+  }
+
   @Test
   fun `action profile member is extracted from matched entry`() {
     val member =
@@ -238,7 +265,7 @@ class ReproducerExtractorTest {
         .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(10))
         .build()
 
-    val store = tableStoreWith { profileMembers[100] = mutableMapOf(5 to member) }
+    val store = tableStoreWithActionProfile { profileMembers[100] = mutableMapOf(5 to member) }
 
     val entry =
       P4RuntimeOuterClass.TableEntry.newBuilder()
@@ -286,7 +313,7 @@ class ReproducerExtractorTest {
         )
         .build()
 
-    val store = tableStoreWith {
+    val store = tableStoreWithActionProfile {
       profileMembers[100] = mutableMapOf(1 to member1, 2 to member2)
       profileGroups[100] = mutableMapOf(7 to group)
     }

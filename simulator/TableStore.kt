@@ -705,6 +705,12 @@ class TableStore : TableDataReader {
       .build()
   }
 
+  /** Returns the action profile ID for the table with [tableId], or null if the table has none. */
+  fun actionProfileIdForTable(tableId: Int): Int? {
+    val tableName = tableNameById[tableId] ?: return null
+    return tableActionProfile[tableName]
+  }
+
   override fun getDirectCounterData(entry: TableEntry): P4RuntimeOuterClass.CounterData? {
     val counters = directCounterData[entry] ?: return null
     return P4RuntimeOuterClass.CounterData.newBuilder()
@@ -1348,12 +1354,7 @@ class TableStore : TableDataReader {
   /** Wraps a PRE sub-entry into an `Entity` proto. */
   private fun <T> T.toPreEntity(
     setter: P4RuntimeOuterClass.PacketReplicationEngineEntry.Builder.(T) -> Unit
-  ): P4RuntimeOuterClass.Entity =
-    P4RuntimeOuterClass.Entity.newBuilder()
-      .setPacketReplicationEngineEntry(
-        P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().also { it.setter(this) }
-      )
-      .build()
+  ): P4RuntimeOuterClass.Entity = buildPreEntity(this, setter)
 
   // -------------------------------------------------------------------------
   // Snapshot / Restore (for ROLLBACK_ON_ERROR / DATAPLANE_ATOMIC)
@@ -1689,3 +1690,14 @@ class TableStore : TableDataReader {
     private val BOOL_FALSE_BITS = BitVector.ofInt(0, 1)
   }
 }
+
+/** Wraps a PRE sub-entry (clone session or multicast group) into an [Entity] proto. */
+internal fun <T> buildPreEntity(
+  entry: T,
+  setter: P4RuntimeOuterClass.PacketReplicationEngineEntry.Builder.(T) -> Unit,
+): P4RuntimeOuterClass.Entity =
+  P4RuntimeOuterClass.Entity.newBuilder()
+    .setPacketReplicationEngineEntry(
+      P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().also { it.setter(entry) }
+    )
+    .build()

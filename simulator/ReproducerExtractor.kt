@@ -70,7 +70,7 @@ private fun collectFromEvent(
         val entry = lookup.matchedEntry
         if (entry !in staticEntries) {
           out += Entity.newBuilder().setTableEntry(entry).build()
-          collectActionProfileEntities(entry, snapshot, out)
+          collectActionProfileEntities(entry, snapshot, tableStore, out)
         }
       } else if (!lookup.hit) {
         tableStore.buildModifiedDefaultActionEntity(lookup.tableName, snapshot)?.let { out += it }
@@ -80,13 +80,7 @@ private fun collectFromEvent(
       val cloneLookup = event.cloneSessionLookup
       if (cloneLookup.sessionFound) {
         snapshot.cloneSessions[cloneLookup.sessionId]?.let { cloneSession ->
-          out +=
-            Entity.newBuilder()
-              .setPacketReplicationEngineEntry(
-                p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-                  .setCloneSessionEntry(cloneSession)
-              )
-              .build()
+          out += buildPreEntity(cloneSession) { setCloneSessionEntry(it) }
         }
       }
     }
@@ -115,13 +109,7 @@ private fun collectMulticastGroups(
   // architecture records it there. For now, include all multicast groups from the
   // snapshot — the typical reproducer involves at most one or two.
   for ((_, group) in snapshot.multicastGroups) {
-    out +=
-      Entity.newBuilder()
-        .setPacketReplicationEngineEntry(
-          p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-            .setMulticastGroupEntry(group)
-        )
-        .build()
+    out += buildPreEntity(group) { setMulticastGroupEntry(it) }
   }
 }
 
@@ -129,29 +117,24 @@ private fun collectMulticastGroups(
 private fun collectActionProfileEntities(
   entry: TableEntry,
   snapshot: TableStore.ForwardingSnapshot,
+  tableStore: TableStore,
   out: MutableSet<Entity>,
 ) {
   if (!entry.hasAction()) return
+  val profileId = tableStore.actionProfileIdForTable(entry.tableId) ?: return
   val tableAction = entry.action
   when (tableAction.typeCase) {
     p4.v1.P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID -> {
-      val memberId = tableAction.actionProfileMemberId
-      for ((profileId, members) in snapshot.profileMembers) {
-        members[memberId]?.let { member ->
-          out += Entity.newBuilder().setActionProfileMember(member).build()
-        }
+      snapshot.profileMembers[profileId]?.get(tableAction.actionProfileMemberId)?.let { member ->
+        out += Entity.newBuilder().setActionProfileMember(member).build()
       }
     }
     p4.v1.P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_GROUP_ID -> {
-      val groupId = tableAction.actionProfileGroupId
-      for ((profileId, groups) in snapshot.profileGroups) {
-        groups[groupId]?.let { group ->
-          out += Entity.newBuilder().setActionProfileGroup(group).build()
-          // Also collect members referenced by the group.
-          for (memberRef in group.membersList) {
-            snapshot.profileMembers[profileId]?.get(memberRef.memberId)?.let { member ->
-              out += Entity.newBuilder().setActionProfileMember(member).build()
-            }
+      snapshot.profileGroups[profileId]?.get(tableAction.actionProfileGroupId)?.let { group ->
+        out += Entity.newBuilder().setActionProfileGroup(group).build()
+        for (memberRef in group.membersList) {
+          snapshot.profileMembers[profileId]?.get(memberRef.memberId)?.let { member ->
+            out += Entity.newBuilder().setActionProfileMember(member).build()
           }
         }
       }
