@@ -34,9 +34,10 @@ fun resolveRunfileProperty(key: String): Path {
 }
 
 /**
- * Prepends a BUILD-provided `cc` shim to [pb]'s PATH. p4c shells out to `cc` for preprocessing; the
- * shim wraps the Bazel CC toolchain compiler so this works in hermetic sandboxes (blaze/google3)
- * where no system `cc` exists.
+ * Appends a BUILD-provided `cc` shim to [pb]'s PATH as a fallback. p4c shells out to `cc` for
+ * preprocessing; the shim wraps the Bazel CC toolchain compiler so this works in hermetic sandboxes
+ * (blaze/google3) where no system `cc` exists. Where a system `cc` does exist (macOS, Linux CI), it
+ * takes priority.
  *
  * WORKAROUND for https://github.com/p4lang/p4c/issues/5618: p4c hardcodes the preprocessor binary
  * (`cc` or `cpp`); once p4c supports `--cc <path>`, pass the compiler path directly and remove the
@@ -48,7 +49,7 @@ fun resolveRunfileProperty(key: String): Path {
 fun ensureCcOnPath(pb: ProcessBuilder, shimPropertyKey: String = "cc_shim") {
   val shimDir = resolveRunfileProperty(shimPropertyKey).parent
   val env = pb.environment()
-  env["PATH"] = "$shimDir${File.pathSeparator}${env["PATH"] ?: ""}"
+  env["PATH"] = "${env["PATH"] ?: ""}${File.pathSeparator}$shimDir"
 }
 
 private fun resolveRlocation(rlocation: String, what: String): Path =
