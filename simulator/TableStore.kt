@@ -305,45 +305,6 @@ class TableStore : TableDataReader {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Read-path delegating properties (read from the published snapshot)
-  // -------------------------------------------------------------------------
-
-  // READ-PATH ONLY. These delegate to the published snapshot and must NOT be used by write-path
-  // methods — those must reference writeState.* explicitly, otherwise they'd read stale data.
-  private val tables
-    get() = snapshot.tables
-
-  private val directMeterData
-    get() = snapshot.directMeterData
-
-  private val defaultActions
-    get() = snapshot.defaultActions
-
-  private val modifiedDefaults
-    get() = snapshot.modifiedDefaults
-
-  private val profileMembers
-    get() = snapshot.profileMembers
-
-  private val profileGroups
-    get() = snapshot.profileGroups
-
-  private val counters
-    get() = snapshot.counters
-
-  private val meters
-    get() = snapshot.meters
-
-  private val cloneSessions
-    get() = snapshot.cloneSessions
-
-  private val multicastGroups
-    get() = snapshot.multicastGroups
-
-  private val valueSets
-    get() = snapshot.valueSets
-
   // Pipeline config (populated by loadMappings, not part of write-state).
   private var tableSizeLimit: Map<String, Int> = emptyMap()
   private var profileMaxGroupSize: Map<Int, Int> = emptyMap()
@@ -699,11 +660,13 @@ class TableStore : TableDataReader {
   // -------------------------------------------------------------------------
 
   override fun getTableEntries(tableName: String): List<TableEntry> =
-    tables[tableName] ?: emptyList()
+    snapshot.tables[tableName] ?: emptyList()
 
-  override fun getDefaultAction(tableName: String): DefaultAction? = defaultActions[tableName]
+  override fun getDefaultAction(tableName: String): DefaultAction? =
+    snapshot.defaultActions[tableName]
 
-  override fun isDefaultModified(tableName: String): Boolean = tableName in modifiedDefaults
+  override fun isDefaultModified(tableName: String): Boolean =
+    tableName in snapshot.modifiedDefaults
 
   override fun getDirectCounterData(entry: TableEntry): P4RuntimeOuterClass.CounterData? {
     val counters = directCounterData[entry] ?: return null
@@ -714,7 +677,7 @@ class TableStore : TableDataReader {
   }
 
   override fun getDirectMeterData(entry: TableEntry): P4RuntimeOuterClass.MeterConfig? =
-    directMeterData[entry]
+    snapshot.directMeterData[entry]
 
   override fun hasDirectCounter(tableName: String): Boolean = tableName in directCounterTables
 
@@ -856,7 +819,8 @@ class TableStore : TableDataReader {
       val indices = if (hasIndex) listOf(filter.index.index.toInt()) else (0 until info.size)
       indices.map { idx ->
         val data =
-          counters[counterId]?.get(idx) ?: P4RuntimeOuterClass.CounterData.getDefaultInstance()
+          snapshot.counters[counterId]?.get(idx)
+            ?: P4RuntimeOuterClass.CounterData.getDefaultInstance()
         P4RuntimeOuterClass.Entity.newBuilder()
           .setCounterEntry(
             P4RuntimeOuterClass.CounterEntry.newBuilder()
@@ -904,7 +868,7 @@ class TableStore : TableDataReader {
           P4RuntimeOuterClass.MeterEntry.newBuilder()
             .setMeterId(meterId)
             .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(idx.toLong()))
-        meters[meterId]?.get(idx)?.let { builder.setConfig(it) }
+        snapshot.meters[meterId]?.get(idx)?.let { builder.setConfig(it) }
         P4RuntimeOuterClass.Entity.newBuilder().setMeterEntry(builder).build()
       }
     }
@@ -1013,7 +977,7 @@ class TableStore : TableDataReader {
     return tableNames.flatMap { tableName ->
       filteredEntries(tableName, matchFilter).map { entry ->
         val builder = P4RuntimeOuterClass.DirectMeterEntry.newBuilder().setTableEntry(entry)
-        directMeterData[entry]?.let { builder.setConfig(it) }
+        snapshot.directMeterData[entry]?.let { builder.setConfig(it) }
         P4RuntimeOuterClass.Entity.newBuilder().setDirectMeterEntry(builder).build()
       }
     }
@@ -1025,7 +989,7 @@ class TableStore : TableDataReader {
 
   /** Returns the members of a parser value_set, or empty if not populated. */
   fun getValueSetMembers(name: String): List<P4RuntimeOuterClass.ValueSetMember> =
-    valueSets[name] ?: emptyList()
+    snapshot.valueSets[name] ?: emptyList()
 
   /** Directly sets value_set members by name, bypassing P4Runtime write path. For testing. */
   internal fun populateValueSet(name: String, members: List<P4RuntimeOuterClass.ValueSetMember>) {
@@ -1072,7 +1036,7 @@ class TableStore : TableDataReader {
         .setValueSetEntry(
           P4RuntimeOuterClass.ValueSetEntry.newBuilder()
             .setValueSetId(vsId)
-            .addAllMembers(valueSets[info.name] ?: emptyList())
+            .addAllMembers(snapshot.valueSets[info.name] ?: emptyList())
         )
         .build()
     }
@@ -1306,10 +1270,10 @@ class TableStore : TableDataReader {
     }
 
   fun getCloneSession(sessionId: Int): P4RuntimeOuterClass.CloneSessionEntry? =
-    cloneSessions[sessionId]
+    snapshot.cloneSessions[sessionId]
 
   fun getMulticastGroup(groupId: Int): P4RuntimeOuterClass.MulticastGroupEntry? =
-    multicastGroups[groupId]
+    snapshot.multicastGroups[groupId]
 
   /**
    * Reads PRE entries matching the filter.
@@ -1326,14 +1290,14 @@ class TableStore : TableDataReader {
     return buildList {
       if (includeClone) {
         val id = if (filter.hasCloneSessionEntry()) filter.cloneSessionEntry.sessionId else 0
-        for (entry in readFromMap(cloneSessions, id)) {
+        for (entry in readFromMap(snapshot.cloneSessions, id)) {
           add(entry.toPreEntity { setCloneSessionEntry(entry) })
         }
       }
       if (includeMulticast) {
         val id =
           if (filter.hasMulticastGroupEntry()) filter.multicastGroupEntry.multicastGroupId else 0
-        for (entry in readFromMap(multicastGroups, id)) {
+        for (entry in readFromMap(snapshot.multicastGroups, id)) {
           add(entry.toPreEntity { setMulticastGroupEntry(entry) })
         }
       }
@@ -1423,7 +1387,7 @@ class TableStore : TableDataReader {
     tableName: String,
     matchFilter: P4RuntimeOuterClass.TableEntry?,
   ): List<P4RuntimeOuterClass.TableEntry> {
-    val entries = tables[tableName] ?: return emptyList()
+    val entries = snapshot.tables[tableName] ?: return emptyList()
     if (matchFilter == null) return entries
     // P4Runtime spec §9.1: match key + priority uniquely identify an entry.
     return listOfNotNull(entries.find { it.sameKey(matchFilter) })
@@ -1454,7 +1418,7 @@ class TableStore : TableDataReader {
     filter: P4RuntimeOuterClass.ActionProfileMember =
       P4RuntimeOuterClass.ActionProfileMember.getDefaultInstance()
   ): List<P4RuntimeOuterClass.Entity> =
-    readProfileEntities(profileMembers, filter.actionProfileId, filter.memberId) {
+    readProfileEntities(snapshot.profileMembers, filter.actionProfileId, filter.memberId) {
       P4RuntimeOuterClass.Entity.newBuilder().setActionProfileMember(it).build()
     }
 
@@ -1462,7 +1426,7 @@ class TableStore : TableDataReader {
     filter: P4RuntimeOuterClass.ActionProfileGroup =
       P4RuntimeOuterClass.ActionProfileGroup.getDefaultInstance()
   ): List<P4RuntimeOuterClass.Entity> =
-    readProfileEntities(profileGroups, filter.actionProfileId, filter.groupId) {
+    readProfileEntities(snapshot.profileGroups, filter.actionProfileId, filter.groupId) {
       P4RuntimeOuterClass.Entity.newBuilder().setActionProfileGroup(it).build()
     }
 
@@ -1523,8 +1487,8 @@ class TableStore : TableDataReader {
       return LookupResult(true, null, it)
     }
 
-    val entries = tables[tableName] ?: emptyList<TableEntry>()
-    val default = defaultActions[tableName] ?: DefaultAction("NoAction")
+    val entries = snapshot.tables[tableName] ?: emptyList<TableEntry>()
+    val default = snapshot.defaultActions[tableName] ?: DefaultAction("NoAction")
 
     // Index key values by field ID for O(1) array lookup in scoreEntry.
     val keyByFieldId =
@@ -1551,12 +1515,12 @@ class TableStore : TableDataReader {
       val profileId =
         tableActionProfile[tableName] ?: error("table $tableName has no action profile")
       val group =
-        profileGroups[profileId]?.get(tableAction.actionProfileGroupId)
+        snapshot.profileGroups[profileId]?.get(tableAction.actionProfileGroupId)
           ?: error("unknown group ${tableAction.actionProfileGroupId} in profile $profileId")
       val members =
         group.membersList.map { groupMember ->
           val member =
-            profileMembers[profileId]?.get(groupMember.memberId)
+            snapshot.profileMembers[profileId]?.get(groupMember.memberId)
               ?: error("unknown member ${groupMember.memberId} in profile $profileId")
           MemberAction(
             groupMember.memberId,
@@ -1585,7 +1549,7 @@ class TableStore : TableDataReader {
       val profileId =
         tableActionProfile[tableName] ?: error("table $tableName has no action profile")
       val member =
-        profileMembers[profileId]?.get(tableAction.actionProfileMemberId)
+        snapshot.profileMembers[profileId]?.get(tableAction.actionProfileMemberId)
           ?: error("unknown member ${tableAction.actionProfileMemberId} in profile $profileId")
       return LookupResult(true, entry, resolveActionName(member.action.actionId))
     }
