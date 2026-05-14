@@ -676,8 +676,8 @@ class P4RuntimeService(
     // port with the header prepended.
     val (ingressPort, payload) =
       if (codec != null) {
-        val header = codec.serializePacketOut(packetOut.metadataList)
-        codec.cpuPort to (header + packetOut.payload.toByteArray())
+        codec.cpuPort to
+          codec.packPacketOut(packetOut.metadataList, packetOut.payload.toByteArray())
       } else {
         extractIngressPort(packetOut.metadataList) to packetOut.payload.toByteArray()
       }

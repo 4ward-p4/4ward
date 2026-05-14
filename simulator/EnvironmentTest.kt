@@ -249,4 +249,49 @@ class EnvironmentTest {
     pktCtx.extractBits(4) // skip first 4 bits
     assertEquals(BigInteger.valueOf(0x5C), pktCtx.extractBits(8))
   }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `extractBits spanning 3 bytes`() {
+    // Bytes: [0xA5, 0xC3, 0x7F] = 0b10100101_11000011_01111111
+    // Skip 4 bits → remaining: 0b0101_11000011_01111111
+    // Extract 16 bits: 0b0101110000110111 = 0x5C37
+    val pktCtx = PacketContext(byteArrayOf(0xA5.toByte(), 0xC3.toByte(), 0x7F.toByte()))
+    pktCtx.extractBits(4) // skip first 4 bits
+    assertEquals(BigInteger.valueOf(0x5C37), pktCtx.extractBits(16))
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `extractBits exactly 1 bit at a byte boundary`() {
+    // Byte: [0x80] = 0b10000000. Extract 1 bit → should be 1.
+    val pktCtx = PacketContext(byteArrayOf(0x80.toByte()))
+    assertEquals(BigInteger.ONE, pktCtx.extractBits(1))
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `extractBits of full byte at non-aligned position`() {
+    // Bytes: [0xFF, 0x00] = 0b11111111_00000000
+    // Skip 1 bit → remaining: 0b1111111_00000000
+    // Extract 8 bits: 0b11111110 = 0xFE
+    val pktCtx = PacketContext(byteArrayOf(0xFF.toByte(), 0x00))
+    pktCtx.extractBits(1) // skip first bit
+    assertEquals(BigInteger.valueOf(0xFE), pktCtx.extractBits(8))
+  }
+
+  // ---------------------------------------------------------------------------
+  // BitAccumulator — adversarial inputs
+  // ---------------------------------------------------------------------------
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `BitAccumulator masks value wider than declared width`() {
+    // append(0xFF, 4): the value 0xFF has 8 significant bits, but only 4 bits
+    // are declared. BitAccumulator masks to the lower 4 bits (0xF) internally.
+    // Output: 0xF in top 4 bits → 0xF0.
+    val acc = BitAccumulator()
+    acc.append(BigInteger.valueOf(0xFF), 4)
+    assertArrayEquals(byteArrayOf(0xF0.toByte()), acc.toByteArray())
+  }
 }

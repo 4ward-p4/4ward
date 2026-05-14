@@ -213,10 +213,10 @@ kt_jvm_test(
 )
 
 kt_jvm_test(
-    name = "InlineP4CompilerTest",
+    name = "BitLevelSerializationTest",
     srcs = [
+        "BitLevelSerializationTest.kt",
         "FourwardTestHarness.kt",
-        "InlineP4CompilerTest.kt",
     ],
     data = [
         "//p4c_backend:p4c-4ward",
@@ -227,7 +227,7 @@ kt_jvm_test(
         "-Dp4c_4ward=$(rlocationpath //p4c_backend:p4c-4ward)",
         "-Dp4include=$(rlocationpath @p4c//p4include:core.p4)",
     ],
-    test_class = "fourward.grpc.InlineP4CompilerTest",
+    test_class = "fourward.grpc.BitLevelSerializationTest",
     deps = [
         ":dataplane_java_proto",
         ":dataplane_kt_grpc",
@@ -692,6 +692,7 @@ kt_jvm_test(
     test_class = "fourward.grpc.PacketHeaderCodecTest",
     deps = [
         ":grpc",
+        "//simulator",
         "//simulator:ir_java_proto",
         "//simulator:p4info_java_proto",
         "//simulator:p4runtime_java_proto",

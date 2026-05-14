@@ -54,6 +54,11 @@ obvious approach, works around a non-obvious constraint, or implements a
 subtle spec requirement. Include spec references (section numbers, GitHub
 issues) where helpful. Do not add comments that merely restate the code.
 
+**Encode invariants as assertions, not comments.** A `require()`,
+`check()`, or exhaustive `when` that fails at runtime is worth more than
+a comment that hopes the next reader will notice. Comments describe
+intent; assertions enforce it.
+
 **Never use deprecated APIs.** When a library marks a function deprecated,
 find and use the successor immediately — don't suppress the warning. A
 deprecated call that works today is a broken call on the next upgrade.

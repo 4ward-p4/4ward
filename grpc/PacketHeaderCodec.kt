@@ -9,6 +9,8 @@ package fourward.grpc
 import com.google.protobuf.ByteString
 import fourward.BehavioralConfig
 import fourward.Type
+import fourward.simulator.BitAccumulator
+import java.math.BigInteger
 import p4.config.v1.P4InfoOuterClass.P4Info
 import p4.v1.P4RuntimeOuterClass.PacketMetadata
 
@@ -69,8 +71,10 @@ private constructor(
 ) {
   data class FieldDef(val id: Int, val name: String, val bitWidth: Int)
 
+  private val packetOutHeaderBits: Int = packetOutFields.sumOf { it.bitWidth }
+
   /** Total bytes of the serialized packet_out header. */
-  val packetOutHeaderBytes: Int = (packetOutFields.sumOf { it.bitWidth } + 7) / 8
+  val packetOutHeaderBytes: Int = (packetOutHeaderBits + 7) / 8
 
   /**
    * Total bits of the serialized packet_in header, derived from p4info field widths. Correctness
@@ -91,36 +95,59 @@ private constructor(
   @Suppress("MagicNumber")
   fun stripPacketInHeader(payload: ByteString): ByteString {
     if (packetInHeaderBits == 0) return payload
-    // Fast path: byte-aligned header, no bit-shifting needed.
     if (packetInHeaderBits % 8 == 0) return payload.substring(packetInHeaderBytes)
-    // Bit-level strip: remove exactly packetInHeaderBits from the front of the
-    // continuous bit stream and repack the remaining bits into bytes.
     val bytes = payload.toByteArray()
-    // Assumes the original payload was N whole bytes. The deparsed stream is
-    // ceil((headerBits + N*8) / 8) bytes. We recover N via integer division,
-    // which truncates any sub-byte remainder — only whole payload bytes survive.
-    val payloadBits = (bytes.size * 8 - packetInHeaderBits) / 8 * 8
+    // The deparsed byte array contains: headerBits + payloadBits + trailingPadBits,
+    // where trailingPadBits < 8 are zeros added by byte-alignment at the end.
+    // The payload (everything after the controller header) is always a whole number
+    // of bytes: it consists of deparser-emitted headers (byte-aligned by the P4
+    // spec for all real targets) followed by the unparsed packet remainder (a suffix
+    // of the original byte-array input). Integer division by 8 recovers the exact
+    // payload byte count, discarding only the trailing pad zeros.
+    val totalBits = bytes.size * 8
+    val payloadBits = (totalBits - packetInHeaderBits) / 8 * 8
     if (payloadBits <= 0) return ByteString.EMPTY
-    val outBytes = payloadBits / 8
-    val result = ByteArray(outBytes)
-    val skipBits = packetInHeaderBits
-    for (i in 0 until outBytes) {
-      val bitPos = skipBits + i * 8
-      val byteIdx = bitPos / 8
-      val bitOff = bitPos % 8
-      var value = (bytes[byteIdx].toInt() and 0xFF) shl bitOff
-      if (bitOff > 0 && byteIdx + 1 < bytes.size) {
-        value = value or ((bytes[byteIdx + 1].toInt() and 0xFF) ushr (8 - bitOff))
+    val discardedBits = totalBits - packetInHeaderBits - payloadBits
+    if (discardedBits > 0) {
+      val trailingMask = (1 shl discardedBits) - 1
+      check(bytes.last().toInt() and trailingMask == 0) {
+        "expected $discardedBits trailing zero-pad bits, but last byte is 0x${
+          "%02X".format(bytes.last())
+        } — payload after @controller_header may not be byte-aligned"
       }
-      result[i] = (value and 0xFF).toByte()
     }
-    return ByteString.copyFrom(result)
+    val acc = BitAccumulator()
+    acc.appendRawBytes(bytes, packetInHeaderBits, payloadBits)
+    return ByteString.copyFrom(acc.toByteArray())
   }
 
   /** Packs PacketOut metadata into a bit-packed binary header. */
   fun serializePacketOut(metadata: List<PacketMetadata>): ByteArray {
     val metadataById = metadata.associateBy { it.metadataId }
     return packFields(packetOutFields, metadataById)
+  }
+
+  /**
+   * Packs the PacketOut header and payload into a continuous bit stream. The header fields are
+   * packed at bit granularity followed immediately by the payload bits — no inter-field padding.
+   * This avoids the corruption that byte-concatenation causes for non-byte-aligned headers.
+   */
+  @Suppress("MagicNumber")
+  fun packPacketOut(metadata: List<PacketMetadata>, payload: ByteArray): ByteArray {
+    // When the header is byte-aligned, serializePacketOut produces exact-width bytes
+    // and byte-concatenation with the payload introduces no padding gap.
+    if (packetOutHeaderBits % 8 == 0) return serializePacketOut(metadata) + payload
+    val metadataById = metadata.associateBy { it.metadataId }
+    val acc = BitAccumulator()
+    for (field in packetOutFields) {
+      val raw = metadataById[field.id]?.value?.toByteArray() ?: ByteArray(0)
+      var v = 0L
+      for (b in raw) v = (v shl 8) or (b.toLong() and 0xFF)
+      if (field.bitWidth < Long.SIZE_BITS) v = v and ((1L shl field.bitWidth) - 1)
+      acc.append(BigInteger.valueOf(v), field.bitWidth)
+    }
+    acc.appendRawBytes(payload, 0, payload.size * 8)
+    return acc.toByteArray()
   }
 
   /**
