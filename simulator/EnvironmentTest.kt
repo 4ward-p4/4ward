@@ -294,4 +294,76 @@ class EnvironmentTest {
     acc.append(BigInteger.valueOf(0xFF), 4)
     assertArrayEquals(byteArrayOf(0xF0.toByte()), acc.toByteArray())
   }
+
+  // ---------------------------------------------------------------------------
+  // Property: BitAccumulator pack → ParserCursor extract = identity
+  // ---------------------------------------------------------------------------
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `pack then extract round-trips for byte-aligned widths`() {
+    // Pack 8, 16, 32 bits → extract the same widths → values match.
+    val values = listOf(0xABL to 8, 0xCDEFL to 16, 0xDEADBEEFL to 32)
+    val acc = BitAccumulator()
+    for ((value, width) in values) acc.append(BigInteger.valueOf(value), width)
+    val bytes = acc.toByteArray()
+
+    val ctx = PacketContext(bytes)
+    for ((value, width) in values) {
+      assertEquals(BigInteger.valueOf(value), ctx.extractBits(width))
+    }
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `pack then extract round-trips for non-byte-aligned widths`() {
+    // Pack 3, 5, 7, 11, 6 bits (total 32 = byte-aligned) → extract → values match.
+    val values = listOf(0x5L to 3, 0x1FL to 5, 0x7FL to 7, 0x7FFL to 11, 0x3FL to 6)
+    val acc = BitAccumulator()
+    for ((value, width) in values) acc.append(BigInteger.valueOf(value), width)
+    val bytes = acc.toByteArray()
+
+    val ctx = PacketContext(bytes)
+    for ((value, width) in values) {
+      assertEquals("width=$width", BigInteger.valueOf(value), ctx.extractBits(width))
+    }
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `pack then extract round-trips for non-byte-aligned total`() {
+    // Pack 5, 7, 3 bits (total 15 = not byte-aligned) → extract → values match.
+    // The accumulator pads to 2 bytes; the parser reads exactly 15 bits.
+    val values = listOf(0x1FL to 5, 0x55L to 7, 0x7L to 3)
+    val acc = BitAccumulator()
+    for ((value, width) in values) acc.append(BigInteger.valueOf(value), width)
+    val bytes = acc.toByteArray()
+    assertEquals("ceil(15/8) = 2 bytes", 2, bytes.size)
+
+    val ctx = PacketContext(bytes)
+    for ((value, width) in values) {
+      assertEquals("width=$width", BigInteger.valueOf(value), ctx.extractBits(width))
+    }
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `appendRawBytes then extract round-trips arbitrary byte data`() {
+    // Pack 6 header bits + 4 raw payload bytes at bit offset 0 → extract header + payload.
+    val headerValue = 0x3FL // 6 bits
+    val payload = byteArrayOf(0xDE.toByte(), 0xAD.toByte(), 0xBE.toByte(), 0xEF.toByte())
+
+    val acc = BitAccumulator()
+    acc.append(BigInteger.valueOf(headerValue), 6)
+    acc.appendRawBytes(payload, 0, 32)
+    val bytes = acc.toByteArray()
+    assertEquals("ceil(38/8) = 5 bytes", 5, bytes.size)
+
+    val ctx = PacketContext(bytes)
+    assertEquals(BigInteger.valueOf(headerValue), ctx.extractBits(6))
+    // Extract the 4 payload bytes individually.
+    for (b in payload) {
+      assertEquals(BigInteger.valueOf(b.toLong() and 0xFF), ctx.extractBits(8))
+    }
+  }
 }
