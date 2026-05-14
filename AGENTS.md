@@ -63,17 +63,21 @@ intent; assertions enforce it.
 find and use the successor immediately — don't suppress the warning. A
 deprecated call that works today is a broken call on the next upgrade.
 
-For C++, follow the [Google C++ Style Guide] and
-[Abseil Tips of the Week]. In particular, keep namespaces flat
-([TotW #130]) — don't introduce sub-namespaces that don't earn their
-keep. `namespace fourward` is almost always enough. Always prefer
-[Abseil containers] over `std` containers (`absl::flat_hash_map` over
-`std::unordered_map`, `absl::btree_map` over `std::map`, etc.).
+We follow the [Google style guides] — in particular the [C++] and
+[Kotlin] guides. For C++, also follow the [Abseil Tips of the Week].
+Keep namespaces flat ([TotW #130]) — don't introduce sub-namespaces
+that don't earn their keep. `namespace fourward` is almost always
+enough. Always prefer [Abseil containers] over `std` containers
+(`absl::flat_hash_map` over `std::unordered_map`, `absl::btree_map`
+over `std::map`, etc.). For protos, follow [Protobuf Best Practices].
 
+[Google style guides]: https://google.github.io/styleguide/
+[C++]: https://google.github.io/styleguide/cppguide.html
+[Kotlin]: https://google.github.io/styleguide/kotlinguide.html
 [Abseil containers]: https://abseil.io/docs/cpp/guides/container
-[Google C++ Style Guide]: https://google.github.io/styleguide/cppguide.html
 [Abseil Tips of the Week]: https://abseil.io/tips/
 [TotW #130]: https://abseil.io/tips/130
+[Protobuf Best Practices]: https://protobuf.dev/best-practices/dos-donts/
 
 If you take a shortcut or skip a corner case, note it in
 [LIMITATIONS.md](docs/LIMITATIONS.md) with a `TODO` comment at the site.
