@@ -8,13 +8,17 @@ import fourward.InjectPacketsResponse
 import fourward.InputPacket
 import fourward.OutputPacket
 import fourward.PacketSet
+import fourward.PipelineConfig
 import fourward.PrePacketHookInvocation
 import fourward.PrePacketHookResponse
 import fourward.ProcessPacketResult as ProcessPacketResultProto
+import fourward.Reproducer
 import fourward.SubscribeResultsRequest
 import fourward.SubscribeResultsResponse
 import fourward.SubscriptionActive
 import fourward.TraceTree
+import fourward.simulator.TableStore
+import fourward.simulator.extractReproducerEntities
 import io.grpc.Status
 import io.grpc.StatusException
 import kotlinx.coroutines.channels.Channel
@@ -33,11 +37,16 @@ import kotlinx.coroutines.launch
  *
  * @param typeTranslator provides the current [TypeTranslator] from the loaded pipeline, or null if
  *   no pipeline is loaded or the pipeline has no type translation.
+ * @param reproducerData provides the pipeline config and forwarding snapshot for building
+ *   reproducers. Returns null if no pipeline is loaded.
  */
 class DataplaneService(
   private val broker: PacketBroker,
   private val typeTranslator: () -> TypeTranslator? = { null },
+  private val reproducerData: () -> ReproducerData? = { null },
 ) : DataplaneGrpcKt.DataplaneCoroutineImplBase() {
+
+  data class ReproducerData(val config: PipelineConfig, val snapshot: TableStore.ForwardingSnapshot)
 
   override suspend fun injectPacket(request: InjectPacketRequest): InjectPacketResponse {
     val translator = typeTranslator()
@@ -49,14 +58,31 @@ class DataplaneService(
     try {
       val result = broker.processPacket(ingressPort, payload)
       val pt = translator?.portTranslator
+      val enrichedTrace = enrichTrace(result.trace, translator)
       val possibleOutcomes =
         result.possibleOutcomes.map { world ->
           PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()
         }
-      return InjectPacketResponse.newBuilder()
-        .addAllPossibleOutcomes(possibleOutcomes)
-        .setTrace(enrichTrace(result.trace, translator))
-        .build()
+      val response =
+        InjectPacketResponse.newBuilder()
+          .addAllPossibleOutcomes(possibleOutcomes)
+          .setTrace(enrichedTrace)
+      if (request.includeReproducer) {
+        reproducerData()?.let { data ->
+          response.setReproducer(
+            Reproducer.newBuilder()
+              .setPipelineConfig(data.config)
+              .addAllEntities(
+                extractReproducerEntities(
+                  result.trace,
+                  data.snapshot,
+                  data.config.device.staticEntries.updatesList,
+                )
+              )
+          )
+        }
+      }
+      return response.build()
     } catch (e: StatusException) {
       throw e // already has a proper status; don't rewrap.
     } catch (e: IllegalArgumentException) {

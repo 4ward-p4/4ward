@@ -57,6 +57,7 @@ struct P4RuntimePort {
 struct InjectPacketArgs {
   std::variant<DataplanePort, P4RuntimePort> ingress_port;
   std::string payload;
+  bool include_reproducer = false;
 };
 
 // RAII handle for an open SubscribeResults stream. Destructor cancels and

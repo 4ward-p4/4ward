@@ -76,7 +76,17 @@ class FourwardTestHarness(
       disableP4ConstraintsChecking = disableP4ConstraintsChecking,
     )
   private val dataplaneService =
-    DataplaneService(broker, typeTranslator = { service.typeTranslator })
+    DataplaneService(
+      broker,
+      typeTranslator = { service.typeTranslator },
+      reproducerData = {
+        try {
+          DataplaneService.ReproducerData(simulator.pipelineConfig, simulator.forwardingSnapshot)
+        } catch (_: IllegalStateException) {
+          null
+        }
+      },
+    )
 
   init {
     broker.readAllEntities = { service.readAllEntities() }
@@ -164,6 +174,18 @@ class FourwardTestHarness(
         .build()
     )
   }
+
+  /** Injects a packet with the reproducer flag set. Returns outputs + trace + reproducer. */
+  fun injectPacketWithReproducer(ingressPort: Int, payload: ByteArray): InjectPacketResponse =
+    runBlocking {
+      dataplaneStub.injectPacket(
+        InjectPacketRequest.newBuilder()
+          .setDataplaneIngressPort(ingressPort)
+          .setPayload(ByteString.copyFrom(payload))
+          .setIncludeReproducer(true)
+          .build()
+      )
+    }
 
   /** Injects a packet using a P4Runtime port ID. Returns outputs + trace. */
   fun injectPacketP4rt(p4rtPort: ByteString, payload: ByteArray): InjectPacketResponse =

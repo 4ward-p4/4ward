@@ -108,6 +108,61 @@ class DataplaneServiceTest {
   }
 
   // =========================================================================
+  // Reproducer
+  // =========================================================================
+
+  @Test
+  fun `InjectPacket without include_reproducer omits reproducer`() {
+    harness.loadPipeline(loadPassthroughConfig())
+    val response = harness.injectPacket(ingressPort = 0, payload = byteArrayOf(0x01))
+    assertTrue("reproducer should not be present", !response.hasReproducer())
+  }
+
+  @Test
+  fun `InjectPacket with include_reproducer returns pipeline config`() {
+    val config = loadPassthroughConfig()
+    harness.loadPipeline(config)
+    val response = harness.injectPacketWithReproducer(ingressPort = 0, payload = byteArrayOf(0x01))
+
+    assertTrue("reproducer should be present", response.hasReproducer())
+    assertEquals(
+      "reproducer should contain the pipeline config",
+      config,
+      response.reproducer.pipelineConfig,
+    )
+  }
+
+  @Test
+  fun `reproducer contains matched table entry`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
+    harness.installEntry(entry)
+
+    val payload = buildEthernetFrame(etherType = 0x0800)
+    val response = harness.injectPacketWithReproducer(ingressPort = 0, payload = payload)
+
+    assertTrue("reproducer should be present", response.hasReproducer())
+    val tableEntities = response.reproducer.entitiesList.filter { it.hasTableEntry() }
+    assertTrue("reproducer should contain the matched entry", tableEntities.isNotEmpty())
+  }
+
+  @Test
+  fun `reproducer excludes entries on table miss`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    // No table entries installed — default action is drop.
+    val payload = buildEthernetFrame(etherType = 0x0800)
+    val response = harness.injectPacketWithReproducer(ingressPort = 0, payload = payload)
+
+    assertTrue("reproducer should be present", response.hasReproducer())
+    assertTrue(
+      "reproducer should have no entities on miss",
+      response.reproducer.entitiesList.isEmpty(),
+    )
+  }
+
+  // =========================================================================
   // SubscribeResults
   // =========================================================================
 

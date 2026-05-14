@@ -60,6 +60,7 @@ fourward::InjectPacketRequest ToProto(
              },
              args.ingress_port);
   req.set_payload(args.payload);
+  if (args.include_reproducer) req.set_include_reproducer(true);
   return req;
 }
 

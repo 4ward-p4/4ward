@@ -22,6 +22,7 @@ proto_library(
     srcs = ["dataplane.proto"],
     visibility = ["//visibility:public"],
     deps = [
+        "//simulator:ir_proto",
         "//simulator:simulator_proto",
         "@p4runtime//proto/p4/config/v1:p4info_proto",
         "@p4runtime//proto/p4/v1:p4runtime_proto",

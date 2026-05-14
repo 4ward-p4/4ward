@@ -1,6 +1,6 @@
 # Reproduce Trace Design
 
-**Status: proposed.**
+**Status: implemented.**
 
 ## Goal
 
@@ -89,7 +89,6 @@ events:
 | Trace event | Entity extracted |
 |---|---|
 | `TableLookupEvent` with `hit = true` | `matched_entry` → `Entity.table_entry` |
-| `TableLookupEvent` with `hit = false` and runtime default action | Default action entry → `Entity.table_entry` |
 | `CloneSessionLookupEvent` with `session_found = true` | Clone session from table store → `Entity.clone_session_entry` |
 | `Fork` with reason `MULTICAST` | Multicast group from table store → `Entity.multicast_group_entry` |
 | Action profile references in matched entries | Members/groups from table store → `Entity.action_profile_member` / `Entity.action_profile_group` |

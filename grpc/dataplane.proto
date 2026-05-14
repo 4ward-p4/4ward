@@ -10,6 +10,7 @@ package fourward;
 
 import "p4/config/v1/p4info.proto";
 import "p4/v1/p4runtime.proto";
+import "simulator/ir.proto";
 import "simulator/simulator.proto";
 
 option java_package = "fourward";
@@ -63,6 +64,10 @@ message InjectPacketRequest {
     bytes p4rt_ingress_port = 2;
   }
   bytes payload = 3;
+
+  // When true, the response includes a Reproducer with the pipeline
+  // config and entities needed to reproduce this trace.
+  bool include_reproducer = 4;
 }
 
 // A set of output packets from one possible real execution.
@@ -81,6 +86,24 @@ message InjectPacketResponse {
   // Programs with alternative forks (action selectors) have one entry per
   // alternative — each representing a "possible world".
   repeated PacketSet possible_outcomes = 2;
+
+  // Populated when include_reproducer is set on the request. Contains the
+  // pipeline config and entities needed to reproduce this trace.
+  Reproducer reproducer = 3;
+}
+
+// Everything needed to reproduce a trace, minus the input packet and
+// trace itself (already in the enclosing response). Load the pipeline,
+// install the entities via P4Runtime Write, and inject the same packet
+// to get the same trace.
+message Reproducer {
+  // The compiled P4 program (IR + p4info).
+  PipelineConfig pipeline_config = 1;
+
+  // P4Runtime entities referenced by the trace: matched table entries,
+  // clone sessions, multicast groups, action profile members/groups.
+  // Excludes const entries (already in pipeline_config.device.static_entries).
+  repeated p4.v1.Entity entities = 2;
 }
 
 // Result bundle for SubscribeResults: input + outputs + trace.

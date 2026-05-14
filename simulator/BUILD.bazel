@@ -386,3 +386,16 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
     ],
 )
+
+kt_jvm_test(
+    name = "ReproducerExtractorTest",
+    srcs = ["ReproducerExtractorTest.kt"],
+    associates = [":simulator"],
+    test_class = "fourward.simulator.ReproducerExtractorTest",
+    deps = [
+        ":p4runtime_java_proto",
+        ":simulator_java_proto",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@fourward_maven//:junit_junit",
+    ],
+)

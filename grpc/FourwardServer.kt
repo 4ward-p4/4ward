@@ -38,7 +38,17 @@ class FourwardServer(
       disableP4ConstraintsChecking = disableP4ConstraintsChecking,
     )
   private val dataplaneService =
-    DataplaneService(broker, typeTranslator = { service.typeTranslator })
+    DataplaneService(
+      broker,
+      typeTranslator = { service.typeTranslator },
+      reproducerData = {
+        try {
+          DataplaneService.ReproducerData(simulator.pipelineConfig, simulator.forwardingSnapshot)
+        } catch (_: IllegalStateException) {
+          null
+        }
+      },
+    )
 
   init {
     // Wire P4RuntimeService lambdas into the broker for hook support.
