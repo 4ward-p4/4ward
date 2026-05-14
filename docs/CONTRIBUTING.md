@@ -53,10 +53,17 @@ for. CI will post a coverage report on your PR automatically.
 
 ## Style
 
-We follow the Google style guides and let the formatters handle the details:
+We follow the [Google style guides] — in particular the [C++] and
+[Kotlin] guides. For C++, also follow the [Abseil Tips of the Week].
+For protos, follow [Protobuf Best Practices].
+Formatters handle the details (`./tools/format.sh`).
 
-- **Kotlin**: [Google Kotlin style](https://google.github.io/styleguide/kotlinguide.html), enforced by ktfmt
-- **C++**: [Google C++ style](https://google.github.io/styleguide/cppguide.html), enforced by clang-format
+[Google style guides]: https://google.github.io/styleguide/
+[C++]: https://google.github.io/styleguide/cppguide.html
+[Kotlin]: https://google.github.io/styleguide/kotlinguide.html
+[Abseil Tips of the Week]: https://abseil.io/tips/
+[Protobuf Best Practices]: https://protobuf.dev/best-practices/dos-donts/
+
 - **Proto**: `snake_case` fields, `UPPER_SNAKE_CASE` enum values with a type prefix
 - **Commit messages**: tell us *why*, not *what* — the diff already shows the what
 
