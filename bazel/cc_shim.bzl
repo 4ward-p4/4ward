@@ -1,44 +1,101 @@
 """Emits an executable shim named `cc` forwarding to the CC toolchain compiler.
 
-For sandboxed environments without a system `cc` on PATH: consumers prepend
-the shim's parent dir to their subprocess's PATH, and p4c (or any tool that
-shells out to `cc`) finds one. For Starlark actions, prefer `export -f cc`
-inside `run_shell` — no separate file needed.
+For sandboxed environments without a system `cc` on PATH: consumers append
+the shim's parent dir to their subprocess's PATH as a fallback, and p4c (or
+any tool that shells out to `cc`) finds one. For Starlark actions, prefer
+`export -f cc` inside `run_shell` — no separate file needed.
+
+WORKAROUND for https://github.com/p4lang/p4c/issues/5618: p4c hardcodes the
+preprocessor binary (`cc` or `cpp`); once p4c supports `--cc <path>`, pass the
+compiler path directly and remove the shim from PATH.
 """
 
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
+def _compiler_shell_expr(cc):
+    """Returns a quoted shell expression that resolves `compiler_executable` at runtime.
+
+    On Linux, `compiler_executable` is an absolute path — use it directly.
+    On macOS, it's a relative path (e.g. `external/<repo>/cc_wrapper.sh`) valid
+    at the Bazel execroot but not in the runfiles tree, where external repos are
+    top-level siblings of `_main/`. Resolve from the runfiles root at runtime.
+    """
+    if cc.startswith("/"):
+        return '"{}"'.format(cc)
+    runfiles_path = cc[len("external/"):] if cc.startswith("external/") else "_main/" + cc
+    return '"$RUNFILES/{}"'.format(runfiles_path)
+
+# Shell preamble that resolves the runfiles root from the shim's own location.
+# A no-op when all compiler paths are absolute (Linux), since $RUNFILES is
+# never referenced in that case.
+_RUNFILES_PREAMBLE = "\n".join([
+    'SHIM_DIR="$(cd "$(dirname "$0")" && pwd)"',
+    'RUNFILES="${SHIM_DIR%/_main/*}"',
+    'if [ "$RUNFILES" = "$SHIM_DIR" ]; then',
+    '  echo "cc_shim: cannot find runfiles root from $SHIM_DIR" >&2',
+    "  exit 1",
+    "fi",
+    "",
+])
+
 def _cc_shim_impl(ctx):
-    # cfg = "exec" on the attr gives a compiler runnable on the test machine,
-    # not on the (possibly cross-compile) target platform.
-    cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
-    cc = cc_toolchain.compiler_executable
+    exec_cc = ctx.attr._exec_cc_toolchain[cc_common.CcToolchainInfo]
+    target_cc = ctx.attr._target_cc_toolchain[cc_common.CcToolchainInfo]
+
+    exec_path = exec_cc.compiler_executable
+    target_path = target_cc.compiler_executable
 
     # Subdir so the output basename can be literally `cc` without colliding
     # with the target name; callers take `.parent` to get a dir for PATH.
     shim = ctx.actions.declare_file(ctx.label.name + "/cc")
-    ctx.actions.write(
-        output = shim,
-        content = "#!/bin/sh\nexec \"{}\" \"$@\"\n".format(cc),
-        is_executable = True,
-    )
 
-    # `all_files` covers wrapper scripts (e.g. macOS cc_wrapper.sh) that
-    # `compiler_executable` references but doesn't itself carry.
+    exec_ref = _compiler_shell_expr(exec_path)
+    target_ref = _compiler_shell_expr(target_path)
+
+    if exec_path == target_path:
+        content = "\n".join([
+            "#!/bin/sh",
+            _RUNFILES_PREAMBLE.rstrip("\n"),
+            "exec {cc} \"$@\"".format(cc = exec_ref),
+            "",
+        ])
+    else:
+        # Probe the exec-platform compiler with a no-op preprocess. If it
+        # runs (same-arch), use it; otherwise fall back to the target-platform
+        # compiler (handles blaze test on a different-arch remote machine).
+        content = "\n".join([
+            "#!/bin/sh",
+            _RUNFILES_PREAMBLE.rstrip("\n"),
+            "if {exec} -E /dev/null >/dev/null 2>&1; then".format(exec = exec_ref),
+            "  exec {exec} \"$@\"".format(exec = exec_ref),
+            "else",
+            "  exec {target} \"$@\"".format(target = target_ref),
+            "fi",
+            "",
+        ])
+
+    ctx.actions.write(output = shim, content = content, is_executable = True)
+
     return [DefaultInfo(
         files = depset([shim]),
         runfiles = ctx.runfiles(
             files = [shim],
-            transitive_files = cc_toolchain.all_files,
+            transitive_files = depset(
+                transitive = [exec_cc.all_files, target_cc.all_files],
+            ),
         ),
     )]
 
 cc_shim = rule(
     implementation = _cc_shim_impl,
     attrs = {
-        "_cc_toolchain": attr.label(
+        "_exec_cc_toolchain": attr.label(
             default = "@bazel_tools//tools/cpp:current_cc_toolchain",
             cfg = "exec",
+            providers = [cc_common.CcToolchainInfo],
+        ),
+        "_target_cc_toolchain": attr.label(
+            default = "@bazel_tools//tools/cpp:current_cc_toolchain",
             providers = [cc_common.CcToolchainInfo],
         ),
     },
