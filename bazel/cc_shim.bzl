@@ -17,9 +17,23 @@ def _cc_shim_impl(ctx):
     # Subdir so the output basename can be literally `cc` without colliding
     # with the target name; callers take `.parent` to get a dir for PATH.
     shim = ctx.actions.declare_file(ctx.label.name + "/cc")
+
+    if cc.startswith("/"):
+        # Absolute path (e.g. /usr/lib/llvm-18/bin/clang on Linux).
+        script = '#!/bin/sh\nexec "{cc}" "$@"\n'.format(cc = cc)
+    else:
+        # Relative path (e.g. external/<repo>/cc_wrapper.sh on macOS).
+        # compiler_executable is relative to the Bazel execroot, but in the
+        # runfiles tree external repos are top-level siblings of _main/ — not
+        # under _main/external/. Resolve from the runfiles root at runtime.
+        runfiles_path = cc.removeprefix("external/") if cc.startswith("external/") else "_main/" + cc
+        script = "#!/bin/sh\n" + \
+                 'SHIM_DIR="$(cd "$(dirname "$0")" && pwd)"\n' + \
+                 'exec "${{SHIM_DIR%/_main/*}}/{runfiles_path}" "$@"\n'.format(runfiles_path = runfiles_path)
+
     ctx.actions.write(
         output = shim,
-        content = "#!/bin/sh\nexec \"{}\" \"$@\"\n".format(cc),
+        content = script,
         is_executable = True,
     )
 
