@@ -106,6 +106,7 @@ private constructor(
     // payload byte count, discarding only the trailing pad zeros.
     val totalBits = bytes.size * 8
     val payloadBits = (totalBits - packetInHeaderBits) / 8 * 8
+    check(payloadBits % 8 == 0)
     if (payloadBits <= 0) return ByteString.EMPTY
     val discardedBits = totalBits - packetInHeaderBits - payloadBits
     if (discardedBits > 0) {

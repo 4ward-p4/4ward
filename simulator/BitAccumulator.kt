@@ -24,7 +24,7 @@ class BitAccumulator {
     var remaining = width
     var bits = value
     while (remaining > 0) {
-      // space is always 1..8, so the shifts below are always < 64.
+      check(pendingCount in 0..7)
       val space = 8 - pendingCount
       if (remaining >= space) {
         val shift = remaining - space

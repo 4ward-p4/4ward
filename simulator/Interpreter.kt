@@ -240,7 +240,12 @@ class Interpreter internal constructor(config: BehavioralConfig) {
           when (lit.kindCase) {
             LiteralKind.INTEGER -> "0x${lit.integer.toString(16).uppercase()}"
             LiteralKind.BOOLEAN -> lit.boolean.toString()
-            else -> lit.toString().trim()
+            LiteralKind.BIG_INTEGER,
+            LiteralKind.ERROR_MEMBER,
+            LiteralKind.ENUM_MEMBER,
+            LiteralKind.STRING_LITERAL,
+            LiteralKind.KIND_NOT_SET,
+            null -> lit.toString().trim()
           }
         }
         else -> "?"
@@ -587,7 +592,14 @@ class Interpreter internal constructor(config: BehavioralConfig) {
           when (type.kindCase) {
             TypeKind.BIT -> BitVal(BitVector(v, type.bit.width))
             TypeKind.SIGNED_INT -> IntVal(SignedBitVector.fromUnsignedBits(v, type.signedInt.width))
-            else -> InfIntVal(v) // compile-time constant integer (P4 spec §8.1)
+            // Compile-time constant integer without explicit width (P4 spec §8.1).
+            TypeKind.VARBIT,
+            TypeKind.BOOLEAN,
+            TypeKind.NAMED,
+            TypeKind.HEADER_STACK,
+            TypeKind.ERROR,
+            TypeKind.KIND_NOT_SET,
+            null -> InfIntVal(v)
           }
         }
         LiteralKind.BIG_INTEGER -> {
@@ -595,7 +607,13 @@ class Interpreter internal constructor(config: BehavioralConfig) {
           when (type.kindCase) {
             TypeKind.SIGNED_INT -> IntVal(SignedBitVector.fromUnsignedBits(v, type.signedInt.width))
             TypeKind.BIT -> BitVal(BitVector(v, type.bit.width))
-            else -> error("big integer literal with unexpected type: $type${sourceContext()}")
+            TypeKind.VARBIT,
+            TypeKind.BOOLEAN,
+            TypeKind.NAMED,
+            TypeKind.HEADER_STACK,
+            TypeKind.ERROR,
+            TypeKind.KIND_NOT_SET,
+            null -> error("big integer literal with unexpected type: $type${sourceContext()}")
           }
         }
         LiteralKind.KIND_NOT_SET,
@@ -1359,7 +1377,13 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       when (type.kindCase) {
         TypeKind.BOOLEAN -> BoolVal(raw != BigInteger.ZERO)
         TypeKind.SIGNED_INT -> IntVal(SignedBitVector.fromUnsignedBits(raw, width))
-        else -> BitVal(BitVector(raw, width))
+        TypeKind.BIT,
+        TypeKind.VARBIT,
+        TypeKind.NAMED,
+        TypeKind.HEADER_STACK,
+        TypeKind.ERROR,
+        TypeKind.KIND_NOT_SET,
+        null -> BitVal(BitVector(raw, width))
       }
 
     private fun execEmit(call: MethodCall, env: Environment): Value {
