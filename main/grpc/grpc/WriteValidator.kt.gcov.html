@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-14 03:56:15</td>
+            <td class="headerValue">2026-05-14 04:01:54</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -149,7 +149,7 @@
 <span id="L87"><span class="lineNum">      87</span> <span class="tlaGNC">           1 :     val entry = update.entity.tableEntry</span></span>
 <span id="L88"><span class="lineNum">      88</span> <span class="tlaGNC">           1 :     val tableInfo =</span></span>
 <span id="L89"><span class="lineNum">      89</span> <span class="tlaGNC">           1 :       tableInfoById[entry.tableId]</span></span>
-<span id="L90"><span class="lineNum">      90</span> <span class="tlaGNC">           1 :         ?: throw notFound(</span></span>
+<span id="L90"><span class="lineNum">      90</span> <span class="tlaGNC">           1 :         ?: throw invalidArg(</span></span>
 <span id="L91"><span class="lineNum">      91</span> <span class="tlaGNC">           1 :           &quot;unknown table ID ${entry.tableId} &quot; +</span></span>
 <span id="L92"><span class="lineNum">      92</span> <span class="tlaGNC">           1 :             &quot;(valid tables: ${formatOptions(</span></span>
 <span id="L93"><span class="lineNum">      93</span> <span class="tlaGNC">           1 :               tableInfoById.values.map { &quot;'${it.tableName}' (${it.preamble.id})&quot; }</span></span>
@@ -166,393 +166,395 @@
 <span id="L104"><span class="lineNum">     104</span> <span class="tlaGNC">           1 :       return</span></span>
 <span id="L105"><span class="lineNum">     105</span>              :     }</span>
 <span id="L106"><span class="lineNum">     106</span>              : </span>
-<span id="L107"><span class="lineNum">     107</span>              :     // P4Runtime spec §9.1: DELETE only needs the match key; skip content validation.</span>
-<span id="L108"><span class="lineNum">     108</span> <span class="tlaGNC">           1 :     if (update.type == P4RuntimeOuterClass.Update.Type.DELETE) return</span></span>
+<span id="L107"><span class="lineNum">     107</span>              :     // Validate match fields for all operations — DELETE needs a valid key too.</span>
+<span id="L108"><span class="lineNum">     108</span> <span class="tlaGNC">           1 :     validateMatchFields(entry, tableInfo)</span></span>
 <span id="L109"><span class="lineNum">     109</span>              : </span>
-<span id="L110"><span class="lineNum">     110</span>              :     // Idle timeout is not supported — reject rather than silently ignoring.</span>
-<span id="L111"><span class="lineNum">     111</span> <span class="tlaGNC">           1 :     if (entry.idleTimeoutNs != 0L) {</span></span>
-<span id="L112"><span class="lineNum">     112</span> <span class="tlaGNC">           1 :       throw unimplemented(&quot;idle_timeout_ns is not supported on table '${tableInfo.tableName}'&quot;)</span></span>
-<span id="L113"><span class="lineNum">     113</span>              :     }</span>
-<span id="L114"><span class="lineNum">     114</span>              : </span>
-<span id="L115"><span class="lineNum">     115</span> <span class="tlaGNC">           1 :     if (entry.hasAction()) {</span></span>
-<span id="L116"><span class="lineNum">     116</span> <span class="tlaGNC">           1 :       val tableAction = entry.action</span></span>
-<span id="L117"><span class="lineNum">     117</span> <span class="tlaGNC">           1 :       when (tableAction.typeCase) {</span></span>
-<span id="L118"><span class="lineNum">     118</span>              :         P4RuntimeOuterClass.TableAction.TypeCase.ACTION -&gt;</span>
-<span id="L119"><span class="lineNum">     119</span> <span class="tlaGNC">           1 :           validateAction(tableAction.action, tableInfo)</span></span>
-<span id="L120"><span class="lineNum">     120</span>              :         // P4Runtime spec §9.2.3: validate each action in a one-shot action set.</span>
-<span id="L121"><span class="lineNum">     121</span>              :         P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_ACTION_SET -&gt;</span>
-<span id="L122"><span class="lineNum">     122</span> <span class="tlaGNC">           1 :           for (profileAction in tableAction.actionProfileActionSet.actionProfileActionsList) {</span></span>
-<span id="L123"><span class="lineNum">     123</span> <span class="tlaGNC">           1 :             validateAction(profileAction.action, tableInfo)</span></span>
-<span id="L124"><span class="lineNum">     124</span>              :           }</span>
-<span id="L125"><span class="lineNum">     125</span>              :         P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID,</span>
-<span id="L126"><span class="lineNum">     126</span>              :         P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_GROUP_ID,</span>
-<span id="L127"><span class="lineNum">     127</span>              :         P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET,</span>
-<span id="L128"><span class="lineNum">     128</span>              :         null -&gt; {}</span>
-<span id="L129"><span class="lineNum">     129</span>              :       }</span>
-<span id="L130"><span class="lineNum">     130</span>              :     }</span>
-<span id="L131"><span class="lineNum">     131</span> <span class="tlaGNC">           1 :     validateMatchFields(entry, tableInfo)</span></span>
-<span id="L132"><span class="lineNum">     132</span> <span class="tlaGNC">           1 :     validatePriority(entry, tableInfo)</span></span>
-<span id="L133"><span class="lineNum">     133</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L134"><span class="lineNum">     134</span>              : </span>
-<span id="L135"><span class="lineNum">     135</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L136"><span class="lineNum">     136</span>              :   // Default entry validation (§9.1)</span>
+<span id="L110"><span class="lineNum">     110</span>              :     // P4Runtime spec §9.1: DELETE only needs the match key; skip content validation.</span>
+<span id="L111"><span class="lineNum">     111</span> <span class="tlaGNC">           1 :     if (update.type == P4RuntimeOuterClass.Update.Type.DELETE) return</span></span>
+<span id="L112"><span class="lineNum">     112</span>              : </span>
+<span id="L113"><span class="lineNum">     113</span>              :     // Idle timeout is not supported — reject rather than silently ignoring.</span>
+<span id="L114"><span class="lineNum">     114</span> <span class="tlaGNC">           1 :     if (entry.idleTimeoutNs != 0L) {</span></span>
+<span id="L115"><span class="lineNum">     115</span> <span class="tlaGNC">           1 :       throw unimplemented(&quot;idle_timeout_ns is not supported on table '${tableInfo.tableName}'&quot;)</span></span>
+<span id="L116"><span class="lineNum">     116</span>              :     }</span>
+<span id="L117"><span class="lineNum">     117</span>              : </span>
+<span id="L118"><span class="lineNum">     118</span> <span class="tlaGNC">           1 :     if (entry.hasAction()) {</span></span>
+<span id="L119"><span class="lineNum">     119</span> <span class="tlaGNC">           1 :       val tableAction = entry.action</span></span>
+<span id="L120"><span class="lineNum">     120</span> <span class="tlaGNC">           1 :       when (tableAction.typeCase) {</span></span>
+<span id="L121"><span class="lineNum">     121</span>              :         P4RuntimeOuterClass.TableAction.TypeCase.ACTION -&gt;</span>
+<span id="L122"><span class="lineNum">     122</span> <span class="tlaGNC">           1 :           validateAction(tableAction.action, tableInfo)</span></span>
+<span id="L123"><span class="lineNum">     123</span>              :         // P4Runtime spec §9.2.3: validate each action in a one-shot action set.</span>
+<span id="L124"><span class="lineNum">     124</span>              :         P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_ACTION_SET -&gt;</span>
+<span id="L125"><span class="lineNum">     125</span> <span class="tlaGNC">           1 :           for (profileAction in tableAction.actionProfileActionSet.actionProfileActionsList) {</span></span>
+<span id="L126"><span class="lineNum">     126</span> <span class="tlaGNC">           1 :             validateAction(profileAction.action, tableInfo)</span></span>
+<span id="L127"><span class="lineNum">     127</span>              :           }</span>
+<span id="L128"><span class="lineNum">     128</span>              :         P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID,</span>
+<span id="L129"><span class="lineNum">     129</span>              :         P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_GROUP_ID,</span>
+<span id="L130"><span class="lineNum">     130</span>              :         P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET,</span>
+<span id="L131"><span class="lineNum">     131</span>              :         null -&gt; {}</span>
+<span id="L132"><span class="lineNum">     132</span>              :       }</span>
+<span id="L133"><span class="lineNum">     133</span>              :     }</span>
+<span id="L134"><span class="lineNum">     134</span> <span class="tlaGNC">           1 :     validatePriority(entry, tableInfo)</span></span>
+<span id="L135"><span class="lineNum">     135</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L136"><span class="lineNum">     136</span>              : </span>
 <span id="L137"><span class="lineNum">     137</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L138"><span class="lineNum">     138</span>              : </span>
-<span id="L139"><span class="lineNum">     139</span>              :   private fun validateDefaultEntry(</span>
-<span id="L140"><span class="lineNum">     140</span>              :     update: P4RuntimeOuterClass.Update,</span>
-<span id="L141"><span class="lineNum">     141</span>              :     entry: P4RuntimeOuterClass.TableEntry,</span>
-<span id="L142"><span class="lineNum">     142</span>              :     tableInfo: P4InfoOuterClass.Table,</span>
-<span id="L143"><span class="lineNum">     143</span>              :   ) {</span>
-<span id="L144"><span class="lineNum">     144</span> <span class="tlaGNC">           1 :     val name = tableInfo.tableName</span></span>
-<span id="L145"><span class="lineNum">     145</span>              :     // §9.1: default entries only support MODIFY.</span>
-<span id="L146"><span class="lineNum">     146</span> <span class="tlaGNC">           1 :     if (update.type != P4RuntimeOuterClass.Update.Type.MODIFY) {</span></span>
-<span id="L147"><span class="lineNum">     147</span> <span class="tlaGNC">           1 :       throw invalidArg(&quot;default entry for table '$name' only supports MODIFY, got ${update.type}&quot;)</span></span>
-<span id="L148"><span class="lineNum">     148</span>              :     }</span>
-<span id="L149"><span class="lineNum">     149</span>              :     // §9.1: default entries must not have match fields.</span>
-<span id="L150"><span class="lineNum">     150</span> <span class="tlaGNC">           1 :     if (entry.matchCount &gt; 0) {</span></span>
-<span id="L151"><span class="lineNum">     151</span> <span class="tlaGNC">           1 :       throw invalidArg(&quot;default entry for table '$name' must not have match fields&quot;)</span></span>
-<span id="L152"><span class="lineNum">     152</span>              :     }</span>
-<span id="L153"><span class="lineNum">     153</span> <span class="tlaGNC">           1 :     if (entry.hasAction() &amp;&amp; entry.action.hasAction()) {</span></span>
-<span id="L154"><span class="lineNum">     154</span> <span class="tlaGNC">           1 :       validateAction(entry.action.action, tableInfo)</span></span>
-<span id="L155"><span class="lineNum">     155</span>              :     }</span>
-<span id="L156"><span class="lineNum">     156</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L157"><span class="lineNum">     157</span>              : </span>
-<span id="L158"><span class="lineNum">     158</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L159"><span class="lineNum">     159</span>              :   // Action validation (§9.1.2)</span>
+<span id="L138"><span class="lineNum">     138</span>              :   // Default entry validation (§9.1)</span>
+<span id="L139"><span class="lineNum">     139</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L140"><span class="lineNum">     140</span>              : </span>
+<span id="L141"><span class="lineNum">     141</span>              :   private fun validateDefaultEntry(</span>
+<span id="L142"><span class="lineNum">     142</span>              :     update: P4RuntimeOuterClass.Update,</span>
+<span id="L143"><span class="lineNum">     143</span>              :     entry: P4RuntimeOuterClass.TableEntry,</span>
+<span id="L144"><span class="lineNum">     144</span>              :     tableInfo: P4InfoOuterClass.Table,</span>
+<span id="L145"><span class="lineNum">     145</span>              :   ) {</span>
+<span id="L146"><span class="lineNum">     146</span> <span class="tlaGNC">           1 :     val name = tableInfo.tableName</span></span>
+<span id="L147"><span class="lineNum">     147</span>              :     // §9.1: default entries only support MODIFY.</span>
+<span id="L148"><span class="lineNum">     148</span> <span class="tlaGNC">           1 :     if (update.type != P4RuntimeOuterClass.Update.Type.MODIFY) {</span></span>
+<span id="L149"><span class="lineNum">     149</span> <span class="tlaGNC">           1 :       throw invalidArg(&quot;default entry for table '$name' only supports MODIFY, got ${update.type}&quot;)</span></span>
+<span id="L150"><span class="lineNum">     150</span>              :     }</span>
+<span id="L151"><span class="lineNum">     151</span>              :     // §9.1: default entries must not have match fields.</span>
+<span id="L152"><span class="lineNum">     152</span> <span class="tlaGNC">           1 :     if (entry.matchCount &gt; 0) {</span></span>
+<span id="L153"><span class="lineNum">     153</span> <span class="tlaGNC">           1 :       throw invalidArg(&quot;default entry for table '$name' must not have match fields&quot;)</span></span>
+<span id="L154"><span class="lineNum">     154</span>              :     }</span>
+<span id="L155"><span class="lineNum">     155</span> <span class="tlaGNC">           1 :     if (entry.hasAction() &amp;&amp; entry.action.hasAction()) {</span></span>
+<span id="L156"><span class="lineNum">     156</span> <span class="tlaGNC">           1 :       validateAction(entry.action.action, tableInfo)</span></span>
+<span id="L157"><span class="lineNum">     157</span>              :     }</span>
+<span id="L158"><span class="lineNum">     158</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L159"><span class="lineNum">     159</span>              : </span>
 <span id="L160"><span class="lineNum">     160</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L161"><span class="lineNum">     161</span>              : </span>
-<span id="L162"><span class="lineNum">     162</span>              :   private fun validateAction(</span>
-<span id="L163"><span class="lineNum">     163</span>              :     action: P4RuntimeOuterClass.Action,</span>
-<span id="L164"><span class="lineNum">     164</span>              :     tableInfo: P4InfoOuterClass.Table,</span>
-<span id="L165"><span class="lineNum">     165</span>              :   ) {</span>
-<span id="L166"><span class="lineNum">     166</span> <span class="tlaGNC">           1 :     val validRefIds = actionRefIdsByTable[tableInfo.preamble.id] ?: emptySet()</span></span>
-<span id="L167"><span class="lineNum">     167</span> <span class="tlaGNC">           1 :     val validActionDescs =</span></span>
-<span id="L168"><span class="lineNum">     168</span> <span class="tlaGNC">           1 :       validRefIds.mapNotNull { id -&gt; actionInfoById[id]?.let { &quot;'${it.preamble.name}' ($id)&quot; } }</span></span>
-<span id="L169"><span class="lineNum">     169</span> <span class="tlaGNC">           1 :     val actionInfo =</span></span>
-<span id="L170"><span class="lineNum">     170</span> <span class="tlaGNC">           1 :       actionInfoById[action.actionId]</span></span>
-<span id="L171"><span class="lineNum">     171</span> <span class="tlaGNC">           1 :         ?: throw invalidArg(</span></span>
-<span id="L172"><span class="lineNum">     172</span> <span class="tlaGNC">           1 :           &quot;unknown action ID ${action.actionId} &quot; +</span></span>
-<span id="L173"><span class="lineNum">     173</span> <span class="tlaGNC">           1 :             &quot;in table '${tableInfo.tableName}' &quot; +</span></span>
-<span id="L174"><span class="lineNum">     174</span> <span class="tlaGNC">           1 :             &quot;(valid actions: ${formatOptions(validActionDescs)})&quot;</span></span>
-<span id="L175"><span class="lineNum">     175</span>              :         )</span>
-<span id="L176"><span class="lineNum">     176</span>              : </span>
-<span id="L177"><span class="lineNum">     177</span> <span class="tlaGNC">           1 :     if (action.actionId !in validRefIds) {</span></span>
-<span id="L178"><span class="lineNum">     178</span> <span class="tlaGNC">           1 :       throw invalidArg(</span></span>
-<span id="L179"><span class="lineNum">     179</span> <span class="tlaGNC">           1 :         &quot;action '${actionInfo.preamble.name}' &quot; +</span></span>
-<span id="L180"><span class="lineNum">     180</span> <span class="tlaGNC">           1 :           &quot;(ID ${action.actionId}) &quot; +</span></span>
-<span id="L181"><span class="lineNum">     181</span> <span class="tlaGNC">           1 :           &quot;is not valid for table '${tableInfo.tableName}' &quot; +</span></span>
-<span id="L182"><span class="lineNum">     182</span> <span class="tlaGNC">           1 :           &quot;(valid actions: ${formatOptions(validActionDescs)})&quot;</span></span>
-<span id="L183"><span class="lineNum">     183</span>              :       )</span>
-<span id="L184"><span class="lineNum">     184</span>              :     }</span>
-<span id="L185"><span class="lineNum">     185</span>              : </span>
-<span id="L186"><span class="lineNum">     186</span> <span class="tlaGNC">           1 :     validateActionParams(action, actionInfo)</span></span>
-<span id="L187"><span class="lineNum">     187</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L188"><span class="lineNum">     188</span>              : </span>
-<span id="L189"><span class="lineNum">     189</span>              :   private fun validateActionParams(</span>
-<span id="L190"><span class="lineNum">     190</span>              :     action: P4RuntimeOuterClass.Action,</span>
-<span id="L191"><span class="lineNum">     191</span>              :     actionInfo: P4InfoOuterClass.Action,</span>
-<span id="L192"><span class="lineNum">     192</span>              :   ) {</span>
-<span id="L193"><span class="lineNum">     193</span> <span class="tlaGNC">           1 :     val expected = actionInfo.paramsList</span></span>
-<span id="L194"><span class="lineNum">     194</span> <span class="tlaGNC">           1 :     if (action.paramsCount != expected.size) {</span></span>
-<span id="L195"><span class="lineNum">     195</span> <span class="tlaGNC">           1 :       throw invalidArg(</span></span>
-<span id="L196"><span class="lineNum">     196</span> <span class="tlaGNC">           1 :         &quot;action '${actionInfo.preamble.name}' expects ${expected.size} params, &quot; +</span></span>
-<span id="L197"><span class="lineNum">     197</span> <span class="tlaGNC">           1 :           &quot;got ${action.paramsCount}&quot;</span></span>
-<span id="L198"><span class="lineNum">     198</span>              :       )</span>
-<span id="L199"><span class="lineNum">     199</span>              :     }</span>
-<span id="L200"><span class="lineNum">     200</span> <span class="tlaGNC">           1 :     val paramLookup = paramInfoByAction[action.actionId] ?: return</span></span>
-<span id="L201"><span class="lineNum">     201</span> <span class="tlaGNC">           1 :     for (param in action.paramsList) {</span></span>
-<span id="L202"><span class="lineNum">     202</span> <span class="tlaGNC">           1 :       val paramInfo =</span></span>
-<span id="L203"><span class="lineNum">     203</span> <span class="tlaGNC">           1 :         paramLookup[param.paramId]</span></span>
-<span id="L204"><span class="lineNum">     204</span> <span class="tlaGNC">           1 :           ?: throw invalidArg(</span></span>
-<span id="L205"><span class="lineNum">     205</span> <span class="tlaGNC">           1 :             &quot;unknown param ID ${param.paramId} for action '${actionInfo.preamble.name}' &quot; +</span></span>
-<span id="L206"><span class="lineNum">     206</span> <span class="tlaGNC">           1 :               &quot;(valid params: ${formatOptions(paramLookup.entries.map {</span></span>
-<span id="L207"><span class="lineNum">     207</span> <span class="tlaGNC">           1 :                 &quot;'${it.value.name}' (${it.key})&quot;</span></span>
-<span id="L208"><span class="lineNum">     208</span>              :               })})&quot;</span>
-<span id="L209"><span class="lineNum">     209</span>              :           )</span>
-<span id="L210"><span class="lineNum">     210</span>              :       // §8.3: value must fit in the param's bitwidth. Bitwidth 0 means unspecified</span>
-<span id="L211"><span class="lineNum">     211</span>              :       // (e.g. @p4runtime_translation with sdn_string) — only an empty bytestring is rejected.</span>
-<span id="L212"><span class="lineNum">     212</span> <span class="tlaGNC">           1 :       requireFitsInBitwidth(param.value, paramInfo.bitwidth, &quot;param '${paramInfo.name}'&quot;)</span></span>
-<span id="L213"><span class="lineNum">     213</span>              :     }</span>
-<span id="L214"><span class="lineNum">     214</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L215"><span class="lineNum">     215</span>              : </span>
-<span id="L216"><span class="lineNum">     216</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L217"><span class="lineNum">     217</span>              :   // Match field validation (§9.1.1)</span>
+<span id="L161"><span class="lineNum">     161</span>              :   // Action validation (§9.1.2)</span>
+<span id="L162"><span class="lineNum">     162</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L163"><span class="lineNum">     163</span>              : </span>
+<span id="L164"><span class="lineNum">     164</span>              :   private fun validateAction(</span>
+<span id="L165"><span class="lineNum">     165</span>              :     action: P4RuntimeOuterClass.Action,</span>
+<span id="L166"><span class="lineNum">     166</span>              :     tableInfo: P4InfoOuterClass.Table,</span>
+<span id="L167"><span class="lineNum">     167</span>              :   ) {</span>
+<span id="L168"><span class="lineNum">     168</span> <span class="tlaGNC">           1 :     val validRefIds = actionRefIdsByTable[tableInfo.preamble.id] ?: emptySet()</span></span>
+<span id="L169"><span class="lineNum">     169</span> <span class="tlaGNC">           1 :     val validActionDescs =</span></span>
+<span id="L170"><span class="lineNum">     170</span> <span class="tlaGNC">           1 :       validRefIds.mapNotNull { id -&gt; actionInfoById[id]?.let { &quot;'${it.preamble.name}' ($id)&quot; } }</span></span>
+<span id="L171"><span class="lineNum">     171</span> <span class="tlaGNC">           1 :     val actionInfo =</span></span>
+<span id="L172"><span class="lineNum">     172</span> <span class="tlaGNC">           1 :       actionInfoById[action.actionId]</span></span>
+<span id="L173"><span class="lineNum">     173</span> <span class="tlaGNC">           1 :         ?: throw invalidArg(</span></span>
+<span id="L174"><span class="lineNum">     174</span> <span class="tlaGNC">           1 :           &quot;unknown action ID ${action.actionId} &quot; +</span></span>
+<span id="L175"><span class="lineNum">     175</span> <span class="tlaGNC">           1 :             &quot;in table '${tableInfo.tableName}' &quot; +</span></span>
+<span id="L176"><span class="lineNum">     176</span> <span class="tlaGNC">           1 :             &quot;(valid actions: ${formatOptions(validActionDescs)})&quot;</span></span>
+<span id="L177"><span class="lineNum">     177</span>              :         )</span>
+<span id="L178"><span class="lineNum">     178</span>              : </span>
+<span id="L179"><span class="lineNum">     179</span> <span class="tlaGNC">           1 :     if (action.actionId !in validRefIds) {</span></span>
+<span id="L180"><span class="lineNum">     180</span> <span class="tlaGNC">           1 :       throw invalidArg(</span></span>
+<span id="L181"><span class="lineNum">     181</span> <span class="tlaGNC">           1 :         &quot;action '${actionInfo.preamble.name}' &quot; +</span></span>
+<span id="L182"><span class="lineNum">     182</span> <span class="tlaGNC">           1 :           &quot;(ID ${action.actionId}) &quot; +</span></span>
+<span id="L183"><span class="lineNum">     183</span> <span class="tlaGNC">           1 :           &quot;is not valid for table '${tableInfo.tableName}' &quot; +</span></span>
+<span id="L184"><span class="lineNum">     184</span> <span class="tlaGNC">           1 :           &quot;(valid actions: ${formatOptions(validActionDescs)})&quot;</span></span>
+<span id="L185"><span class="lineNum">     185</span>              :       )</span>
+<span id="L186"><span class="lineNum">     186</span>              :     }</span>
+<span id="L187"><span class="lineNum">     187</span>              : </span>
+<span id="L188"><span class="lineNum">     188</span> <span class="tlaGNC">           1 :     validateActionParams(action, actionInfo)</span></span>
+<span id="L189"><span class="lineNum">     189</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L190"><span class="lineNum">     190</span>              : </span>
+<span id="L191"><span class="lineNum">     191</span>              :   private fun validateActionParams(</span>
+<span id="L192"><span class="lineNum">     192</span>              :     action: P4RuntimeOuterClass.Action,</span>
+<span id="L193"><span class="lineNum">     193</span>              :     actionInfo: P4InfoOuterClass.Action,</span>
+<span id="L194"><span class="lineNum">     194</span>              :   ) {</span>
+<span id="L195"><span class="lineNum">     195</span> <span class="tlaGNC">           1 :     val expected = actionInfo.paramsList</span></span>
+<span id="L196"><span class="lineNum">     196</span> <span class="tlaGNC">           1 :     if (action.paramsCount != expected.size) {</span></span>
+<span id="L197"><span class="lineNum">     197</span> <span class="tlaGNC">           1 :       throw invalidArg(</span></span>
+<span id="L198"><span class="lineNum">     198</span> <span class="tlaGNC">           1 :         &quot;action '${actionInfo.preamble.name}' expects ${expected.size} params, &quot; +</span></span>
+<span id="L199"><span class="lineNum">     199</span> <span class="tlaGNC">           1 :           &quot;got ${action.paramsCount}&quot;</span></span>
+<span id="L200"><span class="lineNum">     200</span>              :       )</span>
+<span id="L201"><span class="lineNum">     201</span>              :     }</span>
+<span id="L202"><span class="lineNum">     202</span> <span class="tlaGNC">           1 :     val paramLookup = paramInfoByAction[action.actionId] ?: return</span></span>
+<span id="L203"><span class="lineNum">     203</span> <span class="tlaGNC">           1 :     for (param in action.paramsList) {</span></span>
+<span id="L204"><span class="lineNum">     204</span> <span class="tlaGNC">           1 :       val paramInfo =</span></span>
+<span id="L205"><span class="lineNum">     205</span> <span class="tlaGNC">           1 :         paramLookup[param.paramId]</span></span>
+<span id="L206"><span class="lineNum">     206</span> <span class="tlaGNC">           1 :           ?: throw invalidArg(</span></span>
+<span id="L207"><span class="lineNum">     207</span> <span class="tlaGNC">           1 :             &quot;unknown param ID ${param.paramId} for action '${actionInfo.preamble.name}' &quot; +</span></span>
+<span id="L208"><span class="lineNum">     208</span> <span class="tlaGNC">           1 :               &quot;(valid params: ${formatOptions(paramLookup.entries.map {</span></span>
+<span id="L209"><span class="lineNum">     209</span> <span class="tlaGNC">           1 :                 &quot;'${it.value.name}' (${it.key})&quot;</span></span>
+<span id="L210"><span class="lineNum">     210</span>              :               })})&quot;</span>
+<span id="L211"><span class="lineNum">     211</span>              :           )</span>
+<span id="L212"><span class="lineNum">     212</span>              :       // §8.3: value must fit in the param's bitwidth. Bitwidth 0 means unspecified</span>
+<span id="L213"><span class="lineNum">     213</span>              :       // (e.g. @p4runtime_translation with sdn_string) — only an empty bytestring is rejected.</span>
+<span id="L214"><span class="lineNum">     214</span> <span class="tlaGNC">           1 :       requireFitsInBitwidth(param.value, paramInfo.bitwidth, &quot;param '${paramInfo.name}'&quot;)</span></span>
+<span id="L215"><span class="lineNum">     215</span>              :     }</span>
+<span id="L216"><span class="lineNum">     216</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L217"><span class="lineNum">     217</span>              : </span>
 <span id="L218"><span class="lineNum">     218</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L219"><span class="lineNum">     219</span>              : </span>
-<span id="L220"><span class="lineNum">     220</span>              :   private fun validateMatchFields(</span>
-<span id="L221"><span class="lineNum">     221</span>              :     entry: P4RuntimeOuterClass.TableEntry,</span>
-<span id="L222"><span class="lineNum">     222</span>              :     tableInfo: P4InfoOuterClass.Table,</span>
-<span id="L223"><span class="lineNum">     223</span>              :   ) {</span>
-<span id="L224"><span class="lineNum">     224</span> <span class="tlaGNC">           1 :     val expectedFields = tableInfo.matchFieldsList</span></span>
-<span id="L225"><span class="lineNum">     225</span> <span class="tlaGNC">           1 :     if (expectedFields.isEmpty()) return</span></span>
-<span id="L226"><span class="lineNum">     226</span>              : </span>
-<span id="L227"><span class="lineNum">     227</span> <span class="tlaGNC">           1 :     val fieldLookup = fieldInfoByTable[tableInfo.preamble.id] ?: return</span></span>
-<span id="L228"><span class="lineNum">     228</span> <span class="tlaGNC">           1 :     val presentFieldIds = mutableSetOf&lt;Int&gt;()</span></span>
-<span id="L229"><span class="lineNum">     229</span> <span class="tlaGNC">           1 :     for (fm in entry.matchList) {</span></span>
-<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC">           1 :       val fieldInfo =</span></span>
-<span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :         fieldLookup[fm.fieldId]</span></span>
-<span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :           ?: throw invalidArg(</span></span>
-<span id="L233"><span class="lineNum">     233</span> <span class="tlaGNC">           1 :             &quot;unknown match field ID ${fm.fieldId} in table '${tableInfo.tableName}' &quot; +</span></span>
-<span id="L234"><span class="lineNum">     234</span> <span class="tlaGNC">           1 :               &quot;(valid fields: ${formatOptions(fieldLookup.entries.map {</span></span>
-<span id="L235"><span class="lineNum">     235</span> <span class="tlaGNC">           1 :                 &quot;'${it.value.name}' (${it.key})&quot;</span></span>
-<span id="L236"><span class="lineNum">     236</span>              :               })})&quot;</span>
-<span id="L237"><span class="lineNum">     237</span>              :           )</span>
-<span id="L238"><span class="lineNum">     238</span>              :       // §9.1: each match field may appear at most once.</span>
-<span id="L239"><span class="lineNum">     239</span> <span class="tlaGNC">           1 :       if (!presentFieldIds.add(fm.fieldId)) {</span></span>
-<span id="L240"><span class="lineNum">     240</span> <span class="tlaGNC">           1 :         throw invalidArg(</span></span>
-<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :           &quot;duplicate match field '${fieldInfo.name}' (ID ${fm.fieldId}) &quot; +</span></span>
-<span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :             &quot;in table '${tableInfo.tableName}'&quot;</span></span>
-<span id="L243"><span class="lineNum">     243</span>              :         )</span>
-<span id="L244"><span class="lineNum">     244</span>              :       }</span>
-<span id="L245"><span class="lineNum">     245</span> <span class="tlaGNC">           1 :       validateMatchKind(fm, fieldInfo)</span></span>
-<span id="L246"><span class="lineNum">     246</span> <span class="tlaGNC">           1 :       validateMatchWidth(fm, fieldInfo)</span></span>
-<span id="L247"><span class="lineNum">     247</span>              :     }</span>
-<span id="L248"><span class="lineNum">     248</span>              : </span>
-<span id="L249"><span class="lineNum">     249</span>              :     // EXACT fields must be present; omission is not allowed.</span>
-<span id="L250"><span class="lineNum">     250</span> <span class="tlaGNC">           1 :     for (fieldInfo in expectedFields) {</span></span>
-<span id="L251"><span class="lineNum">     251</span>              :       if (</span>
-<span id="L252"><span class="lineNum">     252</span> <span class="tlaGNC">           1 :         fieldInfo.matchType == P4InfoOuterClass.MatchField.MatchType.EXACT &amp;&amp;</span></span>
-<span id="L253"><span class="lineNum">     253</span> <span class="tlaGNC">           1 :           fieldInfo.id !in presentFieldIds</span></span>
-<span id="L254"><span class="lineNum">     254</span>              :       ) {</span>
-<span id="L255"><span class="lineNum">     255</span> <span class="tlaGNC">           1 :         throw invalidArg(</span></span>
-<span id="L256"><span class="lineNum">     256</span> <span class="tlaGNC">           1 :           &quot;missing required exact match field '${fieldInfo.name}' in table '${tableInfo.tableName}'&quot;</span></span>
-<span id="L257"><span class="lineNum">     257</span>              :         )</span>
-<span id="L258"><span class="lineNum">     258</span>              :       }</span>
-<span id="L259"><span class="lineNum">     259</span>              :     }</span>
-<span id="L260"><span class="lineNum">     260</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L261"><span class="lineNum">     261</span>              : </span>
-<span id="L262"><span class="lineNum">     262</span>              :   private fun validateMatchKind(</span>
-<span id="L263"><span class="lineNum">     263</span>              :     fm: P4RuntimeOuterClass.FieldMatch,</span>
-<span id="L264"><span class="lineNum">     264</span>              :     fieldInfo: P4InfoOuterClass.MatchField,</span>
-<span id="L265"><span class="lineNum">     265</span>              :   ) {</span>
-<span id="L266"><span class="lineNum">     266</span> <span class="tlaGNC">           1 :     val actual =</span></span>
-<span id="L267"><span class="lineNum">     267</span> <span class="tlaGNC">           1 :       when (fm.fieldMatchTypeCase) {</span></span>
-<span id="L268"><span class="lineNum">     268</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT -&gt;</span>
-<span id="L269"><span class="lineNum">     269</span> <span class="tlaGNC">           1 :           P4InfoOuterClass.MatchField.MatchType.EXACT</span></span>
-<span id="L270"><span class="lineNum">     270</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY -&gt;</span>
-<span id="L271"><span class="lineNum">     271</span> <span class="tlaGNC">           1 :           P4InfoOuterClass.MatchField.MatchType.TERNARY</span></span>
-<span id="L272"><span class="lineNum">     272</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM -&gt;</span>
-<span id="L273"><span class="lineNum">     273</span> <span class="tlaGNC">           1 :           P4InfoOuterClass.MatchField.MatchType.LPM</span></span>
-<span id="L274"><span class="lineNum">     274</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE -&gt;</span>
-<span id="L275"><span class="lineNum">     275</span> <span class="tlaGNC">           1 :           P4InfoOuterClass.MatchField.MatchType.RANGE</span></span>
-<span id="L276"><span class="lineNum">     276</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -&gt;</span>
-<span id="L277"><span class="lineNum">     277</span> <span class="tlaGNC">           1 :           P4InfoOuterClass.MatchField.MatchType.OPTIONAL</span></span>
-<span id="L278"><span class="lineNum">     278</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,</span>
-<span id="L279"><span class="lineNum">     279</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,</span>
-<span id="L280"><span class="lineNum">     280</span> <span class="tlaGNC">           1 :         null -&gt; throw invalidArg(&quot;match field '${fieldInfo.name}' has no value set&quot;)</span></span>
-<span id="L281"><span class="lineNum">     281</span>              :       }</span>
-<span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC">           1 :     if (actual != fieldInfo.matchType) {</span></span>
-<span id="L283"><span class="lineNum">     283</span> <span class="tlaGNC">           1 :       throw invalidArg(</span></span>
-<span id="L284"><span class="lineNum">     284</span> <span class="tlaGNC">           1 :         &quot;match field '${fieldInfo.name}' expects ${fieldInfo.matchType.name} but got ${actual.name}&quot;</span></span>
-<span id="L285"><span class="lineNum">     285</span>              :       )</span>
-<span id="L286"><span class="lineNum">     286</span>              :     }</span>
-<span id="L287"><span class="lineNum">     287</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L288"><span class="lineNum">     288</span>              : </span>
-<span id="L289"><span class="lineNum">     289</span>              :   private fun validateMatchWidth(</span>
-<span id="L290"><span class="lineNum">     290</span>              :     fm: P4RuntimeOuterClass.FieldMatch,</span>
-<span id="L291"><span class="lineNum">     291</span>              :     fieldInfo: P4InfoOuterClass.MatchField,</span>
-<span id="L292"><span class="lineNum">     292</span>              :   ) {</span>
-<span id="L293"><span class="lineNum">     293</span> <span class="tlaGNC">           1 :     val w = fieldInfo.bitwidth</span></span>
-<span id="L294"><span class="lineNum">     294</span> <span class="tlaGNC">           1 :     val f = fieldInfo.name</span></span>
-<span id="L295"><span class="lineNum">     295</span> <span class="tlaGNC">           1 :     when (fm.fieldMatchTypeCase) {</span></span>
-<span id="L296"><span class="lineNum">     296</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT -&gt;</span>
-<span id="L297"><span class="lineNum">     297</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.exact.value, w, &quot;match field '$f' value&quot;)</span></span>
-<span id="L298"><span class="lineNum">     298</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY -&gt; {</span>
-<span id="L299"><span class="lineNum">     299</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.ternary.value, w, &quot;match field '$f' value&quot;)</span></span>
-<span id="L300"><span class="lineNum">     300</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.ternary.mask, w, &quot;match field '$f' mask&quot;)</span></span>
-<span id="L301"><span class="lineNum">     301</span>              :         // §8.3: bits where mask is 0 must also be 0 in value.</span>
-<span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :         checkTernaryMaskedBits(fm.ternary.value, fm.ternary.mask, f)</span></span>
-<span id="L303"><span class="lineNum">     303</span>              :       }</span>
-<span id="L304"><span class="lineNum">     304</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM -&gt; {</span>
-<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.lpm.value, w, &quot;match field '$f' value&quot;)</span></span>
-<span id="L306"><span class="lineNum">     306</span>              :         // §9.1.1: prefix_len must be in [0, W].</span>
-<span id="L307"><span class="lineNum">     307</span> <span class="tlaGNC">           1 :         if (fm.lpm.prefixLen &lt; 0 || fm.lpm.prefixLen &gt; w) {</span></span>
-<span id="L308"><span class="lineNum">     308</span> <span class="tlaUNC tlaBgUNC">           0 :           throw invalidArg(</span></span>
-<span id="L309"><span class="lineNum">     309</span> <span class="tlaUNC">           0 :             &quot;match field '$f' has prefix_len ${fm.lpm.prefixLen} outside the valid range [0, $w]&quot;</span></span>
-<span id="L310"><span class="lineNum">     310</span>              :           )</span>
-<span id="L311"><span class="lineNum">     311</span>              :         }</span>
-<span id="L312"><span class="lineNum">     312</span>              :         // §8.3: bits beyond prefix_len must be zero.</span>
-<span id="L313"><span class="lineNum">     313</span> <span class="tlaGNC tlaBgGNC">           1 :         checkLpmTrailingBits(fm.lpm.value, fm.lpm.prefixLen, w, f)</span></span>
-<span id="L314"><span class="lineNum">     314</span>              :       }</span>
-<span id="L315"><span class="lineNum">     315</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE -&gt; {</span>
-<span id="L316"><span class="lineNum">     316</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.range.low, w, &quot;match field '$f' low&quot;)</span></span>
-<span id="L317"><span class="lineNum">     317</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.range.high, w, &quot;match field '$f' high&quot;)</span></span>
-<span id="L318"><span class="lineNum">     318</span>              :         // P4Runtime spec §9.1.1: low must be &lt;= high.</span>
-<span id="L319"><span class="lineNum">     319</span> <span class="tlaGNC">           1 :         checkRangeOrder(fm.range.low, fm.range.high, f)</span></span>
-<span id="L320"><span class="lineNum">     320</span>              :       }</span>
-<span id="L321"><span class="lineNum">     321</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -&gt;</span>
-<span id="L322"><span class="lineNum">     322</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.optional.value, w, &quot;match field '$f' value&quot;)</span></span>
-<span id="L323"><span class="lineNum">     323</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,</span>
-<span id="L324"><span class="lineNum">     324</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,</span>
-<span id="L325"><span class="lineNum">     325</span>              :       null -&gt; {}</span>
-<span id="L326"><span class="lineNum">     326</span>              :     }</span>
-<span id="L327"><span class="lineNum">     327</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L328"><span class="lineNum">     328</span>              : </span>
-<span id="L329"><span class="lineNum">     329</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L330"><span class="lineNum">     330</span>              :   // Priority validation (§9.1.1)</span>
+<span id="L219"><span class="lineNum">     219</span>              :   // Match field validation (§9.1.1)</span>
+<span id="L220"><span class="lineNum">     220</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L221"><span class="lineNum">     221</span>              : </span>
+<span id="L222"><span class="lineNum">     222</span>              :   private fun validateMatchFields(</span>
+<span id="L223"><span class="lineNum">     223</span>              :     entry: P4RuntimeOuterClass.TableEntry,</span>
+<span id="L224"><span class="lineNum">     224</span>              :     tableInfo: P4InfoOuterClass.Table,</span>
+<span id="L225"><span class="lineNum">     225</span>              :   ) {</span>
+<span id="L226"><span class="lineNum">     226</span> <span class="tlaGNC">           1 :     val expectedFields = tableInfo.matchFieldsList</span></span>
+<span id="L227"><span class="lineNum">     227</span> <span class="tlaGNC">           1 :     if (expectedFields.isEmpty()) return</span></span>
+<span id="L228"><span class="lineNum">     228</span>              : </span>
+<span id="L229"><span class="lineNum">     229</span> <span class="tlaGNC">           1 :     val fieldLookup = fieldInfoByTable[tableInfo.preamble.id] ?: return</span></span>
+<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC">           1 :     val presentFieldIds = mutableSetOf&lt;Int&gt;()</span></span>
+<span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :     for (fm in entry.matchList) {</span></span>
+<span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :       val fieldInfo =</span></span>
+<span id="L233"><span class="lineNum">     233</span> <span class="tlaGNC">           1 :         fieldLookup[fm.fieldId]</span></span>
+<span id="L234"><span class="lineNum">     234</span> <span class="tlaGNC">           1 :           ?: throw invalidArg(</span></span>
+<span id="L235"><span class="lineNum">     235</span> <span class="tlaGNC">           1 :             &quot;unknown match field ID ${fm.fieldId} in table '${tableInfo.tableName}' &quot; +</span></span>
+<span id="L236"><span class="lineNum">     236</span> <span class="tlaGNC">           1 :               &quot;(valid fields: ${formatOptions(fieldLookup.entries.map {</span></span>
+<span id="L237"><span class="lineNum">     237</span> <span class="tlaGNC">           1 :                 &quot;'${it.value.name}' (${it.key})&quot;</span></span>
+<span id="L238"><span class="lineNum">     238</span>              :               })})&quot;</span>
+<span id="L239"><span class="lineNum">     239</span>              :           )</span>
+<span id="L240"><span class="lineNum">     240</span>              :       // §9.1: each match field may appear at most once.</span>
+<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :       if (!presentFieldIds.add(fm.fieldId)) {</span></span>
+<span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :         throw invalidArg(</span></span>
+<span id="L243"><span class="lineNum">     243</span> <span class="tlaGNC">           1 :           &quot;duplicate match field '${fieldInfo.name}' (ID ${fm.fieldId}) &quot; +</span></span>
+<span id="L244"><span class="lineNum">     244</span> <span class="tlaGNC">           1 :             &quot;in table '${tableInfo.tableName}'&quot;</span></span>
+<span id="L245"><span class="lineNum">     245</span>              :         )</span>
+<span id="L246"><span class="lineNum">     246</span>              :       }</span>
+<span id="L247"><span class="lineNum">     247</span> <span class="tlaGNC">           1 :       validateMatchKind(fm, fieldInfo)</span></span>
+<span id="L248"><span class="lineNum">     248</span> <span class="tlaGNC">           1 :       validateMatchWidth(fm, fieldInfo)</span></span>
+<span id="L249"><span class="lineNum">     249</span>              :     }</span>
+<span id="L250"><span class="lineNum">     250</span>              : </span>
+<span id="L251"><span class="lineNum">     251</span>              :     // EXACT fields must be present; omission is not allowed.</span>
+<span id="L252"><span class="lineNum">     252</span> <span class="tlaGNC">           1 :     for (fieldInfo in expectedFields) {</span></span>
+<span id="L253"><span class="lineNum">     253</span>              :       if (</span>
+<span id="L254"><span class="lineNum">     254</span> <span class="tlaGNC">           1 :         fieldInfo.matchType == P4InfoOuterClass.MatchField.MatchType.EXACT &amp;&amp;</span></span>
+<span id="L255"><span class="lineNum">     255</span> <span class="tlaGNC">           1 :           fieldInfo.id !in presentFieldIds</span></span>
+<span id="L256"><span class="lineNum">     256</span>              :       ) {</span>
+<span id="L257"><span class="lineNum">     257</span> <span class="tlaGNC">           1 :         throw invalidArg(</span></span>
+<span id="L258"><span class="lineNum">     258</span> <span class="tlaGNC">           1 :           &quot;missing required exact match field '${fieldInfo.name}' in table '${tableInfo.tableName}'&quot;</span></span>
+<span id="L259"><span class="lineNum">     259</span>              :         )</span>
+<span id="L260"><span class="lineNum">     260</span>              :       }</span>
+<span id="L261"><span class="lineNum">     261</span>              :     }</span>
+<span id="L262"><span class="lineNum">     262</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L263"><span class="lineNum">     263</span>              : </span>
+<span id="L264"><span class="lineNum">     264</span>              :   private fun validateMatchKind(</span>
+<span id="L265"><span class="lineNum">     265</span>              :     fm: P4RuntimeOuterClass.FieldMatch,</span>
+<span id="L266"><span class="lineNum">     266</span>              :     fieldInfo: P4InfoOuterClass.MatchField,</span>
+<span id="L267"><span class="lineNum">     267</span>              :   ) {</span>
+<span id="L268"><span class="lineNum">     268</span> <span class="tlaGNC">           1 :     val actual =</span></span>
+<span id="L269"><span class="lineNum">     269</span> <span class="tlaGNC">           1 :       when (fm.fieldMatchTypeCase) {</span></span>
+<span id="L270"><span class="lineNum">     270</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT -&gt;</span>
+<span id="L271"><span class="lineNum">     271</span> <span class="tlaGNC">           1 :           P4InfoOuterClass.MatchField.MatchType.EXACT</span></span>
+<span id="L272"><span class="lineNum">     272</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY -&gt;</span>
+<span id="L273"><span class="lineNum">     273</span> <span class="tlaGNC">           1 :           P4InfoOuterClass.MatchField.MatchType.TERNARY</span></span>
+<span id="L274"><span class="lineNum">     274</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM -&gt;</span>
+<span id="L275"><span class="lineNum">     275</span> <span class="tlaGNC">           1 :           P4InfoOuterClass.MatchField.MatchType.LPM</span></span>
+<span id="L276"><span class="lineNum">     276</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE -&gt;</span>
+<span id="L277"><span class="lineNum">     277</span> <span class="tlaGNC">           1 :           P4InfoOuterClass.MatchField.MatchType.RANGE</span></span>
+<span id="L278"><span class="lineNum">     278</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -&gt;</span>
+<span id="L279"><span class="lineNum">     279</span> <span class="tlaGNC">           1 :           P4InfoOuterClass.MatchField.MatchType.OPTIONAL</span></span>
+<span id="L280"><span class="lineNum">     280</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,</span>
+<span id="L281"><span class="lineNum">     281</span>              :         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,</span>
+<span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC">           1 :         null -&gt; throw invalidArg(&quot;match field '${fieldInfo.name}' has no value set&quot;)</span></span>
+<span id="L283"><span class="lineNum">     283</span>              :       }</span>
+<span id="L284"><span class="lineNum">     284</span> <span class="tlaGNC">           1 :     if (actual != fieldInfo.matchType) {</span></span>
+<span id="L285"><span class="lineNum">     285</span> <span class="tlaGNC">           1 :       throw invalidArg(</span></span>
+<span id="L286"><span class="lineNum">     286</span> <span class="tlaGNC">           1 :         &quot;match field '${fieldInfo.name}' expects ${fieldInfo.matchType.name} but got ${actual.name}&quot;</span></span>
+<span id="L287"><span class="lineNum">     287</span>              :       )</span>
+<span id="L288"><span class="lineNum">     288</span>              :     }</span>
+<span id="L289"><span class="lineNum">     289</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L290"><span class="lineNum">     290</span>              : </span>
+<span id="L291"><span class="lineNum">     291</span>              :   private fun validateMatchWidth(</span>
+<span id="L292"><span class="lineNum">     292</span>              :     fm: P4RuntimeOuterClass.FieldMatch,</span>
+<span id="L293"><span class="lineNum">     293</span>              :     fieldInfo: P4InfoOuterClass.MatchField,</span>
+<span id="L294"><span class="lineNum">     294</span>              :   ) {</span>
+<span id="L295"><span class="lineNum">     295</span> <span class="tlaGNC">           1 :     val w = fieldInfo.bitwidth</span></span>
+<span id="L296"><span class="lineNum">     296</span> <span class="tlaGNC">           1 :     val f = fieldInfo.name</span></span>
+<span id="L297"><span class="lineNum">     297</span> <span class="tlaGNC">           1 :     when (fm.fieldMatchTypeCase) {</span></span>
+<span id="L298"><span class="lineNum">     298</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT -&gt;</span>
+<span id="L299"><span class="lineNum">     299</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.exact.value, w, &quot;match field '$f' value&quot;)</span></span>
+<span id="L300"><span class="lineNum">     300</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY -&gt; {</span>
+<span id="L301"><span class="lineNum">     301</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.ternary.value, w, &quot;match field '$f' value&quot;)</span></span>
+<span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.ternary.mask, w, &quot;match field '$f' mask&quot;)</span></span>
+<span id="L303"><span class="lineNum">     303</span>              :         // §8.3: bits where mask is 0 must also be 0 in value.</span>
+<span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :         checkTernaryMaskedBits(fm.ternary.value, fm.ternary.mask, f)</span></span>
+<span id="L305"><span class="lineNum">     305</span>              :       }</span>
+<span id="L306"><span class="lineNum">     306</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM -&gt; {</span>
+<span id="L307"><span class="lineNum">     307</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.lpm.value, w, &quot;match field '$f' value&quot;)</span></span>
+<span id="L308"><span class="lineNum">     308</span>              :         // §9.1.1: prefix_len must be in [0, W].</span>
+<span id="L309"><span class="lineNum">     309</span> <span class="tlaGNC">           1 :         if (fm.lpm.prefixLen &lt; 0 || fm.lpm.prefixLen &gt; w) {</span></span>
+<span id="L310"><span class="lineNum">     310</span> <span class="tlaUNC tlaBgUNC">           0 :           throw invalidArg(</span></span>
+<span id="L311"><span class="lineNum">     311</span> <span class="tlaUNC">           0 :             &quot;match field '$f' has prefix_len ${fm.lpm.prefixLen} outside the valid range [0, $w]&quot;</span></span>
+<span id="L312"><span class="lineNum">     312</span>              :           )</span>
+<span id="L313"><span class="lineNum">     313</span>              :         }</span>
+<span id="L314"><span class="lineNum">     314</span>              :         // §8.3: bits beyond prefix_len must be zero.</span>
+<span id="L315"><span class="lineNum">     315</span> <span class="tlaGNC tlaBgGNC">           1 :         checkLpmTrailingBits(fm.lpm.value, fm.lpm.prefixLen, w, f)</span></span>
+<span id="L316"><span class="lineNum">     316</span>              :       }</span>
+<span id="L317"><span class="lineNum">     317</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE -&gt; {</span>
+<span id="L318"><span class="lineNum">     318</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.range.low, w, &quot;match field '$f' low&quot;)</span></span>
+<span id="L319"><span class="lineNum">     319</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.range.high, w, &quot;match field '$f' high&quot;)</span></span>
+<span id="L320"><span class="lineNum">     320</span>              :         // P4Runtime spec §9.1.1: low must be &lt;= high.</span>
+<span id="L321"><span class="lineNum">     321</span> <span class="tlaGNC">           1 :         checkRangeOrder(fm.range.low, fm.range.high, f)</span></span>
+<span id="L322"><span class="lineNum">     322</span>              :       }</span>
+<span id="L323"><span class="lineNum">     323</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -&gt;</span>
+<span id="L324"><span class="lineNum">     324</span> <span class="tlaGNC">           1 :         requireFitsInBitwidth(fm.optional.value, w, &quot;match field '$f' value&quot;)</span></span>
+<span id="L325"><span class="lineNum">     325</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,</span>
+<span id="L326"><span class="lineNum">     326</span>              :       P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,</span>
+<span id="L327"><span class="lineNum">     327</span>              :       null -&gt; {}</span>
+<span id="L328"><span class="lineNum">     328</span>              :     }</span>
+<span id="L329"><span class="lineNum">     329</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L330"><span class="lineNum">     330</span>              : </span>
 <span id="L331"><span class="lineNum">     331</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L332"><span class="lineNum">     332</span>              : </span>
-<span id="L333"><span class="lineNum">     333</span>              :   private fun validatePriority(</span>
-<span id="L334"><span class="lineNum">     334</span>              :     entry: P4RuntimeOuterClass.TableEntry,</span>
-<span id="L335"><span class="lineNum">     335</span>              :     tableInfo: P4InfoOuterClass.Table,</span>
-<span id="L336"><span class="lineNum">     336</span>              :   ) {</span>
-<span id="L337"><span class="lineNum">     337</span> <span class="tlaGNC">           1 :     val hasPriorityFields = tableRequiresPriority[tableInfo.preamble.id] ?: false</span></span>
-<span id="L338"><span class="lineNum">     338</span> <span class="tlaGNC">           1 :     val name = tableInfo.tableName</span></span>
-<span id="L339"><span class="lineNum">     339</span> <span class="tlaGNC">           1 :     if (hasPriorityFields &amp;&amp; entry.priority &lt;= 0) {</span></span>
-<span id="L340"><span class="lineNum">     340</span> <span class="tlaGNC">           1 :       throw invalidArg(</span></span>
-<span id="L341"><span class="lineNum">     341</span> <span class="tlaGNC">           1 :         &quot;table '$name' requires priority &gt; 0 (has ternary/range/optional match fields)&quot;</span></span>
-<span id="L342"><span class="lineNum">     342</span>              :       )</span>
-<span id="L343"><span class="lineNum">     343</span>              :     }</span>
-<span id="L344"><span class="lineNum">     344</span> <span class="tlaGNC">           1 :     if (!hasPriorityFields &amp;&amp; entry.priority != 0) {</span></span>
-<span id="L345"><span class="lineNum">     345</span> <span class="tlaGNC">           1 :       throw invalidArg(&quot;table '$name' must have priority == 0 (exact/LPM match only)&quot;)</span></span>
-<span id="L346"><span class="lineNum">     346</span>              :     }</span>
-<span id="L347"><span class="lineNum">     347</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L348"><span class="lineNum">     348</span>              : </span>
-<span id="L349"><span class="lineNum">     349</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L350"><span class="lineNum">     350</span>              :   // Action profile member validation (§9.2.1)</span>
+<span id="L332"><span class="lineNum">     332</span>              :   // Priority validation (§9.1.1)</span>
+<span id="L333"><span class="lineNum">     333</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L334"><span class="lineNum">     334</span>              : </span>
+<span id="L335"><span class="lineNum">     335</span>              :   private fun validatePriority(</span>
+<span id="L336"><span class="lineNum">     336</span>              :     entry: P4RuntimeOuterClass.TableEntry,</span>
+<span id="L337"><span class="lineNum">     337</span>              :     tableInfo: P4InfoOuterClass.Table,</span>
+<span id="L338"><span class="lineNum">     338</span>              :   ) {</span>
+<span id="L339"><span class="lineNum">     339</span> <span class="tlaGNC">           1 :     val hasPriorityFields = tableRequiresPriority[tableInfo.preamble.id] ?: false</span></span>
+<span id="L340"><span class="lineNum">     340</span> <span class="tlaGNC">           1 :     val name = tableInfo.tableName</span></span>
+<span id="L341"><span class="lineNum">     341</span> <span class="tlaGNC">           1 :     if (hasPriorityFields &amp;&amp; entry.priority &lt;= 0) {</span></span>
+<span id="L342"><span class="lineNum">     342</span> <span class="tlaGNC">           1 :       throw invalidArg(</span></span>
+<span id="L343"><span class="lineNum">     343</span> <span class="tlaGNC">           1 :         &quot;table '$name' requires priority &gt; 0 (has ternary/range/optional match fields)&quot;</span></span>
+<span id="L344"><span class="lineNum">     344</span>              :       )</span>
+<span id="L345"><span class="lineNum">     345</span>              :     }</span>
+<span id="L346"><span class="lineNum">     346</span> <span class="tlaGNC">           1 :     if (!hasPriorityFields &amp;&amp; entry.priority != 0) {</span></span>
+<span id="L347"><span class="lineNum">     347</span> <span class="tlaGNC">           1 :       throw invalidArg(&quot;table '$name' must have priority == 0 (exact/LPM match only)&quot;)</span></span>
+<span id="L348"><span class="lineNum">     348</span>              :     }</span>
+<span id="L349"><span class="lineNum">     349</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L350"><span class="lineNum">     350</span>              : </span>
 <span id="L351"><span class="lineNum">     351</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L352"><span class="lineNum">     352</span>              : </span>
-<span id="L353"><span class="lineNum">     353</span>              :   private fun validateMember(update: P4RuntimeOuterClass.Update) {</span>
-<span id="L354"><span class="lineNum">     354</span> <span class="tlaGNC">           1 :     val member = update.entity.actionProfileMember</span></span>
-<span id="L355"><span class="lineNum">     355</span> <span class="tlaGNC">           1 :     val profileId = member.actionProfileId</span></span>
-<span id="L356"><span class="lineNum">     356</span> <span class="tlaGNC">           1 :     val profileInfo =</span></span>
-<span id="L357"><span class="lineNum">     357</span> <span class="tlaGNC">           1 :       actionProfileInfoById[profileId]</span></span>
-<span id="L358"><span class="lineNum">     358</span> <span class="tlaGNC">           1 :         ?: throw notFound(</span></span>
-<span id="L359"><span class="lineNum">     359</span> <span class="tlaGNC">           1 :           &quot;unknown action_profile_id $profileId &quot; +</span></span>
-<span id="L360"><span class="lineNum">     360</span> <span class="tlaGNC">           1 :             &quot;(valid profiles: ${formatOptions(</span></span>
-<span id="L361"><span class="lineNum">     361</span> <span class="tlaGNC">           1 :               actionProfileInfoById.values.map {</span></span>
-<span id="L362"><span class="lineNum">     362</span> <span class="tlaGNC">           1 :                 &quot;'${it.preamble.alias.ifEmpty { it.preamble.name }}' (${it.preamble.id})&quot;</span></span>
-<span id="L363"><span class="lineNum">     363</span>              :               }</span>
-<span id="L364"><span class="lineNum">     364</span>              :             )})&quot;</span>
-<span id="L365"><span class="lineNum">     365</span>              :         )</span>
-<span id="L366"><span class="lineNum">     366</span>              : </span>
-<span id="L367"><span class="lineNum">     367</span>              :     // DELETE only needs the key (profile_id + member_id); skip content validation.</span>
-<span id="L368"><span class="lineNum">     368</span> <span class="tlaGNC">           1 :     if (update.type == P4RuntimeOuterClass.Update.Type.DELETE) return</span></span>
-<span id="L369"><span class="lineNum">     369</span>              : </span>
-<span id="L370"><span class="lineNum">     370</span> <span class="tlaGNC">           1 :     val action = member.action</span></span>
-<span id="L371"><span class="lineNum">     371</span> <span class="tlaGNC">           1 :     val validActionIds = actionRefIdsByProfile[profileId] ?: emptySet()</span></span>
-<span id="L372"><span class="lineNum">     372</span> <span class="tlaGNC">           1 :     val profileName = profileInfo.preamble.alias.ifEmpty { profileInfo.preamble.name }</span></span>
-<span id="L373"><span class="lineNum">     373</span> <span class="tlaGNC">           1 :     val validActionDescs =</span></span>
-<span id="L374"><span class="lineNum">     374</span> <span class="tlaGNC">           1 :       validActionIds.mapNotNull { id -&gt; actionInfoById[id]?.let { &quot;'${it.preamble.name}' ($id)&quot; } }</span></span>
-<span id="L375"><span class="lineNum">     375</span> <span class="tlaGNC">           1 :     val actionInfo =</span></span>
-<span id="L376"><span class="lineNum">     376</span> <span class="tlaGNC">           1 :       actionInfoById[action.actionId]</span></span>
-<span id="L377"><span class="lineNum">     377</span> <span class="tlaGNC">           1 :         ?: throw invalidArg(</span></span>
-<span id="L378"><span class="lineNum">     378</span> <span class="tlaGNC">           1 :           &quot;unknown action ID ${action.actionId} in action profile '$profileName' &quot; +</span></span>
-<span id="L379"><span class="lineNum">     379</span> <span class="tlaGNC">           1 :             &quot;(valid actions: ${formatOptions(validActionDescs)})&quot;</span></span>
-<span id="L380"><span class="lineNum">     380</span>              :         )</span>
-<span id="L381"><span class="lineNum">     381</span>              : </span>
-<span id="L382"><span class="lineNum">     382</span> <span class="tlaGNC">           1 :     if (action.actionId !in validActionIds) {</span></span>
-<span id="L383"><span class="lineNum">     383</span> <span class="tlaGNC">           1 :       throw invalidArg(</span></span>
-<span id="L384"><span class="lineNum">     384</span> <span class="tlaGNC">           1 :         &quot;action '${actionInfo.preamble.name}' (ID ${action.actionId}) &quot; +</span></span>
-<span id="L385"><span class="lineNum">     385</span> <span class="tlaGNC">           1 :           &quot;is not valid for action profile '$profileName' &quot; +</span></span>
-<span id="L386"><span class="lineNum">     386</span> <span class="tlaGNC">           1 :           &quot;(valid actions: ${formatOptions(validActionDescs)})&quot;</span></span>
-<span id="L387"><span class="lineNum">     387</span>              :       )</span>
-<span id="L388"><span class="lineNum">     388</span>              :     }</span>
-<span id="L389"><span class="lineNum">     389</span>              : </span>
-<span id="L390"><span class="lineNum">     390</span> <span class="tlaGNC">           1 :     validateActionParams(action, actionInfo)</span></span>
-<span id="L391"><span class="lineNum">     391</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L392"><span class="lineNum">     392</span>              : </span>
-<span id="L393"><span class="lineNum">     393</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L394"><span class="lineNum">     394</span>              :   // Action profile group validation (§9.2.2)</span>
+<span id="L352"><span class="lineNum">     352</span>              :   // Action profile member validation (§9.2.1)</span>
+<span id="L353"><span class="lineNum">     353</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L354"><span class="lineNum">     354</span>              : </span>
+<span id="L355"><span class="lineNum">     355</span>              :   private fun validateMember(update: P4RuntimeOuterClass.Update) {</span>
+<span id="L356"><span class="lineNum">     356</span> <span class="tlaGNC">           1 :     val member = update.entity.actionProfileMember</span></span>
+<span id="L357"><span class="lineNum">     357</span> <span class="tlaGNC">           1 :     val profileId = member.actionProfileId</span></span>
+<span id="L358"><span class="lineNum">     358</span> <span class="tlaGNC">           1 :     val profileInfo =</span></span>
+<span id="L359"><span class="lineNum">     359</span> <span class="tlaGNC">           1 :       actionProfileInfoById[profileId]</span></span>
+<span id="L360"><span class="lineNum">     360</span> <span class="tlaGNC">           1 :         ?: throw notFound(</span></span>
+<span id="L361"><span class="lineNum">     361</span> <span class="tlaGNC">           1 :           &quot;unknown action_profile_id $profileId &quot; +</span></span>
+<span id="L362"><span class="lineNum">     362</span> <span class="tlaGNC">           1 :             &quot;(valid profiles: ${formatOptions(</span></span>
+<span id="L363"><span class="lineNum">     363</span> <span class="tlaGNC">           1 :               actionProfileInfoById.values.map {</span></span>
+<span id="L364"><span class="lineNum">     364</span> <span class="tlaGNC">           1 :                 &quot;'${it.preamble.alias.ifEmpty { it.preamble.name }}' (${it.preamble.id})&quot;</span></span>
+<span id="L365"><span class="lineNum">     365</span>              :               }</span>
+<span id="L366"><span class="lineNum">     366</span>              :             )})&quot;</span>
+<span id="L367"><span class="lineNum">     367</span>              :         )</span>
+<span id="L368"><span class="lineNum">     368</span>              : </span>
+<span id="L369"><span class="lineNum">     369</span>              :     // DELETE only needs the key (profile_id + member_id); skip content validation.</span>
+<span id="L370"><span class="lineNum">     370</span> <span class="tlaGNC">           1 :     if (update.type == P4RuntimeOuterClass.Update.Type.DELETE) return</span></span>
+<span id="L371"><span class="lineNum">     371</span>              : </span>
+<span id="L372"><span class="lineNum">     372</span> <span class="tlaGNC">           1 :     val action = member.action</span></span>
+<span id="L373"><span class="lineNum">     373</span> <span class="tlaGNC">           1 :     val validActionIds = actionRefIdsByProfile[profileId] ?: emptySet()</span></span>
+<span id="L374"><span class="lineNum">     374</span> <span class="tlaGNC">           1 :     val profileName = profileInfo.preamble.alias.ifEmpty { profileInfo.preamble.name }</span></span>
+<span id="L375"><span class="lineNum">     375</span> <span class="tlaGNC">           1 :     val validActionDescs =</span></span>
+<span id="L376"><span class="lineNum">     376</span> <span class="tlaGNC">           1 :       validActionIds.mapNotNull { id -&gt; actionInfoById[id]?.let { &quot;'${it.preamble.name}' ($id)&quot; } }</span></span>
+<span id="L377"><span class="lineNum">     377</span> <span class="tlaGNC">           1 :     val actionInfo =</span></span>
+<span id="L378"><span class="lineNum">     378</span> <span class="tlaGNC">           1 :       actionInfoById[action.actionId]</span></span>
+<span id="L379"><span class="lineNum">     379</span> <span class="tlaGNC">           1 :         ?: throw invalidArg(</span></span>
+<span id="L380"><span class="lineNum">     380</span> <span class="tlaGNC">           1 :           &quot;unknown action ID ${action.actionId} in action profile '$profileName' &quot; +</span></span>
+<span id="L381"><span class="lineNum">     381</span> <span class="tlaGNC">           1 :             &quot;(valid actions: ${formatOptions(validActionDescs)})&quot;</span></span>
+<span id="L382"><span class="lineNum">     382</span>              :         )</span>
+<span id="L383"><span class="lineNum">     383</span>              : </span>
+<span id="L384"><span class="lineNum">     384</span> <span class="tlaGNC">           1 :     if (action.actionId !in validActionIds) {</span></span>
+<span id="L385"><span class="lineNum">     385</span> <span class="tlaGNC">           1 :       throw invalidArg(</span></span>
+<span id="L386"><span class="lineNum">     386</span> <span class="tlaGNC">           1 :         &quot;action '${actionInfo.preamble.name}' (ID ${action.actionId}) &quot; +</span></span>
+<span id="L387"><span class="lineNum">     387</span> <span class="tlaGNC">           1 :           &quot;is not valid for action profile '$profileName' &quot; +</span></span>
+<span id="L388"><span class="lineNum">     388</span> <span class="tlaGNC">           1 :           &quot;(valid actions: ${formatOptions(validActionDescs)})&quot;</span></span>
+<span id="L389"><span class="lineNum">     389</span>              :       )</span>
+<span id="L390"><span class="lineNum">     390</span>              :     }</span>
+<span id="L391"><span class="lineNum">     391</span>              : </span>
+<span id="L392"><span class="lineNum">     392</span> <span class="tlaGNC">           1 :     validateActionParams(action, actionInfo)</span></span>
+<span id="L393"><span class="lineNum">     393</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L394"><span class="lineNum">     394</span>              : </span>
 <span id="L395"><span class="lineNum">     395</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L396"><span class="lineNum">     396</span>              : </span>
-<span id="L397"><span class="lineNum">     397</span>              :   private fun validateGroup(update: P4RuntimeOuterClass.Update) {</span>
-<span id="L398"><span class="lineNum">     398</span> <span class="tlaGNC">           1 :     val group = update.entity.actionProfileGroup</span></span>
-<span id="L399"><span class="lineNum">     399</span> <span class="tlaGNC">           1 :     val profileId = group.actionProfileId</span></span>
-<span id="L400"><span class="lineNum">     400</span> <span class="tlaGNC">           1 :     if (profileId !in actionProfileInfoById) {</span></span>
-<span id="L401"><span class="lineNum">     401</span> <span class="tlaGNC">           1 :       throw notFound(</span></span>
-<span id="L402"><span class="lineNum">     402</span> <span class="tlaGNC">           1 :         &quot;unknown action_profile_id $profileId &quot; +</span></span>
-<span id="L403"><span class="lineNum">     403</span> <span class="tlaGNC">           1 :           &quot;(valid profiles: ${formatOptions(</span></span>
-<span id="L404"><span class="lineNum">     404</span> <span class="tlaGNC">           1 :             actionProfileInfoById.values.map {</span></span>
-<span id="L405"><span class="lineNum">     405</span> <span class="tlaGNC">           1 :               &quot;'${it.preamble.alias.ifEmpty { it.preamble.name }}' (${it.preamble.id})&quot;</span></span>
-<span id="L406"><span class="lineNum">     406</span>              :             }</span>
-<span id="L407"><span class="lineNum">     407</span>              :           )})&quot;</span>
-<span id="L408"><span class="lineNum">     408</span>              :       )</span>
-<span id="L409"><span class="lineNum">     409</span>              :     }</span>
-<span id="L410"><span class="lineNum">     410</span>              :     // Group members reference member_ids, which are validated at write time by the simulator.</span>
-<span id="L411"><span class="lineNum">     411</span>              :     // Schema-level validation only checks the profile ID exists.</span>
-<span id="L412"><span class="lineNum">     412</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L413"><span class="lineNum">     413</span>              : </span>
-<span id="L414"><span class="lineNum">     414</span>              :   companion object {</span>
-<span id="L415"><span class="lineNum">     415</span>              :     private val PRIORITY_MATCH_TYPES =</span>
-<span id="L416"><span class="lineNum">     416</span> <span class="tlaGNC">           1 :       setOf(</span></span>
-<span id="L417"><span class="lineNum">     417</span> <span class="tlaGNC">           1 :         P4InfoOuterClass.MatchField.MatchType.TERNARY,</span></span>
-<span id="L418"><span class="lineNum">     418</span> <span class="tlaGNC">           1 :         P4InfoOuterClass.MatchField.MatchType.RANGE,</span></span>
-<span id="L419"><span class="lineNum">     419</span> <span class="tlaGNC">           1 :         P4InfoOuterClass.MatchField.MatchType.OPTIONAL,</span></span>
-<span id="L420"><span class="lineNum">     420</span>              :       )</span>
-<span id="L421"><span class="lineNum">     421</span>              : </span>
-<span id="L422"><span class="lineNum">     422</span>              :     /**</span>
-<span id="L423"><span class="lineNum">     423</span>              :      * §8.3: ternary value bits must be zero where the mask is zero.</span>
-<span id="L424"><span class="lineNum">     424</span>              :      *</span>
-<span id="L425"><span class="lineNum">     425</span>              :      * Length-agnostic: value and mask may be any length (each separately validated by</span>
-<span id="L426"><span class="lineNum">     426</span>              :      * [requireFitsInBitwidth] beforehand), so the check is done on the integer values directly.</span>
-<span id="L427"><span class="lineNum">     427</span>              :      */</span>
-<span id="L428"><span class="lineNum">     428</span>              :     private fun checkTernaryMaskedBits(value: ByteString, mask: ByteString, fieldName: String) {</span>
-<span id="L429"><span class="lineNum">     429</span> <span class="tlaGNC">           1 :       val v = value.toUnsignedBigInteger()</span></span>
-<span id="L430"><span class="lineNum">     430</span> <span class="tlaGNC">           1 :       val m = mask.toUnsignedBigInteger()</span></span>
-<span id="L431"><span class="lineNum">     431</span> <span class="tlaGNC">           1 :       if (v.and(m.not()).signum() != 0) {</span></span>
-<span id="L432"><span class="lineNum">     432</span> <span class="tlaGNC">           1 :         throw invalidArg(</span></span>
-<span id="L433"><span class="lineNum">     433</span> <span class="tlaGNC">           1 :           &quot;match field '$fieldName' has masked-off bits set in value (value &amp; ~mask != 0)&quot;</span></span>
-<span id="L434"><span class="lineNum">     434</span>              :         )</span>
-<span id="L435"><span class="lineNum">     435</span>              :       }</span>
-<span id="L436"><span class="lineNum">     436</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L437"><span class="lineNum">     437</span>              : </span>
-<span id="L438"><span class="lineNum">     438</span>              :     /** §9.1.1: range match low must be &lt;= high (unsigned comparison). */</span>
-<span id="L439"><span class="lineNum">     439</span>              :     private fun checkRangeOrder(low: ByteString, high: ByteString, fieldName: String) {</span>
-<span id="L440"><span class="lineNum">     440</span> <span class="tlaGNC">           1 :       if (low.toUnsignedBigInteger() &gt; high.toUnsignedBigInteger()) {</span></span>
-<span id="L441"><span class="lineNum">     441</span> <span class="tlaGNC">           1 :         throw invalidArg(&quot;match field '$fieldName' has range low &gt; high&quot;)</span></span>
-<span id="L442"><span class="lineNum">     442</span>              :       }</span>
-<span id="L443"><span class="lineNum">     443</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L444"><span class="lineNum">     444</span>              : </span>
-<span id="L445"><span class="lineNum">     445</span>              :     /**</span>
-<span id="L446"><span class="lineNum">     446</span>              :      * §8.3: LPM value bits beyond prefix_len must be zero.</span>
-<span id="L447"><span class="lineNum">     447</span>              :      *</span>
-<span id="L448"><span class="lineNum">     448</span>              :      * The value is interpreted as a [bitwidth]-bit unsigned integer; the trailing (bitwidth -</span>
-<span id="L449"><span class="lineNum">     449</span>              :      * prefixLen) bits must be zero, regardless of how many bytes were used to send it. (E.g. for</span>
-<span id="L450"><span class="lineNum">     450</span>              :      * `bit&lt;32&gt;` LPM with prefix_len=8, the value `\x0A` represents integer 10 with implicit leading</span>
-<span id="L451"><span class="lineNum">     451</span>              :      * zeros — and bit positions [0,24) of the bit&lt;32&gt; integer are non-zero, so it is rejected.)</span>
-<span id="L452"><span class="lineNum">     452</span>              :      */</span>
-<span id="L453"><span class="lineNum">     453</span>              :     private fun checkLpmTrailingBits(</span>
-<span id="L454"><span class="lineNum">     454</span>              :       value: ByteString,</span>
-<span id="L455"><span class="lineNum">     455</span>              :       prefixLen: Int,</span>
-<span id="L456"><span class="lineNum">     456</span>              :       bitwidth: Int,</span>
-<span id="L457"><span class="lineNum">     457</span>              :       fieldName: String,</span>
-<span id="L458"><span class="lineNum">     458</span>              :     ) {</span>
-<span id="L459"><span class="lineNum">     459</span> <span class="tlaGNC">           1 :       val trailingBits = bitwidth - prefixLen</span></span>
-<span id="L460"><span class="lineNum">     460</span> <span class="tlaGNC">           1 :       if (trailingBits == 0) return // entire value is significant</span></span>
-<span id="L461"><span class="lineNum">     461</span> <span class="tlaGNC">           1 :       val mask = BigInteger.ONE.shiftLeft(trailingBits).subtract(BigInteger.ONE)</span></span>
-<span id="L462"><span class="lineNum">     462</span> <span class="tlaGNC">           1 :       if (value.toUnsignedBigInteger().and(mask).signum() != 0) {</span></span>
-<span id="L463"><span class="lineNum">     463</span> <span class="tlaGNC">           1 :         throw invalidArg(</span></span>
-<span id="L464"><span class="lineNum">     464</span> <span class="tlaGNC">           1 :           &quot;match field '$fieldName' has non-zero bits beyond prefix length $prefixLen&quot;</span></span>
-<span id="L465"><span class="lineNum">     465</span>              :         )</span>
-<span id="L466"><span class="lineNum">     466</span>              :       }</span>
-<span id="L467"><span class="lineNum">     467</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L468"><span class="lineNum">     468</span>              : </span>
-<span id="L469"><span class="lineNum">     469</span>              :     private val P4InfoOuterClass.Table.tableName: String</span>
-<span id="L470"><span class="lineNum">     470</span> <span class="tlaGNC">           1 :       get() = preamble.alias.ifEmpty { preamble.name }</span></span>
-<span id="L471"><span class="lineNum">     471</span>              : </span>
-<span id="L472"><span class="lineNum">     472</span>              :     private const val MAX_LISTED_OPTIONS = 10</span>
+<span id="L396"><span class="lineNum">     396</span>              :   // Action profile group validation (§9.2.2)</span>
+<span id="L397"><span class="lineNum">     397</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L398"><span class="lineNum">     398</span>              : </span>
+<span id="L399"><span class="lineNum">     399</span>              :   private fun validateGroup(update: P4RuntimeOuterClass.Update) {</span>
+<span id="L400"><span class="lineNum">     400</span> <span class="tlaGNC">           1 :     val group = update.entity.actionProfileGroup</span></span>
+<span id="L401"><span class="lineNum">     401</span> <span class="tlaGNC">           1 :     val profileId = group.actionProfileId</span></span>
+<span id="L402"><span class="lineNum">     402</span> <span class="tlaGNC">           1 :     if (profileId !in actionProfileInfoById) {</span></span>
+<span id="L403"><span class="lineNum">     403</span> <span class="tlaGNC">           1 :       throw notFound(</span></span>
+<span id="L404"><span class="lineNum">     404</span> <span class="tlaGNC">           1 :         &quot;unknown action_profile_id $profileId &quot; +</span></span>
+<span id="L405"><span class="lineNum">     405</span> <span class="tlaGNC">           1 :           &quot;(valid profiles: ${formatOptions(</span></span>
+<span id="L406"><span class="lineNum">     406</span> <span class="tlaGNC">           1 :             actionProfileInfoById.values.map {</span></span>
+<span id="L407"><span class="lineNum">     407</span> <span class="tlaGNC">           1 :               &quot;'${it.preamble.alias.ifEmpty { it.preamble.name }}' (${it.preamble.id})&quot;</span></span>
+<span id="L408"><span class="lineNum">     408</span>              :             }</span>
+<span id="L409"><span class="lineNum">     409</span>              :           )})&quot;</span>
+<span id="L410"><span class="lineNum">     410</span>              :       )</span>
+<span id="L411"><span class="lineNum">     411</span>              :     }</span>
+<span id="L412"><span class="lineNum">     412</span>              :     // Group members reference member_ids, which are validated at write time by the simulator.</span>
+<span id="L413"><span class="lineNum">     413</span>              :     // Schema-level validation only checks the profile ID exists.</span>
+<span id="L414"><span class="lineNum">     414</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L415"><span class="lineNum">     415</span>              : </span>
+<span id="L416"><span class="lineNum">     416</span>              :   companion object {</span>
+<span id="L417"><span class="lineNum">     417</span>              :     private val PRIORITY_MATCH_TYPES =</span>
+<span id="L418"><span class="lineNum">     418</span> <span class="tlaGNC">           1 :       setOf(</span></span>
+<span id="L419"><span class="lineNum">     419</span> <span class="tlaGNC">           1 :         P4InfoOuterClass.MatchField.MatchType.TERNARY,</span></span>
+<span id="L420"><span class="lineNum">     420</span> <span class="tlaGNC">           1 :         P4InfoOuterClass.MatchField.MatchType.RANGE,</span></span>
+<span id="L421"><span class="lineNum">     421</span> <span class="tlaGNC">           1 :         P4InfoOuterClass.MatchField.MatchType.OPTIONAL,</span></span>
+<span id="L422"><span class="lineNum">     422</span>              :       )</span>
+<span id="L423"><span class="lineNum">     423</span>              : </span>
+<span id="L424"><span class="lineNum">     424</span>              :     /**</span>
+<span id="L425"><span class="lineNum">     425</span>              :      * §8.3: ternary value bits must be zero where the mask is zero.</span>
+<span id="L426"><span class="lineNum">     426</span>              :      *</span>
+<span id="L427"><span class="lineNum">     427</span>              :      * Length-agnostic: value and mask may be any length (each separately validated by</span>
+<span id="L428"><span class="lineNum">     428</span>              :      * [requireFitsInBitwidth] beforehand), so the check is done on the integer values directly.</span>
+<span id="L429"><span class="lineNum">     429</span>              :      */</span>
+<span id="L430"><span class="lineNum">     430</span>              :     private fun checkTernaryMaskedBits(value: ByteString, mask: ByteString, fieldName: String) {</span>
+<span id="L431"><span class="lineNum">     431</span> <span class="tlaGNC">           1 :       val v = value.toUnsignedBigInteger()</span></span>
+<span id="L432"><span class="lineNum">     432</span> <span class="tlaGNC">           1 :       val m = mask.toUnsignedBigInteger()</span></span>
+<span id="L433"><span class="lineNum">     433</span> <span class="tlaGNC">           1 :       if (v.and(m.not()).signum() != 0) {</span></span>
+<span id="L434"><span class="lineNum">     434</span> <span class="tlaGNC">           1 :         throw invalidArg(</span></span>
+<span id="L435"><span class="lineNum">     435</span> <span class="tlaGNC">           1 :           &quot;match field '$fieldName' has masked-off bits set in value (value &amp; ~mask != 0)&quot;</span></span>
+<span id="L436"><span class="lineNum">     436</span>              :         )</span>
+<span id="L437"><span class="lineNum">     437</span>              :       }</span>
+<span id="L438"><span class="lineNum">     438</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L439"><span class="lineNum">     439</span>              : </span>
+<span id="L440"><span class="lineNum">     440</span>              :     /** §9.1.1: range match low must be &lt;= high (unsigned comparison). */</span>
+<span id="L441"><span class="lineNum">     441</span>              :     private fun checkRangeOrder(low: ByteString, high: ByteString, fieldName: String) {</span>
+<span id="L442"><span class="lineNum">     442</span> <span class="tlaGNC">           1 :       if (low.toUnsignedBigInteger() &gt; high.toUnsignedBigInteger()) {</span></span>
+<span id="L443"><span class="lineNum">     443</span> <span class="tlaGNC">           1 :         throw invalidArg(&quot;match field '$fieldName' has range low &gt; high&quot;)</span></span>
+<span id="L444"><span class="lineNum">     444</span>              :       }</span>
+<span id="L445"><span class="lineNum">     445</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L446"><span class="lineNum">     446</span>              : </span>
+<span id="L447"><span class="lineNum">     447</span>              :     /**</span>
+<span id="L448"><span class="lineNum">     448</span>              :      * §8.3: LPM value bits beyond prefix_len must be zero.</span>
+<span id="L449"><span class="lineNum">     449</span>              :      *</span>
+<span id="L450"><span class="lineNum">     450</span>              :      * The value is interpreted as a [bitwidth]-bit unsigned integer; the trailing (bitwidth -</span>
+<span id="L451"><span class="lineNum">     451</span>              :      * prefixLen) bits must be zero, regardless of how many bytes were used to send it. (E.g. for</span>
+<span id="L452"><span class="lineNum">     452</span>              :      * `bit&lt;32&gt;` LPM with prefix_len=8, the value `\x0A` represents integer 10 with implicit leading</span>
+<span id="L453"><span class="lineNum">     453</span>              :      * zeros — and bit positions [0,24) of the bit&lt;32&gt; integer are non-zero, so it is rejected.)</span>
+<span id="L454"><span class="lineNum">     454</span>              :      */</span>
+<span id="L455"><span class="lineNum">     455</span>              :     private fun checkLpmTrailingBits(</span>
+<span id="L456"><span class="lineNum">     456</span>              :       value: ByteString,</span>
+<span id="L457"><span class="lineNum">     457</span>              :       prefixLen: Int,</span>
+<span id="L458"><span class="lineNum">     458</span>              :       bitwidth: Int,</span>
+<span id="L459"><span class="lineNum">     459</span>              :       fieldName: String,</span>
+<span id="L460"><span class="lineNum">     460</span>              :     ) {</span>
+<span id="L461"><span class="lineNum">     461</span> <span class="tlaGNC">           1 :       val trailingBits = bitwidth - prefixLen</span></span>
+<span id="L462"><span class="lineNum">     462</span> <span class="tlaGNC">           1 :       if (trailingBits == 0) return // entire value is significant</span></span>
+<span id="L463"><span class="lineNum">     463</span> <span class="tlaGNC">           1 :       val mask = BigInteger.ONE.shiftLeft(trailingBits).subtract(BigInteger.ONE)</span></span>
+<span id="L464"><span class="lineNum">     464</span> <span class="tlaGNC">           1 :       if (value.toUnsignedBigInteger().and(mask).signum() != 0) {</span></span>
+<span id="L465"><span class="lineNum">     465</span> <span class="tlaGNC">           1 :         throw invalidArg(</span></span>
+<span id="L466"><span class="lineNum">     466</span> <span class="tlaGNC">           1 :           &quot;match field '$fieldName' has non-zero bits beyond prefix length $prefixLen&quot;</span></span>
+<span id="L467"><span class="lineNum">     467</span>              :         )</span>
+<span id="L468"><span class="lineNum">     468</span>              :       }</span>
+<span id="L469"><span class="lineNum">     469</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L470"><span class="lineNum">     470</span>              : </span>
+<span id="L471"><span class="lineNum">     471</span>              :     private val P4InfoOuterClass.Table.tableName: String</span>
+<span id="L472"><span class="lineNum">     472</span> <span class="tlaGNC">           1 :       get() = preamble.alias.ifEmpty { preamble.name }</span></span>
 <span id="L473"><span class="lineNum">     473</span>              : </span>
-<span id="L474"><span class="lineNum">     474</span>              :     /** Formats a list of option names for inclusion in an error message, truncating if needed. */</span>
-<span id="L475"><span class="lineNum">     475</span>              :     private fun formatOptions(options: List&lt;String&gt;): String =</span>
-<span id="L476"><span class="lineNum">     476</span> <span class="tlaGNC">           1 :       when {</span></span>
-<span id="L477"><span class="lineNum">     477</span> <span class="tlaGNC">           1 :         options.isEmpty() -&gt; &quot;none&quot;</span></span>
-<span id="L478"><span class="lineNum">     478</span> <span class="tlaGNC">           1 :         options.size &lt;= MAX_LISTED_OPTIONS -&gt; options.joinToString(&quot;, &quot;)</span></span>
-<span id="L479"><span class="lineNum">     479</span>              :         else -&gt;</span>
-<span id="L480"><span class="lineNum">     480</span> <span class="tlaUNC tlaBgUNC">           0 :           options.take(MAX_LISTED_OPTIONS).joinToString(&quot;, &quot;) +</span></span>
-<span id="L481"><span class="lineNum">     481</span> <span class="tlaUNC">           0 :             &quot;, ... and ${options.size - MAX_LISTED_OPTIONS} more&quot;</span></span>
-<span id="L482"><span class="lineNum">     482</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
-<span id="L483"><span class="lineNum">     483</span>              : </span>
-<span id="L484"><span class="lineNum">     484</span>              :     private fun invalidArg(msg: String): StatusException =</span>
-<span id="L485"><span class="lineNum">     485</span> <span class="tlaGNC">           1 :       Status.INVALID_ARGUMENT.withDescription(msg).asException()</span></span>
-<span id="L486"><span class="lineNum">     486</span>              : </span>
-<span id="L487"><span class="lineNum">     487</span>              :     private fun notFound(msg: String): StatusException =</span>
-<span id="L488"><span class="lineNum">     488</span> <span class="tlaGNC">           1 :       Status.NOT_FOUND.withDescription(msg).asException()</span></span>
-<span id="L489"><span class="lineNum">     489</span>              : </span>
-<span id="L490"><span class="lineNum">     490</span>              :     private fun unimplemented(msg: String): StatusException =</span>
-<span id="L491"><span class="lineNum">     491</span> <span class="tlaGNC">           1 :       Status.UNIMPLEMENTED.withDescription(msg).asException()</span></span>
-<span id="L492"><span class="lineNum">     492</span>              :   }</span>
-<span id="L493"><span class="lineNum">     493</span>              : }</span>
+<span id="L474"><span class="lineNum">     474</span>              :     private const val MAX_LISTED_OPTIONS = 10</span>
+<span id="L475"><span class="lineNum">     475</span>              : </span>
+<span id="L476"><span class="lineNum">     476</span>              :     /** Formats a list of option names for inclusion in an error message, truncating if needed. */</span>
+<span id="L477"><span class="lineNum">     477</span>              :     private fun formatOptions(options: List&lt;String&gt;): String =</span>
+<span id="L478"><span class="lineNum">     478</span> <span class="tlaGNC">           1 :       when {</span></span>
+<span id="L479"><span class="lineNum">     479</span> <span class="tlaGNC">           1 :         options.isEmpty() -&gt; &quot;none&quot;</span></span>
+<span id="L480"><span class="lineNum">     480</span> <span class="tlaGNC">           1 :         options.size &lt;= MAX_LISTED_OPTIONS -&gt; options.joinToString(&quot;, &quot;)</span></span>
+<span id="L481"><span class="lineNum">     481</span>              :         else -&gt;</span>
+<span id="L482"><span class="lineNum">     482</span> <span class="tlaUNC tlaBgUNC">           0 :           options.take(MAX_LISTED_OPTIONS).joinToString(&quot;, &quot;) +</span></span>
+<span id="L483"><span class="lineNum">     483</span> <span class="tlaUNC">           0 :             &quot;, ... and ${options.size - MAX_LISTED_OPTIONS} more&quot;</span></span>
+<span id="L484"><span class="lineNum">     484</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
+<span id="L485"><span class="lineNum">     485</span>              : </span>
+<span id="L486"><span class="lineNum">     486</span>              :     private fun invalidArg(msg: String): StatusException =</span>
+<span id="L487"><span class="lineNum">     487</span> <span class="tlaGNC">           1 :       Status.INVALID_ARGUMENT.withDescription(msg).asException()</span></span>
+<span id="L488"><span class="lineNum">     488</span>              : </span>
+<span id="L489"><span class="lineNum">     489</span>              :     private fun notFound(msg: String): StatusException =</span>
+<span id="L490"><span class="lineNum">     490</span> <span class="tlaGNC">           1 :       Status.NOT_FOUND.withDescription(msg).asException()</span></span>
+<span id="L491"><span class="lineNum">     491</span>              : </span>
+<span id="L492"><span class="lineNum">     492</span>              :     private fun unimplemented(msg: String): StatusException =</span>
+<span id="L493"><span class="lineNum">     493</span> <span class="tlaGNC">           1 :       Status.UNIMPLEMENTED.withDescription(msg).asException()</span></span>
+<span id="L494"><span class="lineNum">     494</span>              :   }</span>
+<span id="L495"><span class="lineNum">     495</span>              : }</span>
         </pre>
               </td>
             </tr>
