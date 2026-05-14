@@ -393,6 +393,8 @@ kt_jvm_test(
     associates = [":simulator"],
     test_class = "fourward.simulator.ReproducerExtractorTest",
     deps = [
+        ":ir_java_proto",
+        ":p4info_java_proto",
         ":p4runtime_java_proto",
         ":simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",

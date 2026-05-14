@@ -144,13 +144,13 @@ class Simulator : TableDataReader {
   fun writeEntry(update: p4.v1.P4RuntimeOuterClass.Update): WriteResult =
     loaded().tableStore.write(update)
 
-  /** The pipeline config from the currently loaded pipeline. */
-  val pipelineConfig: PipelineConfig
-    get() = loaded().config
+  /** The pipeline config from the currently loaded pipeline, or null if none is loaded. */
+  val pipelineConfig: PipelineConfig?
+    get() = current.get()?.config
 
-  /** The published forwarding snapshot (immutable, lock-free read). */
-  val forwardingSnapshot: TableStore.ForwardingSnapshot
-    get() = loaded().tableStore.snapshot
+  /** The table store from the currently loaded pipeline, or null if none is loaded. */
+  val tableStore: TableStore?
+    get() = current.get()?.tableStore
 
   /** Captures a checkpoint of all mutable state for rollback. */
   fun snapshot(): TableStore.RollbackCheckpoint = loaded().tableStore.snapshot()

@@ -341,6 +341,9 @@ class TableStore : TableDataReader {
   var tableAliasByName: Map<String, String> = emptyMap()
     private set
 
+  /** Reverse of [tableAliasByName]: p4info alias → behavioral name. */
+  private var tableNameByAlias: Map<String, String> = emptyMap()
+
   private var registerInfoById: Map<Int, RegisterInfo> = emptyMap()
   private var counterInfoById: Map<Int, IndexedExternInfo> = emptyMap()
   private var meterInfoById: Map<Int, IndexedExternInfo> = emptyMap()
@@ -418,6 +421,7 @@ class TableStore : TableDataReader {
     }
     this.tableNameById = tableById
     this.tableAliasByName = tableByName
+    this.tableNameByAlias = tableByName.entries.associate { (name, alias) -> alias to name }
 
     val actionById = mutableMapOf<Int, String>()
     val actionByName = mutableMapOf<String, String>()
@@ -667,6 +671,33 @@ class TableStore : TableDataReader {
 
   override fun isDefaultModified(tableName: String): Boolean =
     tableName in snapshot.modifiedDefaults
+
+  /**
+   * Builds a P4Runtime [Entity] for the modified default action of [displayName] (p4info alias), or
+   * null if the default has not been modified or the table doesn't exist.
+   */
+  fun buildModifiedDefaultActionEntity(displayName: String): P4RuntimeOuterClass.Entity? {
+    val behavioralName = tableNameByAlias[displayName] ?: displayName
+    if (behavioralName !in snapshot.modifiedDefaults) return null
+    val default = snapshot.defaultActions[behavioralName] ?: return null
+    val tableId = tableIdByName[behavioralName] ?: return null
+    val actionId = actionIdByName[default.name] ?: return null
+    return P4RuntimeOuterClass.Entity.newBuilder()
+      .setTableEntry(
+        P4RuntimeOuterClass.TableEntry.newBuilder()
+          .setTableId(tableId)
+          .setIsDefaultAction(true)
+          .setAction(
+            P4RuntimeOuterClass.TableAction.newBuilder()
+              .setAction(
+                P4RuntimeOuterClass.Action.newBuilder()
+                  .setActionId(actionId)
+                  .addAllParams(default.params)
+              )
+          )
+      )
+      .build()
+  }
 
   override fun getDirectCounterData(entry: TableEntry): P4RuntimeOuterClass.CounterData? {
     val counters = directCounterData[entry] ?: return null

@@ -11,31 +11,34 @@ import p4.v1.P4RuntimeOuterClass.Update
  * Extracts the minimal set of P4Runtime entities needed to reproduce a trace.
  *
  * Walks the [TraceTree] recursively and collects entities referenced by trace events: matched table
- * entries, clone sessions, multicast groups, and action profile members/groups. Static entries
- * (declared with `const entries` in the P4 source) are excluded — they come with the pipeline
- * config.
+ * entries, modified default actions, clone sessions, multicast groups, and action profile
+ * members/groups. Static entries (declared with `const entries` in the P4 source) are excluded —
+ * they come with the pipeline config.
  */
 fun extractReproducerEntities(
   trace: TraceTree,
-  snapshot: TableStore.ForwardingSnapshot,
+  tableStore: TableStore,
   staticEntries: List<Update>,
 ): List<Entity> {
-  val staticTableEntries = staticEntries.mapNotNullTo(mutableSetOf()) { update ->
-    update.entity.takeIf { it.hasTableEntry() }?.tableEntry
-  }
+  val snapshot = tableStore.snapshot
+  val staticTableEntries =
+    staticEntries.mapNotNullTo(mutableSetOf()) { update ->
+      update.entity.takeIf { it.hasTableEntry() }?.tableEntry
+    }
   val entities = linkedSetOf<Entity>()
-  collectEntities(trace, snapshot, staticTableEntries, entities)
+  collectEntities(trace, snapshot, tableStore, staticTableEntries, entities)
   return entities.toList()
 }
 
 private fun collectEntities(
   trace: TraceTree,
   snapshot: TableStore.ForwardingSnapshot,
+  tableStore: TableStore,
   staticEntries: Set<TableEntry>,
   out: MutableSet<Entity>,
 ) {
   for (event in trace.eventsList) {
-    collectFromEvent(event, snapshot, staticEntries, out)
+    collectFromEvent(event, snapshot, tableStore, staticEntries, out)
   }
   when (trace.outcomeCase) {
     TraceTree.OutcomeCase.FORK_OUTCOME -> {
@@ -44,7 +47,7 @@ private fun collectEntities(
         collectMulticastGroups(snapshot, out)
       }
       for (branch in fork.branchesList) {
-        collectEntities(branch.subtree, snapshot, staticEntries, out)
+        collectEntities(branch.subtree, snapshot, tableStore, staticEntries, out)
       }
     }
     TraceTree.OutcomeCase.PACKET_OUTCOME,
@@ -56,6 +59,7 @@ private fun collectEntities(
 private fun collectFromEvent(
   event: TraceEvent,
   snapshot: TableStore.ForwardingSnapshot,
+  tableStore: TableStore,
   staticEntries: Set<TableEntry>,
   out: MutableSet<Entity>,
 ) {
@@ -68,18 +72,21 @@ private fun collectFromEvent(
           out += Entity.newBuilder().setTableEntry(entry).build()
           collectActionProfileEntities(entry, snapshot, out)
         }
+      } else if (!lookup.hit) {
+        tableStore.buildModifiedDefaultActionEntity(lookup.tableName)?.let { out += it }
       }
     }
     TraceEvent.EventCase.CLONE_SESSION_LOOKUP -> {
       val cloneLookup = event.cloneSessionLookup
       if (cloneLookup.sessionFound) {
         snapshot.cloneSessions[cloneLookup.sessionId]?.let { cloneSession ->
-          out += Entity.newBuilder()
-            .setPacketReplicationEngineEntry(
-              p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-                .setCloneSessionEntry(cloneSession)
-            )
-            .build()
+          out +=
+            Entity.newBuilder()
+              .setPacketReplicationEngineEntry(
+                p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+                  .setCloneSessionEntry(cloneSession)
+              )
+              .build()
         }
       }
     }
@@ -108,12 +115,13 @@ private fun collectMulticastGroups(
   // architecture records it there. For now, include all multicast groups from the
   // snapshot — the typical reproducer involves at most one or two.
   for ((_, group) in snapshot.multicastGroups) {
-    out += Entity.newBuilder()
-      .setPacketReplicationEngineEntry(
-        p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-          .setMulticastGroupEntry(group)
-      )
-      .build()
+    out +=
+      Entity.newBuilder()
+        .setPacketReplicationEngineEntry(
+          p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+            .setMulticastGroupEntry(group)
+        )
+        .build()
   }
 }
 

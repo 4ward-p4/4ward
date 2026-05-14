@@ -35,21 +35,23 @@ import kotlinx.coroutines.launch
  * service is responsible for gRPC protocol: request/response translation, port resolution, trace
  * enrichment, and hook stream management.
  *
- * @param typeTranslator provides the current [TypeTranslator] from the loaded pipeline, or null if
- *   no pipeline is loaded or the pipeline has no type translation.
- * @param reproducerData provides the pipeline config and forwarding snapshot for building
- *   reproducers. Returns null if no pipeline is loaded.
+ * @param pipelineSnapshot provides the currently loaded pipeline state, or null if no pipeline is
+ *   loaded.
  */
 class DataplaneService(
   private val broker: PacketBroker,
-  private val typeTranslator: () -> TypeTranslator? = { null },
-  private val reproducerData: () -> ReproducerData? = { null },
+  private val pipelineSnapshot: () -> PipelineSnapshot? = { null },
 ) : DataplaneGrpcKt.DataplaneCoroutineImplBase() {
 
-  data class ReproducerData(val config: PipelineConfig, val snapshot: TableStore.ForwardingSnapshot)
+  data class PipelineSnapshot(
+    val config: PipelineConfig,
+    val tableStore: TableStore,
+    val typeTranslator: TypeTranslator?,
+  )
 
   override suspend fun injectPacket(request: InjectPacketRequest): InjectPacketResponse {
-    val translator = typeTranslator()
+    val pipeline = pipelineSnapshot()
+    val translator = pipeline?.typeTranslator
     val ingressPort = resolveIngressPort(request, translator)
     val payload = request.payload.toByteArray()
     // Translate anything thrown past this point into INTERNAL with a
@@ -67,20 +69,18 @@ class DataplaneService(
         InjectPacketResponse.newBuilder()
           .addAllPossibleOutcomes(possibleOutcomes)
           .setTrace(enrichedTrace)
-      if (request.includeReproducer) {
-        reproducerData()?.let { data ->
-          response.setReproducer(
-            Reproducer.newBuilder()
-              .setPipelineConfig(data.config)
-              .addAllEntities(
-                extractReproducerEntities(
-                  result.trace,
-                  data.snapshot,
-                  data.config.device.staticEntries.updatesList,
-                )
+      if (request.includeReproducer && pipeline != null) {
+        response.setReproducer(
+          Reproducer.newBuilder()
+            .setPipelineConfig(pipeline.config)
+            .addAllEntities(
+              extractReproducerEntities(
+                result.trace,
+                pipeline.tableStore,
+                pipeline.config.device.staticEntries.updatesList,
               )
-          )
-        }
+            )
+        )
       }
       return response.build()
     } catch (e: StatusException) {
@@ -95,7 +95,7 @@ class DataplaneService(
   }
 
   override suspend fun injectPackets(requests: Flow<InjectPacketRequest>): InjectPacketsResponse {
-    val translator = typeTranslator()
+    val translator = pipelineSnapshot()?.typeTranslator
     broker.withHookOnce { processPacket ->
       val futures = mutableListOf<java.util.concurrent.ForkJoinTask<*>>()
       kotlinx.coroutines.runBlocking {
@@ -123,7 +123,7 @@ class DataplaneService(
       val handle =
         broker.subscribe { subResult ->
           try {
-            val translator = typeTranslator()
+            val translator = pipelineSnapshot()?.typeTranslator
             val pt = translator?.portTranslator
             val result =
               ProcessPacketResultProto.newBuilder()

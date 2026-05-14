@@ -76,17 +76,11 @@ class FourwardTestHarness(
       disableP4ConstraintsChecking = disableP4ConstraintsChecking,
     )
   private val dataplaneService =
-    DataplaneService(
-      broker,
-      typeTranslator = { service.typeTranslator },
-      reproducerData = {
-        try {
-          DataplaneService.ReproducerData(simulator.pipelineConfig, simulator.forwardingSnapshot)
-        } catch (_: IllegalStateException) {
-          null
-        }
-      },
-    )
+    DataplaneService(broker) {
+      val config = simulator.pipelineConfig ?: return@DataplaneService null
+      val tableStore = simulator.tableStore ?: return@DataplaneService null
+      DataplaneService.PipelineSnapshot(config, tableStore, service.typeTranslator)
+    }
 
   init {
     broker.readAllEntities = { service.readAllEntities() }
