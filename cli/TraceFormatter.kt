@@ -85,6 +85,11 @@ object TraceFormatter {
         val a = event.assignment
         appendLine("${prefix}${a.target} = ${event.resultValue}")
       }
+      TraceEvent.EventCase.MULTICAST_GROUP_LOOKUP -> {
+        val ml = event.multicastGroupLookup
+        val result = if (ml.groupFound) "${ml.replicaCount} replicas" else "not found"
+        appendLine("${prefix}multicast group ${ml.multicastGroupId}: $result")
+      }
       TraceEvent.EventCase.PACKET_INGRESS,
       TraceEvent.EventCase.PIPELINE_STAGE,
       TraceEvent.EventCase.CLONE_SESSION_LOOKUP,

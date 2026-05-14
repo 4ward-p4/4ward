@@ -426,8 +426,18 @@ class ReproducerExtractorTest {
     assertTrue("unmodified default should not be extracted", entities.isEmpty())
   }
 
+  private fun multicastGroupLookup(groupId: Int): TraceEvent =
+    TraceEvent.newBuilder()
+      .setMulticastGroupLookup(
+        fourward.MulticastGroupLookupEvent.newBuilder()
+          .setMulticastGroupId(groupId)
+          .setGroupFound(true)
+          .setReplicaCount(2)
+      )
+      .build()
+
   @Test
-  fun `multicast fork extracts multicast groups`() {
+  fun `multicast group lookup extracts multicast group entity`() {
     val group =
       P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
         .setMulticastGroupId(1)
@@ -446,20 +456,8 @@ class ReproducerExtractorTest {
 
     val trace =
       TraceTree.newBuilder()
-        .setForkOutcome(
-          Fork.newBuilder()
-            .setReason(ForkReason.MULTICAST)
-            .addBranches(
-              ForkBranch.newBuilder()
-                .setLabel("replica 0")
-                .setSubtree(TraceTree.newBuilder().setPacketOutcome(dropOutcome()))
-            )
-            .addBranches(
-              ForkBranch.newBuilder()
-                .setLabel("replica 1")
-                .setSubtree(TraceTree.newBuilder().setPacketOutcome(dropOutcome()))
-            )
-        )
+        .addEvents(multicastGroupLookup(groupId = 1))
+        .setPacketOutcome(dropOutcome())
         .build()
 
     val entities = extract(trace, store)
@@ -467,5 +465,24 @@ class ReproducerExtractorTest {
     assertEquals(1, entities.size)
     assertTrue(entities[0].hasPacketReplicationEngineEntry())
     assertEquals(group, entities[0].packetReplicationEngineEntry.multicastGroupEntry)
+  }
+
+  @Test
+  fun `multicast group miss produces no entities`() {
+    val trace =
+      TraceTree.newBuilder()
+        .addEvents(
+          TraceEvent.newBuilder()
+            .setMulticastGroupLookup(
+              fourward.MulticastGroupLookupEvent.newBuilder()
+                .setMulticastGroupId(99)
+                .setGroupFound(false)
+            )
+        )
+        .setPacketOutcome(dropOutcome())
+        .build()
+
+    val entities = extract(trace, emptyTableStore())
+    assertTrue(entities.isEmpty())
   }
 }

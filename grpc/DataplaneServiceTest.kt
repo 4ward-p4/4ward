@@ -195,6 +195,24 @@ class DataplaneServiceTest {
   }
 
   @Test
+  fun `ReproduceTrace extracts only the multicast group used by the trace`() {
+    val config = loadConfig("e2e_tests/trace_tree/multicast.txtpb")
+    harness.loadPipeline(config)
+    // The P4 program hardcodes mcast_grp = 1. Install group 1 (used) and group 99 (unused).
+    harness.installEntry(buildMulticastGroup(groupId = 1, ports = listOf(1, 2, 3)))
+    harness.installEntry(buildMulticastGroup(groupId = 99, ports = listOf(4, 5)))
+
+    val payload = buildEthernetFrame(etherType = 0x0800)
+    val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
+
+    val mcastEntities =
+      reproducer.entitiesList
+        .filter { it.hasPacketReplicationEngineEntry() }
+        .map { it.packetReplicationEngineEntry.multicastGroupEntry.multicastGroupId }
+    assertEquals("should contain only group 1", listOf(1), mcastEntities)
+  }
+
+  @Test
   fun `ReproduceTrace includes modified default action`() {
     val config = loadBasicTableConfig()
     harness.loadPipeline(config)

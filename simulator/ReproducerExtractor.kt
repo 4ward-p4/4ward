@@ -1,6 +1,5 @@
 package fourward.simulator
 
-import fourward.ForkReason
 import fourward.TraceEvent
 import fourward.TraceTree
 import p4.v1.P4RuntimeOuterClass.Entity
@@ -42,11 +41,7 @@ private fun collectEntities(
   }
   when (trace.outcomeCase) {
     TraceTree.OutcomeCase.FORK_OUTCOME -> {
-      val fork = trace.forkOutcome
-      if (fork.reason == ForkReason.MULTICAST) {
-        collectMulticastGroups(snapshot, out)
-      }
-      for (branch in fork.branchesList) {
+      for (branch in trace.forkOutcome.branchesList) {
         collectEntities(branch.subtree, snapshot, tableStore, staticEntries, out)
       }
     }
@@ -84,32 +79,28 @@ private fun collectFromEvent(
         }
       }
     }
+    TraceEvent.EventCase.MULTICAST_GROUP_LOOKUP -> {
+      val lookup = event.multicastGroupLookup
+      if (lookup.groupFound) {
+        snapshot.multicastGroups[lookup.multicastGroupId]?.let { group ->
+          out += buildPreEntity(group) { setMulticastGroupEntry(it) }
+        }
+      }
+    }
+    TraceEvent.EventCase.PACKET_INGRESS,
+    TraceEvent.EventCase.PIPELINE_STAGE,
     TraceEvent.EventCase.PARSER_TRANSITION,
     TraceEvent.EventCase.ACTION_EXECUTION,
     TraceEvent.EventCase.BRANCH,
+    TraceEvent.EventCase.ASSIGNMENT,
     TraceEvent.EventCase.EXTERN_CALL,
-    TraceEvent.EventCase.MARK_TO_DROP,
-    TraceEvent.EventCase.CLONE,
-    TraceEvent.EventCase.PACKET_INGRESS,
-    TraceEvent.EventCase.PIPELINE_STAGE,
     TraceEvent.EventCase.LOG_MESSAGE,
     TraceEvent.EventCase.ASSERTION,
+    TraceEvent.EventCase.CLONE,
+    TraceEvent.EventCase.MARK_TO_DROP,
     TraceEvent.EventCase.DEPARSER_EMIT,
-    TraceEvent.EventCase.ASSIGNMENT,
     TraceEvent.EventCase.EVENT_NOT_SET,
     null -> {}
-  }
-}
-
-private fun collectMulticastGroups(
-  snapshot: TableStore.ForwardingSnapshot,
-  out: MutableSet<Entity>,
-) {
-  // TODO: Extract the specific multicast group ID from the Fork proto once the
-  // architecture records it there. For now, include all multicast groups from the
-  // snapshot — the typical reproducer involves at most one or two.
-  for ((_, group) in snapshot.multicastGroups) {
-    out += buildPreEntity(group) { setMulticastGroupEntry(it) }
   }
 }
 
