@@ -561,6 +561,13 @@ void FourWardBackend::emitTypeDecls(const IR::P4Program* program) {
             for (const auto* arg : ann->getExpr()) {
               if (const auto* c = arg->to<IR::Constant>()) {
                 fd->add_field_list_ids(c->asInt());
+              } else if (const auto* ei =
+                             P4::EnumInstance::resolve(arg, &typeMap_)) {
+                if (const auto* sei = ei->to<P4::SerEnumInstance>()) {
+                  if (const auto* val = sei->value->to<IR::Constant>()) {
+                    fd->add_field_list_ids(val->asInt());
+                  }
+                }
               }
             }
           }
