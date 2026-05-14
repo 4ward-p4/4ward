@@ -12,23 +12,37 @@ compiler path directly and remove the shim from PATH.
 
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
-def _compiler_shell_expr(cc):
+def _compiler_shell_expr(cc, workspace_name):
     """Returns a quoted shell expression that resolves `compiler_executable` at runtime.
 
     On Linux, `compiler_executable` is an absolute path — use it directly.
-    On macOS, it's a relative path (e.g. `external/<repo>/cc_wrapper.sh`) valid
-    at the Bazel execroot but not in the runfiles tree, where external repos are
-    top-level siblings of `_main/`. Resolve from the runfiles root at runtime.
+    On macOS (and google3), it's a relative path valid at the Bazel execroot but
+    not in the runfiles tree. Resolve from $RUNFILES at runtime.
     """
     if cc.startswith("/"):
         return '"{}"'.format(cc)
-    runfiles_path = cc[len("external/"):] if cc.startswith("external/") else "_main/" + cc
+    if cc.startswith("external/"):
+        runfiles_path = cc[len("external/"):]
+    else:
+        runfiles_path = workspace_name + "/" + cc
     return '"$RUNFILES/{}"'.format(runfiles_path)
 
-# Shell preamble that sets $RUNFILES from RUNFILES_DIR (set by Bazel/blaze
-# test runners and `bazel run`). When all compiler paths are absolute (Linux),
-# $RUNFILES is never referenced and the preamble is a harmless no-op.
-_RUNFILES_PREAMBLE = 'RUNFILES="${RUNFILES_DIR:-}"\n'
+def _runfiles_preamble(workspace_name):
+    """Shell preamble that resolves the runfiles root into $RUNFILES.
+
+    Tries RUNFILES_DIR env var first (set by Bazel/blaze), then falls back to
+    stripping the workspace name from the shim's own path. When all compiler
+    paths are absolute, $RUNFILES is never referenced and this is a no-op.
+    """
+    return "\n".join([
+        'if [ -n "${RUNFILES_DIR:-}" ]; then',
+        '  RUNFILES="$RUNFILES_DIR"',
+        "else",
+        '  SHIM_DIR="$(cd "$(dirname "$0")" && pwd)"',
+        '  RUNFILES="${SHIM_DIR%/' + workspace_name + '/*}"',
+        "fi",
+        "",
+    ])
 
 def _cc_shim_impl(ctx):
     exec_cc = ctx.attr._exec_cc_toolchain[cc_common.CcToolchainInfo]
@@ -36,18 +50,20 @@ def _cc_shim_impl(ctx):
 
     exec_path = exec_cc.compiler_executable
     target_path = target_cc.compiler_executable
+    ws = ctx.workspace_name
 
     # Subdir so the output basename can be literally `cc` without colliding
     # with the target name; callers take `.parent` to get a dir for PATH.
     shim = ctx.actions.declare_file(ctx.label.name + "/cc")
 
-    exec_ref = _compiler_shell_expr(exec_path)
-    target_ref = _compiler_shell_expr(target_path)
+    preamble = _runfiles_preamble(ws)
+    exec_ref = _compiler_shell_expr(exec_path, ws)
+    target_ref = _compiler_shell_expr(target_path, ws)
 
     if exec_path == target_path:
         content = "\n".join([
             "#!/bin/sh",
-            _RUNFILES_PREAMBLE.rstrip("\n"),
+            preamble.rstrip("\n"),
             "exec {cc} \"$@\"".format(cc = exec_ref),
             "",
         ])
@@ -57,7 +73,7 @@ def _cc_shim_impl(ctx):
         # compiler (handles blaze test on a different-arch remote machine).
         content = "\n".join([
             "#!/bin/sh",
-            _RUNFILES_PREAMBLE.rstrip("\n"),
+            preamble.rstrip("\n"),
             "if {exec} -E /dev/null >/dev/null 2>&1; then".format(exec = exec_ref),
             "  exec {exec} \"$@\"".format(exec = exec_ref),
             "else",
