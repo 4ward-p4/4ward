@@ -862,6 +862,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#grouping-by-port" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grouping by port
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extracting-packets-by-port" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extracting packets by port
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#handling-multiple-outcomes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -877,17 +899,6 @@
     <span class="md-ellipsis">
       
         Container-level matching with Packets(...)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#grouping-by-port" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Grouping by port
       
     </span>
   </a>
@@ -1259,6 +1270,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#grouping-by-port" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grouping by port
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extracting-packets-by-port" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extracting packets by port
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#handling-multiple-outcomes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1274,17 +1307,6 @@
     <span class="md-ellipsis">
       
         Container-level matching with Packets(...)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#grouping-by-port" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Grouping by port
       
     </span>
   </a>
@@ -1370,9 +1392,10 @@
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Outcomes     OutcomeIs  OutcomesAre  EachOutcome  AnyOutcome  Outcome
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Packets      OnPort  HasPayload  OnPorts  Packets
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>Input        HasIngress
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>Extraction   PacketsByDataplanePort  PacketsByP4RuntimePort
 </code></pre></div>
 <h2 id="the-basics">The basics<a class="headerlink" href="#the-basics" title="Permanent link">¶</a></h2>
-<p>Most tests only need the shorthands. They work on both
+<p>Many tests only need the shorthands. They work on both
 <code>InjectPacketResponse</code> (from <code>InjectPacket</code>) and <code>ProcessPacketResult</code>
 (from <code>ResultStream::Next</code>):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">"fourward_cc/dataplane_matchers.h"</span>
@@ -1413,14 +1436,17 @@ inside <code>OutcomeIs</code> to assert on a single deterministic outcome:</p>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">OnPort</span><span class="p">;</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">HasPayload</span><span class="p">;</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1">// Port and payload:</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">expected_bytes</span><span class="p">)));</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1">// Single packet on port 1:</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">)));</span>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1">// With a payload matcher:</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">StartsWith</span><span class="p">(</span><span class="s">"hello"</span><span class="p">)))));</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1">// Multicast — two output packets:</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="n">OnPort</span><span class="p">(</span><span class="mi">2</span><span class="p">)));</span>
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1">// Multicast — two output packets:</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="n">OnPort</span><span class="p">(</span><span class="mi">2</span><span class="p">)));</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1">// Port and payload:</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">expected_bytes</span><span class="p">)));</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="c1">// With a payload matcher:</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">EndsWith</span><span class="p">(</span><span class="s">"hello"</span><span class="p">)))));</span>
 </code></pre></div>
 <p><code>HasPayload</code> takes any <code>Matcher&lt;const std::string&amp;&gt;</code>, so it plays nicely
 with <code>Eq</code>, <code>StartsWith</code>, <code>ResultOf</code>, and anything else gmock offers.</p>
@@ -1430,82 +1456,118 @@ with <code>Eq</code>, <code>StartsWith</code>, <code>ResultOf</code>, and anythi
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">// Don't care which port — just that the packet wasn't dropped:</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">dataplane</span><span class="p">.</span><span class="n">InjectPacket</span><span class="p">({...}),</span><span class="w"> </span><span class="n">IsOkAndHolds</span><span class="p">(</span><span class="n">Forwards</span><span class="p">()));</span>
 </code></pre></div>
+<h2 id="grouping-by-port">Grouping by port<a class="headerlink" href="#grouping-by-port" title="Permanent link">¶</a></h2>
+<p><code>OnPorts</code> groups packets by egress port and applies per-group matchers —
+use it when a single <code>EXPECT_THAT</code> covers everything you need. When you
+need packets in variables for more involved follow-up, see
+<a href="#extracting-packets-by-port">Extracting packets by port</a> below.</p>
+<p>Use <code>OnPorts</code> directly inside <code>OutcomeIs</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">OnPorts</span><span class="p">;</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1">// 7 copies to port 5, 25 to port 42:</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPorts</span><span class="p">({</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="p">{</span><span class="n">DataplanePort</span><span class="p">{</span><span class="mi">5</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">7</span><span class="p">)},</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="p">{</span><span class="n">DataplanePort</span><span class="p">{</span><span class="mi">42</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">25</span><span class="p">)},</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">})));</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="c1">// Every output packet carries the same payload:</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">Packets</span><span class="p">(</span><span class="n">Each</span><span class="p">(</span><span class="n">HasPayload</span><span class="p">(</span><span class="n">expected</span><span class="p">)))));</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="c1">// Match individual packets per port:</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPorts</span><span class="p">({</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">    </span><span class="p">{</span><span class="n">DataplanePort</span><span class="p">{</span><span class="mi">1</span><span class="p">},</span><span class="w"> </span><span class="n">UnorderedElementsAreArray</span><span class="p">({</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">        </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">packet_a</span><span class="p">),</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">        </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">packet_b</span><span class="p">),</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="p">})},</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">    </span><span class="p">{</span><span class="n">DataplanePort</span><span class="p">{</span><span class="mi">2</span><span class="p">},</span><span class="w"> </span><span class="n">ElementsAre</span><span class="p">(</span><span class="n">HasPayload</span><span class="p">(</span><span class="n">packet_c</span><span class="p">))},</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="p">})));</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="c1">// Works with P4Runtime ports too:</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPorts</span><span class="p">({</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="p">{</span><span class="n">P4RuntimePort</span><span class="p">{</span><span class="s">"Ethernet0"</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="w">    </span><span class="p">{</span><span class="n">P4RuntimePort</span><span class="p">{</span><span class="s">"Ethernet1"</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="p">})));</span>
+</code></pre></div>
+<h2 id="extracting-packets-by-port">Extracting packets by port<a class="headerlink" href="#extracting-packets-by-port" title="Permanent link">¶</a></h2>
+<p><code>PacketsByDataplanePort</code> and <code>PacketsByP4RuntimePort</code> are the
+variable-extraction counterpart to <a href="#grouping-by-port"><code>OnPorts</code></a> —
+same grouping, but the result lands in a map you can index directly
+or match exhaustively with gmock's container matchers:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">PacketsByDataplanePort</span><span class="p">;</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">auto</span><span class="w"> </span><span class="n">by_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PacketsByDataplanePort</span><span class="p">(</span><span class="n">response</span><span class="p">);</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1">// Index into individual ports:</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">by_port</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">2</span><span class="p">));</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">by_port</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="n">ElementsAre</span><span class="p">(</span><span class="n">HasPayload</span><span class="p">(</span><span class="n">expected_bytes</span><span class="p">)));</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="c1">// Or match the whole map — exhaustive, no stray ports:</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">by_port</span><span class="p">,</span><span class="w"> </span><span class="n">UnorderedElementsAreArray</span><span class="p">({</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="n">Pair</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">UnorderedElementsAreArray</span><span class="p">({</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">        </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">packet_a</span><span class="p">),</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">        </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">packet_b</span><span class="p">),</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">    </span><span class="p">})),</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">    </span><span class="n">Pair</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">UnorderedElementsAreArray</span><span class="p">({</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">        </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">packet_c</span><span class="p">),</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">    </span><span class="p">})),</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="p">}));</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">PacketsByP4RuntimePort</span><span class="p">;</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">PacketsByP4RuntimePort</span><span class="p">(</span><span class="n">response</span><span class="p">),</span><span class="w"> </span><span class="n">UnorderedElementsAreArray</span><span class="p">({</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="n">Pair</span><span class="p">(</span><span class="s">"Ethernet0"</span><span class="p">,</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="n">Pair</span><span class="p">(</span><span class="s">"Ethernet1"</span><span class="p">,</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">}));</span>
+</code></pre></div>
+<p>Both functions fail the test if the response has more than one possible
+outcome. Indexing a port that received no packets returns an empty
+vector.</p>
 <h2 id="handling-multiple-outcomes">Handling multiple outcomes<a class="headerlink" href="#handling-multiple-outcomes" title="Permanent link">¶</a></h2>
 <p>P4 programs with action selectors can produce multiple possible outcomes
 — each representing one "possible world."</p>
 <p><strong><code>OutcomesAre</code></strong> pins the exact set of outcomes (order-independent).
 Each argument is a packet matcher for a single-packet outcome; use
 <code>Outcome(...)</code> to spell out a multi-packet outcome:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">OutcomesAre</span><span class="p">;</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">Outcome</span><span class="p">;</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1">// Action selector: forwards to port 1 or port 2.</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomesAre</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="n">OnPort</span><span class="p">(</span><span class="mi">2</span><span class="p">)));</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1">// One outcome multicasts, the other drops:</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomesAre</span><span class="p">(</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="n">Outcome</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="n">OnPort</span><span class="p">(</span><span class="mi">2</span><span class="p">)),</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="n">Outcome</span><span class="p">()));</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">OutcomesAre</span><span class="p">;</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">Outcome</span><span class="p">;</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1">// Action selector: forwards to port 1 or port 2.</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomesAre</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="n">OnPort</span><span class="p">(</span><span class="mi">2</span><span class="p">)));</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1">// One outcome multicasts, the other drops:</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomesAre</span><span class="p">(</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="n">Outcome</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="n">OnPort</span><span class="p">(</span><span class="mi">2</span><span class="p">)),</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="n">Outcome</span><span class="p">()));</span>
 </code></pre></div>
 <p><strong><code>EachOutcome</code></strong> and <strong><code>AnyOutcome</code></strong> quantify when you don't need to
 pin the exact set:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">EachOutcome</span><span class="p">;</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">AnyOutcome</span><span class="p">;</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1">// No matter what the selector picks, the packet reaches port 1:</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">EachOutcome</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">)));</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1">// At least one branch drops:</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">AnyOutcome</span><span class="p">(</span><span class="n">Packets</span><span class="p">(</span><span class="n">IsEmpty</span><span class="p">())));</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">EachOutcome</span><span class="p">;</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">AnyOutcome</span><span class="p">;</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1">// No matter what the selector picks, the packet reaches port 1:</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">EachOutcome</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">)));</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1">// At least one branch drops:</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">AnyOutcome</span><span class="p">(</span><span class="n">Packets</span><span class="p">(</span><span class="n">IsEmpty</span><span class="p">())));</span>
 </code></pre></div>
 <h2 id="container-level-matching-with-packets">Container-level matching with Packets(...)<a class="headerlink" href="#container-level-matching-with-packets" title="Permanent link">¶</a></h2>
 <p>When you need to match properties of the packet <em>list</em> rather than
 individual packets — size, port grouping, etc. — wrap the matcher in
 <code>Packets(...)</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">Packets</span><span class="p">;</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1">// Exactly 7 output packets:</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">Packets</span><span class="p">(</span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">7</span><span class="p">))));</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="c1">// At least one output packet on port 1:</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">Packets</span><span class="p">(</span><span class="n">Contains</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">)))));</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">Packets</span><span class="p">;</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1">// Exactly 7 output packets:</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">Packets</span><span class="p">(</span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">7</span><span class="p">))));</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="c1">// At least one output packet on port 1:</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">Packets</span><span class="p">(</span><span class="n">Contains</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">)))));</span>
 </code></pre></div>
 <p><code>Packets(...)</code> works inside <code>OutcomeIs</code>, <code>EachOutcome</code>, and <code>AnyOutcome</code>.</p>
-<h2 id="grouping-by-port">Grouping by port<a class="headerlink" href="#grouping-by-port" title="Permanent link">¶</a></h2>
-<p><code>OnPorts</code> groups packets by egress port and applies per-group matchers.
-It doesn't need a <code>Packets(...)</code> wrapper — use it directly inside
-<code>OutcomeIs</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">OnPorts</span><span class="p">;</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1">// 7 copies to port 5, 25 to port 42:</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPorts</span><span class="p">({</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="p">{</span><span class="n">DataplanePort</span><span class="p">{</span><span class="mi">5</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">7</span><span class="p">)},</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="p">{</span><span class="n">DataplanePort</span><span class="p">{</span><span class="mi">42</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">25</span><span class="p">)},</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="p">})));</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="c1">// Every output packet carries the same payload:</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">Packets</span><span class="p">(</span><span class="n">Each</span><span class="p">(</span><span class="n">HasPayload</span><span class="p">(</span><span class="n">expected</span><span class="p">)))));</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="c1">// Match individual packets per port:</span>
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPorts</span><span class="p">({</span>
-<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">    </span><span class="p">{</span><span class="n">DataplanePort</span><span class="p">{</span><span class="mi">1</span><span class="p">},</span><span class="w"> </span><span class="n">UnorderedElementsAreArray</span><span class="p">({</span>
-<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">        </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">packet_a</span><span class="p">),</span>
-<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">        </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">packet_b</span><span class="p">),</span>
-<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">    </span><span class="p">})},</span>
-<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">    </span><span class="p">{</span><span class="n">DataplanePort</span><span class="p">{</span><span class="mi">2</span><span class="p">},</span><span class="w"> </span><span class="n">ElementsAre</span><span class="p">(</span><span class="n">HasPayload</span><span class="p">(</span><span class="n">packet_c</span><span class="p">))},</span>
-<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="p">})));</span>
-<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>
-<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="c1">// Works with P4Runtime ports too:</span>
-<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPorts</span><span class="p">({</span>
-<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="w">    </span><span class="p">{</span><span class="n">P4RuntimePort</span><span class="p">{</span><span class="s">"Ethernet0"</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
-<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="w">    </span><span class="p">{</span><span class="n">P4RuntimePort</span><span class="p">{</span><span class="s">"Ethernet1"</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
-<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="p">})));</span>
-</code></pre></div>
 <h2 id="ingress-port">Ingress port<a class="headerlink" href="#ingress-port" title="Permanent link">¶</a></h2>
 <p><code>HasIngress</code> works on <code>ProcessPacketResult</code> (which carries the input
 packet) and supports both port types:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">stream</span><span class="p">.</span><span class="n">Next</span><span class="p">(),</span><span class="w"> </span><span class="n">IsOkAndHolds</span><span class="p">(</span><span class="n">HasIngress</span><span class="p">(</span><span class="mi">0</span><span class="p">)));</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">stream</span><span class="p">.</span><span class="n">Next</span><span class="p">(),</span><span class="w"> </span><span class="n">IsOkAndHolds</span><span class="p">(</span><span class="n">HasIngress</span><span class="p">(</span><span class="s">"Ethernet0"</span><span class="p">)));</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">stream</span><span class="p">.</span><span class="n">Next</span><span class="p">(),</span><span class="w"> </span><span class="n">IsOkAndHolds</span><span class="p">(</span><span class="n">HasIngress</span><span class="p">(</span><span class="mi">0</span><span class="p">)));</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">stream</span><span class="p">.</span><span class="n">Next</span><span class="p">(),</span><span class="w"> </span><span class="n">IsOkAndHolds</span><span class="p">(</span><span class="n">HasIngress</span><span class="p">(</span><span class="s">"Ethernet0"</span><span class="p">)));</span>
 </code></pre></div>
 <h2 id="composing-with-packetlib">Composing with packetlib<a class="headerlink" href="#composing-with-packetlib" title="Permanent link">¶</a></h2>
 <p>If your project uses
@@ -1513,29 +1575,29 @@ packet) and supports both port types:</p>
 you can parse the raw output bytes into a structured <code>Packet</code> proto and
 assert on header fields — all within the same <code>EXPECT_THAT</code>. The bridge
 is gmock's <code>ResultOf</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">"packetlib/packetlib.h"</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">"gutil/proto_matchers.h"</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">packetlib</span><span class="o">::</span><span class="n">ParsePacket</span><span class="p">;</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">ResultOf</span><span class="p">;</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">    </span><span class="n">AllOf</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">          </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">ResultOf</span><span class="p">(</span><span class="n">ParsePacket</span><span class="p">,</span><span class="w"> </span><span class="n">Partially</span><span class="p">(</span><span class="n">EqualsProto</span><span class="p">(</span><span class="sa">R</span><span class="s">"</span><span class="dl">pb(</span>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="s">              headers { ethernet_header { ethertype: "0x0800" } }</span>
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="s">              headers { ipv4_header { destination_ip: "10.0.0.1" } }</span>
-<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="s">          </span><span class="dl">)pb</span><span class="s">"</span><span class="p">)))))));</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">"packetlib/packetlib.h"</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">"gutil/proto_matchers.h"</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">packetlib</span><span class="o">::</span><span class="n">ParsePacket</span><span class="p">;</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">ResultOf</span><span class="p">;</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="n">AllOf</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">          </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">ResultOf</span><span class="p">(</span><span class="n">ParsePacket</span><span class="p">,</span><span class="w"> </span><span class="n">Partially</span><span class="p">(</span><span class="n">EqualsProto</span><span class="p">(</span><span class="sa">R</span><span class="s">"</span><span class="dl">pb(</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="s">              headers { ethernet_header { ethertype: "0x0800" } }</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="s">              headers { ipv4_header { destination_ip: "10.0.0.1" } }</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="s">          </span><span class="dl">)pb</span><span class="s">"</span><span class="p">)))))));</span>
 </code></pre></div>
 <p>If you find yourself writing <code>HasPayload(ResultOf(ParsePacket, ...))</code> a
 lot, a one-liner in your project saves the boilerplate:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">M</span><span class="o">&gt;</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">auto</span><span class="w"> </span><span class="n">HasParsedPayload</span><span class="p">(</span><span class="n">M</span><span class="w"> </span><span class="n">m</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">ResultOf</span><span class="p">(</span><span class="n">packetlib</span><span class="o">::</span><span class="n">ParsePacket</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">m</span><span class="p">)));</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="p">}</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="c1">// Then:</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="n">HasParsedPayload</span><span class="p">(</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="n">Partially</span><span class="p">(</span><span class="n">EqualsProto</span><span class="p">(</span><span class="sa">R</span><span class="s">"</span><span class="dl">pb(</span><span class="s">...</span><span class="dl">)pb</span><span class="s">"</span><span class="p">)))));</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">M</span><span class="o">&gt;</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">auto</span><span class="w"> </span><span class="n">HasParsedPayload</span><span class="p">(</span><span class="n">M</span><span class="w"> </span><span class="n">m</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">HasPayload</span><span class="p">(</span><span class="n">ResultOf</span><span class="p">(</span><span class="n">packetlib</span><span class="o">::</span><span class="n">ParsePacket</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">m</span><span class="p">)));</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="p">}</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="c1">// Then:</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPort</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="n">HasParsedPayload</span><span class="p">(</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">    </span><span class="n">Partially</span><span class="p">(</span><span class="n">EqualsProto</span><span class="p">(</span><span class="sa">R</span><span class="s">"</span><span class="dl">pb(</span><span class="s">...</span><span class="dl">)pb</span><span class="s">"</span><span class="p">)))));</span>
 </code></pre></div>
 <p>4ward doesn't depend on packetlib — <code>HasPayload</code> just hands its matcher
 whatever <code>ResultOf</code> returns, so any <code>bytes → T</code> parser works the same
@@ -1546,28 +1608,28 @@ way.</p>
 simulator trace is automatically appended to the failure message — if the
 response carries one. This gives you immediate visibility into how the
 packet was processed without rerunning the test:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>Expected: drop the packet
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>  Actual: (has 1 possible outcomes),
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>full trace:
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>events {
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>  table_lookup {
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    table_name: "ingress.acl"
-<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    hit: true
-<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    ...
-<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>  }
-<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>}
-<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>...
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>Expected: drop the packet
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  Actual: (has 1 possible outcomes),
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>full trace:
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>events {
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>  table_lookup {
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    table_name: "ingress.acl"
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    hit: true
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>    ...
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>  }
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>}
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>...
 </code></pre></div>
 <p>No opt-in needed — the trace shows up whenever the response has one.</p>
 <h2 id="bazel-dependency">Bazel dependency<a class="headerlink" href="#bazel-dependency" title="Permanent link">¶</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">cc_test</span><span class="p">(</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">name</span> <span class="o">=</span> <span class="s2">"my_test"</span><span class="p">,</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"my_test.cc"</span><span class="p">],</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>        <span class="s2">"@fourward//fourward_cc:dataplane_matchers"</span><span class="p">,</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>        <span class="c1"># ...</span>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="p">],</span>
-<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">cc_test</span><span class="p">(</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="n">name</span> <span class="o">=</span> <span class="s2">"my_test"</span><span class="p">,</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"my_test.cc"</span><span class="p">],</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>        <span class="s2">"@fourward//fourward_cc:dataplane_matchers"</span><span class="p">,</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        <span class="c1"># ...</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="p">],</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="p">)</span>
 </code></pre></div>
 
 
