@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-14 00:04:54</td>
+            <td class="headerValue">2026-05-14 00:13:09</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">96.1&nbsp;%</td>
@@ -738,8 +738,8 @@
 <span id="L676"><span class="lineNum">     676</span>              :     // port with the header prepended.</span>
 <span id="L677"><span class="lineNum">     677</span> <span class="tlaGNC">           1 :     val (ingressPort, payload) =</span></span>
 <span id="L678"><span class="lineNum">     678</span> <span class="tlaGNC">           1 :       if (codec != null) {</span></span>
-<span id="L679"><span class="lineNum">     679</span> <span class="tlaGNC">           1 :         val header = codec.serializePacketOut(packetOut.metadataList)</span></span>
-<span id="L680"><span class="lineNum">     680</span> <span class="tlaGNC">           1 :         codec.cpuPort to (header + packetOut.payload.toByteArray())</span></span>
+<span id="L679"><span class="lineNum">     679</span> <span class="tlaGNC">           1 :         codec.cpuPort to</span></span>
+<span id="L680"><span class="lineNum">     680</span> <span class="tlaGNC">           1 :           codec.packPacketOut(packetOut.metadataList, packetOut.payload.toByteArray())</span></span>
 <span id="L681"><span class="lineNum">     681</span>              :       } else {</span>
 <span id="L682"><span class="lineNum">     682</span> <span class="tlaGNC">           1 :         extractIngressPort(packetOut.metadataList) to packetOut.payload.toByteArray()</span></span>
 <span id="L683"><span class="lineNum">     683</span>              :       }</span>
