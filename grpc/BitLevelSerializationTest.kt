@@ -591,4 +591,65 @@ class BitLevelSerializationTest {
       }
     }
   }
+
+  @Test
+  fun `field_list_ids emitted for enum-valued field_list annotations`() {
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      enum bit<8> PreservedFieldList { CLONE_COPY = 1 }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { ethernet_t eth; }
+      struct meta_t {
+        @field_list(PreservedFieldList.CLONE_COPY)
+        bit<16> preserved;
+        bit<16> not_preserved;
+      }
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start { pkt.extract(hdr.eth); transition accept; }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = 1; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) { apply {} }
+      control D(packet_out pkt, in headers_t h) { apply { pkt.emit(h.eth); } }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val metaStruct =
+      checkNotNull(
+        config.device.behavioral.typesList
+          .find { it.hasStruct() && it.struct.fieldsList.any { f -> f.name == "preserved" } }
+          ?.struct
+      ) {
+        "meta_t struct should be in IR types"
+      }
+
+    val preserved =
+      checkNotNull(metaStruct.fieldsList.find { it.name == "preserved" }) {
+        "meta_t should contain field 'preserved'"
+      }
+    assertEquals(
+      "preserved field should have field_list_ids",
+      listOf(1),
+      preserved.fieldListIdsList,
+    )
+
+    val notPreserved =
+      checkNotNull(metaStruct.fieldsList.find { it.name == "not_preserved" }) {
+        "meta_t should contain field 'not_preserved'"
+      }
+    assertTrue(
+      "not_preserved field should have no field_list_ids",
+      notPreserved.fieldListIdsList.isEmpty(),
+    )
+  }
 }

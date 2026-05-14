@@ -39,7 +39,16 @@ class SaiP4E2ETest {
     // On a real switch, these come from platform config; in tests, we pin them so auto-allocation
     // (for table entry ports like "Ethernet0") doesn't conflict with ports that must map to
     // specific dataplane values (CPU port 510, multicast replica ports 0/1).
-    config = withPortMappings(config, mapOf("0" to 0, "1" to 1, CPU_PORT.toString() to CPU_PORT))
+    config =
+      withPortMappings(
+        config,
+        mapOf(
+          "0" to 0,
+          "1" to 1,
+          MIRROR_PORT.toString() to MIRROR_PORT,
+          CPU_PORT.toString() to CPU_PORT,
+        ),
+      )
     harness.loadPipeline(config)
   }
 
@@ -818,6 +827,133 @@ class SaiP4E2ETest {
       }
     assertTrue("nhop-a should be in members", "nhop-a" in memberNexthops)
     assertTrue("nhop-b should be in members", "nhop-b" in memberNexthops)
+  }
+
+  // =========================================================================
+  // Mirroring with VLAN + IPFIX encapsulation
+  // =========================================================================
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `mirrored packet has VLAN and IPFIX encapsulation headers prepended`() {
+    // 1. Mirror session: mirror-1 → encap with VLAN + IPv6 + UDP + IPFIX + PSAMP.
+    //    Must be installed before the ACL entry due to @refers_to constraint.
+    val mirrorSessionTable = findTable("mirror_session_table")
+    val mirrorAction = findAction("mirror_with_vlan_tag_and_ipfix_encapsulation")
+    val mirrorEncapSrcMac = byteArrayOf(0x00, 0x08, 0x08, 0x08, 0x08, 0x08)
+    val mirrorEncapDstMac = byteArrayOf(0x01, 0x09, 0x09, 0x09, 0x09, 0x09)
+    harness.installEntry(
+      buildEntry(
+        mirrorSessionTable,
+        mirrorAction,
+        matches = listOf(exactMatch(mirrorSessionTable, "mirror_session_id", "mirror-1")),
+        params =
+          listOf(
+            stringParam(mirrorAction, "monitor_port", MIRROR_PORT.toString()),
+            stringParam(mirrorAction, "monitor_failover_port", MIRROR_PORT.toString()),
+            bytesParam(mirrorAction, "mirror_encap_src_mac", mirrorEncapSrcMac),
+            bytesParam(mirrorAction, "mirror_encap_dst_mac", mirrorEncapDstMac),
+            bytesParam(mirrorAction, "mirror_encap_vlan_id", byteArrayOf(0x01, 0x23)),
+            bytesParam(
+              mirrorAction,
+              "mirror_encap_src_ip",
+              ByteArray(16) { if (it == 15) 1 else 0 },
+            ),
+            bytesParam(
+              mirrorAction,
+              "mirror_encap_dst_ip",
+              ByteArray(16) { if (it == 15) 2 else 0 },
+            ),
+            bytesParam(mirrorAction, "mirror_encap_udp_src_port", byteArrayOf(0x12, 0x34)),
+            bytesParam(mirrorAction, "mirror_encap_udp_dst_port", byteArrayOf(0x12, 0x83.toByte())),
+          ),
+      )
+    )
+
+    // 2. ACL: mark IPv4 packets for mirroring with mirror_session_id="mirror-1".
+    val mirrorAclTable = findTable("acl_ingress_mirror_and_redirect_table")
+    val aclMirror = findAction("acl_mirror")
+    harness.installEntry(
+      buildEntry(
+        mirrorAclTable,
+        aclMirror,
+        matches = listOf(optionalMatch(mirrorAclTable, "is_ipv4", byteArrayOf(1))),
+        params = listOf(stringParam(aclMirror, "mirror_session_id", "mirror-1")),
+        priority = 1,
+      )
+    )
+
+    // 3. Ingress clone table: marked_to_mirror=true, mirror_egress_port=MIRROR_PORT
+    //    → clone_preserving_field_list with session MIRROR_CLONE_SESSION_ID.
+    val cloneTable = findTable("ingress_clone_table")
+    val ingressClone = findAction("ingress_clone")
+    harness.installEntry(
+      buildEntry(
+        cloneTable,
+        ingressClone,
+        matches =
+          listOf(
+            exactMatch(cloneTable, "marked_to_copy", byteArrayOf(0)),
+            exactMatch(cloneTable, "marked_to_mirror", byteArrayOf(1)),
+            optionalMatch(cloneTable, "mirror_egress_port", MIRROR_PORT.toString()),
+          ),
+        params =
+          listOf(
+            bytesParam(
+              ingressClone,
+              "clone_session",
+              FourwardTestHarness.longToBytes(MIRROR_CLONE_SESSION_ID.toLong(), 4),
+            )
+          ),
+        priority = 1,
+      )
+    )
+
+    // 4. Clone session → replica on MIRROR_PORT with instance=MIRRORING (2).
+    installCloneSession(MIRROR_CLONE_SESSION_ID, MIRROR_PORT.toString(), REPLICA_INSTANCE_MIRRORING)
+
+    // Inject an IPv4 packet and check the mirrored output.
+    val packet = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
+    val result = harness.injectPacket(ingressPort = 0, payload = packet)
+    val outputs = result.possibleOutcomesList.single().packetsList
+    val mirroredPacket =
+      checkNotNull(outputs.find { it.dataplaneEgressPort == MIRROR_PORT }) {
+        "expected a mirrored packet on port $MIRROR_PORT"
+      }
+
+    val mirroredBytes = mirroredPacket.payload.toByteArray()
+    // The mirrored packet should be: Ethernet(14) + VLAN(4) + IPv6(40) + UDP(8) + IPFIX(16) +
+    // PSAMP(28) + original_packet. Encap overhead = 110 bytes.
+    val encapOverhead = 14 + 4 + 40 + 8 + 16 + 28
+    assertEquals(
+      "mirrored packet should be original + encap overhead",
+      packet.size + encapOverhead,
+      mirroredBytes.size,
+    )
+
+    // Verify encap Ethernet dst/src MAC.
+    assertBytesEqual("encap dst_mac", mirrorEncapDstMac, mirroredBytes, 0)
+    assertBytesEqual("encap src_mac", mirrorEncapSrcMac, mirroredBytes, 6)
+    // EtherType = 0x8100 (802.1Q VLAN).
+    assertEquals("encap ethertype high", 0x81.toByte(), mirroredBytes[12])
+    assertEquals("encap ethertype low", 0x00.toByte(), mirroredBytes[13])
+
+    // VLAN ethertype = 0x86DD (IPv6) at offset 16.
+    assertEquals("vlan ethertype high", 0x86.toByte(), mirroredBytes[16])
+    assertEquals("vlan ethertype low", 0xDD.toByte(), mirroredBytes[17])
+
+    // IPv6 version nibble at offset 18.
+    assertEquals("ipv6 version", 0x60.toByte(), (mirroredBytes[18].toInt() and 0xF0).toByte())
+
+    // Original packet's Ethernet header starts at offset encapOverhead.
+    // The IPv4 checksum may differ (recomputed by v1model's ComputeChecksum), so compare
+    // only the Ethernet header and IP src/dst addresses.
+    assertBytesEqual("original dst_mac", UNICAST_MAC, mirroredBytes, encapOverhead)
+    assertBytesEqual("original src_mac", SRC_MAC, mirroredBytes, encapOverhead + MAC_LEN)
+    assertEquals("original ethertype high", 0x08.toByte(), mirroredBytes[encapOverhead + 12])
+    assertEquals("original ethertype low", 0x00.toByte(), mirroredBytes[encapOverhead + 13])
+    assertBytesEqual("original src_ip", SRC_IP, mirroredBytes, encapOverhead + SRC_IP_OFFSET)
+    assertBytesEqual("original dst_ip", DST_IP, mirroredBytes, encapOverhead + DST_IP_OFFSET)
   }
 
   // =========================================================================
@@ -1712,14 +1848,14 @@ class SaiP4E2ETest {
    * metadata and `p4rt_egress_port` in InjectPacket responses.
    */
   @Suppress("MagicNumber", "SameParameterValue")
-  private fun installCloneSession(sessionId: Int, p4rtPort: String) {
+  private fun installCloneSession(sessionId: Int, p4rtPort: String, instance: Int = 1) {
     val entry =
       P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
         .setSessionId(sessionId)
         .addReplicas(
           P4RuntimeOuterClass.Replica.newBuilder()
             .setPort(ByteString.copyFromUtf8(p4rtPort))
-            .setInstance(1)
+            .setInstance(instance)
         )
         .build()
     harness.installEntry(
@@ -1840,6 +1976,10 @@ class SaiP4E2ETest {
     // CPU port = 2^9 - 2 = 510 for 9-bit ports (SAI P4 ids.h: SAI_P4_CPU_PORT).
     private const val CPU_PORT = 510
     private const val COPY_TO_CPU_SESSION_ID = 255
+    private const val MIRROR_PORT = 5
+    private const val MIRROR_CLONE_SESSION_ID = 100
+    // ids.h: SAI_P4_REPLICA_INSTANCE_MIRRORING
+    private const val REPLICA_INSTANCE_MIRRORING = 2
 
     /**
      * Adds explicit port_id_t translation entries to the pipeline config (hybrid mode: explicit
