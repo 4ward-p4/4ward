@@ -2,9 +2,7 @@ package fourward.e2e
 
 import com.google.protobuf.TextFormat
 import fourward.PipelineConfig
-import java.io.File
 import java.nio.file.Files
-import java.nio.file.Path
 
 /**
  * Compiles a P4 source string at test time using p4c-4ward. Useful for tests that need a custom P4
@@ -55,14 +53,7 @@ fun compileInlineP4(source: String): PipelineConfig {
           p4includeDir.toString(),
         )
         .redirectErrorStream(true)
-    // p4c shells out to `cc` for preprocessing. Hermetic sandboxes
-    // (blaze/google3) don't have `cc` on PATH, so fall back to a
-    // BUILD-provided shim that execs the CC toolchain compiler.
-    if (!hasSystemCc()) {
-      val shimDir = fourward.bazel.resolveRunfileProperty("cc_shim").parent
-      val env = pb.environment()
-      env["PATH"] = "$shimDir${File.pathSeparator}${env["PATH"] ?: ""}"
-    }
+    fourward.bazel.ensureCcOnPath(pb)
     val process = pb.start()
 
     val output = process.inputStream.bufferedReader().readText()
@@ -76,8 +67,3 @@ fun compileInlineP4(source: String): PipelineConfig {
     tmpDir.toFile().deleteRecursively()
   }
 }
-
-private fun hasSystemCc(): Boolean =
-  System.getenv("PATH")?.split(File.pathSeparator).orEmpty().any { dir ->
-    Files.isExecutable(Path.of(dir, "cc"))
-  }
