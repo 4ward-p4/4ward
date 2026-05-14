@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">93.8&nbsp;%</td>
-            <td class="headerCovTableEntry">113</td>
-            <td class="headerCovTableEntry">106</td>
+            <td class="headerCovTableEntryHi">93.9&nbsp;%</td>
+            <td class="headerCovTableEntry">114</td>
+            <td class="headerCovTableEntry">107</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-14 02:43:58</td>
+            <td class="headerValue">2026-05-14 02:53:43</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -168,168 +168,169 @@
 <span id="L106"><span class="lineNum">     106</span>              :     // payload byte count, discarding only the trailing pad zeros.</span>
 <span id="L107"><span class="lineNum">     107</span> <span class="tlaGNC">           1 :     val totalBits = bytes.size * 8</span></span>
 <span id="L108"><span class="lineNum">     108</span> <span class="tlaGNC">           1 :     val payloadBits = (totalBits - packetInHeaderBits) / 8 * 8</span></span>
-<span id="L109"><span class="lineNum">     109</span> <span class="tlaGNC">           1 :     if (payloadBits &lt;= 0) return ByteString.EMPTY</span></span>
-<span id="L110"><span class="lineNum">     110</span> <span class="tlaGNC">           1 :     val discardedBits = totalBits - packetInHeaderBits - payloadBits</span></span>
-<span id="L111"><span class="lineNum">     111</span> <span class="tlaGNC">           1 :     if (discardedBits &gt; 0) {</span></span>
-<span id="L112"><span class="lineNum">     112</span> <span class="tlaGNC">           1 :       val trailingMask = (1 shl discardedBits) - 1</span></span>
-<span id="L113"><span class="lineNum">     113</span> <span class="tlaGNC">           1 :       check(bytes.last().toInt() and trailingMask == 0) {</span></span>
-<span id="L114"><span class="lineNum">     114</span> <span class="tlaUNC tlaBgUNC">           0 :         &quot;expected $discardedBits trailing zero-pad bits, but last byte is 0x${</span></span>
-<span id="L115"><span class="lineNum">     115</span> <span class="tlaUNC">           0 :           &quot;%02X&quot;.format(bytes.last())</span></span>
-<span id="L116"><span class="lineNum">     116</span> <span class="tlaUNC">           0 :         } — payload after @controller_header may not be byte-aligned&quot;</span></span>
-<span id="L117"><span class="lineNum">     117</span>              :       }</span>
-<span id="L118"><span class="lineNum">     118</span>              :     }</span>
-<span id="L119"><span class="lineNum">     119</span> <span class="tlaGNC tlaBgGNC">           1 :     val acc = BitAccumulator()</span></span>
-<span id="L120"><span class="lineNum">     120</span> <span class="tlaGNC">           1 :     acc.appendRawBytes(bytes, packetInHeaderBits, payloadBits)</span></span>
-<span id="L121"><span class="lineNum">     121</span> <span class="tlaGNC">           1 :     return ByteString.copyFrom(acc.toByteArray())</span></span>
-<span id="L122"><span class="lineNum">     122</span>              :   }</span>
-<span id="L123"><span class="lineNum">     123</span>              : </span>
-<span id="L124"><span class="lineNum">     124</span>              :   /** Packs PacketOut metadata into a bit-packed binary header. */</span>
-<span id="L125"><span class="lineNum">     125</span>              :   fun serializePacketOut(metadata: List&lt;PacketMetadata&gt;): ByteArray {</span>
-<span id="L126"><span class="lineNum">     126</span> <span class="tlaGNC">           1 :     val metadataById = metadata.associateBy { it.metadataId }</span></span>
-<span id="L127"><span class="lineNum">     127</span> <span class="tlaGNC">           1 :     return packFields(packetOutFields, metadataById)</span></span>
-<span id="L128"><span class="lineNum">     128</span>              :   }</span>
-<span id="L129"><span class="lineNum">     129</span>              : </span>
-<span id="L130"><span class="lineNum">     130</span>              :   /**</span>
-<span id="L131"><span class="lineNum">     131</span>              :    * Packs the PacketOut header and payload into a continuous bit stream. The header fields are</span>
-<span id="L132"><span class="lineNum">     132</span>              :    * packed at bit granularity followed immediately by the payload bits — no inter-field padding.</span>
-<span id="L133"><span class="lineNum">     133</span>              :    * This avoids the corruption that byte-concatenation causes for non-byte-aligned headers.</span>
-<span id="L134"><span class="lineNum">     134</span>              :    */</span>
-<span id="L135"><span class="lineNum">     135</span>              :   @Suppress(&quot;MagicNumber&quot;)</span>
-<span id="L136"><span class="lineNum">     136</span>              :   fun packPacketOut(metadata: List&lt;PacketMetadata&gt;, payload: ByteArray): ByteArray {</span>
-<span id="L137"><span class="lineNum">     137</span>              :     // When the header is byte-aligned, serializePacketOut produces exact-width bytes</span>
-<span id="L138"><span class="lineNum">     138</span>              :     // and byte-concatenation with the payload introduces no padding gap.</span>
-<span id="L139"><span class="lineNum">     139</span> <span class="tlaGNC">           1 :     if (packetOutHeaderBits % 8 == 0) return serializePacketOut(metadata) + payload</span></span>
-<span id="L140"><span class="lineNum">     140</span> <span class="tlaGNC">           1 :     val metadataById = metadata.associateBy { it.metadataId }</span></span>
-<span id="L141"><span class="lineNum">     141</span> <span class="tlaGNC">           1 :     val acc = BitAccumulator()</span></span>
-<span id="L142"><span class="lineNum">     142</span> <span class="tlaGNC">           1 :     for (field in packetOutFields) {</span></span>
-<span id="L143"><span class="lineNum">     143</span> <span class="tlaGNC">           1 :       val raw = metadataById[field.id]?.value?.toByteArray() ?: ByteArray(0)</span></span>
-<span id="L144"><span class="lineNum">     144</span> <span class="tlaGNC">           1 :       var v = 0L</span></span>
-<span id="L145"><span class="lineNum">     145</span> <span class="tlaGNC">           1 :       for (b in raw) v = (v shl 8) or (b.toLong() and 0xFF)</span></span>
-<span id="L146"><span class="lineNum">     146</span> <span class="tlaGNC">           1 :       if (field.bitWidth &lt; Long.SIZE_BITS) v = v and ((1L shl field.bitWidth) - 1)</span></span>
-<span id="L147"><span class="lineNum">     147</span> <span class="tlaGNC">           1 :       acc.append(BigInteger.valueOf(v), field.bitWidth)</span></span>
-<span id="L148"><span class="lineNum">     148</span>              :     }</span>
-<span id="L149"><span class="lineNum">     149</span> <span class="tlaGNC">           1 :     acc.appendRawBytes(payload, 0, payload.size * 8)</span></span>
-<span id="L150"><span class="lineNum">     150</span> <span class="tlaGNC">           1 :     return acc.toByteArray()</span></span>
-<span id="L151"><span class="lineNum">     151</span>              :   }</span>
-<span id="L152"><span class="lineNum">     152</span>              : </span>
-<span id="L153"><span class="lineNum">     153</span>              :   /**</span>
-<span id="L154"><span class="lineNum">     154</span>              :    * Builds PacketIn metadata from ingress and egress port values.</span>
-<span id="L155"><span class="lineNum">     155</span>              :    *</span>
-<span id="L156"><span class="lineNum">     156</span>              :    * Metadata is constructed from the simulation context rather than parsed from the deparsed</span>
-<span id="L157"><span class="lineNum">     157</span>              :    * payload. The caller is responsible for stripping the `@controller_header(&quot;packet_in&quot;)` bytes</span>
-<span id="L158"><span class="lineNum">     158</span>              :    * from the payload (see [packetInHeaderBytes]).</span>
-<span id="L159"><span class="lineNum">     159</span>              :    */</span>
-<span id="L160"><span class="lineNum">     160</span>              :   fun buildPacketInMetadata(ingressPort: Int, egressPort: Int): List&lt;PacketMetadata&gt; =</span>
-<span id="L161"><span class="lineNum">     161</span> <span class="tlaGNC">           1 :     packetInFields.map { field -&gt;</span></span>
-<span id="L162"><span class="lineNum">     162</span> <span class="tlaGNC">           1 :       val value =</span></span>
-<span id="L163"><span class="lineNum">     163</span> <span class="tlaGNC">           1 :         when (field.name) {</span></span>
-<span id="L164"><span class="lineNum">     164</span> <span class="tlaGNC">           1 :           &quot;ingress_port&quot; -&gt; ingressPort</span></span>
-<span id="L165"><span class="lineNum">     165</span> <span class="tlaGNC">           1 :           &quot;target_egress_port&quot; -&gt; egressPort</span></span>
-<span id="L166"><span class="lineNum">     166</span> <span class="tlaGNC">           1 :           else -&gt; 0</span></span>
-<span id="L167"><span class="lineNum">     167</span>              :         }</span>
-<span id="L168"><span class="lineNum">     168</span> <span class="tlaGNC">           1 :       PacketMetadata.newBuilder().setMetadataId(field.id).setValue(encodeMinWidth(value)).build()</span></span>
-<span id="L169"><span class="lineNum">     169</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L170"><span class="lineNum">     170</span>              : </span>
-<span id="L171"><span class="lineNum">     171</span>              :   @Suppress(&quot;MagicNumber&quot;)</span>
-<span id="L172"><span class="lineNum">     172</span>              :   private fun packFields(fields: List&lt;FieldDef&gt;, metadata: Map&lt;Int, PacketMetadata&gt;): ByteArray {</span>
-<span id="L173"><span class="lineNum">     173</span> <span class="tlaGNC">           1 :     var bits = 0L</span></span>
-<span id="L174"><span class="lineNum">     174</span> <span class="tlaGNC">           1 :     var totalBits = 0</span></span>
-<span id="L175"><span class="lineNum">     175</span> <span class="tlaGNC">           1 :     for (field in fields) {</span></span>
-<span id="L176"><span class="lineNum">     176</span> <span class="tlaGNC">           1 :       val value = metadata[field.id]?.value?.toByteArray() ?: ByteArray(0)</span></span>
-<span id="L177"><span class="lineNum">     177</span> <span class="tlaGNC">           1 :       var v = 0L</span></span>
-<span id="L178"><span class="lineNum">     178</span> <span class="tlaGNC">           1 :       for (b in value) v = (v shl 8) or (b.toLong() and 0xFF)</span></span>
-<span id="L179"><span class="lineNum">     179</span> <span class="tlaGNC">           1 :       if (field.bitWidth &lt; Long.SIZE_BITS) v = v and ((1L shl field.bitWidth) - 1)</span></span>
-<span id="L180"><span class="lineNum">     180</span> <span class="tlaGNC">           1 :       bits = (bits shl field.bitWidth) or v</span></span>
-<span id="L181"><span class="lineNum">     181</span> <span class="tlaGNC">           1 :       totalBits += field.bitWidth</span></span>
-<span id="L182"><span class="lineNum">     182</span>              :     }</span>
-<span id="L183"><span class="lineNum">     183</span> <span class="tlaGNC">           1 :     val totalBytes = (totalBits + 7) / 8</span></span>
-<span id="L184"><span class="lineNum">     184</span>              :     // Left-align: p4info excludes @padding fields, but the parser reads from</span>
-<span id="L185"><span class="lineNum">     185</span>              :     // MSB. Shift data bits to the top of the byte-aligned output.</span>
-<span id="L186"><span class="lineNum">     186</span> <span class="tlaGNC">           1 :     val paddingBits = totalBytes * 8 - totalBits</span></span>
-<span id="L187"><span class="lineNum">     187</span> <span class="tlaGNC">           1 :     bits = bits shl paddingBits</span></span>
-<span id="L188"><span class="lineNum">     188</span> <span class="tlaGNC">           1 :     val result = ByteArray(totalBytes)</span></span>
-<span id="L189"><span class="lineNum">     189</span> <span class="tlaGNC">           1 :     for (i in totalBytes - 1 downTo 0) {</span></span>
-<span id="L190"><span class="lineNum">     190</span> <span class="tlaGNC">           1 :       result[i] = (bits and 0xFF).toByte()</span></span>
-<span id="L191"><span class="lineNum">     191</span> <span class="tlaGNC">           1 :       bits = bits shr 8</span></span>
-<span id="L192"><span class="lineNum">     192</span>              :     }</span>
-<span id="L193"><span class="lineNum">     193</span> <span class="tlaGNC">           1 :     return result</span></span>
-<span id="L194"><span class="lineNum">     194</span>              :   }</span>
-<span id="L195"><span class="lineNum">     195</span>              : </span>
-<span id="L196"><span class="lineNum">     196</span>              :   companion object {</span>
-<span id="L197"><span class="lineNum">     197</span>              :     /**</span>
-<span id="L198"><span class="lineNum">     198</span>              :      * Creates a codec from the pipeline config, or null if no `controller_packet_metadata` is</span>
-<span id="L199"><span class="lineNum">     199</span>              :      * defined (programs without `@controller_header`).</span>
-<span id="L200"><span class="lineNum">     200</span>              :      *</span>
-<span id="L201"><span class="lineNum">     201</span>              :      * @param cpuPortOverride If non-null, uses this value instead of deriving `2^portBits - 2`.</span>
-<span id="L202"><span class="lineNum">     202</span>              :      */</span>
-<span id="L203"><span class="lineNum">     203</span> <span class="tlaGNC">           1 :     fun create(</span></span>
-<span id="L204"><span class="lineNum">     204</span>              :       p4info: P4Info,</span>
-<span id="L205"><span class="lineNum">     205</span>              :       behavioral: BehavioralConfig,</span>
-<span id="L206"><span class="lineNum">     206</span> <span class="tlaGNC">           1 :       cpuPortOverride: Int? = null,</span></span>
-<span id="L207"><span class="lineNum">     207</span>              :     ): PacketHeaderCodec? {</span>
-<span id="L208"><span class="lineNum">     208</span> <span class="tlaGNC">           1 :       val packetOutMeta =</span></span>
-<span id="L209"><span class="lineNum">     209</span> <span class="tlaGNC">           1 :         p4info.controllerPacketMetadataList.find { it.preamble.name == &quot;packet_out&quot; } ?: return null</span></span>
-<span id="L210"><span class="lineNum">     210</span>              : </span>
-<span id="L211"><span class="lineNum">     211</span>              :       // Build header-type → field-name → bitwidth map from behavioral config.</span>
-<span id="L212"><span class="lineNum">     212</span> <span class="tlaGNC">           1 :       val headerWidths = buildMap {</span></span>
-<span id="L213"><span class="lineNum">     213</span> <span class="tlaGNC">           1 :         for (type in behavioral.typesList) {</span></span>
-<span id="L214"><span class="lineNum">     214</span> <span class="tlaGNC">           1 :           if (type.hasHeader()) {</span></span>
-<span id="L215"><span class="lineNum">     215</span> <span class="tlaGNC">           1 :             put(type.name, type.header.fieldsList.associate { it.name to bitWidth(it.type) })</span></span>
-<span id="L216"><span class="lineNum">     216</span>              :           }</span>
-<span id="L217"><span class="lineNum">     217</span>              :         }</span>
-<span id="L218"><span class="lineNum">     218</span> <span class="tlaGNC">           1 :       }</span></span>
-<span id="L219"><span class="lineNum">     219</span>              : </span>
-<span id="L220"><span class="lineNum">     220</span> <span class="tlaGNC">           1 :       val packetOutType = headerWidths[&quot;packet_out_header_t&quot;]</span></span>
-<span id="L221"><span class="lineNum">     221</span> <span class="tlaGNC">           1 :       val packetOutFields =</span></span>
-<span id="L222"><span class="lineNum">     222</span> <span class="tlaGNC">           1 :         packetOutMeta.metadataList.map { meta -&gt;</span></span>
-<span id="L223"><span class="lineNum">     223</span> <span class="tlaGNC">           1 :           FieldDef(</span></span>
-<span id="L224"><span class="lineNum">     224</span> <span class="tlaGNC">           1 :             id = meta.id,</span></span>
-<span id="L225"><span class="lineNum">     225</span> <span class="tlaGNC">           1 :             name = meta.name,</span></span>
-<span id="L226"><span class="lineNum">     226</span>              :             bitWidth =</span>
-<span id="L227"><span class="lineNum">     227</span> <span class="tlaGNC">           1 :               if (meta.bitwidth &gt; 0) meta.bitwidth</span></span>
-<span id="L228"><span class="lineNum">     228</span>              :               else</span>
-<span id="L229"><span class="lineNum">     229</span> <span class="tlaGNC">           1 :                 packetOutType?.get(meta.name)</span></span>
-<span id="L230"><span class="lineNum">     230</span> <span class="tlaUNC tlaBgUNC">           0 :                   ?: error(&quot;cannot determine bitwidth for packet_out.${meta.name}&quot;),</span></span>
-<span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC tlaBgGNC">           1 :           )</span></span>
-<span id="L232"><span class="lineNum">     232</span>              :         }</span>
-<span id="L233"><span class="lineNum">     233</span>              : </span>
-<span id="L234"><span class="lineNum">     234</span>              :       // CPU port = 2^portBits - 2 (v1model convention; drop port is 2^W - 1).</span>
-<span id="L235"><span class="lineNum">     235</span> <span class="tlaGNC">           1 :       val portBits =</span></span>
-<span id="L236"><span class="lineNum">     236</span> <span class="tlaGNC">           1 :         packetOutFields.find { it.name == &quot;egress_port&quot; }?.bitWidth ?: DEFAULT_PORT_BITS</span></span>
-<span id="L237"><span class="lineNum">     237</span> <span class="tlaGNC">           1 :       val cpuPort = cpuPortOverride ?: ((1 shl portBits) - 2)</span></span>
-<span id="L238"><span class="lineNum">     238</span>              : </span>
-<span id="L239"><span class="lineNum">     239</span> <span class="tlaGNC">           1 :       val packetInMeta =</span></span>
-<span id="L240"><span class="lineNum">     240</span> <span class="tlaGNC">           1 :         p4info.controllerPacketMetadataList.find { it.preamble.name == &quot;packet_in&quot; }</span></span>
-<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :       val packetInType = headerWidths[&quot;packet_in_header_t&quot;]</span></span>
-<span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :       val packetInFields =</span></span>
-<span id="L243"><span class="lineNum">     243</span> <span class="tlaGNC">           1 :         packetInMeta?.metadataList?.map { meta -&gt;</span></span>
-<span id="L244"><span class="lineNum">     244</span> <span class="tlaGNC">           1 :           FieldDef(</span></span>
-<span id="L245"><span class="lineNum">     245</span> <span class="tlaGNC">           1 :             id = meta.id,</span></span>
-<span id="L246"><span class="lineNum">     246</span> <span class="tlaGNC">           1 :             name = meta.name,</span></span>
-<span id="L247"><span class="lineNum">     247</span>              :             bitWidth =</span>
-<span id="L248"><span class="lineNum">     248</span> <span class="tlaGNC">           1 :               if (meta.bitwidth &gt; 0) meta.bitwidth else packetInType?.get(meta.name) ?: portBits,</span></span>
-<span id="L249"><span class="lineNum">     249</span> <span class="tlaGNC">           1 :           )</span></span>
-<span id="L250"><span class="lineNum">     250</span> <span class="tlaGNC">           1 :         } ?: emptyList()</span></span>
-<span id="L251"><span class="lineNum">     251</span>              : </span>
-<span id="L252"><span class="lineNum">     252</span> <span class="tlaGNC">           1 :       return PacketHeaderCodec(packetOutFields, packetInFields, cpuPort)</span></span>
-<span id="L253"><span class="lineNum">     253</span>              :     }</span>
-<span id="L254"><span class="lineNum">     254</span>              : </span>
-<span id="L255"><span class="lineNum">     255</span>              :     private const val DEFAULT_PORT_BITS = 9</span>
-<span id="L256"><span class="lineNum">     256</span>              : </span>
-<span id="L257"><span class="lineNum">     257</span>              :     private fun bitWidth(type: Type): Int =</span>
-<span id="L258"><span class="lineNum">     258</span> <span class="tlaGNC">           1 :       when (type.kindCase) {</span></span>
-<span id="L259"><span class="lineNum">     259</span> <span class="tlaGNC">           1 :         Type.KindCase.BIT -&gt; type.bit.width</span></span>
-<span id="L260"><span class="lineNum">     260</span> <span class="tlaUNC tlaBgUNC">           0 :         Type.KindCase.SIGNED_INT -&gt; type.signedInt.width</span></span>
-<span id="L261"><span class="lineNum">     261</span> <span class="tlaUNC">           0 :         Type.KindCase.BOOLEAN -&gt; 1</span></span>
-<span id="L262"><span class="lineNum">     262</span>              :         Type.KindCase.VARBIT,</span>
-<span id="L263"><span class="lineNum">     263</span>              :         Type.KindCase.NAMED,</span>
-<span id="L264"><span class="lineNum">     264</span>              :         Type.KindCase.HEADER_STACK,</span>
-<span id="L265"><span class="lineNum">     265</span>              :         Type.KindCase.ERROR,</span>
-<span id="L266"><span class="lineNum">     266</span>              :         Type.KindCase.KIND_NOT_SET,</span>
-<span id="L267"><span class="lineNum">     267</span> <span class="tlaUNC">           0 :         null -&gt; error(&quot;unsupported type in packet header: $type&quot;)</span></span>
-<span id="L268"><span class="lineNum">     268</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
-<span id="L269"><span class="lineNum">     269</span>              :   }</span>
-<span id="L270"><span class="lineNum">     270</span>              : }</span>
+<span id="L109"><span class="lineNum">     109</span> <span class="tlaGNC">           1 :     check(payloadBits % 8 == 0)</span></span>
+<span id="L110"><span class="lineNum">     110</span> <span class="tlaGNC">           1 :     if (payloadBits &lt;= 0) return ByteString.EMPTY</span></span>
+<span id="L111"><span class="lineNum">     111</span> <span class="tlaGNC">           1 :     val discardedBits = totalBits - packetInHeaderBits - payloadBits</span></span>
+<span id="L112"><span class="lineNum">     112</span> <span class="tlaGNC">           1 :     if (discardedBits &gt; 0) {</span></span>
+<span id="L113"><span class="lineNum">     113</span> <span class="tlaGNC">           1 :       val trailingMask = (1 shl discardedBits) - 1</span></span>
+<span id="L114"><span class="lineNum">     114</span> <span class="tlaGNC">           1 :       check(bytes.last().toInt() and trailingMask == 0) {</span></span>
+<span id="L115"><span class="lineNum">     115</span> <span class="tlaUNC tlaBgUNC">           0 :         &quot;expected $discardedBits trailing zero-pad bits, but last byte is 0x${</span></span>
+<span id="L116"><span class="lineNum">     116</span> <span class="tlaUNC">           0 :           &quot;%02X&quot;.format(bytes.last())</span></span>
+<span id="L117"><span class="lineNum">     117</span> <span class="tlaUNC">           0 :         } — payload after @controller_header may not be byte-aligned&quot;</span></span>
+<span id="L118"><span class="lineNum">     118</span>              :       }</span>
+<span id="L119"><span class="lineNum">     119</span>              :     }</span>
+<span id="L120"><span class="lineNum">     120</span> <span class="tlaGNC tlaBgGNC">           1 :     val acc = BitAccumulator()</span></span>
+<span id="L121"><span class="lineNum">     121</span> <span class="tlaGNC">           1 :     acc.appendRawBytes(bytes, packetInHeaderBits, payloadBits)</span></span>
+<span id="L122"><span class="lineNum">     122</span> <span class="tlaGNC">           1 :     return ByteString.copyFrom(acc.toByteArray())</span></span>
+<span id="L123"><span class="lineNum">     123</span>              :   }</span>
+<span id="L124"><span class="lineNum">     124</span>              : </span>
+<span id="L125"><span class="lineNum">     125</span>              :   /** Packs PacketOut metadata into a bit-packed binary header. */</span>
+<span id="L126"><span class="lineNum">     126</span>              :   fun serializePacketOut(metadata: List&lt;PacketMetadata&gt;): ByteArray {</span>
+<span id="L127"><span class="lineNum">     127</span> <span class="tlaGNC">           1 :     val metadataById = metadata.associateBy { it.metadataId }</span></span>
+<span id="L128"><span class="lineNum">     128</span> <span class="tlaGNC">           1 :     return packFields(packetOutFields, metadataById)</span></span>
+<span id="L129"><span class="lineNum">     129</span>              :   }</span>
+<span id="L130"><span class="lineNum">     130</span>              : </span>
+<span id="L131"><span class="lineNum">     131</span>              :   /**</span>
+<span id="L132"><span class="lineNum">     132</span>              :    * Packs the PacketOut header and payload into a continuous bit stream. The header fields are</span>
+<span id="L133"><span class="lineNum">     133</span>              :    * packed at bit granularity followed immediately by the payload bits — no inter-field padding.</span>
+<span id="L134"><span class="lineNum">     134</span>              :    * This avoids the corruption that byte-concatenation causes for non-byte-aligned headers.</span>
+<span id="L135"><span class="lineNum">     135</span>              :    */</span>
+<span id="L136"><span class="lineNum">     136</span>              :   @Suppress(&quot;MagicNumber&quot;)</span>
+<span id="L137"><span class="lineNum">     137</span>              :   fun packPacketOut(metadata: List&lt;PacketMetadata&gt;, payload: ByteArray): ByteArray {</span>
+<span id="L138"><span class="lineNum">     138</span>              :     // When the header is byte-aligned, serializePacketOut produces exact-width bytes</span>
+<span id="L139"><span class="lineNum">     139</span>              :     // and byte-concatenation with the payload introduces no padding gap.</span>
+<span id="L140"><span class="lineNum">     140</span> <span class="tlaGNC">           1 :     if (packetOutHeaderBits % 8 == 0) return serializePacketOut(metadata) + payload</span></span>
+<span id="L141"><span class="lineNum">     141</span> <span class="tlaGNC">           1 :     val metadataById = metadata.associateBy { it.metadataId }</span></span>
+<span id="L142"><span class="lineNum">     142</span> <span class="tlaGNC">           1 :     val acc = BitAccumulator()</span></span>
+<span id="L143"><span class="lineNum">     143</span> <span class="tlaGNC">           1 :     for (field in packetOutFields) {</span></span>
+<span id="L144"><span class="lineNum">     144</span> <span class="tlaGNC">           1 :       val raw = metadataById[field.id]?.value?.toByteArray() ?: ByteArray(0)</span></span>
+<span id="L145"><span class="lineNum">     145</span> <span class="tlaGNC">           1 :       var v = 0L</span></span>
+<span id="L146"><span class="lineNum">     146</span> <span class="tlaGNC">           1 :       for (b in raw) v = (v shl 8) or (b.toLong() and 0xFF)</span></span>
+<span id="L147"><span class="lineNum">     147</span> <span class="tlaGNC">           1 :       if (field.bitWidth &lt; Long.SIZE_BITS) v = v and ((1L shl field.bitWidth) - 1)</span></span>
+<span id="L148"><span class="lineNum">     148</span> <span class="tlaGNC">           1 :       acc.append(BigInteger.valueOf(v), field.bitWidth)</span></span>
+<span id="L149"><span class="lineNum">     149</span>              :     }</span>
+<span id="L150"><span class="lineNum">     150</span> <span class="tlaGNC">           1 :     acc.appendRawBytes(payload, 0, payload.size * 8)</span></span>
+<span id="L151"><span class="lineNum">     151</span> <span class="tlaGNC">           1 :     return acc.toByteArray()</span></span>
+<span id="L152"><span class="lineNum">     152</span>              :   }</span>
+<span id="L153"><span class="lineNum">     153</span>              : </span>
+<span id="L154"><span class="lineNum">     154</span>              :   /**</span>
+<span id="L155"><span class="lineNum">     155</span>              :    * Builds PacketIn metadata from ingress and egress port values.</span>
+<span id="L156"><span class="lineNum">     156</span>              :    *</span>
+<span id="L157"><span class="lineNum">     157</span>              :    * Metadata is constructed from the simulation context rather than parsed from the deparsed</span>
+<span id="L158"><span class="lineNum">     158</span>              :    * payload. The caller is responsible for stripping the `@controller_header(&quot;packet_in&quot;)` bytes</span>
+<span id="L159"><span class="lineNum">     159</span>              :    * from the payload (see [packetInHeaderBytes]).</span>
+<span id="L160"><span class="lineNum">     160</span>              :    */</span>
+<span id="L161"><span class="lineNum">     161</span>              :   fun buildPacketInMetadata(ingressPort: Int, egressPort: Int): List&lt;PacketMetadata&gt; =</span>
+<span id="L162"><span class="lineNum">     162</span> <span class="tlaGNC">           1 :     packetInFields.map { field -&gt;</span></span>
+<span id="L163"><span class="lineNum">     163</span> <span class="tlaGNC">           1 :       val value =</span></span>
+<span id="L164"><span class="lineNum">     164</span> <span class="tlaGNC">           1 :         when (field.name) {</span></span>
+<span id="L165"><span class="lineNum">     165</span> <span class="tlaGNC">           1 :           &quot;ingress_port&quot; -&gt; ingressPort</span></span>
+<span id="L166"><span class="lineNum">     166</span> <span class="tlaGNC">           1 :           &quot;target_egress_port&quot; -&gt; egressPort</span></span>
+<span id="L167"><span class="lineNum">     167</span> <span class="tlaGNC">           1 :           else -&gt; 0</span></span>
+<span id="L168"><span class="lineNum">     168</span>              :         }</span>
+<span id="L169"><span class="lineNum">     169</span> <span class="tlaGNC">           1 :       PacketMetadata.newBuilder().setMetadataId(field.id).setValue(encodeMinWidth(value)).build()</span></span>
+<span id="L170"><span class="lineNum">     170</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L171"><span class="lineNum">     171</span>              : </span>
+<span id="L172"><span class="lineNum">     172</span>              :   @Suppress(&quot;MagicNumber&quot;)</span>
+<span id="L173"><span class="lineNum">     173</span>              :   private fun packFields(fields: List&lt;FieldDef&gt;, metadata: Map&lt;Int, PacketMetadata&gt;): ByteArray {</span>
+<span id="L174"><span class="lineNum">     174</span> <span class="tlaGNC">           1 :     var bits = 0L</span></span>
+<span id="L175"><span class="lineNum">     175</span> <span class="tlaGNC">           1 :     var totalBits = 0</span></span>
+<span id="L176"><span class="lineNum">     176</span> <span class="tlaGNC">           1 :     for (field in fields) {</span></span>
+<span id="L177"><span class="lineNum">     177</span> <span class="tlaGNC">           1 :       val value = metadata[field.id]?.value?.toByteArray() ?: ByteArray(0)</span></span>
+<span id="L178"><span class="lineNum">     178</span> <span class="tlaGNC">           1 :       var v = 0L</span></span>
+<span id="L179"><span class="lineNum">     179</span> <span class="tlaGNC">           1 :       for (b in value) v = (v shl 8) or (b.toLong() and 0xFF)</span></span>
+<span id="L180"><span class="lineNum">     180</span> <span class="tlaGNC">           1 :       if (field.bitWidth &lt; Long.SIZE_BITS) v = v and ((1L shl field.bitWidth) - 1)</span></span>
+<span id="L181"><span class="lineNum">     181</span> <span class="tlaGNC">           1 :       bits = (bits shl field.bitWidth) or v</span></span>
+<span id="L182"><span class="lineNum">     182</span> <span class="tlaGNC">           1 :       totalBits += field.bitWidth</span></span>
+<span id="L183"><span class="lineNum">     183</span>              :     }</span>
+<span id="L184"><span class="lineNum">     184</span> <span class="tlaGNC">           1 :     val totalBytes = (totalBits + 7) / 8</span></span>
+<span id="L185"><span class="lineNum">     185</span>              :     // Left-align: p4info excludes @padding fields, but the parser reads from</span>
+<span id="L186"><span class="lineNum">     186</span>              :     // MSB. Shift data bits to the top of the byte-aligned output.</span>
+<span id="L187"><span class="lineNum">     187</span> <span class="tlaGNC">           1 :     val paddingBits = totalBytes * 8 - totalBits</span></span>
+<span id="L188"><span class="lineNum">     188</span> <span class="tlaGNC">           1 :     bits = bits shl paddingBits</span></span>
+<span id="L189"><span class="lineNum">     189</span> <span class="tlaGNC">           1 :     val result = ByteArray(totalBytes)</span></span>
+<span id="L190"><span class="lineNum">     190</span> <span class="tlaGNC">           1 :     for (i in totalBytes - 1 downTo 0) {</span></span>
+<span id="L191"><span class="lineNum">     191</span> <span class="tlaGNC">           1 :       result[i] = (bits and 0xFF).toByte()</span></span>
+<span id="L192"><span class="lineNum">     192</span> <span class="tlaGNC">           1 :       bits = bits shr 8</span></span>
+<span id="L193"><span class="lineNum">     193</span>              :     }</span>
+<span id="L194"><span class="lineNum">     194</span> <span class="tlaGNC">           1 :     return result</span></span>
+<span id="L195"><span class="lineNum">     195</span>              :   }</span>
+<span id="L196"><span class="lineNum">     196</span>              : </span>
+<span id="L197"><span class="lineNum">     197</span>              :   companion object {</span>
+<span id="L198"><span class="lineNum">     198</span>              :     /**</span>
+<span id="L199"><span class="lineNum">     199</span>              :      * Creates a codec from the pipeline config, or null if no `controller_packet_metadata` is</span>
+<span id="L200"><span class="lineNum">     200</span>              :      * defined (programs without `@controller_header`).</span>
+<span id="L201"><span class="lineNum">     201</span>              :      *</span>
+<span id="L202"><span class="lineNum">     202</span>              :      * @param cpuPortOverride If non-null, uses this value instead of deriving `2^portBits - 2`.</span>
+<span id="L203"><span class="lineNum">     203</span>              :      */</span>
+<span id="L204"><span class="lineNum">     204</span> <span class="tlaGNC">           1 :     fun create(</span></span>
+<span id="L205"><span class="lineNum">     205</span>              :       p4info: P4Info,</span>
+<span id="L206"><span class="lineNum">     206</span>              :       behavioral: BehavioralConfig,</span>
+<span id="L207"><span class="lineNum">     207</span> <span class="tlaGNC">           1 :       cpuPortOverride: Int? = null,</span></span>
+<span id="L208"><span class="lineNum">     208</span>              :     ): PacketHeaderCodec? {</span>
+<span id="L209"><span class="lineNum">     209</span> <span class="tlaGNC">           1 :       val packetOutMeta =</span></span>
+<span id="L210"><span class="lineNum">     210</span> <span class="tlaGNC">           1 :         p4info.controllerPacketMetadataList.find { it.preamble.name == &quot;packet_out&quot; } ?: return null</span></span>
+<span id="L211"><span class="lineNum">     211</span>              : </span>
+<span id="L212"><span class="lineNum">     212</span>              :       // Build header-type → field-name → bitwidth map from behavioral config.</span>
+<span id="L213"><span class="lineNum">     213</span> <span class="tlaGNC">           1 :       val headerWidths = buildMap {</span></span>
+<span id="L214"><span class="lineNum">     214</span> <span class="tlaGNC">           1 :         for (type in behavioral.typesList) {</span></span>
+<span id="L215"><span class="lineNum">     215</span> <span class="tlaGNC">           1 :           if (type.hasHeader()) {</span></span>
+<span id="L216"><span class="lineNum">     216</span> <span class="tlaGNC">           1 :             put(type.name, type.header.fieldsList.associate { it.name to bitWidth(it.type) })</span></span>
+<span id="L217"><span class="lineNum">     217</span>              :           }</span>
+<span id="L218"><span class="lineNum">     218</span>              :         }</span>
+<span id="L219"><span class="lineNum">     219</span> <span class="tlaGNC">           1 :       }</span></span>
+<span id="L220"><span class="lineNum">     220</span>              : </span>
+<span id="L221"><span class="lineNum">     221</span> <span class="tlaGNC">           1 :       val packetOutType = headerWidths[&quot;packet_out_header_t&quot;]</span></span>
+<span id="L222"><span class="lineNum">     222</span> <span class="tlaGNC">           1 :       val packetOutFields =</span></span>
+<span id="L223"><span class="lineNum">     223</span> <span class="tlaGNC">           1 :         packetOutMeta.metadataList.map { meta -&gt;</span></span>
+<span id="L224"><span class="lineNum">     224</span> <span class="tlaGNC">           1 :           FieldDef(</span></span>
+<span id="L225"><span class="lineNum">     225</span> <span class="tlaGNC">           1 :             id = meta.id,</span></span>
+<span id="L226"><span class="lineNum">     226</span> <span class="tlaGNC">           1 :             name = meta.name,</span></span>
+<span id="L227"><span class="lineNum">     227</span>              :             bitWidth =</span>
+<span id="L228"><span class="lineNum">     228</span> <span class="tlaGNC">           1 :               if (meta.bitwidth &gt; 0) meta.bitwidth</span></span>
+<span id="L229"><span class="lineNum">     229</span>              :               else</span>
+<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC">           1 :                 packetOutType?.get(meta.name)</span></span>
+<span id="L231"><span class="lineNum">     231</span> <span class="tlaUNC tlaBgUNC">           0 :                   ?: error(&quot;cannot determine bitwidth for packet_out.${meta.name}&quot;),</span></span>
+<span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC tlaBgGNC">           1 :           )</span></span>
+<span id="L233"><span class="lineNum">     233</span>              :         }</span>
+<span id="L234"><span class="lineNum">     234</span>              : </span>
+<span id="L235"><span class="lineNum">     235</span>              :       // CPU port = 2^portBits - 2 (v1model convention; drop port is 2^W - 1).</span>
+<span id="L236"><span class="lineNum">     236</span> <span class="tlaGNC">           1 :       val portBits =</span></span>
+<span id="L237"><span class="lineNum">     237</span> <span class="tlaGNC">           1 :         packetOutFields.find { it.name == &quot;egress_port&quot; }?.bitWidth ?: DEFAULT_PORT_BITS</span></span>
+<span id="L238"><span class="lineNum">     238</span> <span class="tlaGNC">           1 :       val cpuPort = cpuPortOverride ?: ((1 shl portBits) - 2)</span></span>
+<span id="L239"><span class="lineNum">     239</span>              : </span>
+<span id="L240"><span class="lineNum">     240</span> <span class="tlaGNC">           1 :       val packetInMeta =</span></span>
+<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :         p4info.controllerPacketMetadataList.find { it.preamble.name == &quot;packet_in&quot; }</span></span>
+<span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :       val packetInType = headerWidths[&quot;packet_in_header_t&quot;]</span></span>
+<span id="L243"><span class="lineNum">     243</span> <span class="tlaGNC">           1 :       val packetInFields =</span></span>
+<span id="L244"><span class="lineNum">     244</span> <span class="tlaGNC">           1 :         packetInMeta?.metadataList?.map { meta -&gt;</span></span>
+<span id="L245"><span class="lineNum">     245</span> <span class="tlaGNC">           1 :           FieldDef(</span></span>
+<span id="L246"><span class="lineNum">     246</span> <span class="tlaGNC">           1 :             id = meta.id,</span></span>
+<span id="L247"><span class="lineNum">     247</span> <span class="tlaGNC">           1 :             name = meta.name,</span></span>
+<span id="L248"><span class="lineNum">     248</span>              :             bitWidth =</span>
+<span id="L249"><span class="lineNum">     249</span> <span class="tlaGNC">           1 :               if (meta.bitwidth &gt; 0) meta.bitwidth else packetInType?.get(meta.name) ?: portBits,</span></span>
+<span id="L250"><span class="lineNum">     250</span> <span class="tlaGNC">           1 :           )</span></span>
+<span id="L251"><span class="lineNum">     251</span> <span class="tlaGNC">           1 :         } ?: emptyList()</span></span>
+<span id="L252"><span class="lineNum">     252</span>              : </span>
+<span id="L253"><span class="lineNum">     253</span> <span class="tlaGNC">           1 :       return PacketHeaderCodec(packetOutFields, packetInFields, cpuPort)</span></span>
+<span id="L254"><span class="lineNum">     254</span>              :     }</span>
+<span id="L255"><span class="lineNum">     255</span>              : </span>
+<span id="L256"><span class="lineNum">     256</span>              :     private const val DEFAULT_PORT_BITS = 9</span>
+<span id="L257"><span class="lineNum">     257</span>              : </span>
+<span id="L258"><span class="lineNum">     258</span>              :     private fun bitWidth(type: Type): Int =</span>
+<span id="L259"><span class="lineNum">     259</span> <span class="tlaGNC">           1 :       when (type.kindCase) {</span></span>
+<span id="L260"><span class="lineNum">     260</span> <span class="tlaGNC">           1 :         Type.KindCase.BIT -&gt; type.bit.width</span></span>
+<span id="L261"><span class="lineNum">     261</span> <span class="tlaUNC tlaBgUNC">           0 :         Type.KindCase.SIGNED_INT -&gt; type.signedInt.width</span></span>
+<span id="L262"><span class="lineNum">     262</span> <span class="tlaUNC">           0 :         Type.KindCase.BOOLEAN -&gt; 1</span></span>
+<span id="L263"><span class="lineNum">     263</span>              :         Type.KindCase.VARBIT,</span>
+<span id="L264"><span class="lineNum">     264</span>              :         Type.KindCase.NAMED,</span>
+<span id="L265"><span class="lineNum">     265</span>              :         Type.KindCase.HEADER_STACK,</span>
+<span id="L266"><span class="lineNum">     266</span>              :         Type.KindCase.ERROR,</span>
+<span id="L267"><span class="lineNum">     267</span>              :         Type.KindCase.KIND_NOT_SET,</span>
+<span id="L268"><span class="lineNum">     268</span> <span class="tlaUNC">           0 :         null -&gt; error(&quot;unsupported type in packet header: $type&quot;)</span></span>
+<span id="L269"><span class="lineNum">     269</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
+<span id="L270"><span class="lineNum">     270</span>              :   }</span>
+<span id="L271"><span class="lineNum">     271</span>              : }</span>
         </pre>
               </td>
             </tr>

@@ -32,12 +32,12 @@
             <td></td>
             <td class="headerItem">Lines:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
-            <td class="headerCovTableEntry">60</td>
-            <td class="headerCovTableEntry">60</td>
+            <td class="headerCovTableEntry">61</td>
+            <td class="headerCovTableEntry">61</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-14 02:43:58</td>
+            <td class="headerValue">2026-05-14 02:53:43</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -86,7 +86,7 @@
 <span id="L24"><span class="lineNum">      24</span> <span class="tlaGNC">           1 :     var remaining = width</span></span>
 <span id="L25"><span class="lineNum">      25</span> <span class="tlaGNC">           1 :     var bits = value</span></span>
 <span id="L26"><span class="lineNum">      26</span> <span class="tlaGNC">           1 :     while (remaining &gt; 0) {</span></span>
-<span id="L27"><span class="lineNum">      27</span>              :       // space is always 1..8, so the shifts below are always &lt; 64.</span>
+<span id="L27"><span class="lineNum">      27</span> <span class="tlaGNC">           1 :       check(pendingCount in 0..7)</span></span>
 <span id="L28"><span class="lineNum">      28</span> <span class="tlaGNC">           1 :       val space = 8 - pendingCount</span></span>
 <span id="L29"><span class="lineNum">      29</span> <span class="tlaGNC">           1 :       if (remaining &gt;= space) {</span></span>
 <span id="L30"><span class="lineNum">      30</span> <span class="tlaGNC">           1 :         val shift = remaining - space</span></span>
