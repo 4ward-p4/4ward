@@ -92,10 +92,9 @@ message InjectPacketResponse {
   Reproducer reproducer = 3;
 }
 
-// Everything needed to reproduce a trace, minus the input packet and
-// trace itself (already in the enclosing response). Load the pipeline,
-// install the entities via P4Runtime Write, and inject the same packet
-// to get the same trace.
+// Self-contained reproduction case for a packet trace. Load the pipeline,
+// install the entities via P4Runtime Write, inject the packet, and you
+// get the same trace.
 message Reproducer {
   // The compiled P4 program (IR + p4info).
   PipelineConfig pipeline_config = 1;
@@ -104,6 +103,13 @@ message Reproducer {
   // clone sessions, multicast groups, action profile members/groups.
   // Excludes const entries (already in pipeline_config.device.static_entries).
   repeated p4.v1.Entity entities = 2;
+
+  // The input packet that produced the trace.
+  InputPacket input_packet = 3;
+
+  // The trace being reproduced, including all possible outcomes.
+  TraceTree trace = 4;
+  repeated PacketSet possible_outcomes = 5;
 }
 
 // Result bundle for SubscribeResults: input + outputs + trace.

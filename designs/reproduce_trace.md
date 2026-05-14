@@ -57,16 +57,13 @@ message InjectPacketResponse {
   Reproducer reproducer = 3;
 }
 
-// Everything needed to reproduce a trace, minus the input packet and
-// trace itself (which are already in the enclosing response).
+// Self-contained reproduction case for a packet trace.
 message Reproducer {
-  // The compiled P4 program (IR + p4info).
   PipelineConfig pipeline_config = 1;
-
-  // P4Runtime entities needed to reproduce the trace: matched table
-  // entries, clone sessions, multicast groups, action profile
-  // members/groups.
   repeated p4.v1.Entity entities = 2;
+  InputPacket input_packet = 3;
+  TraceTree trace = 4;
+  repeated PacketSet possible_outcomes = 5;
 }
 ```
 
@@ -77,9 +74,10 @@ extra step, and a TOCTOU risk if state changed between calls. The flag
 lets the user get the reproducer in the same call where the bug was
 observed.
 
-`Reproducer` doesn't duplicate the input packet or trace — those
-are already in `InjectPacketResponse`. Together, the response fields
-form a complete, self-contained reproduction case.
+The `Reproducer` is fully self-contained: pipeline config, entities,
+input packet, trace, and possible outcomes. Serialize it to a file
+and hand it to someone — they have everything needed to reproduce
+the trace and see what happened.
 
 ### Entity extraction
 
@@ -89,6 +87,7 @@ events:
 | Trace event | Entity extracted |
 |---|---|
 | `TableLookupEvent` with `hit = true` | `matched_entry` → `Entity.table_entry` |
+| `TableLookupEvent` with `hit = false` and modified default action | Default action from table store → `Entity.table_entry` (with `is_default_action`) |
 | `CloneSessionLookupEvent` with `session_found = true` | Clone session from table store → `Entity.clone_session_entry` |
 | `Fork` with reason `MULTICAST` | Multicast group from table store → `Entity.multicast_group_entry` |
 | Action profile references in matched entries | Members/groups from table store → `Entity.action_profile_member` / `Entity.action_profile_group` |

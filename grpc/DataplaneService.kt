@@ -80,6 +80,13 @@ class DataplaneService(
                 pipeline.config.device.staticEntries.updatesList,
               )
             )
+            .setInputPacket(
+              InputPacket.newBuilder()
+                .setDataplaneIngressPort(ingressPort)
+                .setPayload(ByteString.copyFrom(payload))
+            )
+            .setTrace(enrichedTrace)
+            .addAllPossibleOutcomes(possibleOutcomes)
         )
       }
       return response.build()

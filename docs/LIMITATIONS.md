@@ -97,6 +97,11 @@ guilt — just write it down so someone can find it later.
   extraction cannot determine which specific multicast group triggered a
   MULTICAST fork (the `Fork` proto doesn't carry the group ID), so it
   includes all multicast groups from the forwarding snapshot.
+- **Reproducer does not capture register state.** Programs that read
+  registers and branch on the result will produce a different trace when
+  replayed from a reproducer (registers start at zero). Counter and
+  meter state is not affected: counters don't influence forwarding,
+  and meters always return GREEN in the simulator.
 
 ## Simulator
 

@@ -119,16 +119,22 @@ class DataplaneServiceTest {
   }
 
   @Test
-  fun `InjectPacket with include_reproducer returns pipeline config`() {
+  fun `reproducer is self-contained`() {
     val config = loadPassthroughConfig()
     harness.loadPipeline(config)
-    val response = harness.injectPacketWithReproducer(ingressPort = 0, payload = byteArrayOf(0x01))
+    val payload = byteArrayOf(0x01)
+    val response = harness.injectPacketWithReproducer(ingressPort = 0, payload = payload)
 
     assertTrue("reproducer should be present", response.hasReproducer())
+    val reproducer = response.reproducer
+    assertEquals("pipeline config", config, reproducer.pipelineConfig)
+    assertEquals("ingress port", 0, reproducer.inputPacket.dataplaneIngressPort)
+    assertEquals("payload", ByteString.copyFrom(payload), reproducer.inputPacket.payload)
+    assertTrue("trace", reproducer.hasTrace())
     assertEquals(
-      "reproducer should contain the pipeline config",
-      config,
-      response.reproducer.pipelineConfig,
+      "possible outcomes match response",
+      response.possibleOutcomesList,
+      reproducer.possibleOutcomesList,
     )
   }
 
