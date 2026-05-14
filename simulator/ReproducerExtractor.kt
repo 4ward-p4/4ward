@@ -17,10 +17,10 @@ import p4.v1.P4RuntimeOuterClass.Update
  */
 fun extractReproducerEntities(
   trace: TraceTree,
+  snapshot: TableStore.ForwardingSnapshot,
   tableStore: TableStore,
   staticEntries: List<Update>,
 ): List<Entity> {
-  val snapshot = tableStore.snapshot
   val staticTableEntries =
     staticEntries.mapNotNullTo(mutableSetOf()) { update ->
       update.entity.takeIf { it.hasTableEntry() }?.tableEntry
@@ -73,7 +73,7 @@ private fun collectFromEvent(
           collectActionProfileEntities(entry, snapshot, out)
         }
       } else if (!lookup.hit) {
-        tableStore.buildModifiedDefaultActionEntity(lookup.tableName)?.let { out += it }
+        tableStore.buildModifiedDefaultActionEntity(lookup.tableName, snapshot)?.let { out += it }
       }
     }
     TraceEvent.EventCase.CLONE_SESSION_LOOKUP -> {

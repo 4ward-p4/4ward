@@ -70,6 +70,7 @@ class DataplaneService(
       .addAllEntities(
         extractReproducerEntities(
           enrichedResult.rawTrace,
+          enrichedResult.forwardingSnapshot,
           pipeline.tableStore,
           pipeline.config.device.staticEntries.updatesList,
         )
@@ -82,6 +83,7 @@ class DataplaneService(
     val ingressPort: Int,
     val payload: ByteArray,
     val rawTrace: TraceTree,
+    val forwardingSnapshot: TableStore.ForwardingSnapshot,
     val trace: TraceTree,
     val possibleOutcomes: List<PacketSet>,
   ) {
@@ -114,6 +116,7 @@ class DataplaneService(
           ingressPort = ingressPort,
           payload = payload,
           rawTrace = result.trace,
+          forwardingSnapshot = result.forwardingSnapshot,
           trace = enrichTrace(result.trace, translator),
           possibleOutcomes =
             result.possibleOutcomes.map { world ->

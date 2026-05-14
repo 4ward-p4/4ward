@@ -675,8 +675,14 @@ class TableStore : TableDataReader {
   /**
    * Builds a P4Runtime [Entity] for the modified default action of [displayName] (p4info alias), or
    * null if the default has not been modified or the table doesn't exist.
+   *
+   * Takes an explicit [snapshot] so callers can pin the snapshot that was live during packet
+   * processing, avoiding races with concurrent [publishSnapshot] calls.
    */
-  fun buildModifiedDefaultActionEntity(displayName: String): P4RuntimeOuterClass.Entity? {
+  fun buildModifiedDefaultActionEntity(
+    displayName: String,
+    snapshot: ForwardingSnapshot,
+  ): P4RuntimeOuterClass.Entity? {
     val behavioralName = tableNameByAlias[displayName] ?: displayName
     if (behavioralName !in snapshot.modifiedDefaults) return null
     val default = snapshot.defaultActions[behavioralName] ?: return null

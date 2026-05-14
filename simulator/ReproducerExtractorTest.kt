@@ -79,10 +79,17 @@ class ReproducerExtractorTest {
     return store
   }
 
+  private fun extract(
+    trace: TraceTree,
+    store: TableStore,
+    staticEntries: List<P4RuntimeOuterClass.Update> = emptyList(),
+  ): List<P4RuntimeOuterClass.Entity> =
+    extractReproducerEntities(trace, store.snapshot, store, staticEntries)
+
   @Test
   fun `empty trace produces no entities`() {
     val trace = TraceTree.newBuilder().setPacketOutcome(dropOutcome()).build()
-    val entities = extractReproducerEntities(trace, emptyTableStore(), emptyList())
+    val entities = extract(trace, emptyTableStore())
     assertTrue(entities.isEmpty())
   }
 
@@ -95,7 +102,7 @@ class ReproducerExtractorTest {
         .setPacketOutcome(dropOutcome())
         .build()
 
-    val entities = extractReproducerEntities(trace, emptyTableStore(), emptyList())
+    val entities = extract(trace, emptyTableStore())
 
     assertEquals(1, entities.size)
     assertTrue(entities[0].hasTableEntry())
@@ -107,7 +114,7 @@ class ReproducerExtractorTest {
     val trace =
       TraceTree.newBuilder().addEvents(tableLookupMiss()).setPacketOutcome(dropOutcome()).build()
 
-    val entities = extractReproducerEntities(trace, emptyTableStore(), emptyList())
+    val entities = extract(trace, emptyTableStore())
     assertTrue(entities.isEmpty())
   }
 
@@ -126,7 +133,7 @@ class ReproducerExtractorTest {
         .setPacketOutcome(dropOutcome())
         .build()
 
-    val entities = extractReproducerEntities(trace, emptyTableStore(), listOf(staticUpdate))
+    val entities = extract(trace, emptyTableStore(), listOf(staticUpdate))
     assertTrue("static entry should be excluded", entities.isEmpty())
   }
 
@@ -140,7 +147,7 @@ class ReproducerExtractorTest {
         .setPacketOutcome(dropOutcome())
         .build()
 
-    val entities = extractReproducerEntities(trace, emptyTableStore(), emptyList())
+    val entities = extract(trace, emptyTableStore())
     assertEquals("duplicate should be deduplicated", 1, entities.size)
   }
 
@@ -165,7 +172,7 @@ class ReproducerExtractorTest {
         .setPacketOutcome(dropOutcome())
         .build()
 
-    val entities = extractReproducerEntities(trace, store, emptyList())
+    val entities = extract(trace, store)
 
     assertEquals(1, entities.size)
     assertTrue(entities[0].hasPacketReplicationEngineEntry())
@@ -180,7 +187,7 @@ class ReproducerExtractorTest {
         .setPacketOutcome(dropOutcome())
         .build()
 
-    val entities = extractReproducerEntities(trace, emptyTableStore(), emptyList())
+    val entities = extract(trace, emptyTableStore())
     assertTrue(entities.isEmpty())
   }
 
@@ -215,7 +222,7 @@ class ReproducerExtractorTest {
         )
         .build()
 
-    val entities = extractReproducerEntities(trace, emptyTableStore(), emptyList())
+    val entities = extract(trace, emptyTableStore())
 
     assertEquals(2, entities.size)
     assertEquals(entry1, entities[0].tableEntry)
@@ -245,7 +252,7 @@ class ReproducerExtractorTest {
         .setPacketOutcome(dropOutcome())
         .build()
 
-    val entities = extractReproducerEntities(trace, store, emptyList())
+    val entities = extract(trace, store)
 
     assertEquals(2, entities.size)
     assertTrue(entities[0].hasTableEntry())
@@ -296,7 +303,7 @@ class ReproducerExtractorTest {
         .setPacketOutcome(dropOutcome())
         .build()
 
-    val entities = extractReproducerEntities(trace, store, emptyList())
+    val entities = extract(trace, store)
 
     assertEquals(4, entities.size)
     assertTrue("table entry", entities[0].hasTableEntry())
@@ -351,7 +358,7 @@ class ReproducerExtractorTest {
         .setPacketOutcome(dropOutcome())
         .build()
 
-    val entities = extractReproducerEntities(trace, store, emptyList())
+    val entities = extract(trace, store)
 
     assertEquals(1, entities.size)
     assertTrue(entities[0].hasTableEntry())
@@ -388,7 +395,7 @@ class ReproducerExtractorTest {
         .setPacketOutcome(dropOutcome())
         .build()
 
-    val entities = extractReproducerEntities(trace, store, emptyList())
+    val entities = extract(trace, store)
     assertTrue("unmodified default should not be extracted", entities.isEmpty())
   }
 }
