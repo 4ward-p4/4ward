@@ -398,4 +398,47 @@ class ReproducerExtractorTest {
     val entities = extract(trace, store)
     assertTrue("unmodified default should not be extracted", entities.isEmpty())
   }
+
+  @Test
+  fun `multicast fork extracts multicast groups`() {
+    val group =
+      P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+        .setMulticastGroupId(1)
+        .addReplicas(
+          P4RuntimeOuterClass.Replica.newBuilder()
+            .setPort(ByteString.copyFrom(byteArrayOf(1)))
+            .setInstance(0)
+        )
+        .addReplicas(
+          P4RuntimeOuterClass.Replica.newBuilder()
+            .setPort(ByteString.copyFrom(byteArrayOf(2)))
+            .setInstance(0)
+        )
+        .build()
+    val store = tableStoreWith { multicastGroups[1] = group }
+
+    val trace =
+      TraceTree.newBuilder()
+        .setForkOutcome(
+          Fork.newBuilder()
+            .setReason(ForkReason.MULTICAST)
+            .addBranches(
+              ForkBranch.newBuilder()
+                .setLabel("replica 0")
+                .setSubtree(TraceTree.newBuilder().setPacketOutcome(dropOutcome()))
+            )
+            .addBranches(
+              ForkBranch.newBuilder()
+                .setLabel("replica 1")
+                .setSubtree(TraceTree.newBuilder().setPacketOutcome(dropOutcome()))
+            )
+        )
+        .build()
+
+    val entities = extract(trace, store)
+
+    assertEquals(1, entities.size)
+    assertTrue(entities[0].hasPacketReplicationEngineEntry())
+    assertEquals(group, entities[0].packetReplicationEngineEntry.multicastGroupEntry)
+  }
 }

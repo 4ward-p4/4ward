@@ -666,6 +666,7 @@ kt_jvm_test(
     data = [
         "//e2e_tests/basic_table",
         "//e2e_tests/passthrough",
+        "//e2e_tests/trace_tree:multicast",
     ],
     test_class = "fourward.grpc.DataplaneServiceTest",
     deps = [

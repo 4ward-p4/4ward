@@ -774,5 +774,25 @@ class FourwardTestHarness(
             )
         )
         .build()
+
+    /** Builds a multicast group Entity with replicas on the given ports. */
+    fun buildMulticastGroup(groupId: Int, ports: List<Int>): Entity =
+      Entity.newBuilder()
+        .setPacketReplicationEngineEntry(
+          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+            .setMulticastGroupEntry(
+              P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+                .setMulticastGroupId(groupId)
+                .addAllReplicas(
+                  ports.mapIndexed { idx, port ->
+                    P4RuntimeOuterClass.Replica.newBuilder()
+                      .setPort(ByteString.copyFrom(longToBytes(port.toLong(), 2)))
+                      .setInstance(idx)
+                      .build()
+                  }
+                )
+            )
+        )
+        .build()
   }
 }
