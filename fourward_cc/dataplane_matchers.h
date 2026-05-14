@@ -8,7 +8,6 @@
 #define FOURWARD_CC_DATAPLANE_MATCHERS_H_
 
 #include <cstdint>
-#include <map>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -16,6 +15,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/container/btree_map.h"
 #include "fourward_cc/dataplane_client.h"
 #include "gmock/gmock.h"
 #include "grpc/dataplane.pb.h"
@@ -134,6 +134,16 @@ inline void PrintPortKey(std::ostream* os, const PortKey& key) {
   } else {
     *os << "\"" << std::get<P4RuntimePort>(key).port << "\"";
   }
+}
+
+template <typename T>
+PacketList DeterministicPackets(const T& result) {
+  auto outcomes = ExtractOutcomes(result);
+  if (outcomes.size() != 1) {
+    ADD_FAILURE() << "expected 1 outcome, got " << outcomes.size();
+    return {};
+  }
+  return std::move(outcomes[0]);
 }
 
 }  // namespace internal
@@ -352,7 +362,8 @@ class OnPortsMatcher {
   template <typename Container>
   bool MatchAndExplain(const Container& packets,
                        ::testing::MatchResultListener* listener) const {
-    std::map<internal::PortKey, internal::PacketList, internal::PortKeyLess>
+    absl::btree_map<internal::PortKey, internal::PacketList,
+                    internal::PortKeyLess>
         groups;
     // Port type is inferred from the first entry — all entries must use the
     // same type (DataplanePort or P4RuntimePort).
@@ -397,6 +408,37 @@ inline auto OnPorts(
     std::initializer_list<OnPortsMatcher::PortExpectation> expected) {
   return Packets(::testing::MakePolymorphicMatcher(
       OnPortsMatcher({expected.begin(), expected.end()})));
+}
+
+// ---------------------------------------------------------------------------
+// PacketsByDataplanePort / PacketsByP4RuntimePort — extract packets grouped
+// by port
+//
+// Returns a map from port to packets for the single deterministic outcome.
+// Fails the test if the result has != 1 possible outcome. Uses btree_map
+// for deterministic iteration order in test failure messages.
+// ---------------------------------------------------------------------------
+
+template <typename T>
+absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>>
+PacketsByDataplanePort(const T& result) {
+  absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>> groups;
+  auto packets = internal::DeterministicPackets(result);
+  for (auto& pkt : packets) {
+    groups[pkt.dataplane_egress_port()].push_back(std::move(pkt));
+  }
+  return groups;
+}
+
+template <typename T>
+absl::btree_map<std::string, std::vector<fourward::OutputPacket>>
+PacketsByP4RuntimePort(const T& result) {
+  absl::btree_map<std::string, std::vector<fourward::OutputPacket>> groups;
+  auto packets = internal::DeterministicPackets(result);
+  for (auto& pkt : packets) {
+    groups[pkt.p4rt_egress_port()].push_back(std::move(pkt));
+  }
+  return groups;
 }
 
 }  // namespace fourward

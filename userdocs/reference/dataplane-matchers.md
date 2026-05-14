@@ -26,11 +26,12 @@ Shorthands   ForwardsTo  Forwards  Drops
 Outcomes     OutcomeIs  OutcomesAre  EachOutcome  AnyOutcome  Outcome
 Packets      OnPort  HasPayload  OnPorts  Packets
 Input        HasIngress
+Extraction   PacketsByDataplanePort  PacketsByP4RuntimePort
 ```
 
 ## The basics
 
-Most tests only need the shorthands. They work on both
+Many tests only need the shorthands. They work on both
 `InjectPacketResponse` (from `InjectPacket`) and `ProcessPacketResult`
 (from `ResultStream::Next`):
 
@@ -80,14 +81,17 @@ using ::fourward::OutcomeIs;
 using ::fourward::OnPort;
 using ::fourward::HasPayload;
 
+// Single packet on port 1:
+EXPECT_THAT(response, OutcomeIs(OnPort(1)));
+
+// Multicast — two output packets:
+EXPECT_THAT(response, OutcomeIs(OnPort(1), OnPort(2)));
+
 // Port and payload:
 EXPECT_THAT(response, OutcomeIs(OnPort(1, expected_bytes)));
 
 // With a payload matcher:
-EXPECT_THAT(response, OutcomeIs(OnPort(1, HasPayload(StartsWith("hello")))));
-
-// Multicast — two output packets:
-EXPECT_THAT(response, OutcomeIs(OnPort(1), OnPort(2)));
+EXPECT_THAT(response, OutcomeIs(OnPort(1, HasPayload(EndsWith("hello")))));
 ```
 
 `HasPayload` takes any `Matcher<const std::string&>`, so it plays nicely
@@ -101,6 +105,84 @@ with `Eq`, `StartsWith`, `ResultOf`, and anything else gmock offers.
 // Don't care which port — just that the packet wasn't dropped:
 EXPECT_THAT(dataplane.InjectPacket({...}), IsOkAndHolds(Forwards()));
 ```
+
+## Grouping by port
+
+`OnPorts` groups packets by egress port and applies per-group matchers —
+use it when a single `EXPECT_THAT` covers everything you need. When you
+need packets in variables for more involved follow-up, see
+[Extracting packets by port](#extracting-packets-by-port) below.
+
+Use `OnPorts` directly inside `OutcomeIs`:
+
+```cpp
+using ::fourward::OnPorts;
+
+// 7 copies to port 5, 25 to port 42:
+EXPECT_THAT(response, OutcomeIs(OnPorts({
+    {DataplanePort{5}, SizeIs(7)},
+    {DataplanePort{42}, SizeIs(25)},
+})));
+
+// Every output packet carries the same payload:
+EXPECT_THAT(response, OutcomeIs(Packets(Each(HasPayload(expected)))));
+
+// Match individual packets per port:
+EXPECT_THAT(response, OutcomeIs(OnPorts({
+    {DataplanePort{1}, UnorderedElementsAreArray({
+        HasPayload(packet_a),
+        HasPayload(packet_b),
+    })},
+    {DataplanePort{2}, ElementsAre(HasPayload(packet_c))},
+})));
+
+// Works with P4Runtime ports too:
+EXPECT_THAT(response, OutcomeIs(OnPorts({
+    {P4RuntimePort{"Ethernet0"}, SizeIs(1)},
+    {P4RuntimePort{"Ethernet1"}, SizeIs(1)},
+})));
+```
+
+## Extracting packets by port
+
+`PacketsByDataplanePort` and `PacketsByP4RuntimePort` are the
+variable-extraction counterpart to [`OnPorts`](#grouping-by-port) —
+same grouping, but the result lands in a map you can index directly
+or match exhaustively with gmock's container matchers:
+
+```cpp
+using ::fourward::PacketsByDataplanePort;
+
+auto by_port = PacketsByDataplanePort(response);
+
+// Index into individual ports:
+EXPECT_THAT(by_port[1], SizeIs(2));
+EXPECT_THAT(by_port[2], ElementsAre(HasPayload(expected_bytes)));
+
+// Or match the whole map — exhaustive, no stray ports:
+EXPECT_THAT(by_port, UnorderedElementsAreArray({
+    Pair(1, UnorderedElementsAreArray({
+        HasPayload(packet_a),
+        HasPayload(packet_b),
+    })),
+    Pair(2, UnorderedElementsAreArray({
+        HasPayload(packet_c),
+    })),
+}));
+```
+
+```cpp
+using ::fourward::PacketsByP4RuntimePort;
+
+EXPECT_THAT(PacketsByP4RuntimePort(response), UnorderedElementsAreArray({
+    Pair("Ethernet0", SizeIs(1)),
+    Pair("Ethernet1", SizeIs(1)),
+}));
+```
+
+Both functions fail the test if the response has more than one possible
+outcome. Indexing a port that received no packets returns an empty
+vector.
 
 ## Handling multiple outcomes
 
@@ -155,40 +237,6 @@ EXPECT_THAT(response, OutcomeIs(Packets(Contains(OnPort(1)))));
 ```
 
 `Packets(...)` works inside `OutcomeIs`, `EachOutcome`, and `AnyOutcome`.
-
-## Grouping by port
-
-`OnPorts` groups packets by egress port and applies per-group matchers.
-It doesn't need a `Packets(...)` wrapper — use it directly inside
-`OutcomeIs`:
-
-```cpp
-using ::fourward::OnPorts;
-
-// 7 copies to port 5, 25 to port 42:
-EXPECT_THAT(response, OutcomeIs(OnPorts({
-    {DataplanePort{5}, SizeIs(7)},
-    {DataplanePort{42}, SizeIs(25)},
-})));
-
-// Every output packet carries the same payload:
-EXPECT_THAT(response, OutcomeIs(Packets(Each(HasPayload(expected)))));
-
-// Match individual packets per port:
-EXPECT_THAT(response, OutcomeIs(OnPorts({
-    {DataplanePort{1}, UnorderedElementsAreArray({
-        HasPayload(packet_a),
-        HasPayload(packet_b),
-    })},
-    {DataplanePort{2}, ElementsAre(HasPayload(packet_c))},
-})));
-
-// Works with P4Runtime ports too:
-EXPECT_THAT(response, OutcomeIs(OnPorts({
-    {P4RuntimePort{"Ethernet0"}, SizeIs(1)},
-    {P4RuntimePort{"Ethernet1"}, SizeIs(1)},
-})));
-```
 
 ## Ingress port
 

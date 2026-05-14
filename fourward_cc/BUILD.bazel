@@ -62,6 +62,7 @@ cc_library(
         ":dataplane_client",
         "//grpc:dataplane_cc_proto",
         "//simulator:simulator_cc_proto",
+        "@abseil-cpp//absl/container:btree",
         "@googletest//:gtest",
     ],
 )

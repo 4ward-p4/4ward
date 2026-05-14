@@ -402,5 +402,92 @@ TEST(CompositionTest, ForwardsToWithIngress) {
   EXPECT_THAT(MakeResult(5, 1), AllOf(ForwardsTo(1), HasIngress(5)));
 }
 
+// --- PacketsByDataplanePort ---
+
+TEST(PacketsByDataplanePortTest, GroupsByDataplanePort) {
+  fourward::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  auto* p1a = ps->add_packets();
+  p1a->set_dataplane_egress_port(1);
+  p1a->set_payload("a");
+  auto* p1b = ps->add_packets();
+  p1b->set_dataplane_egress_port(1);
+  p1b->set_payload("b");
+  ps->add_packets()->set_dataplane_egress_port(2);
+
+  auto by_port = PacketsByDataplanePort(resp);
+  EXPECT_THAT(by_port, SizeIs(2));
+  EXPECT_THAT(by_port[1], SizeIs(2));
+  EXPECT_THAT(by_port[2], SizeIs(1));
+}
+
+TEST(PacketsByDataplanePortTest, MissingPortReturnsEmpty) {
+  auto by_port = PacketsByDataplanePort(Forward(1));
+  EXPECT_THAT(by_port[99], IsEmpty());
+}
+
+TEST(PacketsByDataplanePortTest, WorksOnProcessPacketResult) {
+  auto by_port = PacketsByDataplanePort(MakeResult(0, 3));
+  EXPECT_THAT(by_port[3], SizeIs(1));
+}
+
+TEST(PacketsByDataplanePortTest, PreservesPayloads) {
+  fourward::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  auto* pkt = ps->add_packets();
+  pkt->set_dataplane_egress_port(1);
+  pkt->set_payload("hello");
+
+  auto by_port = PacketsByDataplanePort(resp);
+  ASSERT_THAT(by_port[1], SizeIs(1));
+  EXPECT_EQ(by_port[1][0].payload(), "hello");
+}
+
+TEST(PacketsByDataplanePortTest, DropReturnsEmptyMap) {
+  auto by_port = PacketsByDataplanePort(Drop());
+  EXPECT_THAT(by_port, IsEmpty());
+}
+
+// --- PacketsByP4RuntimePort ---
+
+TEST(PacketsByP4RuntimePortTest, GroupsByP4RuntimePort) {
+  fourward::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  ps->add_packets()->set_p4rt_egress_port("Eth0");
+  ps->add_packets()->set_p4rt_egress_port("Eth0");
+  ps->add_packets()->set_p4rt_egress_port("Eth1");
+
+  auto by_port = PacketsByP4RuntimePort(resp);
+  EXPECT_THAT(by_port, SizeIs(2));
+  EXPECT_THAT(by_port["Eth0"], SizeIs(2));
+  EXPECT_THAT(by_port["Eth1"], SizeIs(1));
+}
+
+TEST(PacketsByP4RuntimePortTest, MissingPortReturnsEmpty) {
+  fourward::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  ps->add_packets()->set_p4rt_egress_port("Eth0");
+
+  auto by_port = PacketsByP4RuntimePort(resp);
+  EXPECT_THAT(by_port["Eth99"], IsEmpty());
+}
+
+TEST(PacketsByP4RuntimePortTest, PreservesPayloads) {
+  fourward::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  auto* pkt = ps->add_packets();
+  pkt->set_p4rt_egress_port("Eth0");
+  pkt->set_payload("hello");
+
+  auto by_port = PacketsByP4RuntimePort(resp);
+  ASSERT_THAT(by_port["Eth0"], SizeIs(1));
+  EXPECT_EQ(by_port["Eth0"][0].payload(), "hello");
+}
+
+TEST(PacketsByP4RuntimePortTest, DropReturnsEmptyMap) {
+  auto by_port = PacketsByP4RuntimePort(Drop());
+  EXPECT_THAT(by_port, IsEmpty());
+}
+
 }  // namespace
 }  // namespace fourward
