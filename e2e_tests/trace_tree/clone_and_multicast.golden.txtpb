@@ -89,6 +89,7 @@ events {
     session_id: 100
     session_found: true
     dataplane_egress_port: 3
+    replica_count: 1
   }
 }
 fork_outcome {
