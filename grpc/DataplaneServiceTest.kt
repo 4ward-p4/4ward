@@ -10,6 +10,7 @@ import fourward.SubscribeResultsResponse
 import fourward.grpc.FourwardTestHarness.Companion.assertGrpcError
 import fourward.grpc.FourwardTestHarness.Companion.buildEthernetFrame
 import fourward.grpc.FourwardTestHarness.Companion.buildExactEntry
+import fourward.grpc.FourwardTestHarness.Companion.buildMulticastGroup
 import fourward.grpc.FourwardTestHarness.Companion.loadConfig
 import io.grpc.Status
 import kotlinx.coroutines.CompletableDeferred
@@ -105,6 +106,110 @@ class DataplaneServiceTest {
       0,
       response.possibleOutcomesList.single().packetsCount,
     )
+  }
+
+  // =========================================================================
+  // ReproduceTrace
+  // =========================================================================
+
+  @Test
+  fun `ReproduceTrace is self-contained`() {
+    val config = loadPassthroughConfig()
+    harness.loadPipeline(config)
+    val payload = byteArrayOf(0x01)
+    val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
+
+    assertEquals("pipeline config", config, reproducer.pipelineConfig)
+    assertTrue("result", reproducer.hasResult())
+    assertEquals("ingress port", 0, reproducer.result.inputPacket.dataplaneIngressPort)
+    assertEquals("payload", ByteString.copyFrom(payload), reproducer.result.inputPacket.payload)
+    assertTrue("trace", reproducer.result.hasTrace())
+    assertTrue("possible outcomes", reproducer.result.possibleOutcomesCount > 0)
+  }
+
+  @Test
+  fun `ReproduceTrace contains matched table entry`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
+    harness.installEntry(entry)
+
+    val payload = buildEthernetFrame(etherType = 0x0800)
+    val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
+
+    val tableEntities = reproducer.entitiesList.filter { it.hasTableEntry() }
+    assertTrue("reproducer should contain the matched entry", tableEntities.isNotEmpty())
+  }
+
+  @Test
+  fun `ReproduceTrace excludes entries on table miss`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    val payload = buildEthernetFrame(etherType = 0x0800)
+    val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
+
+    assertTrue("reproducer should have no entities on miss", reproducer.entitiesList.isEmpty())
+  }
+
+  @Test
+  fun `ReproduceTrace fails without loaded pipeline`() {
+    assertGrpcError(Status.Code.FAILED_PRECONDITION) {
+      harness.reproduceTrace(ingressPort = 0, payload = byteArrayOf(0x01))
+    }
+  }
+
+  @Test
+  fun `ReproduceTrace round-trip produces same trace as InjectPacket`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
+    harness.installEntry(entry)
+
+    val payload = buildEthernetFrame(etherType = 0x0800)
+    val injectResponse = harness.injectPacket(ingressPort = 0, payload = payload)
+    val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
+
+    assertEquals("trace should match InjectPacket", injectResponse.trace, reproducer.result.trace)
+    assertEquals(
+      "possible outcomes should match InjectPacket",
+      injectResponse.possibleOutcomesList,
+      reproducer.result.possibleOutcomesList,
+    )
+  }
+
+  @Test
+  fun `ReproduceTrace includes multicast group entities`() {
+    val config = loadConfig("e2e_tests/trace_tree/multicast.txtpb")
+    harness.loadPipeline(config)
+    harness.installEntry(buildMulticastGroup(groupId = 1, ports = listOf(1, 2, 3)))
+
+    val payload = buildEthernetFrame(etherType = 0x0800)
+    val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
+
+    val preEntities = reproducer.entitiesList.filter { it.hasPacketReplicationEngineEntry() }
+    assertTrue("reproducer should contain multicast group", preEntities.isNotEmpty())
+    assertEquals(
+      1,
+      preEntities.first().packetReplicationEngineEntry.multicastGroupEntry.multicastGroupId,
+    )
+  }
+
+  @Test
+  fun `ReproduceTrace includes modified default action`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    val table = config.p4Info.tablesList.first()
+    val noAction = config.p4Info.actionsList.find { it.preamble.name == "NoAction" }!!
+    harness.modifyEntry(
+      FourwardTestHarness.buildDefaultActionEntity(table.preamble.id, noAction.preamble.id)
+    )
+
+    val payload = buildEthernetFrame(etherType = 0x0800)
+    val reproducer = harness.reproduceTrace(ingressPort = 0, payload = payload)
+
+    val defaultEntities =
+      reproducer.entitiesList.filter { it.hasTableEntry() && it.tableEntry.isDefaultAction }
+    assertTrue("reproducer should contain modified default", defaultEntities.isNotEmpty())
   }
 
   // =========================================================================

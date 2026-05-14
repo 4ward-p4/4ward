@@ -22,7 +22,11 @@ class PacketBrokerTest {
       .build()
 
   private fun result(vararg outputs: OutputPacket) =
-    ProcessPacketResult(TraceTree.getDefaultInstance(), listOf(outputs.toList()))
+    ProcessPacketResult(
+      TraceTree.getDefaultInstance(),
+      listOf(outputs.toList()),
+      fourward.simulator.TableStore().snapshot,
+    )
 
   private fun fakeProcessor(
     vararg results: Pair<Int, ProcessPacketResult>

@@ -21,7 +21,11 @@ import java.util.concurrent.atomic.AtomicReference
  * Decouples the simulator from the gRPC wire format ([fourward.InjectPacketResponse]). Each RPC
  * method builds its own wire proto from this data class.
  */
-data class ProcessPacketResult(val trace: TraceTree, val possibleOutcomes: List<List<OutputPacket>>)
+data class ProcessPacketResult(
+  val trace: TraceTree,
+  val possibleOutcomes: List<List<OutputPacket>>,
+  val forwardingSnapshot: TableStore.ForwardingSnapshot,
+)
 
 /**
  * The top-level simulator state machine.
@@ -117,6 +121,9 @@ class Simulator : TableDataReader {
    */
   fun processPacket(ingressPort: Int, payload: ByteArray): ProcessPacketResult {
     val loaded = loaded()
+    // Pin the forwarding snapshot before processing so the reproducer's entity extraction
+    // uses the exact same state the packet saw — no race with concurrent publishSnapshot().
+    val snapshot = loaded.tableStore.snapshot
 
     val result =
       loaded.architecture.processPacket(
@@ -129,7 +136,11 @@ class Simulator : TableDataReader {
     // of truth for packet outcomes. Parallel forks (clone, multicast) combine outputs within
     // each world; alternative forks (action selector) produce separate possible worlds.
     val trace = result.trace
-    return ProcessPacketResult(possibleOutcomes = collectPossibleOutcomes(trace), trace = trace)
+    return ProcessPacketResult(
+      trace = trace,
+      possibleOutcomes = collectPossibleOutcomes(trace),
+      forwardingSnapshot = snapshot,
+    )
   }
 
   /**
@@ -143,6 +154,14 @@ class Simulator : TableDataReader {
    */
   fun writeEntry(update: p4.v1.P4RuntimeOuterClass.Update): WriteResult =
     loaded().tableStore.write(update)
+
+  /** The pipeline config from the currently loaded pipeline, or null if none is loaded. */
+  val pipelineConfig: PipelineConfig?
+    get() = current.get()?.config
+
+  /** The table store from the currently loaded pipeline, or null if none is loaded. */
+  val tableStore: TableStore?
+    get() = current.get()?.tableStore
 
   /** Captures a checkpoint of all mutable state for rollback. */
   fun snapshot(): TableStore.RollbackCheckpoint = loaded().tableStore.snapshot()

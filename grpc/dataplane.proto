@@ -10,6 +10,7 @@ package fourward;
 
 import "p4/config/v1/p4info.proto";
 import "p4/v1/p4runtime.proto";
+import "simulator/ir.proto";
 import "simulator/simulator.proto";
 
 option java_package = "fourward";
@@ -29,6 +30,12 @@ service Dataplane {
   // outputs.
   rpc SubscribeResults(SubscribeResultsRequest)
       returns (stream SubscribeResultsResponse);
+
+  // Inject a packet and return a self-contained Reproducer for the resulting
+  // trace. The Reproducer bundles the pipeline config, relevant entities,
+  // input packet, trace, and possible outcomes — everything needed to replay
+  // the trace in another 4ward instance.
+  rpc ReproduceTrace(InjectPacketRequest) returns (Reproducer);
 
   // Registers a pre-packet hook that fires before every dataplane RPC.
   //
@@ -81,6 +88,23 @@ message InjectPacketResponse {
   // Programs with alternative forks (action selectors) have one entry per
   // alternative — each representing a "possible world".
   repeated PacketSet possible_outcomes = 2;
+}
+
+// Self-contained reproduction case for a packet trace. Load the pipeline,
+// install the entities via P4Runtime Write, inject the packet, and you
+// get the same trace.
+message Reproducer {
+  // The compiled P4 program (IR + p4info).
+  PipelineConfig pipeline_config = 1;
+
+  // P4Runtime entities referenced by the trace: matched table entries,
+  // clone sessions, multicast groups, action profile members/groups.
+  // Excludes const entries (already in pipeline_config.device.static_entries).
+  repeated p4.v1.Entity entities = 2;
+
+  // The packet result being reproduced: input packet, trace, and possible
+  // outcomes.
+  ProcessPacketResult result = 3;
 }
 
 // Result bundle for SubscribeResults: input + outputs + trace.

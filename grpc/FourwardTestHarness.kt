@@ -76,7 +76,11 @@ class FourwardTestHarness(
       disableP4ConstraintsChecking = disableP4ConstraintsChecking,
     )
   private val dataplaneService =
-    DataplaneService(broker, typeTranslator = { service.typeTranslator })
+    DataplaneService(broker) {
+      val config = simulator.pipelineConfig ?: return@DataplaneService null
+      val tableStore = simulator.tableStore ?: return@DataplaneService null
+      DataplaneService.PipelineSnapshot(config, tableStore, service.typeTranslator)
+    }
 
   init {
     broker.readAllEntities = { service.readAllEntities() }
@@ -158,6 +162,16 @@ class FourwardTestHarness(
   /** Injects a packet via the InjectPacket RPC. Returns outputs + trace. */
   fun injectPacket(ingressPort: Int, payload: ByteArray): InjectPacketResponse = runBlocking {
     dataplaneStub.injectPacket(
+      InjectPacketRequest.newBuilder()
+        .setDataplaneIngressPort(ingressPort)
+        .setPayload(ByteString.copyFrom(payload))
+        .build()
+    )
+  }
+
+  /** Injects a packet and returns a self-contained Reproducer for the trace. */
+  fun reproduceTrace(ingressPort: Int, payload: ByteArray): fourward.Reproducer = runBlocking {
+    dataplaneStub.reproduceTrace(
       InjectPacketRequest.newBuilder()
         .setDataplaneIngressPort(ingressPort)
         .setPayload(ByteString.copyFrom(payload))
@@ -757,6 +771,26 @@ class FourwardTestHarness(
                 .setCburst(cburst)
                 .setPir(pir)
                 .setPburst(pburst)
+            )
+        )
+        .build()
+
+    /** Builds a multicast group Entity with replicas on the given ports. */
+    fun buildMulticastGroup(groupId: Int, ports: List<Int>): Entity =
+      Entity.newBuilder()
+        .setPacketReplicationEngineEntry(
+          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+            .setMulticastGroupEntry(
+              P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+                .setMulticastGroupId(groupId)
+                .addAllReplicas(
+                  ports.mapIndexed { idx, port ->
+                    P4RuntimeOuterClass.Replica.newBuilder()
+                      .setPort(ByteString.copyFrom(longToBytes(port.toLong(), 2)))
+                      .setInstance(idx)
+                      .build()
+                  }
+                )
             )
         )
         .build()

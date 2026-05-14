@@ -91,6 +91,18 @@ DataplaneClient::InjectPacket(const InjectPacketArgs& args,
   return resp;
 }
 
+absl::StatusOr<fourward::Reproducer>
+DataplaneClient::ReproduceTrace(const InjectPacketArgs& args,
+                                std::optional<absl::Duration> deadline) {
+  grpc::ClientContext ctx;
+  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(deadline)));
+  fourward::InjectPacketRequest req = ToProto(args);
+  fourward::Reproducer resp;
+  grpc::Status status = stub_->ReproduceTrace(&ctx, req, &resp);
+  if (!status.ok()) return ToAbsl(status);
+  return resp;
+}
+
 absl::Status DataplaneClient::InjectPackets(
     absl::Span<const InjectPacketArgs> args,
     std::optional<absl::Duration> deadline) {

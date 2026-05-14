@@ -111,6 +111,12 @@ class DataplaneClient {
       absl::Span<const InjectPacketArgs> args,
       std::optional<absl::Duration> deadline = std::nullopt);
 
+  // Inject a packet and return a self-contained Reproducer for the
+  // resulting trace.
+  absl::StatusOr<fourward::Reproducer> ReproduceTrace(
+      const InjectPacketArgs& args,
+      std::optional<absl::Duration> deadline = std::nullopt);
+
   // Blocks until the server confirms the subscription is active. The
   // ResultStream is then long-lived; cancel via destruction.
   absl::StatusOr<ResultStream> SubscribeResults(

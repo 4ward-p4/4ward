@@ -8,13 +8,17 @@ import fourward.InjectPacketsResponse
 import fourward.InputPacket
 import fourward.OutputPacket
 import fourward.PacketSet
+import fourward.PipelineConfig
 import fourward.PrePacketHookInvocation
 import fourward.PrePacketHookResponse
 import fourward.ProcessPacketResult as ProcessPacketResultProto
+import fourward.Reproducer
 import fourward.SubscribeResultsRequest
 import fourward.SubscribeResultsResponse
 import fourward.SubscriptionActive
 import fourward.TraceTree
+import fourward.simulator.TableStore
+import fourward.simulator.extractReproducerEntities
 import io.grpc.Status
 import io.grpc.StatusException
 import kotlinx.coroutines.channels.Channel
@@ -31,16 +35,79 @@ import kotlinx.coroutines.launch
  * service is responsible for gRPC protocol: request/response translation, port resolution, trace
  * enrichment, and hook stream management.
  *
- * @param typeTranslator provides the current [TypeTranslator] from the loaded pipeline, or null if
- *   no pipeline is loaded or the pipeline has no type translation.
+ * @param pipelineSnapshot provides the currently loaded pipeline state, or null if no pipeline is
+ *   loaded.
  */
 class DataplaneService(
   private val broker: PacketBroker,
-  private val typeTranslator: () -> TypeTranslator? = { null },
+  private val pipelineSnapshot: () -> PipelineSnapshot? = { null },
 ) : DataplaneGrpcKt.DataplaneCoroutineImplBase() {
 
+  data class PipelineSnapshot(
+    val config: PipelineConfig,
+    val tableStore: TableStore,
+    val typeTranslator: TypeTranslator?,
+  )
+
   override suspend fun injectPacket(request: InjectPacketRequest): InjectPacketResponse {
-    val translator = typeTranslator()
+    val (enrichedResult, _) = processAndEnrich(request, "InjectPacket")
+    return InjectPacketResponse.newBuilder()
+      .addAllPossibleOutcomes(enrichedResult.possibleOutcomes)
+      .setTrace(enrichedResult.trace)
+      .build()
+  }
+
+  override suspend fun reproduceTrace(request: InjectPacketRequest): Reproducer {
+    if (pipelineSnapshot() == null) {
+      throw Status.FAILED_PRECONDITION.withDescription(
+          "No pipeline loaded — call SetForwardingPipelineConfig first"
+        )
+        .asException()
+    }
+    val (enrichedResult, pipeline) = processAndEnrich(request, "ReproduceTrace")
+    // pipeline is non-null: the pre-check above rejects the no-pipeline case, and pipeline
+    // unload between the check and here requires a concurrent SetForwardingPipelineConfig
+    // that replaces the pipeline (not unloads it — there's no "unload" API).
+    return Reproducer.newBuilder()
+      .setPipelineConfig(pipeline!!.config)
+      .addAllEntities(
+        extractReproducerEntities(
+          enrichedResult.rawTrace,
+          enrichedResult.forwardingSnapshot,
+          pipeline.tableStore,
+          pipeline.config.device.staticEntries.updatesList,
+        )
+      )
+      .setResult(enrichedResult.toProcessPacketResult())
+      .build()
+  }
+
+  private class EnrichedResult(
+    val ingressPort: Int,
+    val payload: ByteArray,
+    val rawTrace: TraceTree,
+    val forwardingSnapshot: TableStore.ForwardingSnapshot,
+    val trace: TraceTree,
+    val possibleOutcomes: List<PacketSet>,
+  ) {
+    fun toProcessPacketResult(): ProcessPacketResultProto =
+      ProcessPacketResultProto.newBuilder()
+        .setInputPacket(
+          InputPacket.newBuilder()
+            .setDataplaneIngressPort(ingressPort)
+            .setPayload(ByteString.copyFrom(payload))
+        )
+        .setTrace(trace)
+        .addAllPossibleOutcomes(possibleOutcomes)
+        .build()
+  }
+
+  private fun processAndEnrich(
+    request: InjectPacketRequest,
+    rpcName: String,
+  ): Pair<EnrichedResult, PipelineSnapshot?> {
+    val pipeline = pipelineSnapshot()
+    val translator = pipeline?.typeTranslator
     val ingressPort = resolveIngressPort(request, translator)
     val payload = request.payload.toByteArray()
     // Translate anything thrown past this point into INTERNAL with a
@@ -49,27 +116,32 @@ class DataplaneService(
     try {
       val result = broker.processPacket(ingressPort, payload)
       val pt = translator?.portTranslator
-      val possibleOutcomes =
-        result.possibleOutcomes.map { world ->
-          PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()
-        }
-      return InjectPacketResponse.newBuilder()
-        .addAllPossibleOutcomes(possibleOutcomes)
-        .setTrace(enrichTrace(result.trace, translator))
-        .build()
+      val enrichedResult =
+        EnrichedResult(
+          ingressPort = ingressPort,
+          payload = payload,
+          rawTrace = result.trace,
+          forwardingSnapshot = result.forwardingSnapshot,
+          trace = enrichTrace(result.trace, translator),
+          possibleOutcomes =
+            result.possibleOutcomes.map { world ->
+              PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()
+            },
+        )
+      return enrichedResult to pipeline
     } catch (e: StatusException) {
       throw e // already has a proper status; don't rewrap.
     } catch (e: IllegalArgumentException) {
-      val detail = listOfNotNull("InjectPacket failed", e.message).joinToString(": ")
+      val detail = listOfNotNull("$rpcName failed", e.message).joinToString(": ")
       throw Status.INVALID_ARGUMENT.withDescription(detail).withCause(e).asException()
     } catch (e: Exception) {
-      val detail = listOfNotNull("InjectPacket failed", e.message).joinToString(": ")
+      val detail = listOfNotNull("$rpcName failed", e.message).joinToString(": ")
       throw Status.INTERNAL.withDescription(detail).withCause(e).asException()
     }
   }
 
   override suspend fun injectPackets(requests: Flow<InjectPacketRequest>): InjectPacketsResponse {
-    val translator = typeTranslator()
+    val translator = pipelineSnapshot()?.typeTranslator
     broker.withHookOnce { processPacket ->
       val futures = mutableListOf<java.util.concurrent.ForkJoinTask<*>>()
       kotlinx.coroutines.runBlocking {
@@ -97,7 +169,7 @@ class DataplaneService(
       val handle =
         broker.subscribe { subResult ->
           try {
-            val translator = typeTranslator()
+            val translator = pipelineSnapshot()?.typeTranslator
             val pt = translator?.portTranslator
             val result =
               ProcessPacketResultProto.newBuilder()

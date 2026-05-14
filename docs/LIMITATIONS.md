@@ -93,6 +93,15 @@ guilt — just write it down so someone can find it later.
   time-dependent features that have no meaningful semantics in a reference
   simulator: there are no real packet rates to trigger digests, and no
   wall-clock time to expire idle entries. These are explicitly out of scope.
+- **Reproducer includes all multicast groups.** The `Reproducer` entity
+  extraction cannot determine which specific multicast group triggered a
+  MULTICAST fork (the `Fork` proto doesn't carry the group ID), so it
+  includes all multicast groups from the forwarding snapshot.
+- **Reproducer does not capture register state.** Programs that read
+  registers and branch on the result will produce a different trace when
+  replayed from a reproducer (registers start at zero). Counter and
+  meter state is not affected: counters don't influence forwarding,
+  and meters always return GREEN in the simulator.
 
 ## Simulator
 

@@ -341,6 +341,9 @@ class TableStore : TableDataReader {
   var tableAliasByName: Map<String, String> = emptyMap()
     private set
 
+  /** Reverse of [tableAliasByName]: p4info alias → behavioral name. */
+  private var tableNameByAlias: Map<String, String> = emptyMap()
+
   private var registerInfoById: Map<Int, RegisterInfo> = emptyMap()
   private var counterInfoById: Map<Int, IndexedExternInfo> = emptyMap()
   private var meterInfoById: Map<Int, IndexedExternInfo> = emptyMap()
@@ -418,6 +421,7 @@ class TableStore : TableDataReader {
     }
     this.tableNameById = tableById
     this.tableAliasByName = tableByName
+    this.tableNameByAlias = tableByName.entries.associate { (name, alias) -> alias to name }
 
     val actionById = mutableMapOf<Int, String>()
     val actionByName = mutableMapOf<String, String>()
@@ -667,6 +671,45 @@ class TableStore : TableDataReader {
 
   override fun isDefaultModified(tableName: String): Boolean =
     tableName in snapshot.modifiedDefaults
+
+  /**
+   * Builds a P4Runtime [Entity] for the modified default action of [displayName] (p4info alias), or
+   * null if the default has not been modified or the table doesn't exist.
+   *
+   * Takes an explicit [snapshot] so callers can pin the snapshot that was live during packet
+   * processing, avoiding races with concurrent [publishSnapshot] calls.
+   */
+  fun buildModifiedDefaultActionEntity(
+    displayName: String,
+    snapshot: ForwardingSnapshot,
+  ): P4RuntimeOuterClass.Entity? {
+    val behavioralName = tableNameByAlias[displayName] ?: displayName
+    if (behavioralName !in snapshot.modifiedDefaults) return null
+    val default = snapshot.defaultActions[behavioralName] ?: return null
+    val tableId = tableIdByName[behavioralName] ?: return null
+    val actionId = actionIdByName[default.name] ?: return null
+    return P4RuntimeOuterClass.Entity.newBuilder()
+      .setTableEntry(
+        P4RuntimeOuterClass.TableEntry.newBuilder()
+          .setTableId(tableId)
+          .setIsDefaultAction(true)
+          .setAction(
+            P4RuntimeOuterClass.TableAction.newBuilder()
+              .setAction(
+                P4RuntimeOuterClass.Action.newBuilder()
+                  .setActionId(actionId)
+                  .addAllParams(default.params)
+              )
+          )
+      )
+      .build()
+  }
+
+  /** Returns the action profile ID for the table with [tableId], or null if the table has none. */
+  fun actionProfileIdForTable(tableId: Int): Int? {
+    val tableName = tableNameById[tableId] ?: return null
+    return tableActionProfile[tableName]
+  }
 
   override fun getDirectCounterData(entry: TableEntry): P4RuntimeOuterClass.CounterData? {
     val counters = directCounterData[entry] ?: return null
@@ -1311,12 +1354,7 @@ class TableStore : TableDataReader {
   /** Wraps a PRE sub-entry into an `Entity` proto. */
   private fun <T> T.toPreEntity(
     setter: P4RuntimeOuterClass.PacketReplicationEngineEntry.Builder.(T) -> Unit
-  ): P4RuntimeOuterClass.Entity =
-    P4RuntimeOuterClass.Entity.newBuilder()
-      .setPacketReplicationEngineEntry(
-        P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().also { it.setter(this) }
-      )
-      .build()
+  ): P4RuntimeOuterClass.Entity = buildPreEntity(this, setter)
 
   // -------------------------------------------------------------------------
   // Snapshot / Restore (for ROLLBACK_ON_ERROR / DATAPLANE_ATOMIC)
@@ -1652,3 +1690,14 @@ class TableStore : TableDataReader {
     private val BOOL_FALSE_BITS = BitVector.ofInt(0, 1)
   }
 }
+
+/** Wraps a PRE sub-entry (clone session or multicast group) into an [Entity] proto. */
+internal fun <T> buildPreEntity(
+  entry: T,
+  setter: P4RuntimeOuterClass.PacketReplicationEngineEntry.Builder.(T) -> Unit,
+): P4RuntimeOuterClass.Entity =
+  P4RuntimeOuterClass.Entity.newBuilder()
+    .setPacketReplicationEngineEntry(
+      P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().also { it.setter(entry) }
+    )
+    .build()
