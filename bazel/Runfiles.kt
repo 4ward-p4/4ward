@@ -2,7 +2,6 @@ package fourward.bazel
 
 import com.google.devtools.build.runfiles.Runfiles
 import java.io.File
-import java.nio.file.Files
 import java.nio.file.Path
 
 private val runfiles: Runfiles = Runfiles.preload().unmapped()
@@ -35,24 +34,22 @@ fun resolveRunfileProperty(key: String): Path {
 }
 
 /**
- * Prepends a BUILD-provided `cc` shim to [pb]'s PATH if no system `cc` is found. p4c shells out to
- * `cc` for preprocessing, which doesn't exist in hermetic sandboxes (blaze/google3).
+ * Appends a BUILD-provided `cc` shim to [pb]'s PATH as a fallback. p4c shells out to `cc` for
+ * preprocessing; the shim wraps the Bazel CC toolchain compiler so this works in hermetic sandboxes
+ * (blaze/google3) where no system `cc` exists. Where a system `cc` does exist (macOS, Linux CI), it
+ * takes priority.
+ *
+ * WORKAROUND for https://github.com/p4lang/p4c/issues/5618: p4c hardcodes the preprocessor binary
+ * (`cc` or `cpp`); once p4c supports `--cc <path>`, pass the compiler path directly and remove the
+ * shim from PATH.
  *
  * Requires the caller's BUILD target to include `cc_shim` in `data` and pass its path via
  * `-D<shimPropertyKey>=$(rlocationpath ...)` in `jvm_flags`.
  */
 fun ensureCcOnPath(pb: ProcessBuilder, shimPropertyKey: String = "cc_shim") {
-  if (!hasSystemCc) {
-    val shimDir = resolveRunfileProperty(shimPropertyKey).parent
-    val env = pb.environment()
-    env["PATH"] = "$shimDir${File.pathSeparator}${env["PATH"] ?: ""}"
-  }
-}
-
-private val hasSystemCc: Boolean by lazy {
-  System.getenv("PATH")?.split(File.pathSeparator).orEmpty().any { dir ->
-    Files.isExecutable(Path.of(dir, "cc"))
-  }
+  val shimDir = resolveRunfileProperty(shimPropertyKey).parent
+  val env = pb.environment()
+  env["PATH"] = "${env["PATH"] ?: ""}${File.pathSeparator}$shimDir"
 }
 
 private fun resolveRlocation(rlocation: String, what: String): Path =

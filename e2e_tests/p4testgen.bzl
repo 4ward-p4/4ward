@@ -44,9 +44,10 @@ def _p4testgen_stfs_impl(ctx):
         "--out-dir " + out_dir.path,
     ])
 
-    # p4c hard-codes `popen("cc -E …")` for P4 preprocessing. Define a
-    # shell function that redirects `cc` to the Bazel CC toolchain compiler
-    # (same approach as p4lang/p4c's own p4_library rule).
+    # WORKAROUND for https://github.com/p4lang/p4c/issues/5618: p4c hardcodes
+    # `popen("cc -E …")` for preprocessing with no flag to override the binary.
+    # Define a shell function so the toolchain compiler answers to `cc`.
+    # Once p4c supports `--cc <path>`, pass compiler_executable directly.
     ctx.actions.run_shell(
         command = """
             function cc () {{ "{cc}" "$@"; }}
