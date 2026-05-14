@@ -66,8 +66,11 @@ deprecated call that works today is a broken call on the next upgrade.
 For C++, follow the [Google C++ Style Guide] and
 [Abseil Tips of the Week]. In particular, keep namespaces flat
 ([TotW #130]) — don't introduce sub-namespaces that don't earn their
-keep. `namespace fourward` is almost always enough.
+keep. `namespace fourward` is almost always enough. Always prefer
+[Abseil containers] over `std` containers (`absl::flat_hash_map` over
+`std::unordered_map`, `absl::btree_map` over `std::map`, etc.).
 
+[Abseil containers]: https://abseil.io/docs/cpp/guides/container
 [Google C++ Style Guide]: https://google.github.io/styleguide/cppguide.html
 [Abseil Tips of the Week]: https://abseil.io/tips/
 [TotW #130]: https://abseil.io/tips/130
