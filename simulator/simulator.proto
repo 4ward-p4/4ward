@@ -210,12 +210,15 @@ message CloneSessionLookupEvent {
   uint32 session_id = 1;
   optional bool session_found =
       2;  // false = session not configured, clone silently dropped
-  uint32 dataplane_egress_port =
-      3;  // clone destination; only meaningful when session_found
+  // First replica's destination port; only meaningful when session_found.
+  uint32 dataplane_egress_port = 3;
   // P4Runtime port ID. Populated by enrichment layers, never by the simulator.
   bytes p4rt_egress_port = 4;
-  // Replica instance from the clone session entry, mapped to egress_rid.
+  // First replica's instance, mapped to egress_rid.
   uint32 egress_rid = 5;
+  // Total number of replicas in the clone session. Multi-replica sessions
+  // (e.g., mirror-and-punt) produce one clone branch per replica.
+  uint32 replica_count = 6;
 }
 
 // Fired when a packet arrives at the pipeline — the very first event in any

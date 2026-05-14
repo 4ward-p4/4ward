@@ -91,6 +91,7 @@ object TraceEnricher {
     if (event.hasCloneSessionLookup() && pt != null) {
       val csl = event.cloneSessionLookup
       if (!csl.sessionFound) return null
+      // Enriches the first replica's port only; per-replica details are in fork branch labels.
       val p4rtPort = pt.dataplaneToP4rt(csl.dataplaneEgressPort) ?: return null
       return event
         .toBuilder()
