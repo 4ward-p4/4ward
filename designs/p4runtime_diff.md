@@ -116,8 +116,10 @@ over them.
 
 ## Future work
 
-- **Corpus growth.** Add scenarios as P4Runtime features land. Strong
-  candidates: role config, idle timeout.
+No active plans. The harness exists and works — add scenarios when a
+new P4Runtime feature lands or a spec ambiguity surfaces, not before.
+Role config and idle timeout are theoretically interesting but not
+worth building scenarios for until 4ward actually implements them.
 
 ## Alternatives considered
 
