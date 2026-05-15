@@ -1,4 +1,0 @@
-# Multicast group 1 with 3 replicas: ports 1, 2, 3.
-mc_mgrp_create 1
-mc_node_create 0 1 2 3
-mc_node_associate 1 0

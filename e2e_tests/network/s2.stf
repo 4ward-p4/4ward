@@ -1,2 +1,0 @@
-# s2: forward IPv4 to port 2 (edge port).
-add port_table hdr.ethernet.etherType:0x0800 forward(2)
