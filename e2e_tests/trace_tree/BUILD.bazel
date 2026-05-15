@@ -65,7 +65,6 @@ fourward_pipeline(
     out = "multicast.txtpb",
     visibility = [
         "//cli:__pkg__",
-        "//e2e_tests/network:__pkg__",
         "//grpc:__pkg__",
     ],
 )

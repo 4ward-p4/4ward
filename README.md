@@ -68,7 +68,7 @@ The core vision is realized: spec-compliant v1model/PSA/PNA, trace trees,
 full P4Runtime, and
 [SAI P4 end-to-end](docs/SAI_P4_CONFIDENCE.md) through the full P4Runtime
 stack. The **[roadmap](docs/ROADMAP.md)** tracks what's next: adversarial
-testing, network simulation, and
+testing and
 **[DVaaS](https://github.com/sonic-net/sonic-pins/tree/main/dvaas)**
 integration — making 4ward a drop-in replacement for BMv2 in SONiC's
 dataplane validation service.

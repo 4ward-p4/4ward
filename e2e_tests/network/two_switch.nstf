@@ -1,9 +1,0 @@
-# Two switches connected by a single link.
-# s1 forwards IPv4 to port 1 (toward s2). s2 forwards to port 2 (edge).
-
-switch s1 ../basic_table/basic_table.txtpb s1.stf
-switch s2 ../basic_table/basic_table.txtpb s2.stf
-link s1:1 s2:1
-
-packet s1:0 FFFFFFFFFFFF 000000000001 0800 DEADBEEF
-expect s2:2 FFFFFFFFFFFF 000000000001 0800 DEADBEEF

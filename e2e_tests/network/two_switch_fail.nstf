@@ -1,8 +1,0 @@
-# Same as two_switch.nstf but expects output on the wrong port.
-
-switch s1 ../basic_table/basic_table.txtpb s1.stf
-switch s2 ../basic_table/basic_table.txtpb s2.stf
-link s1:1 s2:1
-
-packet s1:0 FFFFFFFFFFFF 000000000001 0800 DEADBEEF
-expect s2:99 FFFFFFFFFFFF 000000000001 0800 DEADBEEF

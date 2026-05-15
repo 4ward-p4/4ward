@@ -1,2 +1,0 @@
-# s1: forward IPv4 to port 1 (link toward s2).
-add port_table hdr.ethernet.etherType:0x0800 forward(1)

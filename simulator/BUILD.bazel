@@ -333,16 +333,6 @@ kt_jvm_test(
 )
 
 kt_jvm_test(
-    name = "NetworkSimulatorTest",
-    srcs = ["NetworkSimulatorTest.kt"],
-    test_class = "fourward.simulator.NetworkSimulatorTest",
-    deps = [
-        ":simulator",
-        "@fourward_maven//:junit_junit",
-    ],
-)
-
-kt_jvm_test(
     name = "SimulatorTest",
     srcs = ["SimulatorTest.kt"],
     test_class = "fourward.simulator.SimulatorTest",

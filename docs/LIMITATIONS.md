@@ -163,11 +163,3 @@ guilt — just write it down so someone can find it later.
   1 corpus test.
 - **`psa-subtract-inst1` OOM during compilation.** p4c-4ward is killed by the
   OS during compilation. Same class of issue as `gauntlet_various_ops-bmv2`.
-
-## Network simulation
-
-- **Single possible outcome per switch.** `NetworkSimulator` only follows the
-  first possible outcome from each switch's `processPacket` call. Programs with
-  action selectors (which produce multiple possible worlds) will fail with an
-  error. Cross-switch fork semantics are future work — see
-  `designs/network_simulation.md`, open question #2.
