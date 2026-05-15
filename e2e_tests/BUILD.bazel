@@ -55,6 +55,7 @@ kt_jvm_library(
         "//bazel:runfiles",
         "//simulator:ir_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@fourward_maven//:org_anarres_jcpp",
     ],
 )
 

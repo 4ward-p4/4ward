@@ -2,11 +2,21 @@ package fourward.e2e
 
 import com.google.protobuf.TextFormat
 import fourward.PipelineConfig
+import java.io.StringReader
 import java.nio.file.Files
+import org.anarres.cpp.DefaultPreprocessorListener
+import org.anarres.cpp.Feature
+import org.anarres.cpp.InputLexerSource
+import org.anarres.cpp.Preprocessor
+import org.anarres.cpp.Token
 
 /**
  * Compiles a P4 source string at test time using p4c-4ward. Useful for tests that need a custom P4
  * program without a dedicated BUILD target.
+ *
+ * Preprocessing (`#include`, `#define`, etc.) is handled by JCPP (a pure-Java C preprocessor), so
+ * no native `cc` binary is needed at test time. The preprocessed source is passed to p4c with
+ * `--nocpp`.
  *
  * Example:
  * ```
@@ -21,13 +31,8 @@ import java.nio.file.Files
  *
  * Requires the test's BUILD target to include:
  * ```
- * data = [
- *     "//e2e_tests:cc_shim",
- *     "//p4c_backend:p4c-4ward",
- *     "@p4c//p4include",
- * ],
+ * data = ["//p4c_backend:p4c-4ward", "@p4c//p4include"],
  * jvm_flags = [
- *     "-Dcc_shim=$(rlocationpath //e2e_tests:cc_shim)",
  *     "-Dp4c_4ward=$(rlocationpath //p4c_backend:p4c-4ward)",
  *     "-Dp4include=$(rlocationpath @p4c//p4include:core.p4)",
  * ],
@@ -36,25 +41,18 @@ import java.nio.file.Files
 fun compileInlineP4(source: String): PipelineConfig {
   val p4cBinary = fourward.bazel.resolveRunfileProperty("p4c_4ward")
   val p4includeDir = fourward.bazel.resolveRunfileProperty("p4include").parent
+  val preprocessed = preprocess(source, p4includeDir.toString())
 
   val tmpDir = Files.createTempDirectory("inline-p4")
   try {
     val srcFile = tmpDir.resolve("program.p4")
     val outFile = tmpDir.resolve("pipeline.txtpb")
-    Files.writeString(srcFile, source)
+    Files.writeString(srcFile, preprocessed)
 
-    val pb =
-      ProcessBuilder(
-          p4cBinary.toString(),
-          srcFile.toString(),
-          "-o",
-          outFile.toString(),
-          "-I",
-          p4includeDir.toString(),
-        )
+    val process =
+      ProcessBuilder(p4cBinary.toString(), srcFile.toString(), "-o", outFile.toString(), "--nocpp")
         .redirectErrorStream(true)
-    fourward.bazel.ensureCcOnPath(pb)
-    val process = pb.start()
+        .start()
 
     val output = process.inputStream.bufferedReader().readText()
     val exitCode = process.waitFor()
@@ -65,5 +63,24 @@ fun compileInlineP4(source: String): PipelineConfig {
     return builder.build()
   } finally {
     tmpDir.toFile().deleteRecursively()
+  }
+}
+
+/** Preprocesses P4 source using JCPP (pure-Java C preprocessor). */
+private fun preprocess(source: String, includeDir: String): String {
+  val pp = Preprocessor()
+  pp.listener = DefaultPreprocessorListener()
+  pp.addFeature(Feature.LINEMARKERS)
+  pp.systemIncludePath = listOf(includeDir)
+  pp.addInput(InputLexerSource(StringReader(source)))
+
+  return pp.use {
+    val out = StringBuilder()
+    while (true) {
+      val tok = it.token()
+      if (tok.type == Token.EOF) break
+      out.append(tok.text)
+    }
+    out.toString()
   }
 }

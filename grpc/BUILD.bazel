@@ -220,13 +220,11 @@ kt_jvm_test(
         "FourwardTestHarness.kt",
     ],
     data = [
-        "//e2e_tests:cc_shim",
         "//p4c_backend:p4c-4ward",
         "@p4c//p4include",
         "@p4c//p4include:core.p4",
     ],
     jvm_flags = [
-        "-Dcc_shim=$(rlocationpath //e2e_tests:cc_shim)",
         "-Dp4c_4ward=$(rlocationpath //p4c_backend:p4c-4ward)",
         "-Dp4include=$(rlocationpath @p4c//p4include:core.p4)",
     ],
