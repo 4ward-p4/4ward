@@ -38,38 +38,56 @@ packets, explore trace trees. No setup beyond Bazel.
               counters, etc.)
 ```
 
-## Why 4ward?
+## Why not just use BMv2?
 
-4ward is a **spec-compliant reference implementation** of the
-[P4₁₆ language](https://p4.org/wp-content/uploads/sites/53/p4-spec/docs/p4-16-working-draft.html)
-and [P4Runtime](https://p4lang.github.io/p4runtime/spec/main/P4Runtime-Spec.html),
-built for **correctness, observability, and extensibility** — yet fast
-enough for production test workloads.
+[BMv2](https://github.com/p4lang/behavioral-model) is the reference P4
+simulator, and it works. But if you've used it seriously, you know the
+pain points: its P4Runtime support is outdated. Its traces are plain text
+— fine for humans, useless for automation. It picks one path through
+action selectors, so you test one possible outcome instead of all of them.
+It doesn't support `@p4runtime_translation`. When something goes wrong,
+the error messages don't help.
 
-| | BMv2 | 4ward |
-|---|---|---|
-| P4Runtime support | outdated | [**100% spec-compliant**](docs/P4RUNTIME_COMPLIANCE.md) — 144 spec + 10 extension requirements |
-| Trace format | text | **text / JSON / [proto](e2e_tests/trace_tree/clone_with_egress.golden.txtpb)** |
-| All possible traces | not natively | [**trace trees**](#trace-trees) — every path through the program |
-| `@p4runtime_translation` | no | [**built-in translation engine**](#p4runtime_translation-done-right) |
-| Architectures | v1model only | **v1model + PSA + PNA**, [extensible by design](docs/ROADMAP.md#track-6-multi-architecture-support) |
-| Architecture customization | no | [**first-class support**](docs/ROADMAP.md#track-5-architecture-customization) |
-| Interactive playground | no | [**browser-based IDE**](#web-playground) with trace playback & packet decoding |
-| Error messages | opaque | [**actionable, with valid options**](docs/ROADMAP.md#track-11-error-quality) — [75 golden-tested](grpc/golden_errors/) |
-| Data plane throughput (16-way selector) | [~4,500 pps ÷ 16 paths](docs/PERFORMANCE.md#bmv2-comparison) | [**~2,000 pps, all 16 paths**](docs/PERFORMANCE.md) ([head-to-head on SAI P4](docs/PERFORMANCE.md#bmv2-comparison)) |
-| Data plane parallelism (16-way selector) | single-threaded | [**16,000 pps on 16 cores**](docs/PERFORMANCE.md) — parallel across packets and forks |
-| Extensibility | limited | [**AI-friendly codebase**](docs/ROADMAP.md#why-4ward-is-easier-to-extend) — if AI can extend it, anyone can |
-| CI | slow | **[~2 min](https://4ward.buildbuddy.io/trends/)**, rigorous |
-| Development pace | slow | **[AI-fast](docs/AI_WORKFLOW.md)** |
+4ward was built to fix all of that.
+
+**Observability.** Where BMv2 gives you text logs, 4ward gives you
+[**trace trees**](#trace-trees) — structured protos that capture every
+parser transition, every table lookup, every action, and fork at
+non-deterministic choice points to show all possible outcomes in a single
+pass. Text, JSON, and
+[proto](e2e_tests/trace_tree/clone_with_egress.golden.txtpb) output.
+
+**P4Runtime.** [100% spec-compliant](docs/P4RUNTIME_COMPLIANCE.md) — 144
+spec requirements plus 10 extensions. Full arbitration, role-based access
+control, PacketIO, and [75 golden-tested error messages](grpc/golden_errors/)
+that tell you what went wrong and list the valid options.
+
+**Translation.** `@p4runtime_translation` types (string port names,
+translated IDs) flow through the entire stack — table entries, traces,
+error messages — via a [built-in translation engine](#p4runtime_translation-done-right)
+with explicit, auto-allocate, and hybrid modes.
+
+**Architectures.** v1model, PSA, and PNA, with
+[first-class support](docs/ROADMAP.md#track-5-architecture-customization)
+for architecture modifications (custom metadata, forked standard headers).
+
+**Performance.** [~2,000 pps on SAI P4](docs/PERFORMANCE.md) exploring
+all 16 paths through a WCMP selector — and
+[16,000 pps on 16 cores](docs/PERFORMANCE.md) with parallel execution.
+BMv2 does [~4,500 pps on one path](docs/PERFORMANCE.md#bmv2-comparison).
+
+**Everything else.** A [browser-based playground](#web-playground) with
+trace playback and packet decoding. An
+[AI-friendly codebase](docs/ROADMAP.md#why-4ward-is-easier-to-extend)
+that's easy to extend. [~2 minute CI](https://4ward.buildbuddy.io/trends/).
 
 ## Where we're headed
 
-The core vision is realized: spec-compliant v1model/PSA/PNA, trace trees,
-full P4Runtime, and
-[SAI P4 end-to-end](docs/SAI_P4_CONFIDENCE.md) through the full P4Runtime
-stack. The **[roadmap](docs/ROADMAP.md)** tracks what's next: adversarial
-testing and
-**[DVaaS](https://github.com/sonic-net/sonic-pins/tree/main/dvaas)**
+The core is done: spec-compliant v1model/PSA/PNA, trace trees, full
+P4Runtime, and
+[SAI P4 end-to-end](docs/SAI_P4_CONFIDENCE.md) through the full stack.
+The **[roadmap](docs/ROADMAP.md)** tracks what's next: adversarial testing
+and **[DVaaS](https://github.com/sonic-net/sonic-pins/tree/main/dvaas)**
 integration — making 4ward a drop-in replacement for BMv2 in SONiC's
 dataplane validation service.
 
