@@ -45,7 +45,6 @@ Options:
   -o <path>            Output file (default: <program>.txtpb).
   -I <dir>             Add include directory for P4 headers."""
 
-
 private const val RUN_USAGE =
   """Usage: 4ward run [--format=human|textproto|json] [--drop-port=N] <program.p4> <test.stf>
 
