@@ -43,9 +43,11 @@ test --test_output=errors
 # Shared on-disk action cache for local builds. Each worktree has its own
 # Bazel output base (keyed by the workspace path), so without this every new
 # worktree pays for a full cold build of transitive deps (JVM deps, p4c,
-# grpc, …). CI uses BuildBuddy's remote cache on fresh runners instead —
-# disk cache would just add overhead — so the empty override disables it.
+# grpc, …).
 build --disk_cache=~/.cache/bazel/disk_cache
+# CI: disable the disk cache for normal builds — with BuildBuddy serving
+# as the primary cache, the disk cache adds I/O overhead on every action.
+# The warm-cache job re-enables it explicitly to populate a local fallback.
 build:ci --disk_cache=
 
 # clang-tidy: run via `bazel build //p4c_backend/... --config=clang-tidy`.

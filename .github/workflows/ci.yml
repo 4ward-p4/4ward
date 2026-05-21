@@ -7,6 +7,11 @@ on:
     branches: [main]
     # `closed` triggers cancel-closed-pr-runs; the rest are GitHub's defaults.
     types: [opened, synchronize, reopened, closed]
+  schedule:
+    # Cache-warming build every 3 days (Mon/Thu 06:00 UTC). BuildBuddy
+    # evicted entries within 6 days of inactivity; GHA caches expire
+    # after 7. Running every 3 days stays well within both windows.
+    - cron: '0 6 * * 1,4'
 
 # Cancel any preceding run on the pull request.
 concurrency:
@@ -76,7 +81,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   lint:
-    if: github.event.action != 'closed'  # skip on PR close; only cancel job runs
+    if: github.event.action != 'closed' && github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -129,7 +134,7 @@ jobs:
 
 
   build-and-test:
-    if: github.event.action != 'closed'  # skip on PR close; only cancel job runs
+    if: github.event.action != 'closed' && github.event_name != 'schedule'
     name: Build and test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -156,10 +161,39 @@ jobs:
           echo "build --config=ci" >> ~/.bazelrc
           echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
 
+      # Select a deterministic Xcode within the current runner image.
+      # Doesn't protect against image rotation (different images may
+      # have different "newest" versions), but prevents non-determinism
+      # from multiple Xcode versions on the same image.
+      - name: Select newest Xcode
+        if: runner.os == 'macOS'
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [[ -n "$XCODE" ]]; then
+            sudo xcode-select -s "$XCODE"
+            echo "Selected $XCODE"
+          else
+            echo "::warning::No versioned Xcode found; using default $(xcode-select -p)"
+          fi
+
+      # On macOS, the output base lives outside BAZEL_CACHE (at
+      # /private/var/tmp/_bazel_runner/). Resolve it so the cache step
+      # can include it. On Linux the output base is already inside
+      # BAZEL_CACHE, so we skip to avoid double-caching.
+      - name: Resolve Bazel output base
+        if: runner.os == 'macOS'
+        id: bazel
+        run: |
+          OUTPUT_BASE=$(bazel info output_base 2>/dev/null || echo "")
+          echo "output_base=$OUTPUT_BASE" >> "$GITHUB_OUTPUT"
+          echo "Bazel output base: $OUTPUT_BASE"
+
       - name: Restore Bazel cache
         uses: actions/cache/restore@v5
         with:
-          path: ${{ env.BAZEL_CACHE }}
+          path: |
+            ${{ env.BAZEL_CACHE }}
+            ${{ steps.bazel.outputs.output_base }}
           key: bazel-${{ matrix.os }}-${{ hashFiles('*.bazel*') }}
           restore-keys: |
             bazel-${{ matrix.os }}-
@@ -182,6 +216,21 @@ jobs:
         if: github.event_name == 'push' && matrix.os == 'ubuntu-24.04'
         run: bazel test //... --test_tag_filters=heavy
 
+      - name: Log cache diagnostics
+        if: always()
+        run: |
+          echo "### Cache diagnostics (${{ matrix.os }})" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Bazel cache: $(du -sh ${{ env.BAZEL_CACHE }} 2>/dev/null | cut -f1 || echo N/A)" >> "$GITHUB_STEP_SUMMARY"
+          OUTPUT_BASE="${{ steps.bazel.outputs.output_base }}"
+          if [[ -n "$OUTPUT_BASE" ]]; then
+            echo "Output base: $(du -sh "$OUTPUT_BASE" 2>/dev/null | cut -f1 || echo N/A)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            echo "Xcode: $(xcode-select -p 2>/dev/null || echo N/A)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Calculate build duration
         if: always()
         run: echo "DURATION=$(( $(date +%s) - START_TIME ))" >> "$GITHUB_ENV"
@@ -200,7 +249,9 @@ jobs:
         uses: actions/cache/save@v5
         if: always() && (github.ref_name == 'main' || env.DURATION > 300)
         with:
-          path: ${{ env.BAZEL_CACHE }}
+          path: |
+            ${{ env.BAZEL_CACHE }}
+            ${{ steps.bazel.outputs.output_base }}
           key: bazel-${{ matrix.os }}-${{ hashFiles('*.bazel*') }}-${{ github.run_id }}
 
 
@@ -211,7 +262,7 @@ jobs:
   # non-root modules, etc. Without this, those bugs first appear in the BCR
   # submission PR, where iteration is slow and shared.
   bcr-consumer-check:
-    if: github.event.action != 'closed'
+    if: github.event.action != 'closed' && github.event_name != 'schedule'
     name: BCR consumer check
     runs-on: ubuntu-24.04
     steps:
@@ -280,6 +331,90 @@ jobs:
         with:
           path: ~/.cache/bazel
           key: bazel-bcr-${{ hashFiles('*.bazel*', 'bcr_test_module/*.bazel*') }}-${{ github.run_id }}
+
+
+  # Cache-warming build (runs every 3 days). BuildBuddy DISABLED, forcing a
+  # full local build that populates the action cache and disk cache with
+  # ALL intermediate outputs. The GHA cache save then captures a complete
+  # set of build artifacts — a full local fallback for when BuildBuddy
+  # evicts entries during quiet periods.
+  #
+  # This costs zero BuildBuddy transfer (important on the free tier's
+  # 100 GB/month limit) and ~30 minutes of GitHub Actions compute.
+  warm-cache:
+    if: github.event_name == 'schedule'
+    name: Warm cache (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-26]
+    env:
+      BAZEL_CACHE: ${{ contains(matrix.os, 'macos') && '~/Library/Caches/bazel' || '~/.cache/bazel' }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Select newest Xcode
+        if: runner.os == 'macOS'
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [[ -n "$XCODE" ]]; then
+            sudo xcode-select -s "$XCODE"
+            echo "Selected $XCODE"
+          else
+            echo "::warning::No versioned Xcode found; using default $(xcode-select -p)"
+          fi
+
+      - name: Resolve Bazel output base
+        if: runner.os == 'macOS'
+        id: bazel
+        run: |
+          OUTPUT_BASE=$(bazel info output_base 2>/dev/null || echo "")
+          echo "output_base=$OUTPUT_BASE" >> "$GITHUB_OUTPUT"
+          echo "Bazel output base: $OUTPUT_BASE"
+
+      - name: Restore Bazel cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ${{ env.BAZEL_CACHE }}
+            ${{ steps.bazel.outputs.output_base }}
+          key: bazel-${{ matrix.os }}-${{ hashFiles('*.bazel*') }}
+          restore-keys: bazel-${{ matrix.os }}-
+
+      - name: Install system dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y libgmp-dev libpcap-dev
+
+      # Build WITHOUT BuildBuddy — forces all actions to execute locally,
+      # populating the disk cache and action cache with intermediate outputs
+      # that --remote_download_toplevel normally skips.
+      - name: Build (local only)
+        run: bazel build //... --disk_cache=${{ env.BAZEL_CACHE }}/disk_cache
+
+      - name: Log cache diagnostics
+        if: always()
+        run: |
+          echo "### Cache diagnostics (${{ matrix.os }}, warm-cache)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Bazel cache: $(du -sh ${{ env.BAZEL_CACHE }} 2>/dev/null | cut -f1 || echo N/A)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Disk cache: $(du -sh ${{ env.BAZEL_CACHE }}/disk_cache 2>/dev/null | cut -f1 || echo N/A)" >> "$GITHUB_STEP_SUMMARY"
+          OUTPUT_BASE="${{ steps.bazel.outputs.output_base }}"
+          if [[ -n "$OUTPUT_BASE" ]]; then
+            echo "Output base: $(du -sh "$OUTPUT_BASE" 2>/dev/null | cut -f1 || echo N/A)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # Always save — this is the whole point of the warm-cache job.
+      - name: Save Bazel cache
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ${{ env.BAZEL_CACHE }}
+            ${{ steps.bazel.outputs.output_base }}
+          key: bazel-${{ matrix.os }}-${{ hashFiles('*.bazel*') }}-${{ github.run_id }}
 
 
   coverage:
