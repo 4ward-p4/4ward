@@ -45,6 +45,22 @@ single_version_override(
     patches = ["//bazel:grpc_kotlin.patch"],
 )
 
+# OPTIONAL performance patch: native Bazel build for Z3. Safe to drop at
+# any time — Z3 builds correctly without it via rules_foreign_cc cmake().
+#
+# Why: the cmake() wrapper rebuilds Z3 from scratch (~5 min) on any
+# toolchain change (e.g. Xcode update). The native cc_library() build
+# has fine-grained caching — only changed files recompile.
+#
+# Maintenance: pinned to Z3 4.15.2. If Z3 is upgraded and the patch
+# breaks, delete these 4 lines — the cmake() fallback is always there.
+# Based on https://github.com/Z3Prover/z3/pull/9411.
+single_version_override(
+    module_name = "z3",
+    patch_strip = 1,
+    patches = ["//bazel:z3.patch"],
+)
+
 # --- P4 ecosystem ---
 
 # p4runtime provides p4info.proto, p4runtime.proto, and p4data.proto.
