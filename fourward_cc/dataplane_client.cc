@@ -44,8 +44,6 @@ std::chrono::system_clock::time_point AbsoluteDeadline(
 
 template <class... Ts>
 struct overloaded : Ts... { using Ts::operator()...; };
-template <class... Ts>
-overloaded(Ts...) -> overloaded<Ts...>;
 
 fourward::InjectPacketRequest ToProto(
     const InjectPacketArgs& args) {
@@ -81,9 +79,9 @@ DataplaneClient& DataplaneClient::operator=(DataplaneClient&&) =
 
 absl::StatusOr<fourward::InjectPacketResponse>
 DataplaneClient::InjectPacket(const InjectPacketArgs& args,
-                              std::optional<absl::Duration> deadline) {
+                              std::optional<absl::Duration> timeout) {
   grpc::ClientContext ctx;
-  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(deadline)));
+  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
   fourward::InjectPacketRequest req = ToProto(args);
   fourward::InjectPacketResponse resp;
   grpc::Status status = stub_->InjectPacket(&ctx, req, &resp);
@@ -93,9 +91,9 @@ DataplaneClient::InjectPacket(const InjectPacketArgs& args,
 
 absl::StatusOr<fourward::Reproducer>
 DataplaneClient::ReproduceTrace(const InjectPacketArgs& args,
-                                std::optional<absl::Duration> deadline) {
+                                std::optional<absl::Duration> timeout) {
   grpc::ClientContext ctx;
-  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(deadline)));
+  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
   fourward::InjectPacketRequest req = ToProto(args);
   fourward::Reproducer resp;
   grpc::Status status = stub_->ReproduceTrace(&ctx, req, &resp);
@@ -105,9 +103,9 @@ DataplaneClient::ReproduceTrace(const InjectPacketArgs& args,
 
 absl::Status DataplaneClient::InjectPackets(
     absl::Span<const InjectPacketArgs> args,
-    std::optional<absl::Duration> deadline) {
+    std::optional<absl::Duration> timeout) {
   grpc::ClientContext ctx;
-  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(deadline)));
+  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
   fourward::InjectPacketsResponse resp;
   std::unique_ptr<
       grpc::ClientWriter<fourward::InjectPacketRequest>>
@@ -140,10 +138,10 @@ class ResultStream::Impl {
   Impl() = default;
   void ReadLoop();
 
-  enum class State { kStarting, kSubscribed, kFinished };
+  enum class State { kRunning, kFinished };
 
   bool StartupSettled() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    return state_ != State::kStarting;
+    return sentinel_received_ || state_ == State::kFinished;
   }
   bool QueueOrFinished() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     return !queue_.empty() || state_ == State::kFinished;
@@ -156,10 +154,12 @@ class ResultStream::Impl {
   std::thread thread_;
 
   absl::Mutex mu_;
-  State state_ ABSL_GUARDED_BY(mu_) = State::kStarting;
+  State state_ ABSL_GUARDED_BY(mu_) = State::kRunning;
+  bool sentinel_received_ ABSL_GUARDED_BY(mu_) = false;
   std::deque<fourward::ProcessPacketResult> queue_
       ABSL_GUARDED_BY(mu_);
-  absl::Status final_status_ ABSL_GUARDED_BY(mu_);
+  absl::Status final_status_ ABSL_GUARDED_BY(mu_) =
+      absl::InternalError("stream not yet finished");
 };
 
 absl::StatusOr<std::unique_ptr<ResultStream::Impl>> ResultStream::Impl::Create(
@@ -173,28 +173,27 @@ absl::StatusOr<std::unique_ptr<ResultStream::Impl>> ResultStream::Impl::Create(
   Impl* raw = impl.get();
   impl->thread_ = std::thread([raw] { raw->ReadLoop(); });
 
-  bool subscribed = false;
-  absl::Status finished_status;
+  bool timed_out;
   {
     absl::MutexLock lock(&impl->mu_);
-    if (!impl->mu_.AwaitWithTimeout(
-            absl::Condition(impl.get(), &Impl::StartupSettled),
-            startup_timeout)) {
-      impl->context_->TryCancel();
-    }
-    subscribed = impl->state_ == State::kSubscribed;
-    if (impl->state_ == State::kFinished) finished_status = impl->final_status_;
+    timed_out = !impl->mu_.AwaitWithTimeout(
+        absl::Condition(impl.get(), &Impl::StartupSettled),
+        startup_timeout);
+    if (timed_out) impl->context_->TryCancel();
+    // Sentinel received — the stream is (or was) live. Return it even if the
+    // reader thread has already finished; Next() will drain any queued results
+    // and then report the terminal status.
+    if (impl->sentinel_received_) return impl;
   }
 
-  if (subscribed) return impl;
-
   impl->thread_.join();
-  if (finished_status.ok()) {
+  if (timed_out) {
     return absl::DeadlineExceededError(absl::StrCat(
         "SubscribeResults: server did not send SubscriptionActive within ",
         absl::FormatDuration(startup_timeout)));
   }
-  return finished_status;
+  absl::MutexLock lock(&impl->mu_);
+  return impl->final_status_;
 }
 
 ResultStream::Impl::~Impl() {
@@ -220,7 +219,7 @@ void ResultStream::Impl::ReadLoop() {
   }
   {
     absl::MutexLock lock(&mu_);
-    state_ = State::kSubscribed;
+    sentinel_received_ = true;
   }
 
   fourward::SubscribeResultsResponse resp;

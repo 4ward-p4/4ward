@@ -104,18 +104,18 @@ class DataplaneClient {
 
   absl::StatusOr<fourward::InjectPacketResponse> InjectPacket(
       const InjectPacketArgs& args,
-      std::optional<absl::Duration> deadline = std::nullopt);
+      std::optional<absl::Duration> timeout = std::nullopt);
 
   // Results are delivered via SubscribeResults, not in the response.
   absl::Status InjectPackets(
       absl::Span<const InjectPacketArgs> args,
-      std::optional<absl::Duration> deadline = std::nullopt);
+      std::optional<absl::Duration> timeout = std::nullopt);
 
   // Inject a packet and return a self-contained Reproducer for the
   // resulting trace.
   absl::StatusOr<fourward::Reproducer> ReproduceTrace(
       const InjectPacketArgs& args,
-      std::optional<absl::Duration> deadline = std::nullopt);
+      std::optional<absl::Duration> timeout = std::nullopt);
 
   // Blocks until the server confirms the subscription is active. The
   // ResultStream is then long-lived; cancel via destruction.
