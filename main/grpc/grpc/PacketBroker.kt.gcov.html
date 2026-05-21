@@ -31,18 +31,18 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
-            <td class="headerCovTableEntry">57</td>
-            <td class="headerCovTableEntry">57</td>
+            <td class="headerCovTableEntryHi">95.2&nbsp;%</td>
+            <td class="headerCovTableEntry">63</td>
+            <td class="headerCovTableEntry">60</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-21 05:48:04</td>
+            <td class="headerValue">2026-05-21 06:14:05</td>
             <td></td>
             <td class="headerItem">Functions:</td>
-            <td class="headerCovTableEntryHi">93.8&nbsp;%</td>
+            <td class="headerCovTableEntryMed">88.9&nbsp;%</td>
+            <td class="headerCovTableEntry">36</td>
             <td class="headerCovTableEntry">32</td>
-            <td class="headerCovTableEntry">30</td>
           </tr>
                   <tr><td><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
                 </table>
@@ -165,81 +165,84 @@
 <span id="L103"><span class="lineNum">     103</span> <span class="tlaGNC">           1 :     val payload: ByteArray,</span></span>
 <span id="L104"><span class="lineNum">     104</span> <span class="tlaGNC">           1 :     val possibleOutcomes: List&lt;List&lt;OutputPacket&gt;&gt;,</span></span>
 <span id="L105"><span class="lineNum">     105</span> <span class="tlaGNC">           1 :     val trace: TraceTree,</span></span>
-<span id="L106"><span class="lineNum">     106</span>              :   )</span>
-<span id="L107"><span class="lineNum">     107</span>              : </span>
-<span id="L108"><span class="lineNum">     108</span>              :   /** Handle returned by [subscribe]; call [unsubscribe] to stop receiving results. */</span>
-<span id="L109"><span class="lineNum">     109</span>              :   fun interface SubscriptionHandle {</span>
-<span id="L110"><span class="lineNum">     110</span>              :     fun unsubscribe()</span>
-<span id="L111"><span class="lineNum">     111</span>              :   }</span>
-<span id="L112"><span class="lineNum">     112</span>              : </span>
-<span id="L113"><span class="lineNum">     113</span>              :   private val subscribers =</span>
-<span id="L114"><span class="lineNum">     114</span> <span class="tlaGNC">           1 :     java.util.concurrent.CopyOnWriteArrayList&lt;(SubscriptionResult) -&gt; Unit&gt;()</span></span>
-<span id="L115"><span class="lineNum">     115</span>              : </span>
-<span id="L116"><span class="lineNum">     116</span>              :   /**</span>
-<span id="L117"><span class="lineNum">     117</span>              :    * Processes a packet: fires the hook (if registered), runs the simulator, and dispatches results</span>
-<span id="L118"><span class="lineNum">     118</span>              :    * to subscribers. Lock-free on the hot path — the simulator reads from the published forwarding</span>
-<span id="L119"><span class="lineNum">     119</span>              :    * snapshot. Only acquires the [writeMutex] when a hook is registered (to fire the hook and apply</span>
-<span id="L120"><span class="lineNum">     120</span>              :    * its updates atomically).</span>
-<span id="L121"><span class="lineNum">     121</span>              :    */</span>
-<span id="L122"><span class="lineNum">     122</span>              :   /**</span>
-<span id="L123"><span class="lineNum">     123</span>              :    * If a hook is registered, acquires the [writeMutex] and fires it. The hook may apply P4Runtime</span>
-<span id="L124"><span class="lineNum">     124</span>              :    * updates that publish a new forwarding snapshot. No-op if no hook is registered.</span>
-<span id="L125"><span class="lineNum">     125</span>              :    */</span>
-<span id="L126"><span class="lineNum">     126</span>              :   private fun fireHookUnderMutex() {</span>
-<span id="L127"><span class="lineNum">     127</span> <span class="tlaGNC">           1 :     if (hook.get() != null) {</span></span>
-<span id="L128"><span class="lineNum">     128</span> <span class="tlaGNC">           1 :       runBlocking { writeMutex.withLock { fireHookIfRegistered() } }</span></span>
-<span id="L129"><span class="lineNum">     129</span>              :     }</span>
-<span id="L130"><span class="lineNum">     130</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L131"><span class="lineNum">     131</span>              : </span>
-<span id="L132"><span class="lineNum">     132</span>              :   fun processPacket(ingressPort: Int, payload: ByteArray): ProcessPacketResult {</span>
-<span id="L133"><span class="lineNum">     133</span> <span class="tlaGNC">           1 :     fireHookUnderMutex()</span></span>
-<span id="L134"><span class="lineNum">     134</span> <span class="tlaGNC">           1 :     val result = simulatorFn(ingressPort, payload)</span></span>
-<span id="L135"><span class="lineNum">     135</span> <span class="tlaGNC">           1 :     dispatchToSubscribers(ingressPort, payload, result)</span></span>
-<span id="L136"><span class="lineNum">     136</span> <span class="tlaGNC">           1 :     return result</span></span>
-<span id="L137"><span class="lineNum">     137</span>              :   }</span>
-<span id="L138"><span class="lineNum">     138</span>              : </span>
-<span id="L139"><span class="lineNum">     139</span>              :   /**</span>
-<span id="L140"><span class="lineNum">     140</span>              :    * Fires the hook once (if registered), then runs [block] with a lock-free packet processor.</span>
-<span id="L141"><span class="lineNum">     141</span>              :    *</span>
-<span id="L142"><span class="lineNum">     142</span>              :    * Used by [DataplaneService.injectPackets] to stream packets without buffering the entire batch.</span>
-<span id="L143"><span class="lineNum">     143</span>              :    */</span>
-<span id="L144"><span class="lineNum">     144</span>              :   fun &lt;T&gt; withHookOnce(block: (processor: (Int, ByteArray) -&gt; Unit) -&gt; T): T {</span>
-<span id="L145"><span class="lineNum">     145</span> <span class="tlaGNC">           1 :     fireHookUnderMutex()</span></span>
-<span id="L146"><span class="lineNum">     146</span> <span class="tlaGNC">           1 :     return block { port, payload -&gt;</span></span>
-<span id="L147"><span class="lineNum">     147</span> <span class="tlaGNC">           1 :       val result = simulatorFn(port, payload)</span></span>
-<span id="L148"><span class="lineNum">     148</span> <span class="tlaGNC">           1 :       dispatchToSubscribers(port, payload, result)</span></span>
-<span id="L149"><span class="lineNum">     149</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L150"><span class="lineNum">     150</span>              :   }</span>
-<span id="L151"><span class="lineNum">     151</span>              : </span>
-<span id="L152"><span class="lineNum">     152</span>              :   /** Registers a subscriber that receives results for every processed packet. */</span>
-<span id="L153"><span class="lineNum">     153</span>              :   fun subscribe(callback: (SubscriptionResult) -&gt; Unit): SubscriptionHandle {</span>
-<span id="L154"><span class="lineNum">     154</span> <span class="tlaGNC">           1 :     subscribers.add(callback)</span></span>
-<span id="L155"><span class="lineNum">     155</span> <span class="tlaGNC">           1 :     return SubscriptionHandle { subscribers.remove(callback) }</span></span>
-<span id="L156"><span class="lineNum">     156</span>              :   }</span>
-<span id="L157"><span class="lineNum">     157</span>              : </span>
-<span id="L158"><span class="lineNum">     158</span>              :   private fun dispatchToSubscribers(</span>
-<span id="L159"><span class="lineNum">     159</span>              :     ingressPort: Int,</span>
-<span id="L160"><span class="lineNum">     160</span>              :     payload: ByteArray,</span>
-<span id="L161"><span class="lineNum">     161</span>              :     result: ProcessPacketResult,</span>
-<span id="L162"><span class="lineNum">     162</span>              :   ) {</span>
-<span id="L163"><span class="lineNum">     163</span> <span class="tlaGNC">           1 :     if (subscribers.isEmpty()) return</span></span>
-<span id="L164"><span class="lineNum">     164</span> <span class="tlaGNC">           1 :     val subResult = SubscriptionResult(ingressPort, payload, result.possibleOutcomes, result.trace)</span></span>
-<span id="L165"><span class="lineNum">     165</span> <span class="tlaGNC">           1 :     for (subscriber in subscribers) {</span></span>
-<span id="L166"><span class="lineNum">     166</span> <span class="tlaGNC">           1 :       try {</span></span>
-<span id="L167"><span class="lineNum">     167</span> <span class="tlaGNC">           1 :         subscriber(subResult)</span></span>
-<span id="L168"><span class="lineNum">     168</span> <span class="tlaGNC">           1 :       } catch (</span></span>
-<span id="L169"><span class="lineNum">     169</span>              :         @Suppress(&quot;TooGenericExceptionCaught&quot;) // Safety net: any subscriber failure must not</span>
-<span id="L170"><span class="lineNum">     170</span>              :         e: Exception // crash the sender or block other subscribers.</span>
-<span id="L171"><span class="lineNum">     171</span>              :       ) {</span>
-<span id="L172"><span class="lineNum">     172</span> <span class="tlaGNC">           1 :         logger.log(Level.WARNING, &quot;Subscriber threw during packet dispatch&quot;, e)</span></span>
-<span id="L173"><span class="lineNum">     173</span>              :       }</span>
-<span id="L174"><span class="lineNum">     174</span>              :     }</span>
-<span id="L175"><span class="lineNum">     175</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L176"><span class="lineNum">     176</span>              : </span>
-<span id="L177"><span class="lineNum">     177</span>              :   private companion object {</span>
-<span id="L178"><span class="lineNum">     178</span> <span class="tlaGNC">           1 :     val logger: Logger = Logger.getLogger(PacketBroker::class.java.name)</span></span>
-<span id="L179"><span class="lineNum">     179</span>              :   }</span>
-<span id="L180"><span class="lineNum">     180</span>              : }</span>
+<span id="L106"><span class="lineNum">     106</span> <span class="tlaGNC">           1 :     val tag: Long = 0,</span></span>
+<span id="L107"><span class="lineNum">     107</span> <span class="tlaUNC tlaBgUNC">           0 :   )</span></span>
+<span id="L108"><span class="lineNum">     108</span>              : </span>
+<span id="L109"><span class="lineNum">     109</span>              :   /** Handle returned by [subscribe]; call [unsubscribe] to stop receiving results. */</span>
+<span id="L110"><span class="lineNum">     110</span>              :   fun interface SubscriptionHandle {</span>
+<span id="L111"><span class="lineNum">     111</span>              :     fun unsubscribe()</span>
+<span id="L112"><span class="lineNum">     112</span>              :   }</span>
+<span id="L113"><span class="lineNum">     113</span>              : </span>
+<span id="L114"><span class="lineNum">     114</span>              :   private val subscribers =</span>
+<span id="L115"><span class="lineNum">     115</span> <span class="tlaGNC tlaBgGNC">           1 :     java.util.concurrent.CopyOnWriteArrayList&lt;(SubscriptionResult) -&gt; Unit&gt;()</span></span>
+<span id="L116"><span class="lineNum">     116</span>              : </span>
+<span id="L117"><span class="lineNum">     117</span>              :   /**</span>
+<span id="L118"><span class="lineNum">     118</span>              :    * Processes a packet: fires the hook (if registered), runs the simulator, and dispatches results</span>
+<span id="L119"><span class="lineNum">     119</span>              :    * to subscribers. Lock-free on the hot path — the simulator reads from the published forwarding</span>
+<span id="L120"><span class="lineNum">     120</span>              :    * snapshot. Only acquires the [writeMutex] when a hook is registered (to fire the hook and apply</span>
+<span id="L121"><span class="lineNum">     121</span>              :    * its updates atomically).</span>
+<span id="L122"><span class="lineNum">     122</span>              :    */</span>
+<span id="L123"><span class="lineNum">     123</span>              :   /**</span>
+<span id="L124"><span class="lineNum">     124</span>              :    * If a hook is registered, acquires the [writeMutex] and fires it. The hook may apply P4Runtime</span>
+<span id="L125"><span class="lineNum">     125</span>              :    * updates that publish a new forwarding snapshot. No-op if no hook is registered.</span>
+<span id="L126"><span class="lineNum">     126</span>              :    */</span>
+<span id="L127"><span class="lineNum">     127</span>              :   private fun fireHookUnderMutex() {</span>
+<span id="L128"><span class="lineNum">     128</span> <span class="tlaGNC">           1 :     if (hook.get() != null) {</span></span>
+<span id="L129"><span class="lineNum">     129</span> <span class="tlaGNC">           1 :       runBlocking { writeMutex.withLock { fireHookIfRegistered() } }</span></span>
+<span id="L130"><span class="lineNum">     130</span>              :     }</span>
+<span id="L131"><span class="lineNum">     131</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L132"><span class="lineNum">     132</span>              : </span>
+<span id="L133"><span class="lineNum">     133</span> <span class="tlaGNC">           1 :   fun processPacket(ingressPort: Int, payload: ByteArray, tag: Long = 0): ProcessPacketResult {</span></span>
+<span id="L134"><span class="lineNum">     134</span> <span class="tlaGNC">           1 :     fireHookUnderMutex()</span></span>
+<span id="L135"><span class="lineNum">     135</span> <span class="tlaGNC">           1 :     val result = simulatorFn(ingressPort, payload)</span></span>
+<span id="L136"><span class="lineNum">     136</span> <span class="tlaGNC">           1 :     dispatchToSubscribers(ingressPort, payload, result, tag)</span></span>
+<span id="L137"><span class="lineNum">     137</span> <span class="tlaGNC">           1 :     return result</span></span>
+<span id="L138"><span class="lineNum">     138</span>              :   }</span>
+<span id="L139"><span class="lineNum">     139</span>              : </span>
+<span id="L140"><span class="lineNum">     140</span>              :   /**</span>
+<span id="L141"><span class="lineNum">     141</span>              :    * Fires the hook once (if registered), then runs [block] with a lock-free packet processor.</span>
+<span id="L142"><span class="lineNum">     142</span>              :    *</span>
+<span id="L143"><span class="lineNum">     143</span>              :    * Used by [DataplaneService.injectPackets] to stream packets without buffering the entire batch.</span>
+<span id="L144"><span class="lineNum">     144</span>              :    */</span>
+<span id="L145"><span class="lineNum">     145</span>              :   fun &lt;T&gt; withHookOnce(block: (processor: (Int, ByteArray, Long) -&gt; Unit) -&gt; T): T {</span>
+<span id="L146"><span class="lineNum">     146</span> <span class="tlaGNC">           1 :     fireHookUnderMutex()</span></span>
+<span id="L147"><span class="lineNum">     147</span> <span class="tlaGNC">           1 :     return block { port, payload, tag -&gt;</span></span>
+<span id="L148"><span class="lineNum">     148</span> <span class="tlaGNC">           1 :       val result = simulatorFn(port, payload)</span></span>
+<span id="L149"><span class="lineNum">     149</span> <span class="tlaGNC">           1 :       dispatchToSubscribers(port, payload, result, tag)</span></span>
+<span id="L150"><span class="lineNum">     150</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L151"><span class="lineNum">     151</span>              :   }</span>
+<span id="L152"><span class="lineNum">     152</span>              : </span>
+<span id="L153"><span class="lineNum">     153</span>              :   /** Registers a subscriber that receives results for every processed packet. */</span>
+<span id="L154"><span class="lineNum">     154</span>              :   fun subscribe(callback: (SubscriptionResult) -&gt; Unit): SubscriptionHandle {</span>
+<span id="L155"><span class="lineNum">     155</span> <span class="tlaGNC">           1 :     subscribers.add(callback)</span></span>
+<span id="L156"><span class="lineNum">     156</span> <span class="tlaGNC">           1 :     return SubscriptionHandle { subscribers.remove(callback) }</span></span>
+<span id="L157"><span class="lineNum">     157</span>              :   }</span>
+<span id="L158"><span class="lineNum">     158</span>              : </span>
+<span id="L159"><span class="lineNum">     159</span> <span class="tlaUNC tlaBgUNC">           0 :   private fun dispatchToSubscribers(</span></span>
+<span id="L160"><span class="lineNum">     160</span>              :     ingressPort: Int,</span>
+<span id="L161"><span class="lineNum">     161</span>              :     payload: ByteArray,</span>
+<span id="L162"><span class="lineNum">     162</span>              :     result: ProcessPacketResult,</span>
+<span id="L163"><span class="lineNum">     163</span> <span class="tlaUNC">           0 :     tag: Long = 0,</span></span>
+<span id="L164"><span class="lineNum">     164</span>              :   ) {</span>
+<span id="L165"><span class="lineNum">     165</span> <span class="tlaGNC tlaBgGNC">           1 :     if (subscribers.isEmpty()) return</span></span>
+<span id="L166"><span class="lineNum">     166</span> <span class="tlaGNC">           1 :     val subResult =</span></span>
+<span id="L167"><span class="lineNum">     167</span> <span class="tlaGNC">           1 :       SubscriptionResult(ingressPort, payload, result.possibleOutcomes, result.trace, tag)</span></span>
+<span id="L168"><span class="lineNum">     168</span> <span class="tlaGNC">           1 :     for (subscriber in subscribers) {</span></span>
+<span id="L169"><span class="lineNum">     169</span> <span class="tlaGNC">           1 :       try {</span></span>
+<span id="L170"><span class="lineNum">     170</span> <span class="tlaGNC">           1 :         subscriber(subResult)</span></span>
+<span id="L171"><span class="lineNum">     171</span> <span class="tlaGNC">           1 :       } catch (</span></span>
+<span id="L172"><span class="lineNum">     172</span>              :         @Suppress(&quot;TooGenericExceptionCaught&quot;) // Safety net: any subscriber failure must not</span>
+<span id="L173"><span class="lineNum">     173</span>              :         e: Exception // crash the sender or block other subscribers.</span>
+<span id="L174"><span class="lineNum">     174</span>              :       ) {</span>
+<span id="L175"><span class="lineNum">     175</span> <span class="tlaGNC">           1 :         logger.log(Level.WARNING, &quot;Subscriber threw during packet dispatch&quot;, e)</span></span>
+<span id="L176"><span class="lineNum">     176</span>              :       }</span>
+<span id="L177"><span class="lineNum">     177</span>              :     }</span>
+<span id="L178"><span class="lineNum">     178</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L179"><span class="lineNum">     179</span>              : </span>
+<span id="L180"><span class="lineNum">     180</span>              :   private companion object {</span>
+<span id="L181"><span class="lineNum">     181</span> <span class="tlaGNC">           1 :     val logger: Logger = Logger.getLogger(PacketBroker::class.java.name)</span></span>
+<span id="L182"><span class="lineNum">     182</span>              :   }</span>
+<span id="L183"><span class="lineNum">     183</span>              : }</span>
         </pre>
               </td>
             </tr>
