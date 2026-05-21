@@ -102,7 +102,7 @@ class ResultStream {
 };
 
 // Ergonomic C++ client for the 4ward Dataplane gRPC service. Wraps the
-// InjectPacket, InjectPackets, SubscribeResults, and ReproduceTrace RPCs;
+// InjectPacket, InjectPackets, SubscribeResults, and GetReproducer RPCs;
 // names mirror dataplane.proto one-to-one. RegisterPrePacketHook is
 // intentionally not wrapped — use the raw stub for advanced use cases.
 //
@@ -132,17 +132,17 @@ class DataplaneClient {
   PacketWriter InjectPackets(
       std::optional<absl::Duration> timeout = std::nullopt);
 
-  absl::StatusOr<Reproducer> ReproduceTrace(
-      DataplanePort ingress_port, std::string_view payload,
-      std::optional<absl::Duration> timeout = std::nullopt);
-  absl::StatusOr<Reproducer> ReproduceTrace(
-      P4RuntimePort ingress_port, std::string_view payload,
-      std::optional<absl::Duration> timeout = std::nullopt);
-
   // Blocks until the server confirms the subscription is active. The
   // ResultStream is then long-lived; cancel via destruction.
   absl::StatusOr<ResultStream> SubscribeResults(
       std::optional<absl::Duration> startup_timeout = std::nullopt);
+
+  absl::StatusOr<Reproducer> GetReproducer(
+      DataplanePort ingress_port, std::string_view payload,
+      std::optional<absl::Duration> timeout = std::nullopt);
+  absl::StatusOr<Reproducer> GetReproducer(
+      P4RuntimePort ingress_port, std::string_view payload,
+      std::optional<absl::Duration> timeout = std::nullopt);
 
  private:
   absl::Duration ResolveTimeout(std::optional<absl::Duration> override) const {

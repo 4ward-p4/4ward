@@ -57,14 +57,14 @@ class DataplaneService(
       .build()
   }
 
-  override suspend fun reproduceTrace(request: InjectPacketRequest): Reproducer {
+  override suspend fun getReproducer(request: InjectPacketRequest): Reproducer {
     if (pipelineSnapshot() == null) {
       throw Status.FAILED_PRECONDITION.withDescription(
           "No pipeline loaded — call SetForwardingPipelineConfig first"
         )
         .asException()
     }
-    val (enrichedResult, pipeline) = processAndEnrich(request, "ReproduceTrace")
+    val (enrichedResult, pipeline) = processAndEnrich(request, "GetReproducer")
     // pipeline is non-null: the pre-check above rejects the no-pipeline case, and pipeline
     // unload between the check and here requires a concurrent SetForwardingPipelineConfig
     // that replaces the pipeline (not unloads it — there's no "unload" API).

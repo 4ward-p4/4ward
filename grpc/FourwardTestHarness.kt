@@ -170,8 +170,8 @@ class FourwardTestHarness(
   }
 
   /** Injects a packet and returns a self-contained Reproducer for the trace. */
-  fun reproduceTrace(ingressPort: Int, payload: ByteArray): fourward.Reproducer = runBlocking {
-    dataplaneStub.reproduceTrace(
+  fun getReproducer(ingressPort: Int, payload: ByteArray): fourward.Reproducer = runBlocking {
+    dataplaneStub.getReproducer(
       InjectPacketRequest.newBuilder()
         .setDataplaneIngressPort(ingressPort)
         .setPayload(ByteString.copyFrom(payload))
