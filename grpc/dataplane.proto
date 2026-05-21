@@ -31,12 +31,6 @@ service Dataplane {
   rpc SubscribeResults(SubscribeResultsRequest)
       returns (stream SubscribeResultsResponse);
 
-  // Inject a packet and return a self-contained Reproducer for the resulting
-  // trace. The Reproducer bundles the pipeline config, relevant entities,
-  // input packet, trace, and possible outcomes — everything needed to replay
-  // the trace in another 4ward instance.
-  rpc ReproduceTrace(InjectPacketRequest) returns (Reproducer);
-
   // Registers a pre-packet hook that fires before every dataplane RPC.
   //
   // Some systems need to update P4 state in response to external
@@ -56,6 +50,12 @@ service Dataplane {
   // the lifetime of the hook registration.
   rpc RegisterPrePacketHook(stream PrePacketHookResponse)
       returns (stream PrePacketHookInvocation);
+
+  // Inject a packet and return a self-contained Reproducer for the resulting
+  // trace. The Reproducer bundles the pipeline config, relevant entities,
+  // input packet, trace, and possible outcomes — everything needed to replay
+  // the trace in another 4ward instance.
+  rpc GetReproducer(InjectPacketRequest) returns (Reproducer);
 }
 
 message InjectPacketsResponse {}

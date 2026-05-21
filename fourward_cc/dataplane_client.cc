@@ -97,26 +97,26 @@ absl::StatusOr<InjectPacketResponse> DataplaneClient::InjectPacket(
   return resp;
 }
 
-absl::StatusOr<Reproducer> DataplaneClient::ReproduceTrace(
+absl::StatusOr<Reproducer> DataplaneClient::GetReproducer(
     DataplanePort ingress_port, std::string_view payload,
     std::optional<absl::Duration> timeout) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
   InjectPacketRequest req = MakeRequest(ingress_port, payload);
   Reproducer resp;
-  grpc::Status status = stub_->ReproduceTrace(&ctx, req, &resp);
+  grpc::Status status = stub_->GetReproducer(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
   return resp;
 }
 
-absl::StatusOr<Reproducer> DataplaneClient::ReproduceTrace(
+absl::StatusOr<Reproducer> DataplaneClient::GetReproducer(
     P4RuntimePort ingress_port, std::string_view payload,
     std::optional<absl::Duration> timeout) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
   InjectPacketRequest req = MakeRequest(std::move(ingress_port), payload);
   Reproducer resp;
-  grpc::Status status = stub_->ReproduceTrace(&ctx, req, &resp);
+  grpc::Status status = stub_->GetReproducer(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
   return resp;
 }
