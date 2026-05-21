@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-21 05:40:00</td>
+            <td class="headerValue">2026-05-21 05:48:04</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryMed">81.1&nbsp;%</td>
@@ -119,14 +119,14 @@
 <span id="L57"><span class="lineNum">      57</span> <span class="tlaGNC">           1 :       .build()</span></span>
 <span id="L58"><span class="lineNum">      58</span>              :   }</span>
 <span id="L59"><span class="lineNum">      59</span>              : </span>
-<span id="L60"><span class="lineNum">      60</span>              :   override suspend fun reproduceTrace(request: InjectPacketRequest): Reproducer {</span>
+<span id="L60"><span class="lineNum">      60</span>              :   override suspend fun getReproducer(request: InjectPacketRequest): Reproducer {</span>
 <span id="L61"><span class="lineNum">      61</span> <span class="tlaGNC">           1 :     if (pipelineSnapshot() == null) {</span></span>
 <span id="L62"><span class="lineNum">      62</span> <span class="tlaGNC">           1 :       throw Status.FAILED_PRECONDITION.withDescription(</span></span>
 <span id="L63"><span class="lineNum">      63</span> <span class="tlaGNC">           1 :           &quot;No pipeline loaded — call SetForwardingPipelineConfig first&quot;</span></span>
 <span id="L64"><span class="lineNum">      64</span>              :         )</span>
 <span id="L65"><span class="lineNum">      65</span> <span class="tlaGNC">           1 :         .asException()</span></span>
 <span id="L66"><span class="lineNum">      66</span>              :     }</span>
-<span id="L67"><span class="lineNum">      67</span> <span class="tlaGNC">           1 :     val (enrichedResult, pipeline) = processAndEnrich(request, &quot;ReproduceTrace&quot;)</span></span>
+<span id="L67"><span class="lineNum">      67</span> <span class="tlaGNC">           1 :     val (enrichedResult, pipeline) = processAndEnrich(request, &quot;GetReproducer&quot;)</span></span>
 <span id="L68"><span class="lineNum">      68</span>              :     // pipeline is non-null: the pre-check above rejects the no-pipeline case, and pipeline</span>
 <span id="L69"><span class="lineNum">      69</span>              :     // unload between the check and here requires a concurrent SetForwardingPipelineConfig</span>
 <span id="L70"><span class="lineNum">      70</span>              :     // that replaces the pipeline (not unloads it — there's no &quot;unload&quot; API).</span>

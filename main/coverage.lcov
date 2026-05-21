@@ -315,8 +315,8 @@ FN:41,fourward/grpc/DataplaneService::<init> (Lfourward/grpc/PacketBroker;Lkotli
 FNDA:1,fourward/grpc/DataplaneService::<init> (Lfourward/grpc/PacketBroker;Lkotlin/jvm/functions/Function0;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 FN:53,fourward/grpc/DataplaneService::injectPacket (Lfourward/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 FNDA:1,fourward/grpc/DataplaneService::injectPacket (Lfourward/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-FN:61,fourward/grpc/DataplaneService::reproduceTrace (Lfourward/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-FNDA:1,fourward/grpc/DataplaneService::reproduceTrace (Lfourward/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+FN:61,fourward/grpc/DataplaneService::getReproducer (Lfourward/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+FNDA:1,fourward/grpc/DataplaneService::getReproducer (Lfourward/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 FN:109,fourward/grpc/DataplaneService::processAndEnrich (Lfourward/InjectPacketRequest;Ljava/lang/String;)Lkotlin/Pair;
 FNDA:1,fourward/grpc/DataplaneService::processAndEnrich (Lfourward/InjectPacketRequest;Ljava/lang/String;)Lkotlin/Pair;
 FN:144,fourward/grpc/DataplaneService::injectPackets (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
