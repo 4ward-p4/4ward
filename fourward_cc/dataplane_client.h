@@ -57,12 +57,12 @@ struct Tag {
 //
 // Not thread-safe: callers must serialize Inject/Finish calls.
 class PacketWriter {
- public:
+public:
   ~PacketWriter();
-  PacketWriter(PacketWriter&&);
-  PacketWriter& operator=(PacketWriter&&);
-  PacketWriter(const PacketWriter&) = delete;
-  PacketWriter& operator=(const PacketWriter&) = delete;
+  PacketWriter(PacketWriter &&);
+  PacketWriter &operator=(PacketWriter &&);
+  PacketWriter(const PacketWriter &) = delete;
+  PacketWriter &operator=(const PacketWriter &) = delete;
 
   absl::Status Inject(DataplanePort ingress_port, std::string_view payload,
                       Tag tag = {});
@@ -72,7 +72,7 @@ class PacketWriter {
   // Signals end-of-stream and returns the number of packets injected.
   absl::StatusOr<int> Finish();
 
- private:
+private:
   friend class DataplaneClient;
   class Impl;
   std::unique_ptr<Impl> impl_;
@@ -84,19 +84,19 @@ class PacketWriter {
 //
 // Thread-safe: concurrent Next() calls each receive a distinct result.
 class ResultStream {
- public:
+public:
   ~ResultStream();
-  ResultStream(ResultStream&&);
-  ResultStream& operator=(ResultStream&&);
-  ResultStream(const ResultStream&) = delete;
-  ResultStream& operator=(const ResultStream&) = delete;
+  ResultStream(ResultStream &&);
+  ResultStream &operator=(ResultStream &&);
+  ResultStream(const ResultStream &) = delete;
+  ResultStream &operator=(const ResultStream &) = delete;
 
   // Blocks up to `timeout` for the next result. Returns
   // DeadlineExceededError on timeout, CancelledError when the stream ends.
-  absl::StatusOr<ProcessPacketResult> Next(
-      absl::Duration timeout = absl::Seconds(10));
+  absl::StatusOr<ProcessPacketResult>
+  Next(absl::Duration timeout = absl::Seconds(10));
 
- private:
+private:
   friend class DataplaneClient;
   class Impl;
   std::unique_ptr<Impl> impl_;
@@ -110,22 +110,24 @@ class ResultStream {
 //
 // Thread-safe: each method uses its own ClientContext.
 class DataplaneClient {
- public:
-  explicit DataplaneClient(const FourwardServer& server,
+public:
+  explicit DataplaneClient(const FourwardServer &server,
                            absl::Duration default_timeout = absl::Seconds(10));
   explicit DataplaneClient(std::unique_ptr<Dataplane::Stub> stub,
                            absl::Duration default_timeout = absl::Seconds(10));
 
   ~DataplaneClient();
-  DataplaneClient(DataplaneClient&&);
-  DataplaneClient& operator=(DataplaneClient&&);
-  DataplaneClient(const DataplaneClient&) = delete;
-  DataplaneClient& operator=(const DataplaneClient&) = delete;
+  DataplaneClient(DataplaneClient &&);
+  DataplaneClient &operator=(DataplaneClient &&);
+  DataplaneClient(const DataplaneClient &) = delete;
+  DataplaneClient &operator=(const DataplaneClient &) = delete;
 
-  absl::StatusOr<InjectPacketResponse> InjectPacket(
-      DataplanePort ingress_port, std::string_view payload, Tag tag = {});
-  absl::StatusOr<InjectPacketResponse> InjectPacket(
-      P4RuntimePort ingress_port, std::string_view payload, Tag tag = {});
+  absl::StatusOr<InjectPacketResponse> InjectPacket(DataplanePort ingress_port,
+                                                    std::string_view payload,
+                                                    Tag tag = {});
+  absl::StatusOr<InjectPacketResponse> InjectPacket(P4RuntimePort ingress_port,
+                                                    std::string_view payload,
+                                                    Tag tag = {});
 
   // Returns a writer for streaming packet injection. Results are delivered
   // via SubscribeResults, not inline.
@@ -136,16 +138,18 @@ class DataplaneClient {
   absl::StatusOr<ResultStream> SubscribeResults(
       std::optional<absl::Duration> startup_timeout = std::nullopt);
 
-  absl::StatusOr<Reproducer> GetReproducer(
-      DataplanePort ingress_port, std::string_view payload, Tag tag = {});
-  absl::StatusOr<Reproducer> GetReproducer(
-      P4RuntimePort ingress_port, std::string_view payload, Tag tag = {});
+  absl::StatusOr<Reproducer> GetReproducer(DataplanePort ingress_port,
+                                           std::string_view payload,
+                                           Tag tag = {});
+  absl::StatusOr<Reproducer> GetReproducer(P4RuntimePort ingress_port,
+                                           std::string_view payload,
+                                           Tag tag = {});
 
- private:
+private:
   std::unique_ptr<Dataplane::Stub> stub_;
   absl::Duration default_timeout_;
 };
 
-}  // namespace fourward
+} // namespace fourward
 
-#endif  // FOURWARD_CC_DATAPLANE_CLIENT_H_
+#endif // FOURWARD_CC_DATAPLANE_CLIENT_H_
