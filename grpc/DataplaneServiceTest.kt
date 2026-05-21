@@ -258,6 +258,20 @@ class DataplaneServiceTest {
     job.cancel()
   }
 
+  @Test
+  fun `SubscribeResults echoes tag from InjectPacket`() = runBlocking {
+    harness.loadPipeline(loadPassthroughConfig())
+    val stub = DataplaneCoroutineStub(harness.channel)
+    val (job, results) = subscribeAndAwaitActive(stub)
+
+    harness.injectPacket(ingressPort = 0, payload = byteArrayOf(0x01), tag = 42)
+
+    val result = withTimeout(5000) { results.receive() }
+    assertEquals(42L, result.result.inputPacket.tag)
+
+    job.cancel()
+  }
+
   // =========================================================================
   // Cross-source SubscribeResults
   // =========================================================================

@@ -17,10 +17,6 @@
 //                    dataplane.InjectPacket(
 //                        fourward::DataplanePort{0}, "..."));
 //
-//   // Override timeout per-call when needed:
-//   dataplane.InjectPacket(fourward::DataplanePort{0}, "...",
-//                          absl::Seconds(1));
-//
 //   // Streaming injection:
 //   auto writer = dataplane.InjectPackets();
 //   writer.Inject(fourward::DataplanePort{0}, payload1);
@@ -52,6 +48,10 @@ struct P4RuntimePort {
   std::string port;
 };
 
+struct Tag {
+  int64_t value = 0;
+};
+
 // RAII handle for a client-streaming InjectPackets RPC. Destructor calls
 // Finish() if not already called.
 //
@@ -64,8 +64,10 @@ class PacketWriter {
   PacketWriter(const PacketWriter&) = delete;
   PacketWriter& operator=(const PacketWriter&) = delete;
 
-  absl::Status Inject(DataplanePort ingress_port, std::string_view payload);
-  absl::Status Inject(P4RuntimePort ingress_port, std::string_view payload);
+  absl::Status Inject(DataplanePort ingress_port, std::string_view payload,
+                      Tag tag = {});
+  absl::Status Inject(P4RuntimePort ingress_port, std::string_view payload,
+                      Tag tag = {});
 
   // Signals end-of-stream and returns the number of packets injected.
   absl::StatusOr<int> Finish();
@@ -121,16 +123,13 @@ class DataplaneClient {
   DataplaneClient& operator=(const DataplaneClient&) = delete;
 
   absl::StatusOr<InjectPacketResponse> InjectPacket(
-      DataplanePort ingress_port, std::string_view payload,
-      std::optional<absl::Duration> timeout = std::nullopt);
+      DataplanePort ingress_port, std::string_view payload, Tag tag = {});
   absl::StatusOr<InjectPacketResponse> InjectPacket(
-      P4RuntimePort ingress_port, std::string_view payload,
-      std::optional<absl::Duration> timeout = std::nullopt);
+      P4RuntimePort ingress_port, std::string_view payload, Tag tag = {});
 
   // Returns a writer for streaming packet injection. Results are delivered
   // via SubscribeResults, not inline.
-  PacketWriter InjectPackets(
-      std::optional<absl::Duration> timeout = std::nullopt);
+  PacketWriter InjectPackets();
 
   // Blocks until the server confirms the subscription is active. The
   // ResultStream is then long-lived; cancel via destruction.
@@ -138,17 +137,11 @@ class DataplaneClient {
       std::optional<absl::Duration> startup_timeout = std::nullopt);
 
   absl::StatusOr<Reproducer> GetReproducer(
-      DataplanePort ingress_port, std::string_view payload,
-      std::optional<absl::Duration> timeout = std::nullopt);
+      DataplanePort ingress_port, std::string_view payload, Tag tag = {});
   absl::StatusOr<Reproducer> GetReproducer(
-      P4RuntimePort ingress_port, std::string_view payload,
-      std::optional<absl::Duration> timeout = std::nullopt);
+      P4RuntimePort ingress_port, std::string_view payload, Tag tag = {});
 
  private:
-  absl::Duration ResolveTimeout(std::optional<absl::Duration> override) const {
-    return override.value_or(default_timeout_);
-  }
-
   std::unique_ptr<Dataplane::Stub> stub_;
   absl::Duration default_timeout_;
 };

@@ -160,14 +160,16 @@ class FourwardTestHarness(
   // ---------------------------------------------------------------------------
 
   /** Injects a packet via the InjectPacket RPC. Returns outputs + trace. */
-  fun injectPacket(ingressPort: Int, payload: ByteArray): InjectPacketResponse = runBlocking {
-    dataplaneStub.injectPacket(
-      InjectPacketRequest.newBuilder()
-        .setDataplaneIngressPort(ingressPort)
-        .setPayload(ByteString.copyFrom(payload))
-        .build()
-    )
-  }
+  fun injectPacket(ingressPort: Int, payload: ByteArray, tag: Long = 0): InjectPacketResponse =
+    runBlocking {
+      dataplaneStub.injectPacket(
+        InjectPacketRequest.newBuilder()
+          .setDataplaneIngressPort(ingressPort)
+          .setPayload(ByteString.copyFrom(payload))
+          .setTag(tag)
+          .build()
+      )
+    }
 
   /** Injects a packet and returns a self-contained Reproducer for the trace. */
   fun getReproducer(ingressPort: Int, payload: ByteArray): fourward.Reproducer = runBlocking {

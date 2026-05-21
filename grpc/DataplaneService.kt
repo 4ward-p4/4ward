@@ -85,6 +85,7 @@ class DataplaneService(
   private class EnrichedResult(
     val ingressPort: Int,
     val payload: ByteArray,
+    val tag: Long,
     val rawTrace: TraceTree,
     val forwardingSnapshot: TableStore.ForwardingSnapshot,
     val trace: TraceTree,
@@ -96,6 +97,7 @@ class DataplaneService(
           InputPacket.newBuilder()
             .setDataplaneIngressPort(ingressPort)
             .setPayload(ByteString.copyFrom(payload))
+            .setTag(tag)
         )
         .setTrace(trace)
         .addAllPossibleOutcomes(possibleOutcomes)
@@ -114,12 +116,13 @@ class DataplaneService(
     // description, so the client never sees a bare UNKNOWN. See #499.
     @Suppress("TooGenericExceptionCaught")
     try {
-      val result = broker.processPacket(ingressPort, payload)
+      val result = broker.processPacket(ingressPort, payload, request.tag)
       val pt = translator?.portTranslator
       val enrichedResult =
         EnrichedResult(
           ingressPort = ingressPort,
           payload = payload,
+          tag = request.tag,
           rawTrace = result.trace,
           forwardingSnapshot = result.forwardingSnapshot,
           trace = enrichTrace(result.trace, translator),
@@ -148,8 +151,11 @@ class DataplaneService(
         requests.collect { request ->
           val port = resolveIngressPort(request, translator)
           val payload = request.payload.toByteArray()
+          val tag = request.tag
           futures.add(
-            java.util.concurrent.ForkJoinPool.commonPool().submit { processPacket(port, payload) }
+            java.util.concurrent.ForkJoinPool.commonPool().submit {
+              processPacket(port, payload, tag)
+            }
           )
         }
       }
@@ -182,6 +188,7 @@ class DataplaneService(
                       pt?.dataplaneToP4rt(subResult.ingressPort)?.let { setP4RtIngressPort(it) }
                     }
                     .setPayload(ByteString.copyFrom(subResult.payload))
+                    .setTag(subResult.tag)
                 )
                 .addAllPossibleOutcomes(
                   subResult.possibleOutcomes.map { world ->

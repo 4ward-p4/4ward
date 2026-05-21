@@ -27,6 +27,9 @@ message InputPacket {
   // P4Runtime port ID. Populated by enrichment layers (e.g. DataplaneService),
   // never by the simulator.
   bytes p4rt_ingress_port = 3;
+
+  // Opaque caller-provided tag, copied from InjectPacketRequest.tag.
+  int64 tag = 4;
 }
 
 message OutputPacket {
