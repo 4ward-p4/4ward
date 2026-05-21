@@ -8,9 +8,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
-#include <variant>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
@@ -18,7 +18,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
-#include "absl/types/span.h"
 #include "grpcpp/client_context.h"
 #include "grpcpp/support/status.h"
 #include "grpcpp/support/sync_stream.h"
@@ -42,97 +41,180 @@ std::chrono::system_clock::time_point AbsoluteDeadline(
       std::chrono::system_clock::now() + absl::ToChronoNanoseconds(relative));
 }
 
-template <class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
+InjectPacketRequest MakeRequest(DataplanePort ingress_port,
+                                std::string_view payload) {
+  InjectPacketRequest req;
+  req.set_dataplane_ingress_port(ingress_port.port);
+  req.set_payload(payload.data(), payload.size());
+  return req;
+}
 
-fourward::InjectPacketRequest ToProto(
-    const InjectPacketArgs& args) {
-  fourward::InjectPacketRequest req;
-  std::visit(overloaded{
-                 [&](const DataplanePort& p) {
-                   req.set_dataplane_ingress_port(p.port);
-                 },
-                 [&](const P4RuntimePort& p) {
-                   req.set_p4rt_ingress_port(p.port);
-                 },
-             },
-             args.ingress_port);
-  req.set_payload(args.payload);
+InjectPacketRequest MakeRequest(P4RuntimePort ingress_port,
+                                std::string_view payload) {
+  InjectPacketRequest req;
+  req.set_p4rt_ingress_port(std::move(ingress_port.port));
+  req.set_payload(payload.data(), payload.size());
   return req;
 }
 
 }  // namespace
 
+// -- DataplaneClient ----------------------------------------------------------
+
 DataplaneClient::DataplaneClient(const FourwardServer& server,
                                  absl::Duration default_timeout)
     : DataplaneClient(server.NewDataplaneStub(), default_timeout) {}
 
-DataplaneClient::DataplaneClient(
-    std::unique_ptr<fourward::Dataplane::Stub> stub,
-    absl::Duration default_timeout)
+DataplaneClient::DataplaneClient(std::unique_ptr<Dataplane::Stub> stub,
+                                 absl::Duration default_timeout)
     : stub_(std::move(stub)), default_timeout_(default_timeout) {}
 
 DataplaneClient::~DataplaneClient() = default;
 DataplaneClient::DataplaneClient(DataplaneClient&&) = default;
-DataplaneClient& DataplaneClient::operator=(DataplaneClient&&) =
-    default;
+DataplaneClient& DataplaneClient::operator=(DataplaneClient&&) = default;
 
-absl::StatusOr<fourward::InjectPacketResponse>
-DataplaneClient::InjectPacket(const InjectPacketArgs& args,
-                              std::optional<absl::Duration> timeout) {
+absl::StatusOr<InjectPacketResponse> DataplaneClient::InjectPacket(
+    DataplanePort ingress_port, std::string_view payload,
+    std::optional<absl::Duration> timeout) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
-  fourward::InjectPacketRequest req = ToProto(args);
-  fourward::InjectPacketResponse resp;
+  InjectPacketRequest req = MakeRequest(ingress_port, payload);
+  InjectPacketResponse resp;
   grpc::Status status = stub_->InjectPacket(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
   return resp;
 }
 
-absl::StatusOr<fourward::Reproducer>
-DataplaneClient::ReproduceTrace(const InjectPacketArgs& args,
-                                std::optional<absl::Duration> timeout) {
+absl::StatusOr<InjectPacketResponse> DataplaneClient::InjectPacket(
+    P4RuntimePort ingress_port, std::string_view payload,
+    std::optional<absl::Duration> timeout) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
-  fourward::InjectPacketRequest req = ToProto(args);
-  fourward::Reproducer resp;
+  InjectPacketRequest req = MakeRequest(std::move(ingress_port), payload);
+  InjectPacketResponse resp;
+  grpc::Status status = stub_->InjectPacket(&ctx, req, &resp);
+  if (!status.ok()) return ToAbsl(status);
+  return resp;
+}
+
+absl::StatusOr<Reproducer> DataplaneClient::ReproduceTrace(
+    DataplanePort ingress_port, std::string_view payload,
+    std::optional<absl::Duration> timeout) {
+  grpc::ClientContext ctx;
+  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
+  InjectPacketRequest req = MakeRequest(ingress_port, payload);
+  Reproducer resp;
   grpc::Status status = stub_->ReproduceTrace(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
   return resp;
 }
 
-absl::Status DataplaneClient::InjectPackets(
-    absl::Span<const InjectPacketArgs> args,
+absl::StatusOr<Reproducer> DataplaneClient::ReproduceTrace(
+    P4RuntimePort ingress_port, std::string_view payload,
     std::optional<absl::Duration> timeout) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
-  fourward::InjectPacketsResponse resp;
-  std::unique_ptr<
-      grpc::ClientWriter<fourward::InjectPacketRequest>>
-      writer = stub_->InjectPackets(&ctx, &resp);
-  for (const InjectPacketArgs& arg : args) {
-    fourward::InjectPacketRequest req = ToProto(arg);
-    if (!writer->Write(req)) {
-      return ToAbsl(writer->Finish());
-    }
-  }
-  writer->WritesDone();
-  return ToAbsl(writer->Finish());
+  InjectPacketRequest req = MakeRequest(std::move(ingress_port), payload);
+  Reproducer resp;
+  grpc::Status status = stub_->ReproduceTrace(&ctx, req, &resp);
+  if (!status.ok()) return ToAbsl(status);
+  return resp;
 }
+
+// -- PacketWriter -------------------------------------------------------------
+
+class PacketWriter::Impl {
+ public:
+  static std::unique_ptr<Impl> Create(
+      Dataplane::Stub* stub,
+      std::unique_ptr<grpc::ClientContext> context) {
+    std::unique_ptr<Impl> impl(new Impl);
+    impl->context_ = std::move(context);
+    impl->writer_ =
+        stub->InjectPackets(impl->context_.get(), &impl->response_);
+    return impl;
+  }
+
+  absl::Status Inject(InjectPacketRequest req) {
+    if (finished_) {
+      return finished_status_.ok()
+                 ? absl::FailedPreconditionError("PacketWriter is finished")
+                 : finished_status_;
+    }
+    if (!writer_->Write(req)) return DoFinish();
+    ++count_;
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<int> Finish() {
+    if (finished_) {
+      if (!finished_status_.ok()) return finished_status_;
+      return count_;
+    }
+    writer_->WritesDone();
+    absl::Status status = DoFinish();
+    if (!status.ok()) return status;
+    return count_;
+  }
+
+ private:
+  Impl() = default;
+
+  absl::Status DoFinish() {
+    finished_ = true;
+    finished_status_ = ToAbsl(writer_->Finish());
+    return finished_status_;
+  }
+
+  std::unique_ptr<grpc::ClientContext> context_;
+  InjectPacketsResponse response_;
+  std::unique_ptr<grpc::ClientWriter<InjectPacketRequest>> writer_;
+  bool finished_ = false;
+  int count_ = 0;
+  absl::Status finished_status_;
+};
+
+PacketWriter DataplaneClient::InjectPackets(
+    std::optional<absl::Duration> timeout) {
+  auto context = std::make_unique<grpc::ClientContext>();
+  context->set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
+  return PacketWriter(
+      PacketWriter::Impl::Create(stub_.get(), std::move(context)));
+}
+
+PacketWriter::~PacketWriter() {
+  if (impl_ != nullptr) (void)impl_->Finish();
+}
+PacketWriter::PacketWriter(PacketWriter&&) = default;
+PacketWriter& PacketWriter::operator=(PacketWriter&&) = default;
+PacketWriter::PacketWriter(std::unique_ptr<Impl> impl)
+    : impl_(std::move(impl)) {}
+
+absl::Status PacketWriter::Inject(DataplanePort ingress_port,
+                                  std::string_view payload) {
+  return impl_->Inject(MakeRequest(ingress_port, payload));
+}
+
+absl::Status PacketWriter::Inject(P4RuntimePort ingress_port,
+                                  std::string_view payload) {
+  return impl_->Inject(MakeRequest(std::move(ingress_port), payload));
+}
+
+absl::StatusOr<int> PacketWriter::Finish() { return impl_->Finish(); }
+
+// -- ResultStream -------------------------------------------------------------
 
 class ResultStream::Impl {
  public:
   static absl::StatusOr<std::unique_ptr<Impl>> Create(
-      fourward::Dataplane::Stub* stub,
-      absl::Duration startup_timeout);
+      Dataplane::Stub* stub, absl::Duration startup_timeout);
 
   ~Impl();
 
   Impl(const Impl&) = delete;
   Impl& operator=(const Impl&) = delete;
 
-  absl::StatusOr<fourward::ProcessPacketResult> Next(
-      absl::Duration timeout);
+  absl::StatusOr<ProcessPacketResult> Next(absl::Duration timeout);
 
  private:
   Impl() = default;
@@ -148,26 +230,22 @@ class ResultStream::Impl {
   }
 
   std::unique_ptr<grpc::ClientContext> context_;
-  std::unique_ptr<
-      grpc::ClientReader<fourward::SubscribeResultsResponse>>
-      reader_;
+  std::unique_ptr<grpc::ClientReader<SubscribeResultsResponse>> reader_;
   std::thread thread_;
 
   absl::Mutex mu_;
   State state_ ABSL_GUARDED_BY(mu_) = State::kRunning;
   bool sentinel_received_ ABSL_GUARDED_BY(mu_) = false;
-  std::deque<fourward::ProcessPacketResult> queue_
-      ABSL_GUARDED_BY(mu_);
+  std::deque<ProcessPacketResult> queue_ ABSL_GUARDED_BY(mu_);
   absl::Status final_status_ ABSL_GUARDED_BY(mu_) =
       absl::InternalError("stream not yet finished");
 };
 
 absl::StatusOr<std::unique_ptr<ResultStream::Impl>> ResultStream::Impl::Create(
-    fourward::Dataplane::Stub* stub,
-    absl::Duration startup_timeout) {
+    Dataplane::Stub* stub, absl::Duration startup_timeout) {
   std::unique_ptr<Impl> impl(new Impl);
   impl->context_ = std::make_unique<grpc::ClientContext>();
-  fourward::SubscribeResultsRequest req;
+  SubscribeResultsRequest req;
   impl->reader_ = stub->SubscribeResults(impl->context_.get(), req);
 
   Impl* raw = impl.get();
@@ -202,7 +280,7 @@ ResultStream::Impl::~Impl() {
 }
 
 void ResultStream::Impl::ReadLoop() {
-  fourward::SubscribeResultsResponse first;
+  SubscribeResultsResponse first;
   if (!reader_->Read(&first) || !first.has_active()) {
     grpc::Status status = reader_->Finish();
     absl::MutexLock lock(&mu_);
@@ -222,7 +300,7 @@ void ResultStream::Impl::ReadLoop() {
     sentinel_received_ = true;
   }
 
-  fourward::SubscribeResultsResponse resp;
+  SubscribeResultsResponse resp;
   while (reader_->Read(&resp)) {
     if (!resp.has_result()) continue;
     absl::MutexLock lock(&mu_);
@@ -234,8 +312,8 @@ void ResultStream::Impl::ReadLoop() {
   final_status_ = ToAbsl(status);
 }
 
-absl::StatusOr<fourward::ProcessPacketResult>
-ResultStream::Impl::Next(absl::Duration timeout) {
+absl::StatusOr<ProcessPacketResult> ResultStream::Impl::Next(
+    absl::Duration timeout) {
   absl::MutexLock lock(&mu_);
   if (!mu_.AwaitWithTimeout(absl::Condition(this, &Impl::QueueOrFinished),
                             timeout)) {
@@ -243,7 +321,7 @@ ResultStream::Impl::Next(absl::Duration timeout) {
         "ResultStream::Next: no result within ", absl::FormatDuration(timeout)));
   }
   if (!queue_.empty()) {
-    fourward::ProcessPacketResult result = std::move(queue_.front());
+    ProcessPacketResult result = std::move(queue_.front());
     queue_.pop_front();
     return result;
   }
@@ -257,9 +335,10 @@ ResultStream::Impl::Next(absl::Duration timeout) {
 ResultStream::~ResultStream() = default;
 ResultStream::ResultStream(ResultStream&&) = default;
 ResultStream& ResultStream::operator=(ResultStream&&) = default;
-ResultStream::ResultStream(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
+ResultStream::ResultStream(std::unique_ptr<Impl> impl)
+    : impl_(std::move(impl)) {}
 
-absl::StatusOr<fourward::ProcessPacketResult> ResultStream::Next(
+absl::StatusOr<ProcessPacketResult> ResultStream::Next(
     absl::Duration timeout) {
   return impl_->Next(timeout);
 }
