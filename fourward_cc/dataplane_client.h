@@ -57,7 +57,7 @@ struct Tag {
 //
 // Not thread-safe: callers must serialize Inject/Finish calls.
 class PacketWriter {
-public:
+ public:
   ~PacketWriter();
   PacketWriter(PacketWriter &&);
   PacketWriter &operator=(PacketWriter &&);
@@ -72,7 +72,7 @@ public:
   // Signals end-of-stream and returns the number of packets injected.
   absl::StatusOr<int> Finish();
 
-private:
+ private:
   friend class DataplaneClient;
   class Impl;
   std::unique_ptr<Impl> impl_;
@@ -84,7 +84,7 @@ private:
 //
 // Thread-safe: concurrent Next() calls each receive a distinct result.
 class ResultStream {
-public:
+ public:
   ~ResultStream();
   ResultStream(ResultStream &&);
   ResultStream &operator=(ResultStream &&);
@@ -93,10 +93,10 @@ public:
 
   // Blocks up to `timeout` for the next result. Returns
   // DeadlineExceededError on timeout, CancelledError when the stream ends.
-  absl::StatusOr<ProcessPacketResult>
-  Next(absl::Duration timeout = absl::Seconds(10));
+  absl::StatusOr<ProcessPacketResult> Next(
+      absl::Duration timeout = absl::Seconds(10));
 
-private:
+ private:
   friend class DataplaneClient;
   class Impl;
   std::unique_ptr<Impl> impl_;
@@ -110,7 +110,7 @@ private:
 //
 // Thread-safe: each method uses its own ClientContext.
 class DataplaneClient {
-public:
+ public:
   explicit DataplaneClient(const FourwardServer &server,
                            absl::Duration default_timeout = absl::Seconds(10));
   explicit DataplaneClient(std::unique_ptr<Dataplane::Stub> stub,
@@ -145,11 +145,11 @@ public:
                                            std::string_view payload,
                                            Tag tag = {});
 
-private:
+ private:
   std::unique_ptr<Dataplane::Stub> stub_;
   absl::Duration default_timeout_;
 };
 
-} // namespace fourward
+}  // namespace fourward
 
-#endif // FOURWARD_CC_DATAPLANE_CLIENT_H_
+#endif  // FOURWARD_CC_DATAPLANE_CLIENT_H_
