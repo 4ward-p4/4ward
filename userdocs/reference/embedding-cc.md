@@ -36,22 +36,18 @@ absl::Status RunAgainstFourward() {
   ASSIGN_OR_RETURN(fourward::FourwardServer server,
                    fourward::FourwardServer::Start());
 
-  // Use default 10s timeout for everything:
   fourward::DataplaneClient dataplane(server);
-
-  // Or configure a longer default for slow networks:
-  fourward::DataplaneClient dataplane(server, absl::Seconds(30));
 
   // Inject a single packet — returns trace + outputs inline.
   ASSIGN_OR_RETURN(auto response,
-                   dataplane.InjectPacket({
-                       .ingress_port = fourward::DataplanePort{.port = 0},
-                       .payload = raw_ethernet_bytes,
-                   }));
+                   dataplane.InjectPacket(
+                       fourward::DataplanePort{0}, raw_ethernet_bytes));
 
-  // Override timeout per-call when needed:
-  ASSIGN_OR_RETURN(auto fast,
-                   dataplane.InjectPacket(args, absl::Seconds(1)));
+  // Streaming injection with result correlation via tags:
+  auto writer = dataplane.InjectPackets();
+  writer.Inject(fourward::DataplanePort{0}, packet1, fourward::Tag{1});
+  writer.Inject(fourward::DataplanePort{1}, packet2, fourward::Tag{2});
+  ASSIGN_OR_RETURN(int count, writer.Finish());
 
   // Subscribe to results from all injection sources.
   ASSIGN_OR_RETURN(fourward::ResultStream stream,
@@ -63,8 +59,9 @@ absl::Status RunAgainstFourward() {
 ```
 
 Method names mirror `dataplane.proto` one-to-one: `InjectPacket`,
-`InjectPackets`, `SubscribeResults`. `RegisterPrePacketHook` is
-intentionally not wrapped — use the raw stub for advanced use cases.
+`InjectPackets`, `SubscribeResults`, `GetReproducer`.
+`RegisterPrePacketHook` is intentionally not wrapped — use the raw
+stub for advanced use cases.
 
 ## FourwardServer (low-level)
 
