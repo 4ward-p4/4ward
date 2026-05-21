@@ -248,7 +248,7 @@ absl::StatusOr<std::unique_ptr<ResultStream::Impl>> ResultStream::Impl::Create(
 
   bool timed_out;
   {
-    absl::MutexLock lock(&impl->mu_);
+    absl::MutexLock lock(impl->mu_);
     timed_out = !impl->mu_.AwaitWithTimeout(
         absl::Condition(impl.get(), &Impl::StartupSettled), startup_timeout);
     if (timed_out) impl->context_->TryCancel();
@@ -264,7 +264,7 @@ absl::StatusOr<std::unique_ptr<ResultStream::Impl>> ResultStream::Impl::Create(
         "SubscribeResults: server did not send SubscriptionActive within ",
         absl::FormatDuration(startup_timeout)));
   }
-  absl::MutexLock lock(&impl->mu_);
+  absl::MutexLock lock(impl->mu_);
   return impl->final_status_;
 }
 
@@ -277,7 +277,7 @@ void ResultStream::Impl::ReadLoop() {
   SubscribeResultsResponse first;
   if (!reader_->Read(&first) || !first.has_active()) {
     grpc::Status status = reader_->Finish();
-    absl::MutexLock lock(&mu_);
+    absl::MutexLock lock(mu_);
     state_ = State::kFinished;
     // Distinguish protocol violation (clean close without sentinel) from
     // actual RPC errors.
@@ -290,25 +290,25 @@ void ResultStream::Impl::ReadLoop() {
     return;
   }
   {
-    absl::MutexLock lock(&mu_);
+    absl::MutexLock lock(mu_);
     sentinel_received_ = true;
   }
 
   SubscribeResultsResponse resp;
   while (reader_->Read(&resp)) {
     if (!resp.has_result()) continue;
-    absl::MutexLock lock(&mu_);
+    absl::MutexLock lock(mu_);
     queue_.push_back(std::move(*resp.mutable_result()));
   }
   grpc::Status status = reader_->Finish();
-  absl::MutexLock lock(&mu_);
+  absl::MutexLock lock(mu_);
   state_ = State::kFinished;
   final_status_ = ToAbsl(status);
 }
 
 absl::StatusOr<ProcessPacketResult> ResultStream::Impl::Next(
     absl::Duration timeout) {
-  absl::MutexLock lock(&mu_);
+  absl::MutexLock lock(mu_);
   if (!mu_.AwaitWithTimeout(absl::Condition(this, &Impl::QueueOrFinished),
                             timeout)) {
     return absl::DeadlineExceededError(
