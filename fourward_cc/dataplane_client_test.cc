@@ -58,24 +58,21 @@ TEST_F(DataplaneClientTest, SubscribeResultsRespectsStartupTimeout) {
       << stream.status();
 }
 
-TEST_F(DataplaneClientTest, InjectPacketDataplanePortDeadlinePropagated) {
-  DataplaneClient client(*server_);
+TEST_F(DataplaneClientTest, InjectPacketRespectsDefaultTimeout) {
+  DataplaneClient client(*server_, absl::Nanoseconds(1));
 
   absl::StatusOr<InjectPacketResponse> resp =
-      client.InjectPacket(DataplanePort{0}, "x",
-                          absl::Nanoseconds(1));
+      client.InjectPacket(DataplanePort{0}, "x");
   ASSERT_FALSE(resp.ok());
   EXPECT_EQ(resp.status().code(), absl::StatusCode::kDeadlineExceeded)
       << resp.status();
 }
 
-TEST_F(DataplaneClientTest, InjectPacketP4RuntimePortDeadlinePropagated) {
-  DataplaneClient client(*server_);
+TEST_F(DataplaneClientTest, InjectPacketP4RuntimePortRespectsDefaultTimeout) {
+  DataplaneClient client(*server_, absl::Nanoseconds(1));
 
   absl::StatusOr<InjectPacketResponse> resp =
-      client.InjectPacket(
-          P4RuntimePort{std::string("\x00\x01", 2)}, "x",
-          absl::Nanoseconds(1));
+      client.InjectPacket(P4RuntimePort{std::string("\x00\x01", 2)}, "x");
   ASSERT_FALSE(resp.ok());
   EXPECT_EQ(resp.status().code(), absl::StatusCode::kDeadlineExceeded)
       << resp.status();
@@ -90,10 +87,10 @@ TEST_F(DataplaneClientTest, InjectPacketsWriterFinishesCleanly) {
   EXPECT_EQ(*count, 0);
 }
 
-TEST_F(DataplaneClientTest, InjectPacketsDeadlinePropagated) {
-  DataplaneClient client(*server_);
+TEST_F(DataplaneClientTest, InjectPacketsRespectsDefaultTimeout) {
+  DataplaneClient client(*server_, absl::Nanoseconds(1));
 
-  PacketWriter writer = client.InjectPackets(absl::Nanoseconds(1));
+  PacketWriter writer = client.InjectPackets();
   absl::Status inject = writer.Inject(DataplanePort{0}, "a");
   // Either the inject or finish will surface the deadline error.
   absl::StatusOr<int> finish = writer.Finish();

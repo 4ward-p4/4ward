@@ -103,6 +103,7 @@ class PacketBroker(
     val payload: ByteArray,
     val possibleOutcomes: List<List<OutputPacket>>,
     val trace: TraceTree,
+    val tag: Long = 0,
   )
 
   /** Handle returned by [subscribe]; call [unsubscribe] to stop receiving results. */
@@ -129,10 +130,10 @@ class PacketBroker(
     }
   }
 
-  fun processPacket(ingressPort: Int, payload: ByteArray): ProcessPacketResult {
+  fun processPacket(ingressPort: Int, payload: ByteArray, tag: Long = 0): ProcessPacketResult {
     fireHookUnderMutex()
     val result = simulatorFn(ingressPort, payload)
-    dispatchToSubscribers(ingressPort, payload, result)
+    dispatchToSubscribers(ingressPort, payload, result, tag)
     return result
   }
 
@@ -141,11 +142,11 @@ class PacketBroker(
    *
    * Used by [DataplaneService.injectPackets] to stream packets without buffering the entire batch.
    */
-  fun <T> withHookOnce(block: (processor: (Int, ByteArray) -> Unit) -> T): T {
+  fun <T> withHookOnce(block: (processor: (Int, ByteArray, Long) -> Unit) -> T): T {
     fireHookUnderMutex()
-    return block { port, payload ->
+    return block { port, payload, tag ->
       val result = simulatorFn(port, payload)
-      dispatchToSubscribers(port, payload, result)
+      dispatchToSubscribers(port, payload, result, tag)
     }
   }
 
@@ -159,9 +160,11 @@ class PacketBroker(
     ingressPort: Int,
     payload: ByteArray,
     result: ProcessPacketResult,
+    tag: Long = 0,
   ) {
     if (subscribers.isEmpty()) return
-    val subResult = SubscriptionResult(ingressPort, payload, result.possibleOutcomes, result.trace)
+    val subResult =
+      SubscriptionResult(ingressPort, payload, result.possibleOutcomes, result.trace, tag)
     for (subscriber in subscribers) {
       try {
         subscriber(subResult)

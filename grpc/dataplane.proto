@@ -70,6 +70,11 @@ message InjectPacketRequest {
     bytes p4rt_ingress_port = 2;
   }
   bytes payload = 3;
+
+  // Opaque caller-provided tag, echoed back in
+  // ProcessPacketResult.input_packet. Useful for correlating results with
+  // requests when using InjectPackets + SubscribeResults.
+  int64 tag = 4;
 }
 
 // A set of output packets from one possible real execution.

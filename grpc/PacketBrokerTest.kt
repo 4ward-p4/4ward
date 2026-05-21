@@ -99,6 +99,18 @@ class PacketBrokerTest {
   }
 
   @Test
+  fun `subscriber receives tag from processPacket`() {
+    val broker = broker(0 to result(outputPacket(1)))
+    val received = mutableListOf<PacketBroker.SubscriptionResult>()
+    broker.subscribe { received.add(it) }
+
+    broker.processPacket(0, byteArrayOf(), tag = 42)
+
+    assertEquals(1, received.size)
+    assertEquals(42L, received[0].tag)
+  }
+
+  @Test
   fun `throwing subscriber does not crash caller or block other subscribers`() {
     val broker = broker(0 to result(outputPacket(1)))
 
@@ -186,9 +198,9 @@ class PacketBrokerTest {
     val hookCount = registerAutoRespondHook(broker)
 
     broker.withHookOnce { processPacket ->
-      processPacket(0, byteArrayOf())
-      processPacket(0, byteArrayOf())
-      processPacket(0, byteArrayOf())
+      processPacket(0, byteArrayOf(), 0)
+      processPacket(0, byteArrayOf(), 0)
+      processPacket(0, byteArrayOf(), 0)
     }
 
     assertEquals("hook should fire exactly once for the batch", 1, hookCount.get())
@@ -201,7 +213,7 @@ class PacketBrokerTest {
     val processed = AtomicInteger(0)
 
     broker.withHookOnce { processPacket ->
-      processPacket(0, byteArrayOf())
+      processPacket(0, byteArrayOf(), 0)
       processed.incrementAndGet()
     }
 

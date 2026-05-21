@@ -42,18 +42,20 @@ std::chrono::system_clock::time_point AbsoluteDeadline(
 }
 
 InjectPacketRequest MakeRequest(DataplanePort ingress_port,
-                                std::string_view payload) {
+                                std::string_view payload, Tag tag) {
   InjectPacketRequest req;
   req.set_dataplane_ingress_port(ingress_port.port);
   req.set_payload(payload.data(), payload.size());
+  req.set_tag(tag.value);
   return req;
 }
 
 InjectPacketRequest MakeRequest(P4RuntimePort ingress_port,
-                                std::string_view payload) {
+                                std::string_view payload, Tag tag) {
   InjectPacketRequest req;
   req.set_p4rt_ingress_port(std::move(ingress_port.port));
   req.set_payload(payload.data(), payload.size());
+  req.set_tag(tag.value);
   return req;
 }
 
@@ -74,11 +76,10 @@ DataplaneClient::DataplaneClient(DataplaneClient&&) = default;
 DataplaneClient& DataplaneClient::operator=(DataplaneClient&&) = default;
 
 absl::StatusOr<InjectPacketResponse> DataplaneClient::InjectPacket(
-    DataplanePort ingress_port, std::string_view payload,
-    std::optional<absl::Duration> timeout) {
+    DataplanePort ingress_port, std::string_view payload, Tag tag) {
   grpc::ClientContext ctx;
-  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
-  InjectPacketRequest req = MakeRequest(ingress_port, payload);
+  ctx.set_deadline(AbsoluteDeadline(default_timeout_));
+  InjectPacketRequest req = MakeRequest(ingress_port, payload, tag);
   InjectPacketResponse resp;
   grpc::Status status = stub_->InjectPacket(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
@@ -86,11 +87,10 @@ absl::StatusOr<InjectPacketResponse> DataplaneClient::InjectPacket(
 }
 
 absl::StatusOr<InjectPacketResponse> DataplaneClient::InjectPacket(
-    P4RuntimePort ingress_port, std::string_view payload,
-    std::optional<absl::Duration> timeout) {
+    P4RuntimePort ingress_port, std::string_view payload, Tag tag) {
   grpc::ClientContext ctx;
-  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
-  InjectPacketRequest req = MakeRequest(std::move(ingress_port), payload);
+  ctx.set_deadline(AbsoluteDeadline(default_timeout_));
+  InjectPacketRequest req = MakeRequest(std::move(ingress_port), payload, tag);
   InjectPacketResponse resp;
   grpc::Status status = stub_->InjectPacket(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
@@ -98,11 +98,10 @@ absl::StatusOr<InjectPacketResponse> DataplaneClient::InjectPacket(
 }
 
 absl::StatusOr<Reproducer> DataplaneClient::GetReproducer(
-    DataplanePort ingress_port, std::string_view payload,
-    std::optional<absl::Duration> timeout) {
+    DataplanePort ingress_port, std::string_view payload, Tag tag) {
   grpc::ClientContext ctx;
-  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
-  InjectPacketRequest req = MakeRequest(ingress_port, payload);
+  ctx.set_deadline(AbsoluteDeadline(default_timeout_));
+  InjectPacketRequest req = MakeRequest(ingress_port, payload, tag);
   Reproducer resp;
   grpc::Status status = stub_->GetReproducer(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
@@ -110,11 +109,10 @@ absl::StatusOr<Reproducer> DataplaneClient::GetReproducer(
 }
 
 absl::StatusOr<Reproducer> DataplaneClient::GetReproducer(
-    P4RuntimePort ingress_port, std::string_view payload,
-    std::optional<absl::Duration> timeout) {
+    P4RuntimePort ingress_port, std::string_view payload, Tag tag) {
   grpc::ClientContext ctx;
-  ctx.set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
-  InjectPacketRequest req = MakeRequest(std::move(ingress_port), payload);
+  ctx.set_deadline(AbsoluteDeadline(default_timeout_));
+  InjectPacketRequest req = MakeRequest(std::move(ingress_port), payload, tag);
   Reproducer resp;
   grpc::Status status = stub_->GetReproducer(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
@@ -174,10 +172,9 @@ class PacketWriter::Impl {
   absl::Status finished_status_;
 };
 
-PacketWriter DataplaneClient::InjectPackets(
-    std::optional<absl::Duration> timeout) {
+PacketWriter DataplaneClient::InjectPackets() {
   auto context = std::make_unique<grpc::ClientContext>();
-  context->set_deadline(AbsoluteDeadline(ResolveTimeout(timeout)));
+  context->set_deadline(AbsoluteDeadline(default_timeout_));
   return PacketWriter(
       PacketWriter::Impl::Create(stub_.get(), std::move(context)));
 }
@@ -191,13 +188,13 @@ PacketWriter::PacketWriter(std::unique_ptr<Impl> impl)
     : impl_(std::move(impl)) {}
 
 absl::Status PacketWriter::Inject(DataplanePort ingress_port,
-                                  std::string_view payload) {
-  return impl_->Inject(MakeRequest(ingress_port, payload));
+                                  std::string_view payload, Tag tag) {
+  return impl_->Inject(MakeRequest(ingress_port, payload, tag));
 }
 
 absl::Status PacketWriter::Inject(P4RuntimePort ingress_port,
-                                  std::string_view payload) {
-  return impl_->Inject(MakeRequest(std::move(ingress_port), payload));
+                                  std::string_view payload, Tag tag) {
+  return impl_->Inject(MakeRequest(std::move(ingress_port), payload, tag));
 }
 
 absl::StatusOr<int> PacketWriter::Finish() { return impl_->Finish(); }
@@ -346,7 +343,8 @@ absl::StatusOr<ProcessPacketResult> ResultStream::Next(
 absl::StatusOr<ResultStream> DataplaneClient::SubscribeResults(
     std::optional<absl::Duration> startup_timeout) {
   absl::StatusOr<std::unique_ptr<ResultStream::Impl>> impl =
-      ResultStream::Impl::Create(stub_.get(), ResolveTimeout(startup_timeout));
+      ResultStream::Impl::Create(stub_.get(),
+                                startup_timeout.value_or(default_timeout_));
   if (!impl.ok()) return impl.status();
   return ResultStream(*std::move(impl));
 }
