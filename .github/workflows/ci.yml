@@ -110,6 +110,9 @@ jobs:
           key: bazel-ubuntu-24.04-${{ hashFiles('*.bazel*') }}
           restore-keys: bazel-ubuntu-24.04-
 
+      - name: Clear stale Bazel install
+        run: rm -rf ~/.cache/bazel/_bazel_*/install
+
       - name: Install clang tools
         run: sudo apt install -y clang-format clang-tidy
 
@@ -134,7 +137,7 @@ jobs:
 
 
   build-and-test:
-    if: github.event.action != 'closed' && github.event_name != 'schedule'
+    if: github.event.action != 'closed'
     name: Build and test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -199,6 +202,12 @@ jobs:
             bazel-${{ matrix.os }}-
             ${{ matrix.os == 'ubuntu-24.04' && 'bazel-coverage-' || '' }}
 
+      # The cached install base may be stale if Bazel was updated between
+      # the cache save and this run. Bazelisk downloads the correct version
+      # but can't overwrite a corrupt install directory.
+      - name: Clear stale Bazel install
+        run: rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/install
+
       # BMv2 links against system libgmp and libpcap.
       - name: Install system dependencies
         if: runner.os == 'Linux'
@@ -230,6 +239,8 @@ jobs:
             echo "Xcode: $(xcode-select -p 2>/dev/null || echo N/A)" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**[BuildBuddy dashboard](https://4ward.buildbuddy.io/trends/)** — check transfer usage against the 100 GB/month free tier limit." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Calculate build duration
         if: always()
@@ -242,12 +253,12 @@ jobs:
       #   if: always()
       #   run: bazel shutdown && rm -rf $(bazel info repository_cache)
 
-      # Only save cache on main (PR caches are scoped to their branch and
-      # evict the shared caches that all jobs depend on) or when the build
-      # was slow (>5 min), indicating a cache miss worth persisting.
+      # Save on main pushes or slow PR builds. Skip on schedule —
+      # the warm-cache job saves a more complete cache (with all
+      # intermediate outputs from a full local build).
       - name: Save Bazel cache
         uses: actions/cache/save@v5
-        if: always() && (github.ref_name == 'main' || env.DURATION > 300)
+        if: always() && github.event_name != 'schedule' && (github.ref_name == 'main' || env.DURATION > 300)
         with:
           path: |
             ${{ env.BAZEL_CACHE }}
@@ -287,6 +298,9 @@ jobs:
           path: ~/.cache/bazel
           key: bazel-bcr-${{ hashFiles('*.bazel*', 'bcr_test_module/*.bazel*') }}
           restore-keys: bazel-bcr-
+
+      - name: Clear stale Bazel install
+        run: rm -rf ~/.cache/bazel/_bazel_*/install
 
       - name: Save start time
         run: echo "START_TIME=$(date +%s)" >> "$GITHUB_ENV"
@@ -341,6 +355,10 @@ jobs:
   #
   # This costs zero BuildBuddy transfer (important on the free tier's
   # 100 GB/month limit) and ~30 minutes of GitHub Actions compute.
+  #
+  # On schedule events, build-and-test runs in parallel (to warm
+  # BuildBuddy) but skips its GHA cache save, so only this job's
+  # complete cache is persisted.
   warm-cache:
     if: github.event_name == 'schedule'
     name: Warm cache (${{ matrix.os }})
@@ -382,6 +400,9 @@ jobs:
             ${{ steps.bazel.outputs.output_base }}
           key: bazel-${{ matrix.os }}-${{ hashFiles('*.bazel*') }}
           restore-keys: bazel-${{ matrix.os }}-
+
+      - name: Clear stale Bazel install
+        run: rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/install
 
       - name: Install system dependencies
         if: runner.os == 'Linux'
@@ -454,6 +475,9 @@ jobs:
           restore-keys: |
             bazel-coverage-
             bazel-ubuntu-24.04-
+
+      - name: Clear stale Bazel install
+        run: rm -rf ~/.cache/bazel/_bazel_*/install
 
       - name: Save start time
         run: echo "START_TIME=$(date +%s)" >> "$GITHUB_ENV"
