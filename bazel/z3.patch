@@ -1,0 +1,244 @@
+--- a/MODULE.bazel	2026-05-21 08:54:48.877000000 -0700
++++ b/MODULE.bazel	2026-05-21 09:23:30.138924673 -0700
+@@ -4,8 +4,9 @@
+     bazel_compatibility = [">=7.0.0"],
+ )
+ 
+-bazel_dep(name = "rules_foreign_cc", version = "0.14.0")
++bazel_dep(name = "rules_cc", version = "0.2.17")
+ bazel_dep(name = "rules_license", version = "1.0.0")
++bazel_dep(name = "rules_python", version = "1.9.0")
+ 
+ # Enables formatting all Bazel files (.bazel, .bzl) by running:
+ # ```bash
+@@ -18,4 +19,6 @@
+     dev_dependency = True,
+ )
+ 
+-bazel_dep(name = "platforms", version = "0.0.11")
++python = use_extension("@rules_python//python/extensions:python.bzl", "python")
++python.defaults(python_version = "3.12")
++python.toolchain(python_version = "3.12")
+
+--- a/BUILD.bazel	2025-06-24 07:18:48.000000000 -0700
++++ b/BUILD.bazel	2026-05-21 10:28:41.974505919 -0700
+@@ -1,4 +1,4 @@
+-load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
++load("@rules_cc//cc:defs.bzl", "cc_library")
+ load("@rules_license//rules:license.bzl", "license")
+ 
+ package(default_applicable_licenses = [":license"])
+@@ -11,48 +11,129 @@
+ 
+ exports_files(["LICENSE.txt"])
+ 
++PYG_FILES = [
++    f.removeprefix("src/").removesuffix(".pyg")
++    for f in glob(["**/*.pyg"])
++]
++
+ filegroup(
+-    name = "all_files",
+-    srcs = glob(["**"]),
++    name = "z3_c_headers",
++    srcs = glob(["src/api/z3_*.h"]),
+ )
+ 
+-cmake(
+-    name = "z3_dynamic",
+-    generate_args = [
+-        "-G Ninja", 
+-        "-D Z3_EXPORTED_TARGETS=",  # prevents installation, leaving symlinks between dylibs intact on copy
++[
++    genrule(
++        name = name,
++        srcs = ["src/%s.pyg" % name],
++        outs = [name + ".hpp"],
++        cmd = "$(location //scripts:pyg2hpp) $(location src/%s.pyg) $$(dirname $@)" % name,
++        tools = ["//scripts:pyg2hpp"],
++    )
++    for name in PYG_FILES
++]
++
++genrule(
++    name = "api_log_macros",
++    srcs = [":z3_c_headers"],
++    outs = [
++        "api/api_commands.cpp",
++        "api/api_log_macros.cpp",
++        "api/api_log_macros.h",
+     ],
+-    lib_source = ":all_files",
+-    out_binaries = ["z3"],
+-    out_shared_libs = select({
+-        "@platforms//os:linux": ["libz3.so"],
+-        # "@platforms//os:osx": ["libz3.dylib"],    # FIXME: this is not working, libz3<version>.dylib is not copied
+-        # "@platforms//os:windows": ["z3.dll"],     # TODO: test this
+-        "//conditions:default": ["@platforms//:incompatible"],
+-    }),
+-    visibility = ["//visibility:public"],
++    cmd = "$(location //scripts:update_api) --api_output_dir $$(dirname $(location api/api_log_macros.h)) $(locations :z3_c_headers)",
++    tools = ["//scripts:update_api"],
+ )
+ 
+-cmake(
+-    name = "z3_static",
+-    generate_args = [
+-        "-G Ninja", 
+-        "-D BUILD_SHARED_LIBS=OFF",
+-        "-D Z3_BUILD_LIBZ3_SHARED=OFF",
++genrule(
++    name = "ast_pattern_database",
++    srcs = ["src/ast/pattern/database.smt2"],
++    outs = ["ast/pattern/database.h"],
++    cmd = "$(location //scripts:mk_pat_db) $(location src/ast/pattern/database.smt2) $@",
++    tools = ["//scripts:mk_pat_db"],
++)
++
++# Z3 4.15.2 doesn't ship scripts/VERSION.txt; hardcode the version.
++genrule(
++    name = "util_z3_version",
++    outs = ["util/z3_version.h"],
++    cmd = "\n".join([
++        "cat > $@ << 'VEOF'",
++        "#define Z3_MAJOR_VERSION 4",
++        "#define Z3_MINOR_VERSION 15",
++        "#define Z3_BUILD_NUMBER 2",
++        "#define Z3_REVISION_NUMBER 0",
++        '#define Z3_FULL_VERSION "Z3 4.15.2"',
++        "VEOF",
++    ]),
++)
++
++Z3_HEADERS = glob(["src/**/*.h"], exclude = ["src/api/julia/**/*", "src/test/**/*"])
++
++genrule(
++    name = "mem_initializer",
++    srcs = Z3_HEADERS,
++    outs = ["util/mem_initializer.cpp"],
++    cmd = "$(location //scripts:mk_mem_initializer_cpp) $$(dirname $@) $(SRCS)",
++    tools = ["//scripts:mk_mem_initializer_cpp"],
++)
++
++genrule(
++    name = "gparams_register_modules",
++    srcs = Z3_HEADERS,
++    outs = ["util/gparams_register_modules.cpp"],
++    cmd = "$(location //scripts:mk_gparams_register_modules_cpp) $$(dirname $@) $(SRCS)",
++    tools = ["//scripts:mk_gparams_register_modules_cpp"],
++)
++
++genrule(
++    name = "install_tactic",
++    srcs = Z3_HEADERS,
++    outs = ["tactic/install_tactic.cpp"],
++    cmd = "printf '%s\\n' $(SRCS) > $@.deps && $(location //scripts:mk_install_tactic_cpp) $$(dirname $@) $@.deps",
++    tools = ["//scripts:mk_install_tactic_cpp"],
++)
++
++cc_library(
++    name = "z3",
++    srcs = glob(
++        include = [
++            "src/**/*.cpp",
++            "src/**/*.h",
++        ],
++        exclude = [
++            "src/api/julia/**/*",
++            "src/test/**/*",
++        ],
++    ) + PYG_FILES + [
++        ":api_log_macros",
++        ":ast_pattern_database",
++        ":gparams_register_modules",
++        ":install_tactic",
++        ":mem_initializer",
++        ":util_z3_version",
+     ],
+-    lib_source = ":all_files",
+-    out_binaries = ["z3"],
+-    out_static_libs = select({
+-        "@platforms//os:linux": ["libz3.a"],
+-        "@platforms//os:osx": ["libz3.a"],
+-        # "@platforms//os:windows": ["z3.lib"],     # TODO: test this
+-        "//conditions:default": ["@platforms//:incompatible"],
+-    }),
++    hdrs = [
++        "src/api/c++/z3++.h",
++        ":z3_c_headers",
++    ],
++    defines = ["_MP_INTERNAL"],
++    includes = [
++        "src",
++        "src/api",
++        "src/api/c++",
++    ],
++    textual_hdrs = ["src/util/trace_tags.def"],
+     visibility = ["//visibility:public"],
+ )
+ 
+ alias(
+-    name = "z3",
+-    actual = ":z3_dynamic",
++    name = "z3_dynamic",
++    actual = "z3",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "z3_static",
++    actual = "z3",
+     visibility = ["//visibility:public"],
+ )
+
+--- a/a/scripts/BUILD.bazel	2026-05-12 23:31:47.438225057 -0700
++++ b/scripts/BUILD.bazel	2026-05-21 09:30:42.134191058 -0700
+@@ -0,0 +1,48 @@
++load("@rules_python//python:defs.bzl", "py_binary", "py_library")
++
++py_library(
++    name = "mk_genfile_common",
++    srcs = ["mk_genfile_common.py"],
++    imports = ["."],
++)
++
++py_binary(
++    name = "mk_pat_db",
++    srcs = ["mk_pat_db.py"],
++    visibility = ["//:__pkg__"],
++    deps = [":mk_genfile_common"],
++)
++
++py_binary(
++    name = "pyg2hpp",
++    srcs = ["pyg2hpp.py"],
++    visibility = ["//:__pkg__"],
++    deps = [":mk_genfile_common"],
++)
++
++py_binary(
++    name = "mk_mem_initializer_cpp",
++    srcs = ["mk_mem_initializer_cpp.py"],
++    visibility = ["//:__pkg__"],
++    deps = [":mk_genfile_common"],
++)
++
++py_binary(
++    name = "mk_gparams_register_modules_cpp",
++    srcs = ["mk_gparams_register_modules_cpp.py"],
++    visibility = ["//:__pkg__"],
++    deps = [":mk_genfile_common"],
++)
++
++py_binary(
++    name = "mk_install_tactic_cpp",
++    srcs = ["mk_install_tactic_cpp.py"],
++    visibility = ["//:__pkg__"],
++    deps = [":mk_genfile_common"],
++)
++
++py_binary(
++    name = "update_api",
++    srcs = ["update_api.py"],
++    visibility = ["//:__pkg__"],
++)
