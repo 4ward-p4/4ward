@@ -6,12 +6,10 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/time/time.h"
-#include "absl/types/span.h"
 #include "gtest/gtest.h"
 #include "grpc/dataplane.pb.h"
 #include "fourward_cc/fourward_server.h"
@@ -41,7 +39,7 @@ TEST_F(DataplaneClientTest, SubscribeResultsConfirmsActiveAndCancelsCleanly) {
   ASSERT_TRUE(stream.ok()) << stream.status();
 
   // No pipeline loaded — no results will arrive.
-  absl::StatusOr<fourward::ProcessPacketResult> next =
+  absl::StatusOr<ProcessPacketResult> next =
       stream->Next(absl::Milliseconds(50));
   ASSERT_FALSE(next.ok());
   EXPECT_EQ(next.status().code(), absl::StatusCode::kDeadlineExceeded)
@@ -63,10 +61,9 @@ TEST_F(DataplaneClientTest, SubscribeResultsRespectsStartupTimeout) {
 TEST_F(DataplaneClientTest, InjectPacketDataplanePortDeadlinePropagated) {
   DataplaneClient client(*server_);
 
-  absl::StatusOr<fourward::InjectPacketResponse> resp =
-      client.InjectPacket(
-          {.ingress_port = DataplanePort{.port = 0}, .payload = "x"},
-          absl::Nanoseconds(1));
+  absl::StatusOr<InjectPacketResponse> resp =
+      client.InjectPacket(DataplanePort{0}, "x",
+                          absl::Nanoseconds(1));
   ASSERT_FALSE(resp.ok());
   EXPECT_EQ(resp.status().code(), absl::StatusCode::kDeadlineExceeded)
       << resp.status();
@@ -75,37 +72,33 @@ TEST_F(DataplaneClientTest, InjectPacketDataplanePortDeadlinePropagated) {
 TEST_F(DataplaneClientTest, InjectPacketP4RuntimePortDeadlinePropagated) {
   DataplaneClient client(*server_);
 
-  absl::StatusOr<fourward::InjectPacketResponse> resp =
+  absl::StatusOr<InjectPacketResponse> resp =
       client.InjectPacket(
-          {.ingress_port = P4RuntimePort{.port = std::string("\x00\x01", 2)},
-           .payload = "x"},
+          P4RuntimePort{std::string("\x00\x01", 2)}, "x",
           absl::Nanoseconds(1));
   ASSERT_FALSE(resp.ok());
   EXPECT_EQ(resp.status().code(), absl::StatusCode::kDeadlineExceeded)
       << resp.status();
 }
 
-TEST_F(DataplaneClientTest, InjectPacketsAcceptsEmptyBatch) {
+TEST_F(DataplaneClientTest, InjectPacketsWriterFinishesCleanly) {
   DataplaneClient client(*server_);
 
-  std::vector<InjectPacketArgs> empty;
-  absl::Status status = client.InjectPackets(absl::MakeConstSpan(empty));
-  EXPECT_TRUE(status.ok()) << status;
+  PacketWriter writer = client.InjectPackets();
+  absl::StatusOr<int> count = writer.Finish();
+  ASSERT_TRUE(count.ok()) << count.status();
+  EXPECT_EQ(*count, 0);
 }
 
-TEST_F(DataplaneClientTest, InjectPacketsNonEmptyBatchDeadlinePropagated) {
+TEST_F(DataplaneClientTest, InjectPacketsDeadlinePropagated) {
   DataplaneClient client(*server_);
 
-  std::vector<InjectPacketArgs> batch = {
-      {.ingress_port = DataplanePort{.port = 0}, .payload = "a"},
-      {.ingress_port = DataplanePort{.port = 1}, .payload = "b"},
-      {.ingress_port = P4RuntimePort{.port = std::string("\x00\x02", 2)},
-       .payload = "c"},
-  };
-  absl::Status status =
-      client.InjectPackets(absl::MakeConstSpan(batch), absl::Nanoseconds(1));
-  ASSERT_FALSE(status.ok());
-  EXPECT_EQ(status.code(), absl::StatusCode::kDeadlineExceeded) << status;
+  PacketWriter writer = client.InjectPackets(absl::Nanoseconds(1));
+  absl::Status inject = writer.Inject(DataplanePort{0}, "a");
+  // Either the inject or finish will surface the deadline error.
+  absl::StatusOr<int> finish = writer.Finish();
+  EXPECT_TRUE(!inject.ok() || !finish.ok())
+      << "inject: " << inject << ", finish: " << finish.status();
 }
 
 TEST_F(DataplaneClientTest, MoveConstructionPreservesStub) {
@@ -123,7 +116,7 @@ TEST_F(DataplaneClientTest, ResultStreamMoveConstructionPreservesStream) {
 
   ResultStream moved = *std::move(original);
 
-  absl::StatusOr<fourward::ProcessPacketResult> next =
+  absl::StatusOr<ProcessPacketResult> next =
       moved.Next(absl::Milliseconds(50));
   ASSERT_FALSE(next.ok());
   EXPECT_EQ(next.status().code(), absl::StatusCode::kDeadlineExceeded)

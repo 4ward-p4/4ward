@@ -12,7 +12,6 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -134,11 +133,8 @@ class DataplaneClientE2ETest : public ::testing::Test {
 TEST_F(DataplaneClientE2ETest, InjectPacketReturnsTraceAndOutputs) {
   DataplaneClient client(*server_);
 
-  absl::StatusOr<fourward::InjectPacketResponse> resp =
-      client.InjectPacket({
-          .ingress_port = DataplanePort{.port = 0},
-          .payload = MakeEthernetFrame(),
-      });
+  absl::StatusOr<InjectPacketResponse> resp =
+      client.InjectPacket(DataplanePort{0}, MakeEthernetFrame());
   ASSERT_TRUE(resp.ok()) << resp.status();
   EXPECT_THAT(*resp, ForwardsTo(1));
   EXPECT_FALSE(resp->trace().DebugString().empty());
@@ -151,15 +147,11 @@ TEST_F(DataplaneClientE2ETest, SubscribeResultsDeliversInjectedPacket) {
   ASSERT_TRUE(stream.ok()) << stream.status();
 
   // Inject via the unary RPC; the result should also appear on the stream.
-  absl::StatusOr<fourward::InjectPacketResponse> inject =
-      client.InjectPacket({
-          .ingress_port = DataplanePort{.port = 0},
-          .payload = MakeEthernetFrame(),
-      });
+  absl::StatusOr<InjectPacketResponse> inject =
+      client.InjectPacket(DataplanePort{0}, MakeEthernetFrame());
   ASSERT_TRUE(inject.ok()) << inject.status();
 
-  absl::StatusOr<fourward::ProcessPacketResult> result =
-      stream->Next();
+  absl::StatusOr<ProcessPacketResult> result = stream->Next();
   ASSERT_TRUE(result.ok()) << result.status();
   EXPECT_THAT(*result, ForwardsTo(1));
   EXPECT_THAT(*result, HasIngress(0));
@@ -171,18 +163,15 @@ TEST_F(DataplaneClientE2ETest, InjectPacketsResultsDeliveredViaSubscribe) {
   absl::StatusOr<ResultStream> stream = client.SubscribeResults();
   ASSERT_TRUE(stream.ok()) << stream.status();
 
-  std::vector<InjectPacketArgs> batch = {
-      {.ingress_port = DataplanePort{.port = 0},
-       .payload = MakeEthernetFrame()},
-      {.ingress_port = DataplanePort{.port = 2},
-       .payload = MakeEthernetFrame()},
-  };
-  absl::Status status = client.InjectPackets(absl::MakeConstSpan(batch));
-  ASSERT_TRUE(status.ok()) << status;
+  PacketWriter writer = client.InjectPackets();
+  ASSERT_TRUE(writer.Inject(DataplanePort{0}, MakeEthernetFrame()).ok());
+  ASSERT_TRUE(writer.Inject(DataplanePort{2}, MakeEthernetFrame()).ok());
+  absl::StatusOr<int> count = writer.Finish();
+  ASSERT_TRUE(count.ok()) << count.status();
+  ASSERT_EQ(*count, 2);
 
-  for (int i = 0; i < 2; ++i) {
-    absl::StatusOr<fourward::ProcessPacketResult> result =
-        stream->Next();
+  for (int i = 0; i < *count; ++i) {
+    absl::StatusOr<ProcessPacketResult> result = stream->Next();
     ASSERT_TRUE(result.ok()) << "result " << i << ": " << result.status();
     EXPECT_THAT(*result, ForwardsTo(1));
   }
@@ -194,11 +183,10 @@ TEST_F(DataplaneClientE2ETest,
 
   // The passthrough program has no @p4runtime_translation on its port type.
   // Injecting via P4RuntimePort must fail with FAILED_PRECONDITION.
-  absl::StatusOr<fourward::InjectPacketResponse> resp =
-      client.InjectPacket({
-          .ingress_port = P4RuntimePort{.port = std::string("\x00\x01", 2)},
-          .payload = MakeEthernetFrame(),
-      });
+  absl::StatusOr<InjectPacketResponse> resp =
+      client.InjectPacket(
+          P4RuntimePort{std::string("\x00\x01", 2)},
+          MakeEthernetFrame());
   ASSERT_FALSE(resp.ok());
   EXPECT_EQ(resp.status().code(), absl::StatusCode::kFailedPrecondition)
       << resp.status();

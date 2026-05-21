@@ -11,31 +11,31 @@
 //   ASSIGN_OR_RETURN(fourward::FourwardServer server,
 //                    fourward::FourwardServer::Start());
 //
-//   // Use default 10s timeout for everything:
 //   fourward::DataplaneClient dataplane(server);
 //
-//   // Or configure a longer default for slow networks:
-//   fourward::DataplaneClient dataplane(server, absl::Seconds(30));
-//
 //   ASSIGN_OR_RETURN(auto response,
-//                    dataplane.InjectPacket({
-//                        .ingress_port = fourward::DataplanePort{.port = 0},
-//                        .payload = "...",
-//                    }));
+//                    dataplane.InjectPacket(
+//                        fourward::DataplanePort{0}, "..."));
 //
 //   // Override timeout per-call when needed:
-//   dataplane.InjectPacket(args, absl::Seconds(1));
+//   dataplane.InjectPacket(fourward::DataplanePort{0}, "...",
+//                          absl::Seconds(1));
+//
+//   // Streaming injection:
+//   auto writer = dataplane.InjectPackets();
+//   writer.Inject(fourward::DataplanePort{0}, payload1);
+//   writer.Inject(fourward::DataplanePort{1}, payload2);
+//   ASSIGN_OR_RETURN(int count, writer.Finish());
 
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
-#include <variant>
+#include <string_view>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/time/time.h"
-#include "absl/types/span.h"
 #include "fourward_cc/fourward_server.h"
 #include "grpc/dataplane.grpc.pb.h"
 #include "grpc/dataplane.pb.h"
@@ -52,11 +52,29 @@ struct P4RuntimePort {
   std::string port;
 };
 
-// Mirrors fourward.InjectPacketRequest with the proto's
-// `ingress_port` oneof modeled as a std::variant.
-struct InjectPacketArgs {
-  std::variant<DataplanePort, P4RuntimePort> ingress_port;
-  std::string payload;
+// RAII handle for a client-streaming InjectPackets RPC. Destructor calls
+// Finish() if not already called.
+//
+// Not thread-safe: callers must serialize Inject/Finish calls.
+class PacketWriter {
+ public:
+  ~PacketWriter();
+  PacketWriter(PacketWriter&&);
+  PacketWriter& operator=(PacketWriter&&);
+  PacketWriter(const PacketWriter&) = delete;
+  PacketWriter& operator=(const PacketWriter&) = delete;
+
+  absl::Status Inject(DataplanePort ingress_port, std::string_view payload);
+  absl::Status Inject(P4RuntimePort ingress_port, std::string_view payload);
+
+  // Signals end-of-stream and returns the number of packets injected.
+  absl::StatusOr<int> Finish();
+
+ private:
+  friend class DataplaneClient;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+  explicit PacketWriter(std::unique_ptr<Impl> impl);
 };
 
 // RAII handle for an open SubscribeResults stream. Destructor cancels and
@@ -73,7 +91,7 @@ class ResultStream {
 
   // Blocks up to `timeout` for the next result. Returns
   // DeadlineExceededError on timeout, CancelledError when the stream ends.
-  absl::StatusOr<fourward::ProcessPacketResult> Next(
+  absl::StatusOr<ProcessPacketResult> Next(
       absl::Duration timeout = absl::Seconds(10));
 
  private:
@@ -84,16 +102,16 @@ class ResultStream {
 };
 
 // Ergonomic C++ client for the 4ward Dataplane gRPC service. Wraps the
-// InjectPacket, InjectPackets, and SubscribeResults RPCs; names mirror
-// dataplane.proto one-to-one. RegisterPrePacketHook is intentionally not
-// wrapped — use the raw stub for advanced use cases.
+// InjectPacket, InjectPackets, SubscribeResults, and ReproduceTrace RPCs;
+// names mirror dataplane.proto one-to-one. RegisterPrePacketHook is
+// intentionally not wrapped — use the raw stub for advanced use cases.
 //
 // Thread-safe: each method uses its own ClientContext.
 class DataplaneClient {
  public:
   explicit DataplaneClient(const FourwardServer& server,
                            absl::Duration default_timeout = absl::Seconds(10));
-  explicit DataplaneClient(std::unique_ptr<fourward::Dataplane::Stub> stub,
+  explicit DataplaneClient(std::unique_ptr<Dataplane::Stub> stub,
                            absl::Duration default_timeout = absl::Seconds(10));
 
   ~DataplaneClient();
@@ -102,19 +120,23 @@ class DataplaneClient {
   DataplaneClient(const DataplaneClient&) = delete;
   DataplaneClient& operator=(const DataplaneClient&) = delete;
 
-  absl::StatusOr<fourward::InjectPacketResponse> InjectPacket(
-      const InjectPacketArgs& args,
+  absl::StatusOr<InjectPacketResponse> InjectPacket(
+      DataplanePort ingress_port, std::string_view payload,
+      std::optional<absl::Duration> timeout = std::nullopt);
+  absl::StatusOr<InjectPacketResponse> InjectPacket(
+      P4RuntimePort ingress_port, std::string_view payload,
       std::optional<absl::Duration> timeout = std::nullopt);
 
-  // Results are delivered via SubscribeResults, not in the response.
-  absl::Status InjectPackets(
-      absl::Span<const InjectPacketArgs> args,
+  // Returns a writer for streaming packet injection. Results are delivered
+  // via SubscribeResults, not inline.
+  PacketWriter InjectPackets(
       std::optional<absl::Duration> timeout = std::nullopt);
 
-  // Inject a packet and return a self-contained Reproducer for the
-  // resulting trace.
-  absl::StatusOr<fourward::Reproducer> ReproduceTrace(
-      const InjectPacketArgs& args,
+  absl::StatusOr<Reproducer> ReproduceTrace(
+      DataplanePort ingress_port, std::string_view payload,
+      std::optional<absl::Duration> timeout = std::nullopt);
+  absl::StatusOr<Reproducer> ReproduceTrace(
+      P4RuntimePort ingress_port, std::string_view payload,
       std::optional<absl::Duration> timeout = std::nullopt);
 
   // Blocks until the server confirms the subscription is active. The
@@ -127,7 +149,7 @@ class DataplaneClient {
     return override.value_or(default_timeout_);
   }
 
-  std::unique_ptr<fourward::Dataplane::Stub> stub_;
+  std::unique_ptr<Dataplane::Stub> stub_;
   absl::Duration default_timeout_;
 };
 
