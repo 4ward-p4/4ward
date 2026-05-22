@@ -462,6 +462,52 @@ class SaiP4E2ETest {
     assertBytesEqual("PacketIn dst_mac", UNICAST_MAC, packetIn.payload.toByteArray(), 0)
     assertBytesEqual("PacketIn src_mac", SRC_MAC, packetIn.payload.toByteArray(), MAC_LEN)
     assertTrue("PacketIn should have metadata", packetIn.metadataCount > 0)
+
+    // Metadata port values should be P4RT-translated strings, not raw dataplane bytes.
+    for (meta in packetIn.metadataList) {
+      val metaName = findPacketInMetadataName(meta.metadataId)
+      if (metaName == "ingress_port" || metaName == "target_egress_port") {
+        val str = meta.value.toStringUtf8()
+        assertTrue(
+          "PacketIn $metaName should be a valid decimal string, got bytes: ${meta.value}",
+          str.all { it.isDigit() },
+        )
+      }
+    }
+  }
+
+  @Test
+  fun `PacketIn enrichment matches P4Runtime stream PacketIn`() {
+    installRoutingChain()
+    installAclEntry(findAction("acl_trap"))
+    installCopyToCpuCloneSession()
+
+    // Inject via InjectPacket with a P4Runtime stream open. The same injection produces
+    // both the enriched OutputPacket (in the InjectPacket response) and a PacketIn on the
+    // stream — letting us compare the two representations from the exact same packet.
+    val packet = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
+    harness.openStream().use { session ->
+      session.arbitrate()
+      val result = harness.injectPacket(ingressPort = 0, payload = packet)
+
+      val cpuOutput =
+        result.possibleOutcomesList
+          .flatMap { it.packetsList }
+          .find { it.dataplaneEgressPort == CPU_PORT }
+      assertNotNull("expected CPU-port output", cpuOutput)
+      val enrichedPacketIn = cpuOutput!!.packetIn
+
+      val response = session.receiveNext()
+      assertNotNull("stream should deliver PacketIn", response)
+      val streamPacketIn = response!!.packet
+
+      assertEquals("payload should match", streamPacketIn.payload, enrichedPacketIn.payload)
+      assertEquals(
+        "metadata should match",
+        streamPacketIn.metadataList,
+        enrichedPacketIn.metadataList,
+      )
+    }
   }
 
   @Test

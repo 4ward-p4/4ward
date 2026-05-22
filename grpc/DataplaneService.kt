@@ -118,7 +118,6 @@ class DataplaneService(
     @Suppress("TooGenericExceptionCaught")
     try {
       val result = broker.processPacket(ingressPort, payload, request.tag)
-      val pt = translator?.portTranslator
       val codec = pipeline?.packetHeaderCodec
       val enrichedResult =
         EnrichedResult(
@@ -131,7 +130,7 @@ class DataplaneService(
           possibleOutcomes =
             result.possibleOutcomes.map { world ->
               PacketSet.newBuilder()
-                .addAllPackets(world.map { it.toDualEncoded(pt, codec, ingressPort) })
+                .addAllPackets(world.map { it.toDualEncoded(translator, codec, ingressPort) })
                 .build()
             },
         )
@@ -200,7 +199,7 @@ class DataplaneService(
                   subResult.possibleOutcomes.map { world ->
                     PacketSet.newBuilder()
                       .addAllPackets(
-                        world.map { it.toDualEncoded(pt, codec, subResult.ingressPort) }
+                        world.map { it.toDualEncoded(translator, codec, subResult.ingressPort) }
                       )
                       .build()
                   }
@@ -311,11 +310,12 @@ private fun enrichTrace(trace: TraceTree, translator: TypeTranslator?): TraceTre
  * for CPU-port outputs, the decoded [PacketIn][p4.v1.P4RuntimeOuterClass.PacketIn].
  */
 private fun OutputPacket.toDualEncoded(
-  pt: PortTranslator?,
+  translator: TypeTranslator?,
   codec: PacketHeaderCodec?,
   ingressPort: Int,
 ): OutputPacket {
   val rawPayload = payload
+  val pt = translator?.portTranslator
   return OutputPacket.newBuilder()
     .setDataplaneEgressPort(dataplaneEgressPort)
     .setPayload(rawPayload)
@@ -331,11 +331,12 @@ private fun OutputPacket.toDualEncoded(
         setP4RtEgressPort(p4rtPort)
       }
       if (codec != null && dataplaneEgressPort == codec.cpuPort) {
-        setPacketIn(
+        val rawPacketIn =
           p4.v1.P4RuntimeOuterClass.PacketIn.newBuilder()
             .setPayload(codec.stripPacketInHeader(rawPayload))
             .addAllMetadata(codec.buildPacketInMetadata(ingressPort, dataplaneEgressPort))
-        )
+            .build()
+        setPacketIn(translator?.translatePacketIn(rawPacketIn) ?: rawPacketIn)
       }
     }
     .build()
