@@ -316,10 +316,10 @@ kt_jvm_test(
     test_class = "fourward.grpc.BytestringsTest",
     deps = [
         ":grpc",
+        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
         "@fourward_maven//:junit_junit",
-        "//simulator:p4runtime_java_proto",
     ],
 )
 

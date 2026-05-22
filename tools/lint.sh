@@ -84,9 +84,15 @@ else
 fi
 
 echo "Running detekt..."
-bazel run //:detekt -- \
+detekt_output=$(mktemp)
+if ! bazel run //:detekt -- \
   --input "${REPO_ROOT}/simulator,${REPO_ROOT}/grpc,${REPO_ROOT}/e2e_tests,${REPO_ROOT}/cli,${REPO_ROOT}/web" \
   --config "${REPO_ROOT}/detekt.yml" \
-  --build-upon-default-config || rc=1
+  --build-upon-default-config 2>&1 | tee "$detekt_output"; then
+  echo "ERROR: detekt found issues:"
+  cat "$detekt_output"
+  rc=1
+fi
+rm -f "$detekt_output"
 
 exit $rc
