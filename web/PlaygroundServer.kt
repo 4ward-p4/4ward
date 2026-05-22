@@ -41,7 +41,12 @@ fun main(args: Array<String>) {
     DataplaneService(broker) {
       val config = simulator.pipelineConfig ?: return@DataplaneService null
       val tableStore = simulator.tableStore ?: return@DataplaneService null
-      DataplaneService.PipelineSnapshot(config, tableStore, service.typeTranslator)
+      DataplaneService.PipelineSnapshot(
+        config,
+        tableStore,
+        service.typeTranslator,
+        service.packetHeaderCodec,
+      )
     }
   broker.readAllEntities = { service.readAllEntities() }
   broker.readP4Info = { service.p4Info() }

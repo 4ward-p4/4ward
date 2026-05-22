@@ -102,6 +102,10 @@ class P4RuntimeService(
   val typeTranslator: TypeTranslator?
     get() = pipeline?.typeTranslator
 
+  /** Packet header codec for the currently loaded pipeline, or null if unavailable. */
+  val packetHeaderCodec: PacketHeaderCodec?
+    get() = pipeline?.packetHeaderCodec
+
   // Only accessed under writeMutex; @Volatile not needed.
   private var savedPipeline: PipelineState? = null
 

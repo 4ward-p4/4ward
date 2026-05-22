@@ -438,6 +438,43 @@ class SaiP4E2ETest {
   }
 
   @Test
+  fun `CPU-port output has PacketIn enrichment with stripped payload and metadata`() {
+    installRoutingChain()
+    installAclEntry(findAction("acl_trap"))
+    installCopyToCpuCloneSession()
+
+    val originalPacket = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
+    val result = harness.injectPacket(ingressPort = 0, payload = originalPacket)
+
+    val cpuOutput =
+      result.possibleOutcomesList
+        .flatMap { it.packetsList }
+        .find { it.dataplaneEgressPort == CPU_PORT }
+    assertNotNull("expected CPU-port output from ACL trap", cpuOutput)
+    assertTrue("CPU-port output should have packet_in", cpuOutput!!.hasPacketIn())
+
+    val packetIn = cpuOutput.packetIn
+    assertEquals(
+      "PacketIn payload should be the original packet (controller header stripped)",
+      originalPacket.size,
+      packetIn.payload.size(),
+    )
+    assertBytesEqual("PacketIn dst_mac", UNICAST_MAC, packetIn.payload.toByteArray(), 0)
+    assertBytesEqual("PacketIn src_mac", SRC_MAC, packetIn.payload.toByteArray(), MAC_LEN)
+    assertTrue("PacketIn should have metadata", packetIn.metadataCount > 0)
+  }
+
+  @Test
+  fun `non-CPU-port output has no PacketIn enrichment`() {
+    installForwardingEntries()
+    val packet = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
+    val result = harness.injectPacket(ingressPort = 0, payload = packet)
+
+    val output = result.possibleOutcomesList.single().getPackets(0)
+    assertTrue("non-CPU output should not have packet_in", !output.hasPacketIn())
+  }
+
+  @Test
   fun `deprecated Replica egress_port with egress_rid delivers PacketIn via CPU`() {
     installRoutingChain()
     installAclEntry(findAction("acl_trap"))

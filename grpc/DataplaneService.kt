@@ -47,6 +47,7 @@ class DataplaneService(
     val config: PipelineConfig,
     val tableStore: TableStore,
     val typeTranslator: TypeTranslator?,
+    val packetHeaderCodec: PacketHeaderCodec?,
   )
 
   override suspend fun injectPacket(request: InjectPacketRequest): InjectPacketResponse {
@@ -118,6 +119,7 @@ class DataplaneService(
     try {
       val result = broker.processPacket(ingressPort, payload, request.tag)
       val pt = translator?.portTranslator
+      val codec = pipeline?.packetHeaderCodec
       val enrichedResult =
         EnrichedResult(
           ingressPort = ingressPort,
@@ -128,7 +130,9 @@ class DataplaneService(
           trace = enrichTrace(result.trace, translator),
           possibleOutcomes =
             result.possibleOutcomes.map { world ->
-              PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()
+              PacketSet.newBuilder()
+                .addAllPackets(world.map { it.toDualEncoded(pt, codec, ingressPort) })
+                .build()
             },
         )
       return enrichedResult to pipeline
@@ -175,8 +179,10 @@ class DataplaneService(
       val handle =
         broker.subscribe { subResult ->
           try {
-            val translator = pipelineSnapshot()?.typeTranslator
+            val snapshot = pipelineSnapshot()
+            val translator = snapshot?.typeTranslator
             val pt = translator?.portTranslator
+            val codec = snapshot?.packetHeaderCodec
             val result =
               ProcessPacketResultProto.newBuilder()
                 .setInputPacket(
@@ -192,7 +198,11 @@ class DataplaneService(
                 )
                 .addAllPossibleOutcomes(
                   subResult.possibleOutcomes.map { world ->
-                    PacketSet.newBuilder().addAllPackets(world.map { it.toDualEncoded(pt) }).build()
+                    PacketSet.newBuilder()
+                      .addAllPackets(
+                        world.map { it.toDualEncoded(pt, codec, subResult.ingressPort) }
+                      )
+                      .build()
                   }
                 )
                 .setTrace(enrichTrace(subResult.trace, translator))
@@ -297,14 +307,18 @@ private fun enrichTrace(trace: TraceTree, translator: TypeTranslator?): TraceTre
   translator?.let { TraceEnricher.enrich(trace, it) } ?: trace
 
 /**
- * Returns a copy of this [OutputPacket] enriched with the P4Runtime port ID.
- *
- * When a [PortTranslator] is present, every egress port must have a reverse mapping — either from
- * an explicit `@p4runtime_translation_mappings` entry or auto-allocated by a prior P4Runtime Write.
+ * Returns a copy of this [OutputPacket] enriched with P4Runtime fields: the translated port ID, and
+ * for CPU-port outputs, the decoded [PacketIn][p4.v1.P4RuntimeOuterClass.PacketIn].
  */
-private fun OutputPacket.toDualEncoded(pt: PortTranslator?): OutputPacket =
-  OutputPacket.newBuilder()
+private fun OutputPacket.toDualEncoded(
+  pt: PortTranslator?,
+  codec: PacketHeaderCodec?,
+  ingressPort: Int,
+): OutputPacket {
+  val rawPayload = payload
+  return OutputPacket.newBuilder()
     .setDataplaneEgressPort(dataplaneEgressPort)
+    .setPayload(rawPayload)
     .apply {
       if (pt != null) {
         val p4rtPort =
@@ -316,6 +330,13 @@ private fun OutputPacket.toDualEncoded(pt: PortTranslator?): OutputPacket =
             )
         setP4RtEgressPort(p4rtPort)
       }
+      if (codec != null && dataplaneEgressPort == codec.cpuPort) {
+        setPacketIn(
+          p4.v1.P4RuntimeOuterClass.PacketIn.newBuilder()
+            .setPayload(codec.stripPacketInHeader(rawPayload))
+            .addAllMetadata(codec.buildPacketInMetadata(ingressPort, dataplaneEgressPort))
+        )
+      }
     }
-    .setPayload(payload)
     .build()
+}
