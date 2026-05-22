@@ -507,6 +507,68 @@ class DataplaneServiceTest {
     }
   }
 
+  @Test
+  @Suppress("MagicNumber")
+  fun `PacketIn enrichment preserves payload with non-byte-aligned controller header`() {
+    // 5-bit @controller_header("packet_in") — not byte-aligned. Stripping must use bit-level
+    // extraction, not byte slicing, to avoid shifting the payload or introducing pad bits.
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      @controller_header("packet_out")
+      header packet_out_t { bit<5> tag; }
+
+      @controller_header("packet_in")
+      header packet_in_t { bit<5> tag; }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { packet_out_t pkt_out; packet_in_t pkt_in; ethernet_t eth; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start { pkt.extract(hdr.eth); transition accept; }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = 510; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { h.pkt_in.setValid(); h.pkt_in.tag = 0; }
+      }
+      control D(packet_out pkt, in headers_t h) {
+        apply { pkt.emit(h.pkt_in); pkt.emit(h.eth); }
+      }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val testHarness = FourwardTestHarness()
+    testHarness.use {
+      it.loadPipeline(config)
+      val payload = buildEthernetFrame(etherType = 0x0806)
+      val response = it.injectPacket(ingressPort = 0, payload = payload)
+
+      val output = response.possibleOutcomesList.single().getPackets(0)
+      assertEquals("should egress on CPU port", 510, output.dataplaneEgressPort)
+      assertTrue("should have packet_in", output.hasPacketIn())
+
+      assertEquals(
+        "PacketIn payload size should match original (no padding, no missing bits)",
+        payload.size,
+        output.packetIn.payload.size(),
+      )
+      assertEquals(
+        "PacketIn payload should be byte-for-byte identical to original",
+        ByteString.copyFrom(payload),
+        output.packetIn.payload,
+      )
+    }
+  }
+
   // =========================================================================
   // Pre-packet hook
   // =========================================================================
