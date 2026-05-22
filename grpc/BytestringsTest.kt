@@ -3,12 +3,12 @@ package fourward.grpc
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import io.grpc.StatusException
-import p4.v1.P4RuntimeOuterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import p4.v1.P4RuntimeOuterClass
 
 /**
  * Spec-conformance tests for [requireFitsInBitwidth] and [canonicalize].

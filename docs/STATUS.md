@@ -6,6 +6,87 @@
 > Reverse-chronological log. Add new entries at the top (below this header).
 > See [ROADMAP.md](ROADMAP.md) for the big picture.
 
+## 2026-05-22
+
+|                | Delta      | Total     |
+|----------------|------------|-----------|
+| PRs merged     | 188        | 623       |
+| Kotlin prod    | +2.4k      | 16.0k    |
+| Kotlin test    | +7.1k      | 32.7k    |
+| C++ prod       | +2.9k      | 4.5k     |
+| C++ test       | -0.3k      | 1.0k     |
+| Proto          | +0.1k      | 1.2k     |
+| Web frontend   | +0         | 5.2k     |
+| **Total**      | **+12.2k** | **60.6k**|
+
+**4ward is ready for DVaaS. We shipped a C++ embedding API, complete
+oracle predictions including PacketIn, P4Runtime differential testing
+against BMv2, and made the whole thing build in google3. 188 PRs in
+7 weeks.**
+
+### C++ embedding API
+
+**Starting a 4ward instance is as easy as creating a C++ object.** The
+Kotlin runtime, gRPC channels, subprocess lifecycle — all invisible.
+You call methods, you get results. A composable gtest matcher library
+makes assertions equally clean: `Forwards()`, `OnPort(3)`,
+`PacketsByP4RuntimePort` compose naturally, and C++20 concepts keep
+error messages readable. DVaaS tests read like specifications.
+
+### Complete oracle predictions
+
+**Inject a packet, get back everything — including what the controller
+would see.** CPU-port outputs now carry a decoded PacketIn, byte-for-byte
+identical to what the P4Runtime stream delivers. No async coordination,
+no guessing when you've received all messages — one synchronous response
+with the complete prediction.
+
+When the oracle disagrees with hardware, `GetReproducer` distills the
+failure into a minimal regression test: one pipeline, a handful of
+table entries, one packet, one expected outcome. No cluster, no
+topology, no controller.
+
+### Simulator correctness
+
+**You can trust 4ward on real SAI P4 programs, not just toy examples.**
+We fixed a cluster of interacting clone bugs that made the ACL
+trap→clone→CPU path — the most common PacketIn mechanism — unreliable.
+Stale data leaking across clone boundaries, multi-replica sessions
+dropping replicas, metadata preservation silently losing fields. Each
+invisible in isolation; together they compounded. We also rewrote
+parser/deparser serialization at the bit level, fixing silent
+corruption for non-byte-aligned controller headers.
+
+### P4Runtime fidelity
+
+**What you write is what you read back — and we can prove it matches
+BMv2.** Canonical bytestring encoding (P4RT §8.3) ensures round-trip
+consistency across every surface. A new differential testing harness
+runs the same operations against 4ward and BMv2 side-by-side, catching
+semantic divergence that self-consistent unit tests miss.
+
+### API and build polish
+
+**One namespace, one naming convention, builds everywhere.** We
+flattened proto packages, renamed directories to reflect scope, made
+all oneof dispatch exhaustive (missing branches are compile errors),
+and committed mechanical formatting. On the build side, 55 PRs made
+4ward consumable via the Bazel Central Registry and importable into
+google3 via Copybara.
+
+### Performance
+
+**Large test suites finish twice as fast.** Lock-free forwarding
+snapshots, fork-point resume, and systematic allocation reduction
+doubled parallel throughput.
+
+### What's next
+
+- **google3 DVaaS integration** — the building blocks are ready; the
+  actual wiring is happening internally at Google
+- **P4Runtime differential testing** — expand the BMv2 comparison
+  corpus
+
 ## 2026-03-30
 
 |                | Delta      | Total     |
