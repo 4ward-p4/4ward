@@ -3,6 +3,7 @@ package fourward.grpc
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import io.grpc.StatusException
+import p4.v1.P4RuntimeOuterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
@@ -176,6 +177,150 @@ class BytestringsTest {
         )
       }
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // canonicalizeMatch — RANGE and OPTIONAL branches
+  // ---------------------------------------------------------------------------
+
+  @Test
+  fun `canonicalizeMatch strips leading zeros from RANGE low and high`() {
+    val match =
+      P4RuntimeOuterClass.FieldMatch.newBuilder()
+        .setFieldId(1)
+        .setRange(
+          P4RuntimeOuterClass.FieldMatch.Range.newBuilder()
+            .setLow(bytes("\\x00\\x0A"))
+            .setHigh(bytes("\\x00\\xFF"))
+        )
+        .build()
+
+    val result = canonicalizeMatch(match)
+
+    assertEquals(bytes("\\x0A"), result.range.low)
+    assertEquals(bytes("\\xFF"), result.range.high)
+  }
+
+  @Test
+  fun `canonicalizeMatch returns same instance for already-canonical RANGE`() {
+    val match =
+      P4RuntimeOuterClass.FieldMatch.newBuilder()
+        .setFieldId(1)
+        .setRange(
+          P4RuntimeOuterClass.FieldMatch.Range.newBuilder()
+            .setLow(bytes("\\x0A"))
+            .setHigh(bytes("\\xFF"))
+        )
+        .build()
+
+    assertSame(match, canonicalizeMatch(match))
+  }
+
+  @Test
+  fun `canonicalizeMatch strips leading zeros from OPTIONAL value`() {
+    val match =
+      P4RuntimeOuterClass.FieldMatch.newBuilder()
+        .setFieldId(1)
+        .setOptional(
+          P4RuntimeOuterClass.FieldMatch.Optional.newBuilder().setValue(bytes("\\x00\\x42"))
+        )
+        .build()
+
+    val result = canonicalizeMatch(match)
+
+    assertEquals(bytes("\\x42"), result.optional.value)
+  }
+
+  @Test
+  fun `canonicalizeMatch returns same instance for already-canonical OPTIONAL`() {
+    val match =
+      P4RuntimeOuterClass.FieldMatch.newBuilder()
+        .setFieldId(1)
+        .setOptional(P4RuntimeOuterClass.FieldMatch.Optional.newBuilder().setValue(bytes("\\x42")))
+        .build()
+
+    assertSame(match, canonicalizeMatch(match))
+  }
+
+  // ---------------------------------------------------------------------------
+  // canonicalizeTableAction — ACTION_PROFILE_ACTION_SET branch
+  // ---------------------------------------------------------------------------
+
+  @Test
+  fun `canonicalizeBytestrings canonicalizes action profile action set params`() {
+    val actionSet =
+      P4RuntimeOuterClass.ActionProfileActionSet.newBuilder()
+        .addActionProfileActions(
+          P4RuntimeOuterClass.ActionProfileAction.newBuilder()
+            .setAction(
+              P4RuntimeOuterClass.Action.newBuilder()
+                .setActionId(1)
+                .addParams(
+                  P4RuntimeOuterClass.Action.Param.newBuilder()
+                    .setParamId(1)
+                    .setValue(bytes("\\x00\\x0A"))
+                )
+            )
+            .setWeight(1)
+        )
+        .build()
+
+    val entry =
+      P4RuntimeOuterClass.TableEntry.newBuilder()
+        .setTableId(1)
+        .setAction(
+          P4RuntimeOuterClass.TableAction.newBuilder().setActionProfileActionSet(actionSet)
+        )
+        .build()
+
+    val update =
+      P4RuntimeOuterClass.Update.newBuilder()
+        .setEntity(P4RuntimeOuterClass.Entity.newBuilder().setTableEntry(entry))
+        .build()
+
+    val result = canonicalizeBytestrings(update)
+    val resultParam =
+      result.entity.tableEntry.action.actionProfileActionSet
+        .getActionProfileActions(0)
+        .action
+        .getParams(0)
+
+    assertEquals(bytes("\\x0A"), resultParam.value)
+  }
+
+  @Test
+  fun `canonicalizeBytestrings returns same instance for already-canonical action set`() {
+    val actionSet =
+      P4RuntimeOuterClass.ActionProfileActionSet.newBuilder()
+        .addActionProfileActions(
+          P4RuntimeOuterClass.ActionProfileAction.newBuilder()
+            .setAction(
+              P4RuntimeOuterClass.Action.newBuilder()
+                .setActionId(1)
+                .addParams(
+                  P4RuntimeOuterClass.Action.Param.newBuilder()
+                    .setParamId(1)
+                    .setValue(bytes("\\x0A"))
+                )
+            )
+            .setWeight(1)
+        )
+        .build()
+
+    val entry =
+      P4RuntimeOuterClass.TableEntry.newBuilder()
+        .setTableId(1)
+        .setAction(
+          P4RuntimeOuterClass.TableAction.newBuilder().setActionProfileActionSet(actionSet)
+        )
+        .build()
+
+    val update =
+      P4RuntimeOuterClass.Update.newBuilder()
+        .setEntity(P4RuntimeOuterClass.Entity.newBuilder().setTableEntry(entry))
+        .build()
+
+    assertSame(update, canonicalizeBytestrings(update))
   }
 
   // ---------------------------------------------------------------------------

@@ -319,6 +319,7 @@ kt_jvm_test(
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
         "@fourward_maven//:junit_junit",
+        "//simulator:p4runtime_java_proto",
     ],
 )
 
