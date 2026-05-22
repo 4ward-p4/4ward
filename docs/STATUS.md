@@ -6,6 +6,137 @@
 > Reverse-chronological log. Add new entries at the top (below this header).
 > See [ROADMAP.md](ROADMAP.md) for the big picture.
 
+## 2026-05-22
+
+|                | Delta      | Total     |
+|----------------|------------|-----------|
+| PRs merged     | 188        | 623       |
+| Kotlin prod    | +2.4k      | 16.0k    |
+| Kotlin test    | +7.1k      | 32.7k    |
+| C++ prod       | +2.9k      | 4.5k     |
+| C++ test       | -0.3k      | 1.0k     |
+| Proto          | +0.1k      | 1.2k     |
+| Web frontend   | +0         | 5.2k     |
+| **Total**      | **+12.2k** | **60.6k**|
+
+**4ward is now embeddable, DVaaS-ready, and google3-compatible. We
+shipped a C++ embedding API with composable gtest matchers, P4Runtime
+differential testing against BMv2, and PacketIn prediction — closing
+the last gaps for DVaaS integration.**
+
+### C++ embedding API and matcher library
+
+**DVaaS tests now read like specifications, not proto boilerplate.**
+DVaaS consumers are C++, so we built them a proper API. The new
+`fourward_cc` library (#570, #607, #689) wraps the Dataplane gRPC
+service with an ergonomic C++ interface: overloaded ingress port types,
+a streaming `PacketWriter` for batch injection, and — our favorite
+piece — a composable gtest matcher library (#610, #638, #652, #661).
+
+The matchers compose naturally: `Forwards()` checks that a packet
+exits, `OnPort(3)` pins the egress port, `PacketsByDataplanePort` and
+`PacketsByP4RuntimePort` group outputs for multi-port assertions.
+Templates are constrained with a C++20 `PacketResult` concept so type
+mismatches produce clear errors, not template novels.
+
+### DVaaS integration — reproducer and PacketIn prediction
+
+**The oracle can now make complete, self-contained predictions.** We
+closed the two remaining gaps:
+
+CPU-port outputs now carry a decoded `packet_in` field (#700) —
+byte-for-byte identical to what the P4Runtime stream would deliver.
+This was a satisfying design problem: the naive approach (subscribing
+to the P4Runtime stream) is impractical — it's async, has no
+end-of-responses delimiter, and loses the per-world structure that
+makes 4ward's predictions exhaustive. Instead, we enrich `OutputPacket`
+directly at the service boundary, reusing the same codec and translator
+the stream path uses.
+
+`GetReproducer` (#674, #690) returns a self-contained bundle —
+pipeline config, relevant entities, input packet, trace, and possible
+outcomes. When the oracle disagrees with hardware, we can distill the
+failure down to a minimal regression test: one pipeline, a handful of
+table entries, one packet, one expected outcome. No cluster, no
+topology, no controller — just the essentials needed to reproduce the
+bug and prevent it from recurring.
+
+Also: `InjectPacketRequest.tag` (#691) for request-response correlation
+in batch workflows.
+
+### Simulator correctness
+
+**Cloning actually works now.** We fixed a cluster of interacting bugs
+that made clone sessions unreliable for real programs: `setInvalid()`
+wasn't zeroing field values (#564), so stale data leaked across clone
+boundaries. Multi-replica clone sessions silently dropped all but the
+first replica (#672). `egress_rid` wasn't set from the replica instance
+(#628) — breaking packet_io.p4's ability to distinguish clone types.
+`@field_list` enum resolution (#669) was broken, so clone/resubmit
+metadata preservation silently lost fields. These bugs compounded: each
+was invisible in isolation but together they made SAI P4's ACL
+trap→clone→CPU path unreliable.
+
+We also fixed bit-level parser and deparser serialization (#645) —
+the previous byte-level implementation silently corrupted packets with
+non-byte-aligned `@controller_header` fields.
+
+### P4Runtime — canonical bytestrings and differential testing
+
+**Round-trip fidelity is now proven, not assumed.** We implemented
+P4Runtime spec §8.3 canonical bytestring encoding (#594) and hardened
+every surface over seven follow-ups. Getting this wrong is subtle: a
+Write succeeds but the subsequent Read returns different bytes, breaking
+assumptions every controller makes. We tightened translation keys
+(#633), bit-level PacketIO serialization (#645, #653), and added
+pack→extract round-trip property tests (#658).
+
+A new differential testing harness (#599, #649) runs the same P4Runtime
+operations against both 4ward and BMv2 and compares results — catching
+semantic divergence that unit tests miss. 10 scenarios so far covering
+table CRUD, translation, PRE entities, and PacketIO.
+
+### API polish
+
+**The project now looks like one coherent system, not a collection of
+experiments.** We flattened all proto packages to `package fourward`
+(#620) — the nested `simulator.v1` / `p4_simulator.v1` namespaces
+added ceremony without protection. Renamed `p4runtime/` → `grpc/` and
+`p4runtime_cc/` → `fourward_cc/` (#621) to reflect actual scope — both
+directories house more than just P4Runtime. Switched all proto oneof
+dispatch to exhaustive `when (msg.kindCase)` (#560) so missing branches
+are compile errors, not silent fallthrough. Tightened lint thresholds
+across detekt, clang-tidy, and cpplint (#553), and committed a
+`.clang-format` (#694) so C++ style is enforced mechanically.
+
+### Build system — BCR-consumable, google3-compatible
+
+**4ward is useless if nobody can build it.** This was the largest
+effort of the cycle: 55 PRs (31% of all work) to make 4ward consumable
+both externally via the Bazel Central Registry and internally via
+Copybara import into google3. Key wins: prebuilt protoc (#641, saving
+~5 min build time), native Z3 build (#698), Runfiles library migration
+(10 PRs), `cc_shim` hardening for hermetic sandboxes (6 PRs), Bazel 8
+migration (#593), `strict_kotlin_deps` (#512).
+
+### Performance — lock-free dataplane, ~2× parallel throughput
+
+**We doubled parallel throughput by chasing DRAM bandwidth, not locks.**
+A proper design-first investigation: north star (#505), three phases of
+profiling (#506, #509, #535), then targeted fixes. The bottleneck
+turned out to be DRAM bandwidth — but removing locks and allocations
+still helped by reducing cache pressure: immutable forwarding snapshots
+(#489), fork-point resume (#567, +47%), and allocation reduction across
+BitVector, fork copies, and StructVal fields (#554, #562, #589).
+
+### What's next
+
+- **google3 DVaaS integration** — the C++ API, PacketIn prediction,
+  and reproducers are ready; the actual wiring into DVaaS is happening
+  internally at Google
+- **P4Runtime differential testing** — expand the BMv2 comparison
+  corpus beyond the initial 10 scenarios
+
 ## 2026-03-30
 
 |                | Delta      | Total     |
