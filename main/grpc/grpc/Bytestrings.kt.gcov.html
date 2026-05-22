@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryLo">68.9&nbsp;%</td>
+            <td class="headerCovTableEntryHi">95.1&nbsp;%</td>
             <td class="headerCovTableEntry">103</td>
-            <td class="headerCovTableEntry">71</td>
+            <td class="headerCovTableEntry">98</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-22 03:16:02</td>
+            <td class="headerValue">2026-05-22 03:21:54</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -171,26 +171,26 @@
 <span id="L109"><span class="lineNum">     109</span> <span class="tlaGNC">           1 :       if (v === match.lpm.value) match else match.toBuilder().apply { lpmBuilder.value = v }.build()</span></span>
 <span id="L110"><span class="lineNum">     110</span>              :     }</span>
 <span id="L111"><span class="lineNum">     111</span>              :     P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE -&gt; {</span>
-<span id="L112"><span class="lineNum">     112</span> <span class="tlaUNC tlaBgUNC">           0 :       val lo = canonicalize(match.range.low)</span></span>
-<span id="L113"><span class="lineNum">     113</span> <span class="tlaUNC">           0 :       val hi = canonicalize(match.range.high)</span></span>
-<span id="L114"><span class="lineNum">     114</span> <span class="tlaUNC">           0 :       if (lo === match.range.low &amp;&amp; hi === match.range.high) match</span></span>
+<span id="L112"><span class="lineNum">     112</span> <span class="tlaGNC">           1 :       val lo = canonicalize(match.range.low)</span></span>
+<span id="L113"><span class="lineNum">     113</span> <span class="tlaGNC">           1 :       val hi = canonicalize(match.range.high)</span></span>
+<span id="L114"><span class="lineNum">     114</span> <span class="tlaGNC">           1 :       if (lo === match.range.low &amp;&amp; hi === match.range.high) match</span></span>
 <span id="L115"><span class="lineNum">     115</span>              :       else</span>
-<span id="L116"><span class="lineNum">     116</span> <span class="tlaUNC">           0 :         match</span></span>
-<span id="L117"><span class="lineNum">     117</span> <span class="tlaUNC">           0 :           .toBuilder()</span></span>
-<span id="L118"><span class="lineNum">     118</span> <span class="tlaUNC">           0 :           .apply {</span></span>
-<span id="L119"><span class="lineNum">     119</span> <span class="tlaUNC">           0 :             rangeBuilder.low = lo</span></span>
-<span id="L120"><span class="lineNum">     120</span> <span class="tlaUNC">           0 :             rangeBuilder.high = hi</span></span>
-<span id="L121"><span class="lineNum">     121</span> <span class="tlaUNC">           0 :           }</span></span>
-<span id="L122"><span class="lineNum">     122</span> <span class="tlaUNC">           0 :           .build()</span></span>
+<span id="L116"><span class="lineNum">     116</span> <span class="tlaGNC">           1 :         match</span></span>
+<span id="L117"><span class="lineNum">     117</span> <span class="tlaGNC">           1 :           .toBuilder()</span></span>
+<span id="L118"><span class="lineNum">     118</span> <span class="tlaGNC">           1 :           .apply {</span></span>
+<span id="L119"><span class="lineNum">     119</span> <span class="tlaGNC">           1 :             rangeBuilder.low = lo</span></span>
+<span id="L120"><span class="lineNum">     120</span> <span class="tlaGNC">           1 :             rangeBuilder.high = hi</span></span>
+<span id="L121"><span class="lineNum">     121</span> <span class="tlaGNC">           1 :           }</span></span>
+<span id="L122"><span class="lineNum">     122</span> <span class="tlaGNC">           1 :           .build()</span></span>
 <span id="L123"><span class="lineNum">     123</span>              :     }</span>
 <span id="L124"><span class="lineNum">     124</span>              :     P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -&gt; {</span>
-<span id="L125"><span class="lineNum">     125</span> <span class="tlaGNC tlaBgGNC">           1 :       val v = canonicalize(match.optional.value)</span></span>
+<span id="L125"><span class="lineNum">     125</span> <span class="tlaGNC">           1 :       val v = canonicalize(match.optional.value)</span></span>
 <span id="L126"><span class="lineNum">     126</span> <span class="tlaGNC">           1 :       if (v === match.optional.value) match</span></span>
-<span id="L127"><span class="lineNum">     127</span> <span class="tlaUNC tlaBgUNC">           0 :       else match.toBuilder().apply { optionalBuilder.value = v }.build()</span></span>
+<span id="L127"><span class="lineNum">     127</span> <span class="tlaGNC">           1 :       else match.toBuilder().apply { optionalBuilder.value = v }.build()</span></span>
 <span id="L128"><span class="lineNum">     128</span>              :     }</span>
 <span id="L129"><span class="lineNum">     129</span>              :     P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,</span>
 <span id="L130"><span class="lineNum">     130</span>              :     P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,</span>
-<span id="L131"><span class="lineNum">     131</span> <span class="tlaUNC">           0 :     null -&gt; match</span></span>
+<span id="L131"><span class="lineNum">     131</span> <span class="tlaUNC tlaBgUNC">           0 :     null -&gt; match</span></span>
 <span id="L132"><span class="lineNum">     132</span>              :   }</span>
 <span id="L133"><span class="lineNum">     133</span>              : }</span>
 <span id="L134"><span class="lineNum">     134</span>              : </span>
@@ -276,31 +276,31 @@
 <span id="L214"><span class="lineNum">     214</span> <span class="tlaGNC">           1 :       if (a === action.action) action else action.toBuilder().setAction(a).build()</span></span>
 <span id="L215"><span class="lineNum">     215</span>              :     }</span>
 <span id="L216"><span class="lineNum">     216</span>              :     P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_ACTION_SET -&gt; {</span>
-<span id="L217"><span class="lineNum">     217</span> <span class="tlaUNC tlaBgUNC">           0 :       val rebuilt =</span></span>
-<span id="L218"><span class="lineNum">     218</span> <span class="tlaUNC">           0 :         action.actionProfileActionSet.actionProfileActionsList.map { profileAction -&gt;</span></span>
-<span id="L219"><span class="lineNum">     219</span> <span class="tlaUNC">           0 :           val a = canonicalizeAction(profileAction.action)</span></span>
-<span id="L220"><span class="lineNum">     220</span> <span class="tlaUNC">           0 :           if (a === profileAction.action) profileAction</span></span>
-<span id="L221"><span class="lineNum">     221</span> <span class="tlaUNC">           0 :           else profileAction.toBuilder().setAction(a).build()</span></span>
+<span id="L217"><span class="lineNum">     217</span> <span class="tlaGNC">           1 :       val rebuilt =</span></span>
+<span id="L218"><span class="lineNum">     218</span> <span class="tlaGNC">           1 :         action.actionProfileActionSet.actionProfileActionsList.map { profileAction -&gt;</span></span>
+<span id="L219"><span class="lineNum">     219</span> <span class="tlaGNC">           1 :           val a = canonicalizeAction(profileAction.action)</span></span>
+<span id="L220"><span class="lineNum">     220</span> <span class="tlaGNC">           1 :           if (a === profileAction.action) profileAction</span></span>
+<span id="L221"><span class="lineNum">     221</span> <span class="tlaGNC">           1 :           else profileAction.toBuilder().setAction(a).build()</span></span>
 <span id="L222"><span class="lineNum">     222</span>              :         }</span>
-<span id="L223"><span class="lineNum">     223</span> <span class="tlaUNC">           0 :       val unchanged =</span></span>
-<span id="L224"><span class="lineNum">     224</span> <span class="tlaUNC">           0 :         rebuilt.indices.all {</span></span>
-<span id="L225"><span class="lineNum">     225</span> <span class="tlaUNC">           0 :           rebuilt[it] === action.actionProfileActionSet.actionProfileActionsList[it]</span></span>
+<span id="L223"><span class="lineNum">     223</span> <span class="tlaGNC">           1 :       val unchanged =</span></span>
+<span id="L224"><span class="lineNum">     224</span> <span class="tlaGNC">           1 :         rebuilt.indices.all {</span></span>
+<span id="L225"><span class="lineNum">     225</span> <span class="tlaGNC">           1 :           rebuilt[it] === action.actionProfileActionSet.actionProfileActionsList[it]</span></span>
 <span id="L226"><span class="lineNum">     226</span>              :         }</span>
-<span id="L227"><span class="lineNum">     227</span> <span class="tlaUNC">           0 :       if (unchanged) action</span></span>
+<span id="L227"><span class="lineNum">     227</span> <span class="tlaGNC">           1 :       if (unchanged) action</span></span>
 <span id="L228"><span class="lineNum">     228</span>              :       else</span>
-<span id="L229"><span class="lineNum">     229</span> <span class="tlaUNC">           0 :         action</span></span>
-<span id="L230"><span class="lineNum">     230</span> <span class="tlaUNC">           0 :           .toBuilder()</span></span>
-<span id="L231"><span class="lineNum">     231</span> <span class="tlaUNC">           0 :           .apply {</span></span>
-<span id="L232"><span class="lineNum">     232</span> <span class="tlaUNC">           0 :             actionProfileActionSetBuilder.clearActionProfileActions()</span></span>
-<span id="L233"><span class="lineNum">     233</span> <span class="tlaUNC">           0 :             rebuilt.forEach { actionProfileActionSetBuilder.addActionProfileActions(it) }</span></span>
-<span id="L234"><span class="lineNum">     234</span> <span class="tlaUNC">           0 :           }</span></span>
-<span id="L235"><span class="lineNum">     235</span> <span class="tlaUNC">           0 :           .build()</span></span>
+<span id="L229"><span class="lineNum">     229</span> <span class="tlaGNC">           1 :         action</span></span>
+<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC">           1 :           .toBuilder()</span></span>
+<span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :           .apply {</span></span>
+<span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :             actionProfileActionSetBuilder.clearActionProfileActions()</span></span>
+<span id="L233"><span class="lineNum">     233</span> <span class="tlaGNC">           1 :             rebuilt.forEach { actionProfileActionSetBuilder.addActionProfileActions(it) }</span></span>
+<span id="L234"><span class="lineNum">     234</span> <span class="tlaGNC">           1 :           }</span></span>
+<span id="L235"><span class="lineNum">     235</span> <span class="tlaGNC">           1 :           .build()</span></span>
 <span id="L236"><span class="lineNum">     236</span>              :     }</span>
 <span id="L237"><span class="lineNum">     237</span>              :     // ID-only references carry no client bytestrings — nothing to canonicalize.</span>
 <span id="L238"><span class="lineNum">     238</span>              :     P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID,</span>
 <span id="L239"><span class="lineNum">     239</span>              :     P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_GROUP_ID,</span>
 <span id="L240"><span class="lineNum">     240</span>              :     P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET,</span>
-<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC tlaBgGNC">           1 :     null -&gt; action</span></span>
+<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :     null -&gt; action</span></span>
 <span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :   }</span></span>
 <span id="L243"><span class="lineNum">     243</span>              : </span>
 <span id="L244"><span class="lineNum">     244</span>              : private fun canonicalizeAction(action: P4RuntimeOuterClass.Action): P4RuntimeOuterClass.Action {</span>
