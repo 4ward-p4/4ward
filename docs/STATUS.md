@@ -27,11 +27,14 @@ the last gaps for DVaaS integration.**
 ### C++ embedding API and matcher library
 
 **DVaaS tests now read like specifications, not proto boilerplate.**
-DVaaS consumers are C++, so we built them a proper API. The new
-`fourward_cc` library (#570, #607, #689) wraps the Dataplane gRPC
-service with an ergonomic C++ interface: overloaded ingress port types,
-a streaming `PacketWriter` for batch injection, and — our favorite
-piece — a composable gtest matcher library (#610, #638, #652, #661).
+The fourward server (#570) is designed to be embedded as a subprocess
+in C++ applications — one function call to start it, gRPC to talk to
+it. But raw gRPC stubs are verbose, error-prone, and painful to read
+in tests, so we built `fourward_cc` (#607, #689): an ergonomic C++
+layer with a `DataplaneClient` that manages the server lifecycle,
+overloaded ingress port types, a streaming `PacketWriter` for batch
+injection, and — our favorite piece — a composable gtest matcher
+library (#610, #638, #652, #661).
 
 The matchers compose naturally: `Forwards()` checks that a packet
 exits, `OnPort(3)` pins the egress port, `PacketsByDataplanePort` and
