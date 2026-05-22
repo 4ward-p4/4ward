@@ -7,6 +7,7 @@ import fourward.PrePacketHookInvocation
 import fourward.PrePacketHookResponse
 import fourward.SubscribeResultsRequest
 import fourward.SubscribeResultsResponse
+import fourward.e2e.compileInlineP4
 import fourward.grpc.FourwardTestHarness.Companion.assertGrpcError
 import fourward.grpc.FourwardTestHarness.Companion.buildEthernetFrame
 import fourward.grpc.FourwardTestHarness.Companion.buildExactEntry
@@ -432,6 +433,141 @@ class DataplaneServiceTest {
 
   // Positive dual-encoding tests (P4RT port injection and response population) are in
   // SaiP4E2ETest, which uses a program with @controller_header and @p4runtime_translation.
+
+  // =========================================================================
+  // PacketIn enrichment
+  // =========================================================================
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `CPU-port output has PacketIn enrichment without translation`() {
+    // Vanilla v1model with @controller_header("packet_in") but no @p4runtime_translation.
+    // The program always forwards to CPU port 510.
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      @controller_header("packet_out")
+      header packet_out_t { bit<9> egress_port; }
+
+      @controller_header("packet_in")
+      header packet_in_t { bit<9> ingress_port; bit<9> target_egress_port; }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { packet_out_t pkt_out; packet_in_t pkt_in; ethernet_t eth; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start { pkt.extract(hdr.eth); transition accept; }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = 510; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply {
+          h.pkt_in.setValid();
+          h.pkt_in.ingress_port = sm.ingress_port;
+          h.pkt_in.target_egress_port = sm.egress_port;
+        }
+      }
+      control D(packet_out pkt, in headers_t h) {
+        apply { pkt.emit(h.pkt_in); pkt.emit(h.eth); }
+      }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val testHarness = FourwardTestHarness()
+    testHarness.use {
+      it.loadPipeline(config)
+      val payload = buildEthernetFrame(etherType = 0x0800)
+      val response = it.injectPacket(ingressPort = 7, payload = payload)
+
+      val output = response.possibleOutcomesList.single().getPackets(0)
+      assertEquals("should egress on CPU port", 510, output.dataplaneEgressPort)
+      assertTrue("should have packet_in", output.hasPacketIn())
+
+      val packetIn = output.packetIn
+      assertEquals(
+        "PacketIn payload should match original (controller header stripped)",
+        payload.size,
+        packetIn.payload.size(),
+      )
+      assertEquals(
+        "PacketIn payload bytes should match",
+        ByteString.copyFrom(payload),
+        packetIn.payload,
+      )
+      assertTrue("PacketIn should have metadata", packetIn.metadataCount > 0)
+      assertTrue("p4rt_egress_port should be empty (no translation)", output.p4RtEgressPort.isEmpty)
+    }
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `PacketIn enrichment preserves payload with non-byte-aligned controller header`() {
+    // 5-bit @controller_header("packet_in") — not byte-aligned. Stripping must use bit-level
+    // extraction, not byte slicing, to avoid shifting the payload or introducing pad bits.
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      @controller_header("packet_out")
+      header packet_out_t { bit<5> tag; }
+
+      @controller_header("packet_in")
+      header packet_in_t { bit<5> tag; }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { packet_out_t pkt_out; packet_in_t pkt_in; ethernet_t eth; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start { pkt.extract(hdr.eth); transition accept; }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = 510; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { h.pkt_in.setValid(); h.pkt_in.tag = 0; }
+      }
+      control D(packet_out pkt, in headers_t h) {
+        apply { pkt.emit(h.pkt_in); pkt.emit(h.eth); }
+      }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val testHarness = FourwardTestHarness()
+    testHarness.use {
+      it.loadPipeline(config)
+      val payload = buildEthernetFrame(etherType = 0x0806)
+      val response = it.injectPacket(ingressPort = 0, payload = payload)
+
+      val output = response.possibleOutcomesList.single().getPackets(0)
+      assertEquals("should egress on CPU port", 510, output.dataplaneEgressPort)
+      assertTrue("should have packet_in", output.hasPacketIn())
+
+      assertEquals(
+        "PacketIn payload size should match original (no padding, no missing bits)",
+        payload.size,
+        output.packetIn.payload.size(),
+      )
+      assertEquals(
+        "PacketIn payload should be byte-for-byte identical to original",
+        ByteString.copyFrom(payload),
+        output.packetIn.payload,
+      )
+    }
+  }
 
   // =========================================================================
   // Pre-packet hook

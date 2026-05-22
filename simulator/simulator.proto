@@ -38,6 +38,9 @@ message OutputPacket {
   // never by the simulator.
   bytes p4rt_egress_port = 3;
   bytes payload = 2;
+  // P4Runtime PacketIn. Populated by enrichment layers for CPU-port outputs;
+  // never by the simulator.
+  p4.v1.PacketIn packet_in = 4;
 }
 
 // =============================================================================
