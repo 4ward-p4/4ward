@@ -164,17 +164,18 @@ jobs:
           echo "build --config=ci" >> ~/.bazelrc
           echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
 
-      # Select a deterministic Xcode within the current runner image.
-      # Doesn't protect against image rotation (different images may
-      # have different "newest" versions), but prevents non-determinism
-      # from multiple Xcode versions on the same image.
-      - name: Select newest Xcode
+      # Use an Xcode version Bazel's xcode-locator can resolve on macos-26.
+      # The runner also exposes a 26.5.0 path, but xcode-locator only reports
+      # 26.5/26.5.0, which can leave cached C++ toolchain config pointing at an
+      # unavailable build string.
+      - name: Select stable Xcode
         if: runner.os == 'macOS'
         run: |
-          XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
-          if [[ -n "$XCODE" ]]; then
+          XCODE=/Applications/Xcode_26.4.1.app
+          if [[ -d "$XCODE" ]]; then
             sudo xcode-select -s "$XCODE"
             echo "Selected $XCODE"
+            echo "build --xcode_version=26.4.1" >> ~/.bazelrc
           else
             echo "::warning::No versioned Xcode found; using default $(xcode-select -p)"
           fi
@@ -202,11 +203,15 @@ jobs:
             bazel-${{ matrix.os }}-
             ${{ matrix.os == 'ubuntu-24.04' && 'bazel-coverage-' || '' }}
 
-      # The cached install base may be stale if Bazel was updated between
-      # the cache save and this run. Bazelisk downloads the correct version
-      # but can't overwrite a corrupt install directory.
-      - name: Clear stale Bazel install
-        run: rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/install
+      # The cached install base may be stale if Bazel was updated between the
+      # cache save and this run. On macOS, local_config_cc also captures the
+      # selected SDK path, so regenerate it after restoring the output base.
+      - name: Clear stale Bazel autoconfig
+        run: |
+          rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/install
+          if [[ "$RUNNER_OS" == "macOS" && -n "${{ steps.bazel.outputs.output_base }}" ]]; then
+            rm -rf "${{ steps.bazel.outputs.output_base }}"/external/*local_config_cc*
+          fi
 
       # BMv2 links against system libgmp and libpcap.
       - name: Install system dependencies
@@ -373,13 +378,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Select newest Xcode
+      - name: Select stable Xcode
         if: runner.os == 'macOS'
         run: |
-          XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
-          if [[ -n "$XCODE" ]]; then
+          XCODE=/Applications/Xcode_26.4.1.app
+          if [[ -d "$XCODE" ]]; then
             sudo xcode-select -s "$XCODE"
             echo "Selected $XCODE"
+            echo "build --xcode_version=26.4.1" >> ~/.bazelrc
           else
             echo "::warning::No versioned Xcode found; using default $(xcode-select -p)"
           fi
@@ -401,8 +407,12 @@ jobs:
           key: bazel-${{ matrix.os }}-${{ hashFiles('*.bazel*') }}
           restore-keys: bazel-${{ matrix.os }}-
 
-      - name: Clear stale Bazel install
-        run: rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/install
+      - name: Clear stale Bazel autoconfig
+        run: |
+          rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/install
+          if [[ "$RUNNER_OS" == "macOS" && -n "${{ steps.bazel.outputs.output_base }}" ]]; then
+            rm -rf "${{ steps.bazel.outputs.output_base }}"/external/*local_config_cc*
+          fi
 
       - name: Install system dependencies
         if: runner.os == 'Linux'

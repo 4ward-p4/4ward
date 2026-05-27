@@ -2,11 +2,10 @@ package fourward.grpc
 
 import com.google.protobuf.ByteString
 import fourward.PipelineConfig
+import fourward.grpc.FourwardTestHarness.Companion.assertBatchError
 import fourward.grpc.FourwardTestHarness.Companion.assertGrpcError
 import fourward.grpc.FourwardTestHarness.Companion.buildExactEntry
-import fourward.grpc.FourwardTestHarness.Companion.extractBatchErrors
 import io.grpc.Status
-import io.grpc.StatusException
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -363,6 +362,8 @@ class P4RuntimeWriteErrorTest {
     val errors = assertBatchError { harness.writeRaw(request) }
     assert(errors.size == 2) { "expected 2 per-update errors, got ${errors.size}" }
     assert(errors[0].canonicalCode == com.google.rpc.Code.OK_VALUE) { "first update should be OK" }
+    assert(errors[0].space.isEmpty()) { "OK update should omit error space" }
+    assert(errors[0].code == 0) { "OK update should omit target-specific code" }
     assert(errors[1].canonicalCode == com.google.rpc.Code.INVALID_ARGUMENT_VALUE) {
       "second update should be INVALID_ARGUMENT"
     }
@@ -392,7 +393,14 @@ class P4RuntimeWriteErrorTest {
         .toBuilder()
         .setAtomicity(atomicity)
         .build()
-    assertGrpcError(Status.Code.INVALID_ARGUMENT) { harness.writeRaw(request) }
+    val errors = assertBatchError { harness.writeRaw(request) }
+    assert(errors.size == 2) { "expected one per-update status per request update" }
+    assert(errors[0].canonicalCode == com.google.rpc.Code.ABORTED_VALUE) {
+      "rolled-back update should be ABORTED, got ${errors[0].canonicalCode}"
+    }
+    assert(errors[1].canonicalCode == com.google.rpc.Code.INVALID_ARGUMENT_VALUE) {
+      "failing update should keep its specific error code, got ${errors[1].canonicalCode}"
+    }
     val readBack = harness.readEntries()
     assert(readBack.isEmpty()) { "$atomicity should have rolled back the good entry" }
   }
@@ -453,6 +461,8 @@ class P4RuntimeWriteErrorTest {
     val errors = assertBatchError { harness.writeRaw(request) }
     assert(errors.size == 2) { "expected 2 per-update errors" }
     assert(errors[0].canonicalCode == com.google.rpc.Code.OK_VALUE) { "first INSERT should be OK" }
+    assert(errors[0].space.isEmpty()) { "OK update should omit error space" }
+    assert(errors[0].code == 0) { "OK update should omit target-specific code" }
     assert(errors[1].canonicalCode == com.google.rpc.Code.ALREADY_EXISTS_VALUE) {
       "second INSERT should be ALREADY_EXISTS"
     }
@@ -576,14 +586,4 @@ class P4RuntimeWriteErrorTest {
   /** Builds an entity referencing a non-existent table, for error-path testing. */
   private fun badTableEntity(tableId: Int = 99999): Entity =
     Entity.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(tableId)).build()
-
-  /** Executes [block], asserts it throws a batch error, and returns the per-update error list. */
-  private fun assertBatchError(block: () -> Unit): List<p4.v1.P4RuntimeOuterClass.Error> {
-    try {
-      block()
-      throw AssertionError("expected batch error")
-    } catch (e: StatusException) {
-      return extractBatchErrors(e) ?: throw AssertionError("no batch error details in trailers")
-    }
-  }
 }

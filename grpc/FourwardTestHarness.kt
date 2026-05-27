@@ -565,6 +565,20 @@ class FourwardTestHarness(
       return rpcStatus.detailsList.map { any -> P4RuntimeOuterClass.Error.parseFrom(any.value) }
     }
 
+    /** Executes [block], asserts it throws a batch UNKNOWN, and returns the per-item errors. */
+    fun assertBatchError(block: () -> Unit): List<P4RuntimeOuterClass.Error> {
+      try {
+        block()
+        throw AssertionError("expected batch error")
+      } catch (e: StatusException) {
+        if (e.status.code != Status.Code.UNKNOWN) {
+          throw AssertionError("expected batch UNKNOWN but got ${e.status.code}", e)
+        }
+        return extractBatchErrors(e)
+          ?: throw AssertionError("no batch error details in trailers", e)
+      }
+    }
+
     /**
      * Builds a read-filter entity: table_id + exact match key, no action. Useful as a ReadRequest
      * filter for per-entry reads.
