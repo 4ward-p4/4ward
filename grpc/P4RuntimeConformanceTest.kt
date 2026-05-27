@@ -8,6 +8,7 @@ import com.google.protobuf.Any as ProtoAny
 import com.google.protobuf.ByteString
 import com.google.protobuf.TextFormat
 import fourward.PipelineConfig
+import fourward.grpc.FourwardTestHarness.Companion.assertBatchError
 import fourward.grpc.FourwardTestHarness.Companion.assertGrpcError
 import fourward.grpc.FourwardTestHarness.Companion.buildEthernetFrame
 import fourward.grpc.FourwardTestHarness.Companion.buildExactEntry
@@ -17,7 +18,6 @@ import fourward.grpc.FourwardTestHarness.Companion.loadConfig
 import fourward.grpc.FourwardTestHarness.Companion.uint128
 import fourward.simulator.portToBytes
 import io.grpc.Status
-import io.grpc.StatusException
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -2465,16 +2465,11 @@ class P4RuntimeConformanceTest {
         .addUpdates(Update.newBuilder().setType(Update.Type.INSERT).setEntity(good))
         .addUpdates(Update.newBuilder().setType(Update.Type.INSERT).setEntity(bad))
         .build()
-    try {
-      harness.writeRaw(request)
-      throw AssertionError("expected batch error")
-    } catch (e: StatusException) {
-      val errors = checkNotNull(FourwardTestHarness.extractBatchErrors(e))
-      assertEquals("should have 2 per-update statuses", 2, errors.size)
-      assertEquals(com.google.rpc.Code.OK_VALUE, errors[0].canonicalCode)
-      assertTrue("bad update should have error code", errors[1].canonicalCode != 0)
-      assertTrue("bad update should have error message", errors[1].message.isNotEmpty())
-    }
+    val errors = assertBatchError { harness.writeRaw(request) }
+    assertEquals("should have 2 per-update statuses", 2, errors.size)
+    assertEquals(com.google.rpc.Code.OK_VALUE, errors[0].canonicalCode)
+    assertTrue("bad update should have error code", errors[1].canonicalCode != 0)
+    assertTrue("bad update should have error message", errors[1].message.isNotEmpty())
   }
 
   /** §10: Single-update write errors are wrapped as per-update batch errors. */
@@ -2486,14 +2481,9 @@ class P4RuntimeConformanceTest {
       Entity.newBuilder()
         .setTableEntry(P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(999999))
         .build()
-    try {
-      harness.installEntry(bad)
-      throw AssertionError("expected error")
-    } catch (e: StatusException) {
-      val errors = checkNotNull(FourwardTestHarness.extractBatchErrors(e))
-      assertEquals(1, errors.size)
-      assertTrue("should have non-OK code", errors[0].canonicalCode != 0)
-    }
+    val errors = assertBatchError { harness.installEntry(bad) }
+    assertEquals(1, errors.size)
+    assertTrue("should have non-OK code", errors[0].canonicalCode != 0)
   }
 
   /** §10/§13.3: Read batch errors use the same 1:1 structured details as Write. */
@@ -2514,16 +2504,10 @@ class P4RuntimeConformanceTest {
             .build()
         )
         .build()
-    try {
-      harness.readEntries(request)
-      throw AssertionError("expected read batch error")
-    } catch (e: StatusException) {
-      assertEquals(Status.Code.UNKNOWN, e.status.code)
-      val errors = checkNotNull(FourwardTestHarness.extractBatchErrors(e))
-      assertEquals("should have 2 per-read statuses", 2, errors.size)
-      assertEquals(com.google.rpc.Code.OK_VALUE, errors[0].canonicalCode)
-      assertEquals(com.google.rpc.Code.UNIMPLEMENTED_VALUE, errors[1].canonicalCode)
-    }
+    val errors = assertBatchError { harness.readEntries(request) }
+    assertEquals("should have 2 per-read statuses", 2, errors.size)
+    assertEquals(com.google.rpc.Code.OK_VALUE, errors[0].canonicalCode)
+    assertEquals(com.google.rpc.Code.UNIMPLEMENTED_VALUE, errors[1].canonicalCode)
   }
 
   // =========================================================================

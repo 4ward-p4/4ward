@@ -2,11 +2,10 @@ package fourward.grpc
 
 import com.google.protobuf.ByteString
 import fourward.PipelineConfig
+import fourward.grpc.FourwardTestHarness.Companion.assertBatchError
 import fourward.grpc.FourwardTestHarness.Companion.assertGrpcError
 import fourward.grpc.FourwardTestHarness.Companion.buildExactEntry
-import fourward.grpc.FourwardTestHarness.Companion.extractBatchErrors
 import io.grpc.Status
-import io.grpc.StatusException
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -587,14 +586,4 @@ class P4RuntimeWriteErrorTest {
   /** Builds an entity referencing a non-existent table, for error-path testing. */
   private fun badTableEntity(tableId: Int = 99999): Entity =
     Entity.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(tableId)).build()
-
-  /** Executes [block], asserts it throws a batch error, and returns the per-update error list. */
-  private fun assertBatchError(block: () -> Unit): List<p4.v1.P4RuntimeOuterClass.Error> {
-    try {
-      block()
-      throw AssertionError("expected batch error")
-    } catch (e: StatusException) {
-      return extractBatchErrors(e) ?: throw AssertionError("no batch error details in trailers")
-    }
-  }
 }

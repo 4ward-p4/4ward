@@ -451,7 +451,7 @@ class P4RuntimeService(
     for (rawUpdate in updates) {
       try {
         processUpdate(rawUpdate, state, roleName)
-        errors.add(okBatchItemError())
+        errors.add(OK_BATCH_ITEM_ERROR)
       } catch (e: StatusException) {
         hasError = true
         errors.add(batchItemError(e))
@@ -460,7 +460,7 @@ class P4RuntimeService(
     // Publish even on partial failure — successful updates must be visible to subsequent reads.
     simulator.publishSnapshot()
     if (hasError) {
-      throw buildBatchError(errors, itemName = "update")
+      throw buildBatchError(errors, itemName = "update", itemNamePlural = "updates")
     }
     return WriteResponse.getDefaultInstance()
   }
@@ -482,7 +482,11 @@ class P4RuntimeService(
       } catch (e: StatusException) {
         simulator.restore(checkpoint)
         simulator.publishSnapshot()
-        throw buildBatchError(atomicRollbackErrors(updates.size, index, e), itemName = "update")
+        throw buildBatchError(
+          atomicRollbackErrors(updates.size, index, e),
+          itemName = "update",
+          itemNamePlural = "updates",
+        )
       }
     }
     simulator.publishSnapshot()
@@ -501,8 +505,7 @@ class P4RuntimeService(
     cause: StatusException,
   ): List<P4RuntimeOuterClass.Error> =
     List(updateCount) { index ->
-      if (index == failedIndex) batchItemError(cause)
-      else abortedBatchItemError("batch rolled back because update #${failedIndex + 1} failed")
+      if (index == failedIndex) batchItemError(cause) else abortedBatchItemError(failedIndex)
     }
 
   /** Validates and applies a single update. Throws [StatusException] on failure. */
@@ -590,7 +593,7 @@ class P4RuntimeService(
               .asException()
           }
         )
-        errors.add(okBatchItemError())
+        errors.add(OK_BATCH_ITEM_ERROR)
       } catch (e: StatusException) {
         hasError = true
         errors.add(batchItemError(e))
@@ -609,7 +612,7 @@ class P4RuntimeService(
       emit(ReadResponse.newBuilder().addAllEntities(translated).build())
     }
     if (hasError) {
-      throw buildBatchError(errors, itemName = "read request")
+      throw buildBatchError(errors, itemName = "read request", itemNamePlural = "read requests")
     }
   }
 
@@ -1066,6 +1069,7 @@ class P4RuntimeService(
   private fun buildBatchError(
     errors: List<P4RuntimeOuterClass.Error>,
     itemName: String,
+    itemNamePlural: String,
   ): StatusException {
     val failedCount = errors.count { it.canonicalCode != OK_CODE }
     val totalCount = errors.size
@@ -1074,7 +1078,7 @@ class P4RuntimeService(
         .withIndex()
         .filter { it.value.canonicalCode != OK_CODE }
         .joinToString("; ") { (i, e) -> "$itemName #${i + 1}: ${e.message}" }
-    val message = "$failedCount of $totalCount ${itemName}s failed: $failedDetails"
+    val message = "$failedCount of $totalCount $itemNamePlural failed: $failedDetails"
     val rpcStatus =
       com.google.rpc.Status.newBuilder().setCode(Code.UNKNOWN_VALUE).setMessage(message)
     for (error in errors) {
@@ -1085,9 +1089,6 @@ class P4RuntimeService(
     return Status.UNKNOWN.withDescription(message).asException(metadata)
   }
 
-  private fun okBatchItemError(): P4RuntimeOuterClass.Error =
-    P4RuntimeOuterClass.Error.newBuilder().setCanonicalCode(OK_CODE).build()
-
   private fun batchItemError(e: StatusException): P4RuntimeOuterClass.Error =
     P4RuntimeOuterClass.Error.newBuilder()
       .setCanonicalCode(e.status.code.value())
@@ -1096,10 +1097,10 @@ class P4RuntimeService(
       .setCode(e.status.code.value())
       .build()
 
-  private fun abortedBatchItemError(message: String): P4RuntimeOuterClass.Error =
+  private fun abortedBatchItemError(failedIndex: Int): P4RuntimeOuterClass.Error =
     P4RuntimeOuterClass.Error.newBuilder()
       .setCanonicalCode(Code.ABORTED_VALUE)
-      .setMessage(message)
+      .setMessage("batch rolled back because update #${failedIndex + 1} failed")
       .setSpace(P4RT_ERROR_SPACE)
       .setCode(Code.ABORTED_VALUE)
       .build()
@@ -1161,6 +1162,9 @@ class P4RuntimeService(
       "Role.config is not supported; use @p4runtime_role annotations in p4info instead"
 
     private const val OK_CODE = Code.OK_VALUE
+
+    private val OK_BATCH_ITEM_ERROR =
+      P4RuntimeOuterClass.Error.newBuilder().setCanonicalCode(OK_CODE).build()
 
     // P4Runtime spec §12.3: the error space for P4Runtime-specific errors.
     private const val P4RT_ERROR_SPACE = "p4.v1"
