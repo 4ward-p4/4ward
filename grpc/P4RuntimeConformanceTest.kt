@@ -2496,6 +2496,36 @@ class P4RuntimeConformanceTest {
     }
   }
 
+  /** §10/§13.3: Read batch errors use the same 1:1 structured details as Write. */
+  @Test
+  fun `121b - read batch error has structured details in trailers`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    harness.installEntry(buildExactEntry(config, matchValue = 0x0800, port = 1))
+    val request =
+      ReadRequest.newBuilder()
+        .setDeviceId(1)
+        .addEntities(
+          Entity.newBuilder().setTableEntry(P4RuntimeOuterClass.TableEntry.newBuilder()).build()
+        )
+        .addEntities(
+          Entity.newBuilder()
+            .setDigestEntry(P4RuntimeOuterClass.DigestEntry.newBuilder().setDigestId(1))
+            .build()
+        )
+        .build()
+    try {
+      harness.readEntries(request)
+      throw AssertionError("expected read batch error")
+    } catch (e: StatusException) {
+      assertEquals(Status.Code.UNKNOWN, e.status.code)
+      val errors = checkNotNull(FourwardTestHarness.extractBatchErrors(e))
+      assertEquals("should have 2 per-read statuses", 2, errors.size)
+      assertEquals(com.google.rpc.Code.OK_VALUE, errors[0].canonicalCode)
+      assertEquals(com.google.rpc.Code.UNIMPLEMENTED_VALUE, errors[1].canonicalCode)
+    }
+  }
+
   // =========================================================================
   // §12.1: Write batch ordering — cross-entity-type (scenario 122)
   // =========================================================================

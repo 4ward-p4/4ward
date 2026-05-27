@@ -451,29 +451,16 @@ class P4RuntimeService(
     for (rawUpdate in updates) {
       try {
         processUpdate(rawUpdate, state, roleName)
-        errors.add(
-          P4RuntimeOuterClass.Error.newBuilder()
-            .setCanonicalCode(OK_CODE)
-            .setSpace(P4RT_ERROR_SPACE)
-            .setCode(OK_CODE)
-            .build()
-        )
+        errors.add(okBatchItemError())
       } catch (e: StatusException) {
         hasError = true
-        errors.add(
-          P4RuntimeOuterClass.Error.newBuilder()
-            .setCanonicalCode(e.status.code.value())
-            .setMessage(e.status.description ?: "")
-            .setSpace(P4RT_ERROR_SPACE)
-            .setCode(e.status.code.value())
-            .build()
-        )
+        errors.add(batchItemError(e))
       }
     }
     // Publish even on partial failure — successful updates must be visible to subsequent reads.
     simulator.publishSnapshot()
     if (hasError) {
-      throw buildBatchError(errors)
+      throw buildBatchError(errors, itemName = "update")
     }
     return WriteResponse.getDefaultInstance()
   }
@@ -489,18 +476,34 @@ class P4RuntimeService(
     roleName: String,
   ): WriteResponse {
     val checkpoint = simulator.snapshot()
-    try {
-      for (rawUpdate in updates) {
+    for ((index, rawUpdate) in updates.withIndex()) {
+      try {
         processUpdate(rawUpdate, state, roleName)
+      } catch (e: StatusException) {
+        simulator.restore(checkpoint)
+        simulator.publishSnapshot()
+        throw buildBatchError(atomicRollbackErrors(updates.size, index, e), itemName = "update")
       }
-    } catch (e: StatusException) {
-      simulator.restore(checkpoint)
-      simulator.publishSnapshot()
-      throw e
     }
     simulator.publishSnapshot()
     return WriteResponse.getDefaultInstance()
   }
+
+  /**
+   * Builds one status per requested update for an all-or-none write that was rolled back.
+   *
+   * The update that triggered rollback keeps its specific status. Other updates receive ABORTED:
+   * none are visible after rollback, so reporting them as OK would incorrectly imply success.
+   */
+  private fun atomicRollbackErrors(
+    updateCount: Int,
+    failedIndex: Int,
+    cause: StatusException,
+  ): List<P4RuntimeOuterClass.Error> =
+    List(updateCount) { index ->
+      if (index == failedIndex) batchItemError(cause)
+      else abortedBatchItemError("batch rolled back because update #${failedIndex + 1} failed")
+    }
 
   /** Validates and applies a single update. Throws [StatusException] on failure. */
   private fun processUpdate(rawUpdate: Update, state: PipelineState, roleName: String) {
@@ -565,24 +568,34 @@ class P4RuntimeService(
     val roleName = request.role // empty = default role
     // Table entries are assembled by EntityReader (P4Runtime presentation layer);
     // all other entity types are read directly from the simulator.
-    val entities =
-      request.entitiesList.flatMap { entity ->
+    val entities = mutableListOf<Entity>()
+    val errors = ArrayList<P4RuntimeOuterClass.Error>(request.entitiesCount)
+    var hasError = false
+    for (entity in request.entitiesList) {
+      try {
         rejectUnsupportedEntity(entity)
         // For specific (non-wildcard) entities, check access upfront so the controller
         // gets a clear PERMISSION_DENIED. For wildcards, results are filtered post-read.
         requireEntityAccess(entity, state.roleMap, roleName)
-        try {
-          if (entity.hasTableEntry()) {
-            state.entityReader.readTableEntities(entity.tableEntry, simulator)
-          } else {
-            simulator.readEntries(listOf(entity))
+        entities.addAll(
+          try {
+            if (entity.hasTableEntry()) {
+              state.entityReader.readTableEntities(entity.tableEntry, simulator)
+            } else {
+              simulator.readEntries(listOf(entity))
+            }
+          } catch (e: IllegalStateException) {
+            throw Status.INTERNAL.withDescription("read failed: ${e.message}")
+              .withCause(e)
+              .asException()
           }
-        } catch (e: IllegalStateException) {
-          throw Status.INTERNAL.withDescription("read failed: ${e.message}")
-            .withCause(e)
-            .asException()
-        }
+        )
+        errors.add(okBatchItemError())
+      } catch (e: StatusException) {
+        hasError = true
+        errors.add(batchItemError(e))
       }
+    }
     // Filter results by role for named-role controllers. This handles wildcard reads
     // (where the request entity doesn't carry a specific ID) by returning only entities
     // the controller's role can access.
@@ -594,6 +607,9 @@ class P4RuntimeService(
           ?.takeIf { it.hasTranslations }
           ?.let { t -> filtered.map { t.translateForRead(it) } } ?: filtered
       emit(ReadResponse.newBuilder().addAllEntities(translated).build())
+    }
+    if (hasError) {
+      throw buildBatchError(errors, itemName = "read request")
     }
   }
 
@@ -1038,24 +1054,27 @@ class P4RuntimeService(
   }
 
   // ---------------------------------------------------------------------------
-  // Batch error reporting (P4Runtime spec §12.3)
+  // Batch error reporting (P4Runtime spec §10, §12.3, §13.3)
   // ---------------------------------------------------------------------------
 
   /**
-   * Builds a gRPC UNKNOWN error with per-update [P4RuntimeOuterClass.Error] details.
+   * Builds a gRPC UNKNOWN error with one [P4RuntimeOuterClass.Error] detail per batch item.
    *
    * The `google.rpc.Status` is attached via the standard `grpc-status-details-bin` trailer so
-   * clients can extract per-update results (P4Runtime spec §10, §12.3).
+   * clients can extract per-item results (P4Runtime spec §10, §12.3, §13.3).
    */
-  private fun buildBatchError(errors: List<P4RuntimeOuterClass.Error>): StatusException {
+  private fun buildBatchError(
+    errors: List<P4RuntimeOuterClass.Error>,
+    itemName: String,
+  ): StatusException {
     val failedCount = errors.count { it.canonicalCode != OK_CODE }
     val totalCount = errors.size
     val failedDetails =
       errors
         .withIndex()
         .filter { it.value.canonicalCode != OK_CODE }
-        .joinToString("; ") { (i, e) -> "update #${i + 1}: ${e.message}" }
-    val message = "$failedCount of $totalCount updates failed: $failedDetails"
+        .joinToString("; ") { (i, e) -> "$itemName #${i + 1}: ${e.message}" }
+    val message = "$failedCount of $totalCount ${itemName}s failed: $failedDetails"
     val rpcStatus =
       com.google.rpc.Status.newBuilder().setCode(Code.UNKNOWN_VALUE).setMessage(message)
     for (error in errors) {
@@ -1065,6 +1084,25 @@ class P4RuntimeService(
     metadata.put(STATUS_DETAILS_KEY, rpcStatus.build().toByteArray())
     return Status.UNKNOWN.withDescription(message).asException(metadata)
   }
+
+  private fun okBatchItemError(): P4RuntimeOuterClass.Error =
+    P4RuntimeOuterClass.Error.newBuilder().setCanonicalCode(OK_CODE).build()
+
+  private fun batchItemError(e: StatusException): P4RuntimeOuterClass.Error =
+    P4RuntimeOuterClass.Error.newBuilder()
+      .setCanonicalCode(e.status.code.value())
+      .setMessage(e.status.description ?: "")
+      .setSpace(P4RT_ERROR_SPACE)
+      .setCode(e.status.code.value())
+      .build()
+
+  private fun abortedBatchItemError(message: String): P4RuntimeOuterClass.Error =
+    P4RuntimeOuterClass.Error.newBuilder()
+      .setCanonicalCode(Code.ABORTED_VALUE)
+      .setMessage(message)
+      .setSpace(P4RT_ERROR_SPACE)
+      .setCode(Code.ABORTED_VALUE)
+      .build()
 
   override fun close() {
     pipeline?.constraintValidator?.close()
