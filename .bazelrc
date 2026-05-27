@@ -26,6 +26,11 @@ build:linux --repo_env=CC=clang
 # host_macos_minimum_os covers tool builds (e.g. p4c's ir-generator).
 build:macos --macos_minimum_os=10.15
 build:macos --host_macos_minimum_os=10.15
+# Apple Clang's strict module dependency check currently misfires on
+# libc++ headers pulled through external C++ dependencies such as Abseil.
+# Keep Linux layering checks, but do not make macOS builds depend on
+# Apple toolchain module-map details.
+build:macos --features=-layering_check
 
 # C++20 for the p4c backend.
 build --cxxopt=-std=c++20
