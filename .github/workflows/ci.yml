@@ -205,8 +205,18 @@ jobs:
       # The cached install base may be stale if Bazel was updated between
       # the cache save and this run. Bazelisk downloads the correct version
       # but can't overwrite a corrupt install directory.
-      - name: Clear stale Bazel install
-        run: rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/install
+      # The cached install base may be stale (Bazel upgrade), and the
+      # cached local_config_cc may reference a different Xcode version's
+      # SDK paths (runner image rotation). Clear both so Bazel
+      # re-configures from the current environment.
+      - name: Clear stale Bazel install and toolchain
+        run: |
+          rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/install
+          rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/external/local_config_cc
+          OUTPUT_BASE="${{ steps.bazel.outputs.output_base }}"
+          if [[ -n "$OUTPUT_BASE" ]]; then
+            rm -rf "$OUTPUT_BASE/external/local_config_cc"
+          fi
 
       # BMv2 links against system libgmp and libpcap.
       - name: Install system dependencies
@@ -401,8 +411,14 @@ jobs:
           key: bazel-${{ matrix.os }}-${{ hashFiles('*.bazel*') }}
           restore-keys: bazel-${{ matrix.os }}-
 
-      - name: Clear stale Bazel install
-        run: rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/install
+      - name: Clear stale Bazel install and toolchain
+        run: |
+          rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/install
+          rm -rf ${{ env.BAZEL_CACHE }}/_bazel_*/external/local_config_cc
+          OUTPUT_BASE="${{ steps.bazel.outputs.output_base }}"
+          if [[ -n "$OUTPUT_BASE" ]]; then
+            rm -rf "$OUTPUT_BASE/external/local_config_cc"
+          fi
 
       - name: Install system dependencies
         if: runner.os == 'Linux'
