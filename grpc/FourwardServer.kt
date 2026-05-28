@@ -7,6 +7,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.sync.Mutex
 
 /** Wraps a P4Runtime + Dataplane gRPC server backed by a 4ward [Simulator]. */
@@ -17,6 +18,10 @@ class FourwardServer(
   cpuPortConfig: CpuPortConfig = CpuPortConfig.Auto,
   private val disableRefersToChecking: Boolean = false,
   private val disableP4ConstraintsChecking: Boolean = false,
+  private val maxMetadataSize: Int = DEFAULT_MAX_METADATA_SIZE,
+  private val maxReceiveMessageSize: Int = DEFAULT_MAX_RECEIVE_MESSAGE_SIZE,
+  private val permitKeepaliveWithoutCalls: Boolean = DEFAULT_PERMIT_KEEPALIVE_WITHOUT_CALLS,
+  private val permitKeepaliveTimeMs: Long = DEFAULT_PERMIT_KEEPALIVE_TIME_MS,
 ) {
 
   /**
@@ -63,13 +68,26 @@ class FourwardServer(
   private lateinit var server: Server
 
   fun start(): FourwardServer {
-    server =
+    val builder =
       NettyServerBuilder.forPort(port)
         // Without a dedicated executor, gRPC-Java runs RPC handlers on Netty's
         // I/O event loop threads. Suspended Kotlin coroutines (e.g. a StreamChannel
         // awaiting the next client message) can prevent other RPCs on the same
         // HTTP/2 connection from being dispatched.
         .executor(Executors.newCachedThreadPool())
+        .maxHeaderListSize(maxMetadataSize)
+
+    if (maxReceiveMessageSize == -1) {
+      builder.maxInboundMessageSize(Int.MAX_VALUE)
+    } else {
+      builder.maxInboundMessageSize(maxReceiveMessageSize)
+    }
+
+    builder.permitKeepAliveWithoutCalls(permitKeepaliveWithoutCalls)
+    builder.permitKeepAliveTime(permitKeepaliveTimeMs, TimeUnit.MILLISECONDS)
+
+    server =
+      builder
         .addService(service)
         .addService(dataplaneService)
         .build()
@@ -92,6 +110,10 @@ class FourwardServer(
 
   companion object {
     const val DEFAULT_PORT = 9559
+    const val DEFAULT_MAX_METADATA_SIZE = 10 * 1024 * 1024
+    const val DEFAULT_MAX_RECEIVE_MESSAGE_SIZE = -1
+    const val DEFAULT_PERMIT_KEEPALIVE_WITHOUT_CALLS = true
+    const val DEFAULT_PERMIT_KEEPALIVE_TIME_MS = 0L
   }
 }
 
@@ -104,6 +126,10 @@ fun main(args: Array<String>) {
   val portFile = flagValue(args, "--port-file")?.let(Path::of)
   val disableRefersToChecking = flagPresent(args, "--disable-refers-to-checking")
   val disableP4ConstraintsChecking = flagPresent(args, "--disable-p4-constraints-checking")
+  val maxMetadataSize = flagValue(args, "--max-metadata-size")?.toIntOrNull() ?: FourwardServer.DEFAULT_MAX_METADATA_SIZE
+  val maxReceiveMessageSize = flagValue(args, "--max-receive-message-size")?.toIntOrNull() ?: FourwardServer.DEFAULT_MAX_RECEIVE_MESSAGE_SIZE
+  val permitKeepaliveWithoutCalls = flagValue(args, "--permit-keepalive-without-calls")?.toBooleanStrictOrNull() ?: FourwardServer.DEFAULT_PERMIT_KEEPALIVE_WITHOUT_CALLS
+  val permitKeepaliveTimeMs = flagValue(args, "--permit-keepalive-time-ms")?.toLongOrNull() ?: FourwardServer.DEFAULT_PERMIT_KEEPALIVE_TIME_MS
 
   val server =
     FourwardServer(
@@ -113,6 +139,10 @@ fun main(args: Array<String>) {
         cpuPortConfig,
         disableRefersToChecking = disableRefersToChecking,
         disableP4ConstraintsChecking = disableP4ConstraintsChecking,
+        maxMetadataSize = maxMetadataSize,
+        maxReceiveMessageSize = maxReceiveMessageSize,
+        permitKeepaliveWithoutCalls = permitKeepaliveWithoutCalls,
+        permitKeepaliveTimeMs = permitKeepaliveTimeMs,
       )
       .start()
   println("P4Runtime server listening on port ${server.port()}")

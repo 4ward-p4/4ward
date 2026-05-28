@@ -171,5 +171,106 @@ TEST(FourwardServerTest, StartupTimeoutYieldsDeadlineExceeded) {
       << server.status();
 }
 
+TEST(FourwardServerTest, MaxMetadataSizeConfigurable) {
+  // 1. Default settings: Verify that sending a large metadata header (e.g. 1MB) succeeds under default settings.
+  {
+    absl::StatusOr<FourwardServer> server = FourwardServer::Start();
+    ASSERT_TRUE(server.ok()) << server.status();
+
+    auto stub = server->NewP4RuntimeStub();
+    p4::v1::CapabilitiesRequest req;
+    p4::v1::CapabilitiesResponse resp;
+    grpc::ClientContext ctx;
+
+    // 1MB header is well below default 10MB limit but well above typical default gRPC 8KB limit.
+    std::string large_value(1024 * 1024, 'a');
+    ctx.AddMetadata("large-header", large_value);
+
+    grpc::Status status = stub->Capabilities(&ctx, req, &resp);
+    EXPECT_TRUE(status.ok()) << "Capabilities failed: code=" << status.error_code()
+                             << " msg=" << status.error_message();
+  }
+
+  // 2. Limited settings: Verify that it fails if the server and client are explicitly configured with a tight metadata limit (8KB).
+  {
+    absl::StatusOr<FourwardServer> server = FourwardServer::Start({
+        .max_metadata_size = 8192, // 8KB limit
+    });
+    ASSERT_TRUE(server.ok()) << server.status();
+
+    auto stub = server->NewP4RuntimeStub();
+    p4::v1::CapabilitiesRequest req;
+    p4::v1::CapabilitiesResponse resp;
+    grpc::ClientContext ctx;
+
+    // 16KB header exceeds 8KB limit.
+    std::string large_value(16384, 'a');
+    ctx.AddMetadata("large-header", large_value);
+
+    grpc::Status status = stub->Capabilities(&ctx, req, &resp);
+    EXPECT_FALSE(status.ok());
+    EXPECT_EQ(status.error_code(), grpc::StatusCode::UNAVAILABLE)
+        << "Expected connection to be closed with UNAVAILABLE, got: " << status.error_message();
+  }
+}
+
+TEST(FourwardServerTest, MaxMessageSizeConfigurable) {
+  // 1. Default settings: Verify that sending/receiving a large gRPC message (e.g. 5MB) succeeds under default settings.
+  {
+    absl::StatusOr<FourwardServer> server = FourwardServer::Start();
+    ASSERT_TRUE(server.ok()) << server.status();
+
+    auto stub = server->NewP4RuntimeStub();
+    p4::v1::SetForwardingPipelineConfigRequest req;
+    p4::v1::SetForwardingPipelineConfigResponse resp;
+    grpc::ClientContext ctx;
+
+    req.set_device_id(server->DeviceId());
+    req.set_action(p4::v1::SetForwardingPipelineConfigRequest::VERIFY);
+    // 5MB payload should succeed under default (unlimited) limit.
+    req.mutable_config()->set_p4_device_config(std::string(5 * 1024 * 1024, 'a'));
+
+    grpc::Status status = stub->SetForwardingPipelineConfig(&ctx, req, &resp);
+    // Verify that it does not fail with RESOURCE_EXHAUSTED.
+    EXPECT_NE(status.error_code(), grpc::StatusCode::RESOURCE_EXHAUSTED)
+        << "SetForwardingPipelineConfig failed with RESOURCE_EXHAUSTED: " << status.error_message();
+  }
+
+  // 2. Limited settings: Verify that it fails with a message size limit error if the server/client are explicitly configured with a tight message limit (1MB).
+  {
+    absl::StatusOr<FourwardServer> server = FourwardServer::Start({
+        .max_receive_message_size = 1024 * 1024, // 1MB limit
+    });
+    ASSERT_TRUE(server.ok()) << server.status();
+
+    auto stub = server->NewP4RuntimeStub();
+    p4::v1::SetForwardingPipelineConfigRequest req;
+    p4::v1::SetForwardingPipelineConfigResponse resp;
+    grpc::ClientContext ctx;
+
+    req.set_device_id(server->DeviceId());
+    req.set_action(p4::v1::SetForwardingPipelineConfigRequest::VERIFY);
+    // 2MB payload exceeds 1MB limit.
+    req.mutable_config()->set_p4_device_config(std::string(2 * 1024 * 1024, 'a'));
+
+    grpc::Status status = stub->SetForwardingPipelineConfig(&ctx, req, &resp);
+    EXPECT_FALSE(status.ok());
+    EXPECT_EQ(status.error_code(), grpc::StatusCode::RESOURCE_EXHAUSTED)
+        << "Expected RESOURCE_EXHAUSTED, got: " << status.error_message();
+  }
+}
+
+TEST(FourwardServerTest, KeepaliveOptionsConfigurable) {
+  // Verify that configuring custom limits and keepalive options is accepted and the server boots and serves RPCs healthy.
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start({
+      .max_metadata_size = 16 * 1024 * 1024,
+      .max_receive_message_size = 8 * 1024 * 1024,
+      .permit_keepalive_without_calls = false,
+      .permit_keepalive_time_ms = 15000,
+  });
+  ASSERT_TRUE(server.ok()) << server.status();
+  ExpectHealthy(*server);
+}
+
 }  // namespace
 }  // namespace fourward

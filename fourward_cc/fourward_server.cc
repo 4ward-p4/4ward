@@ -62,6 +62,11 @@ constexpr char kCpuPortNoneValue[] = "none";
 constexpr char kFlagDisableRefersToChecking[] = "--disable-refers-to-checking";
 constexpr char kFlagDisableP4ConstraintsChecking[] =
     "--disable-p4-constraints-checking";
+constexpr char kFlagMaxMetadataSize[] = "--max-metadata-size=";
+constexpr char kFlagMaxReceiveMessageSize[] = "--max-receive-message-size=";
+constexpr char kFlagPermitKeepaliveWithoutCalls[] =
+    "--permit-keepalive-without-calls=";
+constexpr char kFlagPermitKeepaliveTimeMs[] = "--permit-keepalive-time-ms=";
 
 // Creates a unique scratch directory under $TEST_TMPDIR (honored by Bazel
 // test shards) or /tmp.
@@ -217,6 +222,21 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
   if (options.disable_p4_constraints_checking) {
     args.push_back(kFlagDisableP4ConstraintsChecking);
   }
+  if (options.max_metadata_size.has_value()) {
+    args.push_back(
+        absl::StrCat(kFlagMaxMetadataSize, *options.max_metadata_size));
+  }
+  if (options.max_receive_message_size.has_value()) {
+    args.push_back(absl::StrCat(kFlagMaxReceiveMessageSize,
+                                *options.max_receive_message_size));
+  }
+  args.push_back(absl::StrCat(kFlagPermitKeepaliveWithoutCalls,
+                              options.permit_keepalive_without_calls ? "true"
+                                                                     : "false"));
+  if (options.permit_keepalive_time_ms.has_value()) {
+    args.push_back(absl::StrCat(kFlagPermitKeepaliveTimeMs,
+                                *options.permit_keepalive_time_ms));
+  }
   std::vector<char*> argv;
   argv.reserve(args.size() + 1);
   for (auto& a : args) argv.push_back(a.data());
@@ -252,8 +272,16 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
   absl::StatusOr<int> port = ReadPortFile(port_file);
   if (!port.ok()) return std::move(port).status();
 
-  auto channel = grpc::CreateChannel(absl::StrCat("localhost:", *port),
-                                     grpc::InsecureChannelCredentials());
+  grpc::ChannelArguments channel_args;
+  if (options.max_metadata_size.has_value()) {
+    channel_args.SetInt("grpc.max_metadata_size", *options.max_metadata_size);
+  }
+  if (options.max_receive_message_size.has_value()) {
+    channel_args.SetMaxReceiveMessageSize(*options.max_receive_message_size);
+  }
+  auto channel = grpc::CreateCustomChannel(absl::StrCat("localhost:", *port),
+                                           grpc::InsecureChannelCredentials(),
+                                           channel_args);
 
   std::move(guard).Cancel();
   return FourwardServer(pid, *port, options.device_id, std::move(*scratch),

@@ -107,6 +107,22 @@ struct FourwardServerOptions {
   // Skip @entry_restriction / @action_restriction checking on Write RPCs.
   bool disable_p4_constraints_checking = false;
 
+  // Maximum size of gRPC metadata (headers) allowed in bytes.
+  // Defaults to 10MB (10 * 1024 * 1024 bytes).
+  std::optional<int> max_metadata_size = 10 * 1024 * 1024;
+
+  // Maximum size of gRPC message allowed to be received in bytes.
+  // Defaults to unlimited (-1).
+  std::optional<int> max_receive_message_size = -1;
+
+  // Whether to permit keepalives without active streams.
+  // Defaults to true.
+  bool permit_keepalive_without_calls = true;
+
+  // Minimum time between keepalive pings in milliseconds.
+  // Defaults to 0 (fully permissive).
+  std::optional<int> permit_keepalive_time_ms = 0;
+
   // Maximum time to wait for Start() to complete.
   absl::Duration startup_timeout = absl::Seconds(5);
 };
