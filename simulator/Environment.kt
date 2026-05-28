@@ -223,13 +223,7 @@ private class ParserCursor(
   private fun semanticBytesFrom(byteStart: Int): ByteArray {
     val byteEnd = (validBitLength + 7) / 8
     val bytes = data.copyOfRange(byteStart, byteEnd)
-    val finalPaddingBits = (Byte.SIZE_BITS - validBitLength % Byte.SIZE_BITS) % Byte.SIZE_BITS
-    if (bytes.isNotEmpty() && finalPaddingBits != 0) {
-      // PacketBits may carry arbitrary transport padding in the final byte. Byte-returning helpers
-      // expose semantic packet bytes, so clear the non-packet low bits before returning them.
-      val finalByteMask = 0xFF shl finalPaddingBits
-      bytes[bytes.lastIndex] = (bytes.last().toInt() and finalByteMask).toByte()
-    }
+    maskFinalPacketByteInPlace(bytes, validBitLength)
     return bytes
   }
 

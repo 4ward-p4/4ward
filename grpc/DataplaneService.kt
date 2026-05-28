@@ -192,7 +192,7 @@ class DataplaneService(
                       // never forward-allocated), so a missing reverse mapping is expected.
                       pt?.dataplaneToP4rt(subResult.ingressPort)?.let { setP4RtIngressPort(it) }
                     }
-                    .setPayload(ByteString.copyFrom(subResult.payload))
+                    .setPayload(ByteString.copyFrom(subResult.packet.copySemanticBytes()))
                     .setTag(subResult.tag)
                 )
                 .addAllPossibleOutcomes(
