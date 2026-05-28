@@ -1,6 +1,7 @@
 package fourward.simulator
 
 import com.google.protobuf.ByteString
+import fourward.BehavioralConfig
 import fourward.DeviceConfig
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
@@ -167,6 +168,17 @@ class TableStore : TableDataReader {
   /** Metadata for statically-allocated indexed externs (counters, meters). */
   private data class IndexedExternInfo(val size: Int)
 
+  private data class CounterMappings(
+    val infoById: Map<Int, IndexedExternInfo>,
+    val idByName: Map<String, Int>,
+  )
+
+  internal data class StatefulExternCheckpoint(
+    val directCounters: Map<TableEntry, LongArray>,
+    val indirectCounters: Map<Int, Map<Int, LongArray>>,
+    val registers: Map<String, Map<Int, Value>>,
+  )
+
   // -------------------------------------------------------------------------
   // Forwarding snapshot (immutable view published to the data plane)
   // -------------------------------------------------------------------------
@@ -256,6 +268,15 @@ class TableStore : TableDataReader {
    *   cheaper key (e.g., integer index assigned at insert time) if profiling shows this matters.
    */
   private val directCounterData = ConcurrentHashMap<TableEntry, AtomicLongArray>()
+
+  /**
+   * Indirect counter data written by explicit `Counter.count()` calls. Like direct counters, this
+   * lives outside [writeState] so packet-side increments never publish partially-applied
+   * control-plane batches. P4Runtime counter writes update this live store too; [writeState] keeps
+   * the same values only as the control-plane shadow used by rollback and publish bookkeeping.
+   */
+  private val indirectCounterData =
+    ConcurrentHashMap<Int, ConcurrentHashMap<Int, AtomicLongArray>>()
 
   /**
    * Register state: mutated lock-free during packet processing. Lives outside the snapshot for the
@@ -382,6 +403,7 @@ class TableStore : TableDataReader {
   private var registerInfoById: Map<Int, RegisterInfo> = emptyMap()
   private var registerInfoByName: Map<String, Pair<Int, RegisterInfo>> = emptyMap()
   private var counterInfoById: Map<Int, IndexedExternInfo> = emptyMap()
+  private var counterIdByName: Map<String, Int> = emptyMap()
   private var meterInfoById: Map<Int, IndexedExternInfo> = emptyMap()
 
   private data class ValueSetInfo(val name: String, val size: Int)
@@ -491,8 +513,9 @@ class TableStore : TableDataReader {
         reg.preamble.id to RegisterInfo(reg.preamble.name, bitwidth, reg.size)
       }
     this.registerInfoByName = registerInfoById.entries.associate { it.value.name to it.toPair() }
-    this.counterInfoById =
-      p4info.countersList.associate { it.preamble.id to IndexedExternInfo(it.size.toInt()) }
+    val counterMappings = buildCounterMappings(p4info, behavioral, ::resolveName)
+    this.counterInfoById = counterMappings.infoById
+    this.counterIdByName = counterMappings.idByName
     this.meterInfoById =
       p4info.metersList.associate { it.preamble.id to IndexedExternInfo(it.size.toInt()) }
     this.valueSetInfoById =
@@ -516,6 +539,7 @@ class TableStore : TableDataReader {
     directCounterActionsByTable = directResourceActions.counterActionsByTable
     directMeterActionsByTable = directResourceActions.meterActionsByTable
     writeState = ForwardingSnapshot()
+    indirectCounterData.clear()
     directCounterData.clear()
     registers.clear()
     forcedHits.clear()
@@ -586,6 +610,29 @@ class TableStore : TableDataReader {
     }
 
     publishSnapshot()
+  }
+
+  private fun buildCounterMappings(
+    p4info: P4InfoOuterClass.P4Info,
+    behavioral: BehavioralConfig,
+    resolveName: (String, List<String>) -> String,
+  ): CounterMappings {
+    val externInstanceNames =
+      (behavioral.parsersList.flatMap { it.externInstancesList } +
+          behavioral.controlsList.flatMap { it.externInstancesList })
+        .map { it.name }
+    val countersById = mutableMapOf<Int, IndexedExternInfo>()
+    val countersByName = mutableMapOf<String, Int>()
+    for (counter in p4info.countersList) {
+      val alias = counter.preamble.alias.ifEmpty { counter.preamble.name }
+      val behavioralName = resolveName(alias, externInstanceNames)
+      countersById[counter.preamble.id] = IndexedExternInfo(counter.size.toInt())
+      countersByName[behavioralName] = counter.preamble.id
+      countersByName[alias] = counter.preamble.id
+      if (counter.preamble.name.isNotEmpty())
+        countersByName[counter.preamble.name] = counter.preamble.id
+    }
+    return CounterMappings(countersById, countersByName)
   }
 
   fun setDefaultAction(
@@ -924,16 +971,61 @@ class TableStore : TableDataReader {
   private fun writeCounterEntry(
     type: Update.Type,
     entry: P4RuntimeOuterClass.CounterEntry,
-  ): WriteResult =
-    writeIndexedExtern(
-      type,
-      "counter",
-      entry.counterId,
-      entry.index,
-      counterInfoById,
-      writeState.counters,
-      entry.data,
-    )
+  ): WriteResult {
+    // Counters have one live data source: indirectCounterData. writeState.counters is updated in
+    // parallel so rollback checkpoints and published snapshots preserve the control-plane view
+    // without making packet-side Counter.count() publish writeState.
+    val result =
+      writeIndexedExtern(
+        type,
+        "counter",
+        entry.counterId,
+        entry.index,
+        counterInfoById,
+        writeState.counters,
+        entry.data,
+      )
+    if (result == WriteResult.Success) {
+      setIndirectCounterData(entry.counterId, entry.index.index.toInt(), entry.data)
+    }
+    return result
+  }
+
+  private fun setIndirectCounterData(
+    counterId: Int,
+    index: Int,
+    data: P4RuntimeOuterClass.CounterData,
+  ) {
+    indirectCounterData
+      .computeIfAbsent(counterId) { ConcurrentHashMap() }
+      .computeIfAbsent(index) { AtomicLongArray(2) }
+      .also {
+        it.set(0, data.packetCount)
+        it.set(1, data.byteCount)
+      }
+  }
+
+  private fun readIndirectCounterData(
+    counterId: Int,
+    index: Int,
+  ): P4RuntimeOuterClass.CounterData? {
+    val data = indirectCounterData[counterId]?.get(index) ?: return null
+    return P4RuntimeOuterClass.CounterData.newBuilder()
+      .setPacketCount(data.get(0))
+      .setByteCount(data.get(1))
+      .build()
+  }
+
+  fun counterIncrement(counterName: String, index: Int, byteCount: Int) {
+    val counterId = counterIdByName[counterName] ?: return
+    val info = counterInfoById[counterId] ?: return
+    if (index < 0 || index >= info.size) return
+
+    val counters = indirectCounterData.computeIfAbsent(counterId) { ConcurrentHashMap() }
+    val data = counters.computeIfAbsent(index) { AtomicLongArray(longArrayOf(0L, 0L)) }
+    data.addAndGet(0, 1)
+    data.addAndGet(1, byteCount.toLong())
+  }
 
   fun readCounterEntries(
     filter: P4RuntimeOuterClass.CounterEntry = P4RuntimeOuterClass.CounterEntry.getDefaultInstance()
@@ -949,7 +1041,7 @@ class TableStore : TableDataReader {
       val indices = if (hasIndex) listOf(filter.index.index.toInt()) else (0 until info.size)
       indices.map { idx ->
         val data =
-          snapshot.counters[counterId]?.get(idx)
+          readIndirectCounterData(counterId, idx)
             ?: P4RuntimeOuterClass.CounterData.getDefaultInstance()
         P4RuntimeOuterClass.Entity.newBuilder()
           .setCounterEntry(
@@ -1499,14 +1591,13 @@ class TableStore : TableDataReader {
    */
   @Synchronized
   fun snapshot(): RollbackCheckpoint =
-    RollbackCheckpoint(writeState.deepCopy(), snapshotCounters(), snapshotRegisters())
+    RollbackCheckpoint(writeState.deepCopy(), snapshotStatefulExterns())
 
   /** Restores all mutable state to a previously captured [RollbackCheckpoint]. */
   @Synchronized
   fun restore(checkpoint: RollbackCheckpoint) {
     writeState = checkpoint.forwarding
-    restoreCounters(checkpoint.counters)
-    restoreRegisters(checkpoint.registers)
+    restoreStatefulExterns(checkpoint.statefulExterns)
   }
 
   /**
@@ -1517,17 +1608,46 @@ class TableStore : TableDataReader {
   class RollbackCheckpoint
   internal constructor(
     internal val forwarding: ForwardingSnapshot,
-    internal val counters: Map<TableEntry, LongArray>,
-    internal val registers: Map<String, Map<Int, Value>>,
+    internal val statefulExterns: StatefulExternCheckpoint,
   )
 
-  private fun snapshotCounters(): Map<TableEntry, LongArray> =
+  private fun snapshotStatefulExterns(): StatefulExternCheckpoint =
+    StatefulExternCheckpoint(
+      directCounters = snapshotDirectCounters(),
+      indirectCounters = snapshotIndirectCounters(),
+      registers = snapshotRegisters(),
+    )
+
+  private fun restoreStatefulExterns(saved: StatefulExternCheckpoint) {
+    restoreDirectCounters(saved.directCounters)
+    restoreIndirectCounters(saved.indirectCounters)
+    restoreRegisters(saved.registers)
+  }
+
+  private fun snapshotDirectCounters(): Map<TableEntry, LongArray> =
     directCounterData.entries.associate { (k, v) -> k to longArrayOf(v.get(0), v.get(1)) }
 
-  private fun restoreCounters(saved: Map<TableEntry, LongArray>) {
+  private fun restoreDirectCounters(saved: Map<TableEntry, LongArray>) {
     directCounterData.clear()
     for ((entry, arr) in saved) {
       directCounterData[entry] = AtomicLongArray(arr)
+    }
+  }
+
+  private fun snapshotIndirectCounters(): Map<Int, Map<Int, LongArray>> =
+    indirectCounterData.entries.associate { (counterId, counters) ->
+      counterId to
+        counters.entries.associate { (idx, arr) -> idx to longArrayOf(arr.get(0), arr.get(1)) }
+    }
+
+  private fun restoreIndirectCounters(saved: Map<Int, Map<Int, LongArray>>) {
+    indirectCounterData.clear()
+    for ((counterId, counters) in saved) {
+      val restored = ConcurrentHashMap<Int, AtomicLongArray>()
+      for ((idx, arr) in counters) {
+        restored[idx] = AtomicLongArray(arr)
+      }
+      indirectCounterData[counterId] = restored
     }
   }
 

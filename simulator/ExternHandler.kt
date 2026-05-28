@@ -69,6 +69,9 @@ interface ExternEvaluator {
   /** Peeks at remaining unparsed input bytes (for `_with_payload` checksum variants). */
   fun peekRemainingInput(): ByteArray
 
+  /** Original ingress packet length in bytes for externs that count packet bytes. */
+  fun ingressPacketLengthBytes(): Int = 0
+
   /**
    * Returns context from the most recent table miss, or null if no table miss has occurred.
    *

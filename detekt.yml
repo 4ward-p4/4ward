@@ -68,12 +68,13 @@ complexity:
   LargeClass:
     threshold: 2800
 
-  # 11 is far too low for operator-rich value classes like BitVector (21 functions)
-  # or dispatch classes like Interpreter (one function per AST node kind).
+  # 11 is far too low for operator-rich value classes like BitVector (21 functions),
+  # dispatch classes like Interpreter (one function per AST node kind), or state stores
+  # like TableStore (one small read/write helper per P4Runtime entity kind).
   # Google style sets no hard limit.
   TooManyFunctions:
     thresholdInFiles: 65
-    thresholdInClasses: 75
+    thresholdInClasses: 85
     thresholdInInterfaces: 30
     thresholdInObjects: 30
     thresholdInEnums: 11

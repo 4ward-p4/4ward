@@ -1167,6 +1167,8 @@ class Interpreter internal constructor(config: BehavioralConfig) {
 
         override fun peekRemainingInput(): ByteArray = packet.peekRemainingInput()
 
+        override fun ingressPacketLengthBytes(): Int = packetCtx?.payloadSize ?: 0
+
         override fun lastTableMiss(): TableMissContext? = lastTableMissCtx
       }
 

@@ -231,7 +231,13 @@ internal fun handleCommonExternMethod(
       tableStore.registerWrite(call.instanceName, index, eval.evalArg(1))
       UnitVal
     }
-    "count" -> UnitVal
+    "count" -> {
+      if (call.externType == "Counter") {
+        val index = (eval.evalArg(0) as BitVal).bits.value.toInt()
+        tableStore.counterIncrement(call.instanceName, index, eval.ingressPacketLengthBytes())
+      }
+      UnitVal
+    }
     "get_hash" -> evalGetHash(call, eval, externInstances, hashAlgorithms)
     "execute" -> EnumVal("GREEN")
     "clear" -> {
