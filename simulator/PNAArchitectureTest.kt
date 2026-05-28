@@ -9,6 +9,7 @@ import fourward.EnumDecl
 import fourward.ExternInstanceDecl
 import fourward.FieldDecl
 import fourward.ForkReason
+import fourward.HeaderDecl
 import fourward.ParamDecl
 import fourward.ParserDecl
 import fourward.ParserState
@@ -200,12 +201,6 @@ class PNAArchitectureTest {
       "ostd" to "pna_main_output_metadata_t",
     )
 
-  private fun noopControl(name: String, params: List<Pair<String, String>>): ControlDecl =
-    ControlDecl.newBuilder()
-      .setName(name)
-      .addAllParams(params.map { (n, t) -> param(n, t) })
-      .build()
-
   private fun control(
     name: String,
     params: List<Pair<String, String>>,
@@ -222,21 +217,39 @@ class PNAArchitectureTest {
   /**
    * Builds a minimal PNA [BehavioralConfig].
    *
-   * All stages default to no-op; override [mainControlStmts] to add behaviour to the main control.
+   * All stages default to no-op; override stage statement lists to add behaviour.
    */
   private fun pnaConfig(
     preControlStmts: List<Stmt> = emptyList(),
+    parserStmts: List<Stmt> = emptyList(),
     mainControlStmts: List<Stmt> = emptyList(),
+    mainDeparserStmts: List<Stmt> = emptyList(),
     mainControlExterns: List<ExternInstanceDecl> = emptyList(),
+    extraTypes: List<TypeDecl> = emptyList(),
   ): BehavioralConfig =
     BehavioralConfig.newBuilder()
       .setArchitecture(pnaArch)
-      .addAllTypes(allTypes)
-      .addParsers(noopParser)
+      .addAllTypes(allTypes + extraTypes)
+      .addParsers(parser(parserStmts))
       .addControls(control("PreControl", preControlParams, preControlStmts))
       .addControls(control("MainControl", mainControlParams, mainControlStmts, mainControlExterns))
-      .addControls(noopControl("MainDeparser", mainDeparserParams))
+      .addControls(control("MainDeparser", mainDeparserParams, mainDeparserStmts))
       .build()
+
+  private fun parser(stmts: List<Stmt>): ParserDecl =
+    if (stmts.isEmpty()) {
+      noopParser
+    } else {
+      ParserDecl.newBuilder(noopParser)
+        .clearStates()
+        .addStates(
+          ParserState.newBuilder()
+            .setName("start")
+            .addAllStmts(stmts)
+            .setTransition(Transition.newBuilder().setNextState("accept"))
+        )
+        .build()
+    }
 
   /** send_to_port(port) — PNA free function with a single port argument. */
   private fun sendToPort(port: Long): Stmt = externCall("send_to_port", bit(port, 32))
@@ -407,6 +420,46 @@ class PNAArchitectureTest {
 
     assertEquals(1, outputs.size)
     assertEquals(7, outputs[0].dataplaneEgressPort)
+  }
+
+  @Test
+  fun `mirror_packet mirrors deparsed packet after header modification`() {
+    val oneByteHeaderType =
+      TypeDecl.newBuilder()
+        .setName("one_byte_t")
+        .setHeader(HeaderDecl.newBuilder().addFields(field("value", 8)))
+        .build()
+    val headersWithOneByte =
+      TypeDecl.newBuilder()
+        .setName("headers_t")
+        .setStruct(
+          StructDecl.newBuilder()
+            .addFields(FieldDecl.newBuilder().setName("h").setType(namedType("one_byte_t")))
+        )
+        .build()
+    val headerRef = fieldAccess(nameRef("hdr"), "h", namedType("one_byte_t"))
+    val config =
+      pnaConfig(
+        parserStmts = listOf(methodCallStmt(nameRef("pkt"), "extract", headerRef)),
+        mainControlStmts =
+          listOf(
+            assign(fieldAccess(headerRef, "value", bitType(8)), bit(0x42, 8)),
+            sendToPort(2),
+            mirrorPacket(0, 100),
+          ),
+        mainDeparserStmts = listOf(methodCallStmt(nameRef("pkt"), "emit", headerRef)),
+        extraTypes = listOf(oneByteHeaderType, headersWithOneByte),
+      )
+    val store = TableStore()
+    writeCloneSession(store, 100, listOf(0 to 5))
+
+    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x11), store)
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(2, outputs.size)
+    assertTrue(outputs.all { it.payload == ByteString.copyFrom(byteArrayOf(0x42)) })
+    assertTrue(outputs.any { it.dataplaneEgressPort == 2 })
+    assertTrue(outputs.any { it.dataplaneEgressPort == 5 })
   }
 
   @Test
