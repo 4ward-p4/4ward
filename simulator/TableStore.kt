@@ -39,6 +39,37 @@ fun matchesFieldMatch(bits: BitVector, match: P4RuntimeOuterClass.FieldMatch): B
   if (bits.width <= BitVector.LONG_WIDTH) matchLong(bits.longValue, bits.width, match)
   else matchBig(bits.value, bits.width, match)
 
+private data class InlineDirectResourceWriteContext(
+  val directCounterTables: Set<String>,
+  val directMeterTables: Set<String>,
+  val directCounterData: ConcurrentHashMap<TableEntry, AtomicLongArray>,
+  val writeState: TableStore.ForwardingSnapshot,
+)
+
+private fun applyInlineDirectResources(
+  rawEntry: TableEntry,
+  storedEntry: TableEntry,
+  oldEntry: TableEntry?,
+  tableName: String,
+  context: InlineDirectResourceWriteContext,
+) {
+  if (tableName in context.directCounterTables && rawEntry.hasCounterData()) {
+    oldEntry?.let { context.directCounterData.remove(it) }
+    val data = rawEntry.counterData
+    context.directCounterData[storedEntry] =
+      AtomicLongArray(longArrayOf(data.packetCount, data.byteCount))
+  } else if (tableName in context.directCounterTables && oldEntry != null) {
+    context.directCounterData.remove(oldEntry)?.let { context.directCounterData[storedEntry] = it }
+  }
+
+  if (tableName in context.directMeterTables) {
+    oldEntry?.let { context.writeState.directMeterData.remove(it) }
+    if (rawEntry.hasMeterConfig()) {
+      context.writeState.directMeterData[storedEntry] = rawEntry.meterConfig
+    }
+  }
+}
+
 private fun matchLong(bits: Long, width: Int, match: P4RuntimeOuterClass.FieldMatch): Boolean =
   when (match.fieldMatchTypeCase) {
     P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT ->
@@ -1124,15 +1155,42 @@ class TableStore : TableDataReader {
   }
 
   private fun writeTableEntry(update: Update): WriteResult {
-    val entry = update.entity.tableEntry
+    val rawEntry = update.entity.tableEntry
     val tableName =
-      tableNameById[entry.tableId]
+      tableNameById[rawEntry.tableId]
         ?: return WriteResult.NotFound(
-          "unknown table ID ${entry.tableId} " +
+          "unknown table ID ${rawEntry.tableId} " +
             "(valid tables: ${formatOptions(tableNameById.entries.map {
               "'${it.value}' (${it.key})"
             })})"
         )
+    if (rawEntry.hasCounterData() && tableName !in directCounterTables) {
+      return WriteResult.InvalidArgument(
+        "table '$tableName' has no direct counter, but TableEntry contained counter_data"
+      )
+    }
+    if (rawEntry.hasMeterConfig() && tableName !in directMeterTables) {
+      return WriteResult.InvalidArgument(
+        "table '$tableName' has no direct meter, but TableEntry contained meter_config"
+      )
+    }
+    // TODO(#718): Also reject direct resource data when the selected action does not execute
+    // that direct resource, as required by P4Runtime §9.1.7.
+    val entry =
+      if (!rawEntry.hasCounterData() && !rawEntry.hasMeterConfig()) {
+        rawEntry
+      } else {
+        // TableEntry carries direct extern data on reads, but forwarding entries are keyed only by
+        // match/action data. Store direct counter and meter state in their dedicated maps.
+        rawEntry.toBuilder().clearCounterData().clearMeterConfig().build()
+      }
+    val directResourceContext =
+      InlineDirectResourceWriteContext(
+        directCounterTables,
+        directMeterTables,
+        directCounterData,
+        writeState,
+      )
 
     // P4Runtime spec §9.1: default entries are stored separately and only support MODIFY.
     // The WriteValidator already rejects INSERT/DELETE for defaults.
@@ -1161,6 +1219,13 @@ class TableStore : TableDataReader {
             WriteResult.ResourceExhausted("table '$tableName' is full ($limit entries)")
           } else {
             entries.add(entry)
+            applyInlineDirectResources(
+              rawEntry,
+              entry,
+              oldEntry = null,
+              tableName,
+              directResourceContext,
+            )
             WriteResult.Success
           }
         }
@@ -1174,8 +1239,7 @@ class TableStore : TableDataReader {
           // a remove in the DELETE branch below.
           val old = entries[existingIndex]
           entries[existingIndex] = entry
-          directCounterData.remove(old)?.let { directCounterData[entry] = it }
-          writeState.directMeterData.remove(old)?.let { writeState.directMeterData[entry] = it }
+          applyInlineDirectResources(rawEntry, entry, old, tableName, directResourceContext)
           WriteResult.Success
         }
       }
