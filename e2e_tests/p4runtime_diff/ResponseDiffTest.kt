@@ -8,7 +8,10 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 import p4.v1.P4RuntimeOuterClass.Entity
 import p4.v1.P4RuntimeOuterClass.FieldMatch
+import p4.v1.P4RuntimeOuterClass.MulticastGroupEntry
+import p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry
 import p4.v1.P4RuntimeOuterClass.ReadResponse
+import p4.v1.P4RuntimeOuterClass.Replica
 import p4.v1.P4RuntimeOuterClass.TableEntry
 
 /**
@@ -53,6 +56,20 @@ class ResponseDiffTest {
   }
 
   @Test
+  fun `canonicalizeReadResponse sorts multicast replicas`() {
+    val resp =
+      ReadResponse.newBuilder()
+        .addEntities(multicastGroupEntity(groupId = 1, replicas = listOf(2 to 102, 1 to 101)))
+        .build()
+    val canonical = canonicalizeReadResponse(resp)
+    val replicas =
+      canonical.getEntities(0).packetReplicationEngineEntry.multicastGroupEntry.replicasList.map {
+        it.port.byteAt(0).toInt() to it.instance
+      }
+    assertEquals(listOf(1 to 101, 2 to 102), replicas)
+  }
+
+  @Test
   fun `assertProtosEqual passes on equal messages`() {
     val a = entry(matches = listOf(exact(1, 0xBEEF)))
     val b = entry(matches = listOf(exact(1, 0xBEEF)))
@@ -91,4 +108,23 @@ class ResponseDiffTest {
       .build()
 
   private fun asEntity(entry: TableEntry): Entity = Entity.newBuilder().setTableEntry(entry).build()
+
+  private fun multicastGroupEntity(groupId: Int, replicas: List<Pair<Int, Int>>): Entity =
+    Entity.newBuilder()
+      .setPacketReplicationEngineEntry(
+        PacketReplicationEngineEntry.newBuilder()
+          .setMulticastGroupEntry(
+            MulticastGroupEntry.newBuilder()
+              .setMulticastGroupId(groupId)
+              .addAllReplicas(
+                replicas.map { (port, instance) ->
+                  Replica.newBuilder()
+                    .setPort(ByteString.copyFrom(byteArrayOf(port.toByte())))
+                    .setInstance(instance)
+                    .build()
+                }
+              )
+          )
+      )
+      .build()
 }

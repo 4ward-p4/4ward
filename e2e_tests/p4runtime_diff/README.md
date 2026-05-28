@@ -26,7 +26,7 @@ Top-level targets:
 - `:libbmpi` — bmv2's Thrift-free PI integration adapter
   (sources from `@behavioral_model//:libbmpi_srcs`).
 - `:basic_table_fourward` / `:basic_table_bmv2_json` — `basic_table.p4`
-  compiled for both backends (scenarios 1-7).
+  compiled for both backends (scenarios 1-7 and 11).
 - `:action_selector_fourward` / `:action_selector_bmv2_json` —
   `action_selector_3.p4` compiled for both backends (scenarios 8-10).
 
@@ -36,7 +36,8 @@ Test targets:
   helpers ([`ResponseDiff.kt`](ResponseDiff.kt)). Always runnable.
 - `:P4RuntimeDiffSmokeTest` — spawns both servers, exercises
   `Capabilities` RPC. Skipped via `Assume` if the binary isn't built.
-- `:P4RuntimeDiffScenariosTest` — table entry scenarios (encoding,
-  error semantics, wildcard reads, default actions).
+- `:P4RuntimeDiffScenariosTest` — table entry and PRE scenarios
+  (encoding, error semantics, wildcard reads, default actions,
+  multicast groups).
 - `:P4RuntimeDiffActionProfileTest` — action profile scenarios
   (member CRUD, groups, table entries referencing groups).

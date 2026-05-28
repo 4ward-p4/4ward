@@ -16,8 +16,11 @@ import p4.v1.P4RuntimeOuterClass.Action
 import p4.v1.P4RuntimeOuterClass.Entity
 import p4.v1.P4RuntimeOuterClass.FieldMatch
 import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
+import p4.v1.P4RuntimeOuterClass.MulticastGroupEntry
+import p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry
 import p4.v1.P4RuntimeOuterClass.ReadRequest
 import p4.v1.P4RuntimeOuterClass.ReadResponse
+import p4.v1.P4RuntimeOuterClass.Replica
 import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
 import p4.v1.P4RuntimeOuterClass.TableAction
 import p4.v1.P4RuntimeOuterClass.TableEntry
@@ -41,6 +44,8 @@ class P4RuntimeDiffScenariosTest {
   fun resetState() {
     deleteAllEntries(fourward)
     deleteAllEntries(bmv2)
+    deleteAllMulticastGroups(fourward)
+    deleteAllMulticastGroups(bmv2)
   }
 
   // ===========================================================================
@@ -144,6 +149,24 @@ class P4RuntimeDiffScenariosTest {
     assertReadAgrees()
   }
 
+  // ===========================================================================
+  // Scenario 11: PRE multicast group CRUD/read-back
+  // ===========================================================================
+
+  @Test
+  fun `11 — PRE multicast group CRUD — both servers agree on read-back`() {
+    val group = multicastGroupEntity(groupId = 1, replicas = listOf(1 to 101, 2 to 102))
+    writeEntityOnBoth(Update.Type.INSERT, group)
+    assertMulticastReadAgrees()
+
+    val modified = multicastGroupEntity(groupId = 1, replicas = listOf(3 to 201))
+    writeEntityOnBoth(Update.Type.MODIFY, modified)
+    assertMulticastReadAgrees()
+
+    writeEntityOnBoth(Update.Type.DELETE, modified)
+    assertMulticastReadAgrees()
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
@@ -154,10 +177,19 @@ class P4RuntimeDiffScenariosTest {
   }
 
   private fun writeUpdate(runner: P4RuntimeRunner, type: Update.Type, entry: TableEntry) {
+    writeRawEntity(runner, type, asEntity(entry))
+  }
+
+  private fun writeEntityOnBoth(type: Update.Type, entity: Entity) {
+    writeRawEntity(fourward, type, entity)
+    writeRawEntity(bmv2, type, entity)
+  }
+
+  private fun writeRawEntity(runner: P4RuntimeRunner, type: Update.Type, entity: Entity) {
     val req =
       WriteRequest.newBuilder()
         .setDeviceId(DEVICE_ID)
-        .addUpdates(Update.newBuilder().setType(type).setEntity(asEntity(entry)))
+        .addUpdates(Update.newBuilder().setType(type).setEntity(entity))
         .build()
     runner.stub.write(req)
   }
@@ -165,6 +197,8 @@ class P4RuntimeDiffScenariosTest {
   private fun assertReadAgrees() = assertReadAgrees(wildcardTableReadRequest())
 
   private fun assertDefaultReadAgrees() = assertReadAgrees(defaultTableReadRequest())
+
+  private fun assertMulticastReadAgrees() = assertReadAgrees(multicastReadRequest())
 
   private fun assertReadAgrees(req: ReadRequest) {
     assertProtosEqual(
@@ -190,6 +224,18 @@ class P4RuntimeDiffScenariosTest {
         Entity.newBuilder()
           .setTableEntry(
             TableEntry.newBuilder().setTableId(schema.tableId).setIsDefaultAction(true)
+          )
+      )
+      .build()
+
+  private fun multicastReadRequest(): ReadRequest =
+    ReadRequest.newBuilder()
+      .setDeviceId(DEVICE_ID)
+      .addEntities(
+        Entity.newBuilder()
+          .setPacketReplicationEngineEntry(
+            PacketReplicationEngineEntry.newBuilder()
+              .setMulticastGroupEntry(MulticastGroupEntry.getDefaultInstance())
           )
       )
       .build()
@@ -241,12 +287,44 @@ class P4RuntimeDiffScenariosTest {
       )
       .build()
 
+  private fun multicastGroupEntity(groupId: Int, replicas: List<Pair<Int, Int>>): Entity =
+    Entity.newBuilder()
+      .setPacketReplicationEngineEntry(
+        PacketReplicationEngineEntry.newBuilder()
+          .setMulticastGroupEntry(
+            MulticastGroupEntry.newBuilder()
+              .setMulticastGroupId(groupId)
+              .addAllReplicas(
+                replicas.map { (port, instance) ->
+                  Replica.newBuilder()
+                    .setPort(ByteString.copyFrom(byteArrayOf(port.toByte())))
+                    .setInstance(instance)
+                    .build()
+                }
+              )
+          )
+      )
+      .build()
+
   private fun deleteAllEntries(runner: P4RuntimeRunner) {
     val deletes =
       readAll(runner, wildcardTableReadRequest()).entitiesList.mapNotNull { entity ->
         if (entity.tableEntry.tableId == schema.tableId && !entity.tableEntry.isDefaultAction) {
           Update.newBuilder().setType(Update.Type.DELETE).setEntity(entity).build()
         } else null
+      }
+    if (deletes.isEmpty()) return
+    ignoreGrpcStatus {
+      runner.stub.write(
+        WriteRequest.newBuilder().setDeviceId(DEVICE_ID).addAllUpdates(deletes).build()
+      )
+    }
+  }
+
+  private fun deleteAllMulticastGroups(runner: P4RuntimeRunner) {
+    val deletes =
+      readAll(runner, multicastReadRequest()).entitiesList.map { entity ->
+        Update.newBuilder().setType(Update.Type.DELETE).setEntity(entity).build()
       }
     if (deletes.isEmpty()) return
     ignoreGrpcStatus {
