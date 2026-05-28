@@ -30,6 +30,7 @@ import fourward.StructExprField
 import fourward.Transition
 import fourward.Type
 import fourward.TypeDecl
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -902,6 +903,24 @@ class PSAArchitectureTest {
     // Original on port 2, clone on port 5.
     assertTrue(outputs.any { it.dataplaneEgressPort == 2 })
     assertTrue(outputs.any { it.dataplaneEgressPort == 5 })
+  }
+
+  @Test
+  fun `I2E clone preserves non-byte-aligned packet boundary`() {
+    val config = psaConfig(ingressStmts = cloneStmts(100) + listOf(sendToPort(2)))
+    val store = TableStore()
+    writeCloneSession(store, 100, listOf(0 to 5))
+
+    // The first 10 bits are packet data; the final 14 bits are transport padding.
+    val packet = PacketBits.of(byteArrayOf(0xAB.toByte(), 0xC0.toByte(), 0x00), 10)
+
+    val result = PSAArchitecture(config).processPacket(0u, packet, store)
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(2, outputs.size)
+    for (output in outputs) {
+      assertArrayEquals(byteArrayOf(0xAB.toByte(), 0xC0.toByte()), output.payload.toByteArray())
+    }
   }
 
   @Test
