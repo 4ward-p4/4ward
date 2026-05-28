@@ -226,6 +226,20 @@ kt_jvm_test(
 )
 
 kt_jvm_test(
+    name = "DirectResourceUsageTest",
+    srcs = ["DirectResourceUsageTest.kt"],
+    test_class = "fourward.simulator.DirectResourceUsageTest",
+    deps = [
+        ":ir_java_proto",
+        ":p4info_java_proto",
+        ":p4runtime_java_proto",
+        ":simulator",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@fourward_maven//:junit_junit",
+    ],
+)
+
+kt_jvm_test(
     name = "InterpreterPacketTest",
     srcs = ["InterpreterPacketTest.kt"],
     test_class = "fourward.simulator.InterpreterPacketTest",
