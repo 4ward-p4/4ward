@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">90.6&nbsp;%</td>
-            <td class="headerCovTableEntry">128</td>
-            <td class="headerCovTableEntry">116</td>
+            <td class="headerCovTableEntryHi">90.4&nbsp;%</td>
+            <td class="headerCovTableEntry">125</td>
+            <td class="headerCovTableEntry">113</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-28 15:23:34</td>
+            <td class="headerValue">2026-05-28 15:34:55</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">93.2&nbsp;%</td>
@@ -285,92 +285,86 @@
 <span id="L223"><span class="lineNum">     223</span>              :   private fun semanticBytesFrom(byteStart: Int): ByteArray {</span>
 <span id="L224"><span class="lineNum">     224</span> <span class="tlaGNC">           1 :     val byteEnd = (validBitLength + 7) / 8</span></span>
 <span id="L225"><span class="lineNum">     225</span> <span class="tlaGNC">           1 :     val bytes = data.copyOfRange(byteStart, byteEnd)</span></span>
-<span id="L226"><span class="lineNum">     226</span> <span class="tlaGNC">           1 :     val finalPaddingBits = (Byte.SIZE_BITS - validBitLength % Byte.SIZE_BITS) % Byte.SIZE_BITS</span></span>
-<span id="L227"><span class="lineNum">     227</span> <span class="tlaGNC">           1 :     if (bytes.isNotEmpty() &amp;&amp; finalPaddingBits != 0) {</span></span>
-<span id="L228"><span class="lineNum">     228</span>              :       // PacketBits may carry arbitrary transport padding in the final byte. Byte-returning helpers</span>
-<span id="L229"><span class="lineNum">     229</span>              :       // expose semantic packet bytes, so clear the non-packet low bits before returning them.</span>
-<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC">           1 :       val finalByteMask = 0xFF shl finalPaddingBits</span></span>
-<span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :       bytes[bytes.lastIndex] = (bytes.last().toInt() and finalByteMask).toByte()</span></span>
-<span id="L232"><span class="lineNum">     232</span>              :     }</span>
-<span id="L233"><span class="lineNum">     233</span> <span class="tlaGNC">           1 :     return bytes</span></span>
-<span id="L234"><span class="lineNum">     234</span>              :   }</span>
-<span id="L235"><span class="lineNum">     235</span>              : </span>
-<span id="L236"><span class="lineNum">     236</span>              :   /** Reads [count] bytes from the current position (must be byte-aligned). */</span>
-<span id="L237"><span class="lineNum">     237</span>              :   fun read(count: Int): ByteArray {</span>
-<span id="L238"><span class="lineNum">     238</span> <span class="tlaGNC">           1 :     require(bitOffset % 8 == 0) { &quot;read() requires byte-aligned cursor, but bitOffset=$bitOffset&quot; }</span></span>
-<span id="L239"><span class="lineNum">     239</span> <span class="tlaGNC">           1 :     val bitsNeeded = count * 8</span></span>
-<span id="L240"><span class="lineNum">     240</span> <span class="tlaGNC">           1 :     if (bitsNeeded &gt; remainingBits()) {</span></span>
-<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :       throw PacketTooShortException(</span></span>
-<span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :         &quot;attempted to extract $count bytes but only ${remainingBits() / 8} remain in packet&quot;</span></span>
-<span id="L243"><span class="lineNum">     243</span>              :       )</span>
-<span id="L244"><span class="lineNum">     244</span>              :     }</span>
-<span id="L245"><span class="lineNum">     245</span> <span class="tlaGNC">           1 :     val byteStart = bitOffset / 8</span></span>
-<span id="L246"><span class="lineNum">     246</span> <span class="tlaGNC">           1 :     bitOffset += bitsNeeded</span></span>
-<span id="L247"><span class="lineNum">     247</span> <span class="tlaGNC">           1 :     return data.copyOfRange(byteStart, byteStart + count)</span></span>
-<span id="L248"><span class="lineNum">     248</span>              :   }</span>
-<span id="L249"><span class="lineNum">     249</span>              : </span>
-<span id="L250"><span class="lineNum">     250</span>              :   /** Reads [bitCount] bits from the current position as a BigInteger, MSB-first. */</span>
-<span id="L251"><span class="lineNum">     251</span>              :   fun readBits(bitCount: Int): BigInteger {</span>
-<span id="L252"><span class="lineNum">     252</span> <span class="tlaGNC">           1 :     if (bitCount &gt; remainingBits()) {</span></span>
-<span id="L253"><span class="lineNum">     253</span> <span class="tlaGNC">           1 :       throw PacketTooShortException(</span></span>
-<span id="L254"><span class="lineNum">     254</span> <span class="tlaGNC">           1 :         &quot;attempted to extract $bitCount bits but only ${remainingBits()} remain in packet&quot;</span></span>
-<span id="L255"><span class="lineNum">     255</span>              :       )</span>
-<span id="L256"><span class="lineNum">     256</span>              :     }</span>
-<span id="L257"><span class="lineNum">     257</span> <span class="tlaGNC">           1 :     val result = peekBitsInternal(bitCount)</span></span>
-<span id="L258"><span class="lineNum">     258</span> <span class="tlaGNC">           1 :     bitOffset += bitCount</span></span>
-<span id="L259"><span class="lineNum">     259</span> <span class="tlaGNC">           1 :     return result</span></span>
-<span id="L260"><span class="lineNum">     260</span>              :   }</span>
-<span id="L261"><span class="lineNum">     261</span>              : </span>
-<span id="L262"><span class="lineNum">     262</span>              :   /** Peeks at [count] bytes without advancing (must be byte-aligned). */</span>
-<span id="L263"><span class="lineNum">     263</span>              :   fun peek(count: Int): ByteArray {</span>
-<span id="L264"><span class="lineNum">     264</span> <span class="tlaUNC tlaBgUNC">           0 :     require(isByteAligned) { &quot;peek() requires byte-aligned cursor, but bitOffset=$bitOffset&quot; }</span></span>
-<span id="L265"><span class="lineNum">     265</span> <span class="tlaUNC">           0 :     val bitsNeeded = count * 8</span></span>
-<span id="L266"><span class="lineNum">     266</span> <span class="tlaUNC">           0 :     if (bitsNeeded &gt; remainingBits()) {</span></span>
-<span id="L267"><span class="lineNum">     267</span> <span class="tlaUNC">           0 :       throw PacketTooShortException(</span></span>
-<span id="L268"><span class="lineNum">     268</span> <span class="tlaUNC">           0 :         &quot;lookahead: need $count bytes but only ${remainingBits() / 8} remain in packet&quot;</span></span>
-<span id="L269"><span class="lineNum">     269</span>              :       )</span>
-<span id="L270"><span class="lineNum">     270</span>              :     }</span>
-<span id="L271"><span class="lineNum">     271</span> <span class="tlaUNC">           0 :     val byteStart = bitOffset / 8</span></span>
-<span id="L272"><span class="lineNum">     272</span> <span class="tlaUNC">           0 :     return data.copyOfRange(byteStart, byteStart + count)</span></span>
-<span id="L273"><span class="lineNum">     273</span>              :   }</span>
-<span id="L274"><span class="lineNum">     274</span>              : </span>
-<span id="L275"><span class="lineNum">     275</span>              :   /** Peeks at [bitCount] bits without advancing, MSB-first. */</span>
-<span id="L276"><span class="lineNum">     276</span>              :   fun peekBits(bitCount: Int): BigInteger {</span>
-<span id="L277"><span class="lineNum">     277</span> <span class="tlaGNC tlaBgGNC">           1 :     if (bitCount &gt; remainingBits()) {</span></span>
-<span id="L278"><span class="lineNum">     278</span> <span class="tlaGNC">           1 :       throw PacketTooShortException(</span></span>
-<span id="L279"><span class="lineNum">     279</span> <span class="tlaGNC">           1 :         &quot;lookahead: need $bitCount bits but only ${remainingBits()} remain in packet&quot;</span></span>
-<span id="L280"><span class="lineNum">     280</span>              :       )</span>
-<span id="L281"><span class="lineNum">     281</span>              :     }</span>
-<span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC">           1 :     return peekBitsInternal(bitCount)</span></span>
-<span id="L283"><span class="lineNum">     283</span>              :   }</span>
-<span id="L284"><span class="lineNum">     284</span>              : </span>
-<span id="L285"><span class="lineNum">     285</span>              :   /** Advances the cursor by [bits] bits. */</span>
-<span id="L286"><span class="lineNum">     286</span>              :   fun advanceBits(bits: Int) {</span>
-<span id="L287"><span class="lineNum">     287</span> <span class="tlaGNC">           1 :     if (bits &gt; remainingBits()) {</span></span>
-<span id="L288"><span class="lineNum">     288</span> <span class="tlaGNC">           1 :       throw PacketTooShortException(</span></span>
-<span id="L289"><span class="lineNum">     289</span> <span class="tlaGNC">           1 :         &quot;advance: need $bits bits but only ${remainingBits()} remain in packet&quot;</span></span>
-<span id="L290"><span class="lineNum">     290</span>              :       )</span>
-<span id="L291"><span class="lineNum">     291</span>              :     }</span>
-<span id="L292"><span class="lineNum">     292</span> <span class="tlaGNC">           1 :     bitOffset += bits</span></span>
-<span id="L293"><span class="lineNum">     293</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L294"><span class="lineNum">     294</span>              : </span>
-<span id="L295"><span class="lineNum">     295</span>              :   private fun peekBitsInternal(bitCount: Int): BigInteger {</span>
-<span id="L296"><span class="lineNum">     296</span> <span class="tlaGNC">           1 :     if (bitCount == 0) return BigInteger.ZERO</span></span>
-<span id="L297"><span class="lineNum">     297</span> <span class="tlaGNC">           1 :     if (bitOffset % 8 == 0 &amp;&amp; bitCount % 8 == 0) {</span></span>
-<span id="L298"><span class="lineNum">     298</span> <span class="tlaGNC">           1 :       val startByte = bitOffset / 8</span></span>
-<span id="L299"><span class="lineNum">     299</span> <span class="tlaGNC">           1 :       return BigInteger(1, data.copyOfRange(startByte, startByte + bitCount / 8))</span></span>
-<span id="L300"><span class="lineNum">     300</span>              :     }</span>
-<span id="L301"><span class="lineNum">     301</span>              :     // Read the minimal span of bytes that covers [bitOffset, bitOffset+bitCount),</span>
-<span id="L302"><span class="lineNum">     302</span>              :     // then right-shift to discard trailing bits and mask to the desired width.</span>
-<span id="L303"><span class="lineNum">     303</span> <span class="tlaGNC">           1 :     val startByte = bitOffset / 8</span></span>
-<span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :     val endByte = (bitOffset + bitCount - 1) / 8</span></span>
-<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :     val raw = BigInteger(1, data.copyOfRange(startByte, endByte + 1))</span></span>
-<span id="L306"><span class="lineNum">     306</span> <span class="tlaGNC">           1 :     val trailingBits = (endByte + 1) * 8 - (bitOffset + bitCount)</span></span>
-<span id="L307"><span class="lineNum">     307</span> <span class="tlaGNC">           1 :     val shifted = raw.shiftRight(trailingBits)</span></span>
-<span id="L308"><span class="lineNum">     308</span> <span class="tlaGNC">           1 :     val mask = BigInteger.ONE.shiftLeft(bitCount).subtract(BigInteger.ONE)</span></span>
-<span id="L309"><span class="lineNum">     309</span> <span class="tlaGNC">           1 :     return shifted.and(mask)</span></span>
-<span id="L310"><span class="lineNum">     310</span>              :   }</span>
-<span id="L311"><span class="lineNum">     311</span>              : }</span>
+<span id="L226"><span class="lineNum">     226</span> <span class="tlaGNC">           1 :     maskFinalPacketByteInPlace(bytes, validBitLength)</span></span>
+<span id="L227"><span class="lineNum">     227</span> <span class="tlaGNC">           1 :     return bytes</span></span>
+<span id="L228"><span class="lineNum">     228</span>              :   }</span>
+<span id="L229"><span class="lineNum">     229</span>              : </span>
+<span id="L230"><span class="lineNum">     230</span>              :   /** Reads [count] bytes from the current position (must be byte-aligned). */</span>
+<span id="L231"><span class="lineNum">     231</span>              :   fun read(count: Int): ByteArray {</span>
+<span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :     require(bitOffset % 8 == 0) { &quot;read() requires byte-aligned cursor, but bitOffset=$bitOffset&quot; }</span></span>
+<span id="L233"><span class="lineNum">     233</span> <span class="tlaGNC">           1 :     val bitsNeeded = count * 8</span></span>
+<span id="L234"><span class="lineNum">     234</span> <span class="tlaGNC">           1 :     if (bitsNeeded &gt; remainingBits()) {</span></span>
+<span id="L235"><span class="lineNum">     235</span> <span class="tlaGNC">           1 :       throw PacketTooShortException(</span></span>
+<span id="L236"><span class="lineNum">     236</span> <span class="tlaGNC">           1 :         &quot;attempted to extract $count bytes but only ${remainingBits() / 8} remain in packet&quot;</span></span>
+<span id="L237"><span class="lineNum">     237</span>              :       )</span>
+<span id="L238"><span class="lineNum">     238</span>              :     }</span>
+<span id="L239"><span class="lineNum">     239</span> <span class="tlaGNC">           1 :     val byteStart = bitOffset / 8</span></span>
+<span id="L240"><span class="lineNum">     240</span> <span class="tlaGNC">           1 :     bitOffset += bitsNeeded</span></span>
+<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :     return data.copyOfRange(byteStart, byteStart + count)</span></span>
+<span id="L242"><span class="lineNum">     242</span>              :   }</span>
+<span id="L243"><span class="lineNum">     243</span>              : </span>
+<span id="L244"><span class="lineNum">     244</span>              :   /** Reads [bitCount] bits from the current position as a BigInteger, MSB-first. */</span>
+<span id="L245"><span class="lineNum">     245</span>              :   fun readBits(bitCount: Int): BigInteger {</span>
+<span id="L246"><span class="lineNum">     246</span> <span class="tlaGNC">           1 :     if (bitCount &gt; remainingBits()) {</span></span>
+<span id="L247"><span class="lineNum">     247</span> <span class="tlaGNC">           1 :       throw PacketTooShortException(</span></span>
+<span id="L248"><span class="lineNum">     248</span> <span class="tlaGNC">           1 :         &quot;attempted to extract $bitCount bits but only ${remainingBits()} remain in packet&quot;</span></span>
+<span id="L249"><span class="lineNum">     249</span>              :       )</span>
+<span id="L250"><span class="lineNum">     250</span>              :     }</span>
+<span id="L251"><span class="lineNum">     251</span> <span class="tlaGNC">           1 :     val result = peekBitsInternal(bitCount)</span></span>
+<span id="L252"><span class="lineNum">     252</span> <span class="tlaGNC">           1 :     bitOffset += bitCount</span></span>
+<span id="L253"><span class="lineNum">     253</span> <span class="tlaGNC">           1 :     return result</span></span>
+<span id="L254"><span class="lineNum">     254</span>              :   }</span>
+<span id="L255"><span class="lineNum">     255</span>              : </span>
+<span id="L256"><span class="lineNum">     256</span>              :   /** Peeks at [count] bytes without advancing (must be byte-aligned). */</span>
+<span id="L257"><span class="lineNum">     257</span>              :   fun peek(count: Int): ByteArray {</span>
+<span id="L258"><span class="lineNum">     258</span> <span class="tlaUNC tlaBgUNC">           0 :     require(isByteAligned) { &quot;peek() requires byte-aligned cursor, but bitOffset=$bitOffset&quot; }</span></span>
+<span id="L259"><span class="lineNum">     259</span> <span class="tlaUNC">           0 :     val bitsNeeded = count * 8</span></span>
+<span id="L260"><span class="lineNum">     260</span> <span class="tlaUNC">           0 :     if (bitsNeeded &gt; remainingBits()) {</span></span>
+<span id="L261"><span class="lineNum">     261</span> <span class="tlaUNC">           0 :       throw PacketTooShortException(</span></span>
+<span id="L262"><span class="lineNum">     262</span> <span class="tlaUNC">           0 :         &quot;lookahead: need $count bytes but only ${remainingBits() / 8} remain in packet&quot;</span></span>
+<span id="L263"><span class="lineNum">     263</span>              :       )</span>
+<span id="L264"><span class="lineNum">     264</span>              :     }</span>
+<span id="L265"><span class="lineNum">     265</span> <span class="tlaUNC">           0 :     val byteStart = bitOffset / 8</span></span>
+<span id="L266"><span class="lineNum">     266</span> <span class="tlaUNC">           0 :     return data.copyOfRange(byteStart, byteStart + count)</span></span>
+<span id="L267"><span class="lineNum">     267</span>              :   }</span>
+<span id="L268"><span class="lineNum">     268</span>              : </span>
+<span id="L269"><span class="lineNum">     269</span>              :   /** Peeks at [bitCount] bits without advancing, MSB-first. */</span>
+<span id="L270"><span class="lineNum">     270</span>              :   fun peekBits(bitCount: Int): BigInteger {</span>
+<span id="L271"><span class="lineNum">     271</span> <span class="tlaGNC tlaBgGNC">           1 :     if (bitCount &gt; remainingBits()) {</span></span>
+<span id="L272"><span class="lineNum">     272</span> <span class="tlaGNC">           1 :       throw PacketTooShortException(</span></span>
+<span id="L273"><span class="lineNum">     273</span> <span class="tlaGNC">           1 :         &quot;lookahead: need $bitCount bits but only ${remainingBits()} remain in packet&quot;</span></span>
+<span id="L274"><span class="lineNum">     274</span>              :       )</span>
+<span id="L275"><span class="lineNum">     275</span>              :     }</span>
+<span id="L276"><span class="lineNum">     276</span> <span class="tlaGNC">           1 :     return peekBitsInternal(bitCount)</span></span>
+<span id="L277"><span class="lineNum">     277</span>              :   }</span>
+<span id="L278"><span class="lineNum">     278</span>              : </span>
+<span id="L279"><span class="lineNum">     279</span>              :   /** Advances the cursor by [bits] bits. */</span>
+<span id="L280"><span class="lineNum">     280</span>              :   fun advanceBits(bits: Int) {</span>
+<span id="L281"><span class="lineNum">     281</span> <span class="tlaGNC">           1 :     if (bits &gt; remainingBits()) {</span></span>
+<span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC">           1 :       throw PacketTooShortException(</span></span>
+<span id="L283"><span class="lineNum">     283</span> <span class="tlaGNC">           1 :         &quot;advance: need $bits bits but only ${remainingBits()} remain in packet&quot;</span></span>
+<span id="L284"><span class="lineNum">     284</span>              :       )</span>
+<span id="L285"><span class="lineNum">     285</span>              :     }</span>
+<span id="L286"><span class="lineNum">     286</span> <span class="tlaGNC">           1 :     bitOffset += bits</span></span>
+<span id="L287"><span class="lineNum">     287</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L288"><span class="lineNum">     288</span>              : </span>
+<span id="L289"><span class="lineNum">     289</span>              :   private fun peekBitsInternal(bitCount: Int): BigInteger {</span>
+<span id="L290"><span class="lineNum">     290</span> <span class="tlaGNC">           1 :     if (bitCount == 0) return BigInteger.ZERO</span></span>
+<span id="L291"><span class="lineNum">     291</span> <span class="tlaGNC">           1 :     if (bitOffset % 8 == 0 &amp;&amp; bitCount % 8 == 0) {</span></span>
+<span id="L292"><span class="lineNum">     292</span> <span class="tlaGNC">           1 :       val startByte = bitOffset / 8</span></span>
+<span id="L293"><span class="lineNum">     293</span> <span class="tlaGNC">           1 :       return BigInteger(1, data.copyOfRange(startByte, startByte + bitCount / 8))</span></span>
+<span id="L294"><span class="lineNum">     294</span>              :     }</span>
+<span id="L295"><span class="lineNum">     295</span>              :     // Read the minimal span of bytes that covers [bitOffset, bitOffset+bitCount),</span>
+<span id="L296"><span class="lineNum">     296</span>              :     // then right-shift to discard trailing bits and mask to the desired width.</span>
+<span id="L297"><span class="lineNum">     297</span> <span class="tlaGNC">           1 :     val startByte = bitOffset / 8</span></span>
+<span id="L298"><span class="lineNum">     298</span> <span class="tlaGNC">           1 :     val endByte = (bitOffset + bitCount - 1) / 8</span></span>
+<span id="L299"><span class="lineNum">     299</span> <span class="tlaGNC">           1 :     val raw = BigInteger(1, data.copyOfRange(startByte, endByte + 1))</span></span>
+<span id="L300"><span class="lineNum">     300</span> <span class="tlaGNC">           1 :     val trailingBits = (endByte + 1) * 8 - (bitOffset + bitCount)</span></span>
+<span id="L301"><span class="lineNum">     301</span> <span class="tlaGNC">           1 :     val shifted = raw.shiftRight(trailingBits)</span></span>
+<span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :     val mask = BigInteger.ONE.shiftLeft(bitCount).subtract(BigInteger.ONE)</span></span>
+<span id="L303"><span class="lineNum">     303</span> <span class="tlaGNC">           1 :     return shifted.and(mask)</span></span>
+<span id="L304"><span class="lineNum">     304</span>              :   }</span>
+<span id="L305"><span class="lineNum">     305</span>              : }</span>
         </pre>
               </td>
             </tr>

@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-28 15:23:34</td>
+            <td class="headerValue">2026-05-28 15:34:55</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryMed">79.5&nbsp;%</td>
@@ -254,7 +254,7 @@
 <span id="L192"><span class="lineNum">     192</span>              :                       // never forward-allocated), so a missing reverse mapping is expected.</span>
 <span id="L193"><span class="lineNum">     193</span> <span class="tlaGNC">           1 :                       pt?.dataplaneToP4rt(subResult.ingressPort)?.let { setP4RtIngressPort(it) }</span></span>
 <span id="L194"><span class="lineNum">     194</span> <span class="tlaGNC">           1 :                     }</span></span>
-<span id="L195"><span class="lineNum">     195</span> <span class="tlaGNC">           1 :                     .setPayload(ByteString.copyFrom(subResult.payload))</span></span>
+<span id="L195"><span class="lineNum">     195</span> <span class="tlaGNC">           1 :                     .setPayload(ByteString.copyFrom(subResult.packet.copySemanticBytes()))</span></span>
 <span id="L196"><span class="lineNum">     196</span> <span class="tlaGNC">           1 :                     .setTag(subResult.tag)</span></span>
 <span id="L197"><span class="lineNum">     197</span>              :                 )</span>
 <span id="L198"><span class="lineNum">     198</span> <span class="tlaGNC">           1 :                 .addAllPossibleOutcomes(</span></span>

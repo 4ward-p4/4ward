@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">95.4&nbsp;%</td>
-            <td class="headerCovTableEntry">65</td>
-            <td class="headerCovTableEntry">62</td>
+            <td class="headerCovTableEntryHi">95.5&nbsp;%</td>
+            <td class="headerCovTableEntry">66</td>
+            <td class="headerCovTableEntry">63</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-28 15:23:34</td>
+            <td class="headerValue">2026-05-28 15:34:55</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryMed">89.5&nbsp;%</td>
@@ -163,7 +163,7 @@
 <span id="L101"><span class="lineNum">     101</span>              :   /** Delivered to each [subscribe] subscriber for every processed packet. */</span>
 <span id="L102"><span class="lineNum">     102</span> <span class="tlaGNC">           1 :   class SubscriptionResult(</span></span>
 <span id="L103"><span class="lineNum">     103</span> <span class="tlaGNC">           1 :     val ingressPort: Int,</span></span>
-<span id="L104"><span class="lineNum">     104</span> <span class="tlaGNC">           1 :     val payload: ByteArray,</span></span>
+<span id="L104"><span class="lineNum">     104</span> <span class="tlaGNC">           1 :     val packet: PacketBits,</span></span>
 <span id="L105"><span class="lineNum">     105</span> <span class="tlaGNC">           1 :     val possibleOutcomes: List&lt;List&lt;OutputPacket&gt;&gt;,</span></span>
 <span id="L106"><span class="lineNum">     106</span> <span class="tlaGNC">           1 :     val trace: TraceTree,</span></span>
 <span id="L107"><span class="lineNum">     107</span> <span class="tlaGNC">           1 :     val tag: Long = 0,</span></span>
@@ -199,7 +199,7 @@
 <span id="L137"><span class="lineNum">     137</span> <span class="tlaGNC">           1 :   fun processPacket(ingressPort: Int, packet: PacketBits, tag: Long = 0): ProcessPacketResult {</span></span>
 <span id="L138"><span class="lineNum">     138</span> <span class="tlaGNC">           1 :     fireHookUnderMutex()</span></span>
 <span id="L139"><span class="lineNum">     139</span> <span class="tlaGNC">           1 :     val result = simulatorFn(ingressPort, packet)</span></span>
-<span id="L140"><span class="lineNum">     140</span> <span class="tlaGNC">           1 :     dispatchToSubscribers(ingressPort, packet.copyPaddedBytes(), result, tag)</span></span>
+<span id="L140"><span class="lineNum">     140</span> <span class="tlaGNC">           1 :     dispatchToSubscribers(ingressPort, packet, result, tag)</span></span>
 <span id="L141"><span class="lineNum">     141</span> <span class="tlaGNC">           1 :     return result</span></span>
 <span id="L142"><span class="lineNum">     142</span>              :   }</span>
 <span id="L143"><span class="lineNum">     143</span>              : </span>
@@ -211,42 +211,43 @@
 <span id="L149"><span class="lineNum">     149</span>              :   fun &lt;T&gt; withHookOnce(block: (processor: (Int, ByteArray, Long) -&gt; Unit) -&gt; T): T {</span>
 <span id="L150"><span class="lineNum">     150</span> <span class="tlaGNC">           1 :     fireHookUnderMutex()</span></span>
 <span id="L151"><span class="lineNum">     151</span> <span class="tlaGNC">           1 :     return block { port, payload, tag -&gt;</span></span>
-<span id="L152"><span class="lineNum">     152</span> <span class="tlaGNC">           1 :       val result = simulatorFn(port, PacketBits.ofBytes(payload))</span></span>
-<span id="L153"><span class="lineNum">     153</span> <span class="tlaGNC">           1 :       dispatchToSubscribers(port, payload, result, tag)</span></span>
-<span id="L154"><span class="lineNum">     154</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L155"><span class="lineNum">     155</span>              :   }</span>
-<span id="L156"><span class="lineNum">     156</span>              : </span>
-<span id="L157"><span class="lineNum">     157</span>              :   /** Registers a subscriber that receives results for every processed packet. */</span>
-<span id="L158"><span class="lineNum">     158</span>              :   fun subscribe(callback: (SubscriptionResult) -&gt; Unit): SubscriptionHandle {</span>
-<span id="L159"><span class="lineNum">     159</span> <span class="tlaGNC">           1 :     subscribers.add(callback)</span></span>
-<span id="L160"><span class="lineNum">     160</span> <span class="tlaGNC">           1 :     return SubscriptionHandle { subscribers.remove(callback) }</span></span>
-<span id="L161"><span class="lineNum">     161</span>              :   }</span>
-<span id="L162"><span class="lineNum">     162</span>              : </span>
-<span id="L163"><span class="lineNum">     163</span> <span class="tlaUNC tlaBgUNC">           0 :   private fun dispatchToSubscribers(</span></span>
-<span id="L164"><span class="lineNum">     164</span>              :     ingressPort: Int,</span>
-<span id="L165"><span class="lineNum">     165</span>              :     payload: ByteArray,</span>
-<span id="L166"><span class="lineNum">     166</span>              :     result: ProcessPacketResult,</span>
-<span id="L167"><span class="lineNum">     167</span> <span class="tlaUNC">           0 :     tag: Long = 0,</span></span>
-<span id="L168"><span class="lineNum">     168</span>              :   ) {</span>
-<span id="L169"><span class="lineNum">     169</span> <span class="tlaGNC tlaBgGNC">           1 :     if (subscribers.isEmpty()) return</span></span>
-<span id="L170"><span class="lineNum">     170</span> <span class="tlaGNC">           1 :     val subResult =</span></span>
-<span id="L171"><span class="lineNum">     171</span> <span class="tlaGNC">           1 :       SubscriptionResult(ingressPort, payload, result.possibleOutcomes, result.trace, tag)</span></span>
-<span id="L172"><span class="lineNum">     172</span> <span class="tlaGNC">           1 :     for (subscriber in subscribers) {</span></span>
-<span id="L173"><span class="lineNum">     173</span> <span class="tlaGNC">           1 :       try {</span></span>
-<span id="L174"><span class="lineNum">     174</span> <span class="tlaGNC">           1 :         subscriber(subResult)</span></span>
-<span id="L175"><span class="lineNum">     175</span> <span class="tlaGNC">           1 :       } catch (</span></span>
-<span id="L176"><span class="lineNum">     176</span>              :         @Suppress(&quot;TooGenericExceptionCaught&quot;) // Safety net: any subscriber failure must not</span>
-<span id="L177"><span class="lineNum">     177</span>              :         e: Exception // crash the sender or block other subscribers.</span>
-<span id="L178"><span class="lineNum">     178</span>              :       ) {</span>
-<span id="L179"><span class="lineNum">     179</span> <span class="tlaGNC">           1 :         logger.log(Level.WARNING, &quot;Subscriber threw during packet dispatch&quot;, e)</span></span>
-<span id="L180"><span class="lineNum">     180</span>              :       }</span>
-<span id="L181"><span class="lineNum">     181</span>              :     }</span>
-<span id="L182"><span class="lineNum">     182</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L183"><span class="lineNum">     183</span>              : </span>
-<span id="L184"><span class="lineNum">     184</span>              :   private companion object {</span>
-<span id="L185"><span class="lineNum">     185</span> <span class="tlaGNC">           1 :     val logger: Logger = Logger.getLogger(PacketBroker::class.java.name)</span></span>
-<span id="L186"><span class="lineNum">     186</span>              :   }</span>
-<span id="L187"><span class="lineNum">     187</span>              : }</span>
+<span id="L152"><span class="lineNum">     152</span> <span class="tlaGNC">           1 :       val packet = PacketBits.ofBytes(payload)</span></span>
+<span id="L153"><span class="lineNum">     153</span> <span class="tlaGNC">           1 :       val result = simulatorFn(port, packet)</span></span>
+<span id="L154"><span class="lineNum">     154</span> <span class="tlaGNC">           1 :       dispatchToSubscribers(port, packet, result, tag)</span></span>
+<span id="L155"><span class="lineNum">     155</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L156"><span class="lineNum">     156</span>              :   }</span>
+<span id="L157"><span class="lineNum">     157</span>              : </span>
+<span id="L158"><span class="lineNum">     158</span>              :   /** Registers a subscriber that receives results for every processed packet. */</span>
+<span id="L159"><span class="lineNum">     159</span>              :   fun subscribe(callback: (SubscriptionResult) -&gt; Unit): SubscriptionHandle {</span>
+<span id="L160"><span class="lineNum">     160</span> <span class="tlaGNC">           1 :     subscribers.add(callback)</span></span>
+<span id="L161"><span class="lineNum">     161</span> <span class="tlaGNC">           1 :     return SubscriptionHandle { subscribers.remove(callback) }</span></span>
+<span id="L162"><span class="lineNum">     162</span>              :   }</span>
+<span id="L163"><span class="lineNum">     163</span>              : </span>
+<span id="L164"><span class="lineNum">     164</span> <span class="tlaUNC tlaBgUNC">           0 :   private fun dispatchToSubscribers(</span></span>
+<span id="L165"><span class="lineNum">     165</span>              :     ingressPort: Int,</span>
+<span id="L166"><span class="lineNum">     166</span>              :     packet: PacketBits,</span>
+<span id="L167"><span class="lineNum">     167</span>              :     result: ProcessPacketResult,</span>
+<span id="L168"><span class="lineNum">     168</span> <span class="tlaUNC">           0 :     tag: Long = 0,</span></span>
+<span id="L169"><span class="lineNum">     169</span>              :   ) {</span>
+<span id="L170"><span class="lineNum">     170</span> <span class="tlaGNC tlaBgGNC">           1 :     if (subscribers.isEmpty()) return</span></span>
+<span id="L171"><span class="lineNum">     171</span> <span class="tlaGNC">           1 :     val subResult =</span></span>
+<span id="L172"><span class="lineNum">     172</span> <span class="tlaGNC">           1 :       SubscriptionResult(ingressPort, packet, result.possibleOutcomes, result.trace, tag)</span></span>
+<span id="L173"><span class="lineNum">     173</span> <span class="tlaGNC">           1 :     for (subscriber in subscribers) {</span></span>
+<span id="L174"><span class="lineNum">     174</span> <span class="tlaGNC">           1 :       try {</span></span>
+<span id="L175"><span class="lineNum">     175</span> <span class="tlaGNC">           1 :         subscriber(subResult)</span></span>
+<span id="L176"><span class="lineNum">     176</span> <span class="tlaGNC">           1 :       } catch (</span></span>
+<span id="L177"><span class="lineNum">     177</span>              :         @Suppress(&quot;TooGenericExceptionCaught&quot;) // Safety net: any subscriber failure must not</span>
+<span id="L178"><span class="lineNum">     178</span>              :         e: Exception // crash the sender or block other subscribers.</span>
+<span id="L179"><span class="lineNum">     179</span>              :       ) {</span>
+<span id="L180"><span class="lineNum">     180</span> <span class="tlaGNC">           1 :         logger.log(Level.WARNING, &quot;Subscriber threw during packet dispatch&quot;, e)</span></span>
+<span id="L181"><span class="lineNum">     181</span>              :       }</span>
+<span id="L182"><span class="lineNum">     182</span>              :     }</span>
+<span id="L183"><span class="lineNum">     183</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L184"><span class="lineNum">     184</span>              : </span>
+<span id="L185"><span class="lineNum">     185</span>              :   private companion object {</span>
+<span id="L186"><span class="lineNum">     186</span> <span class="tlaGNC">           1 :     val logger: Logger = Logger.getLogger(PacketBroker::class.java.name)</span></span>
+<span id="L187"><span class="lineNum">     187</span>              :   }</span>
+<span id="L188"><span class="lineNum">     188</span>              : }</span>
         </pre>
               </td>
             </tr>
