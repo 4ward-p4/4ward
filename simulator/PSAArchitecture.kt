@@ -135,7 +135,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
     if (ingress.dropped) {
       val i2eCloneBranches =
-        buildI2ECloneBranches(pipeline, packet.bytes, ingress.output, selectorMembers)
+        buildI2ECloneBranches(pipeline, packet, ingress.output, selectorMembers)
       if (i2eCloneBranches.isNotEmpty()) {
         return buildForkTree(ingress.events, ForkReason.CLONE, i2eCloneBranches)
       }
@@ -161,8 +161,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     }
 
     // === Traffic Manager: I2E clone + multicast/unicast ===
-    val i2eCloneBranches =
-      buildI2ECloneBranches(pipeline, packet.bytes, ingress.output, selectorMembers)
+    val i2eCloneBranches = buildI2ECloneBranches(pipeline, packet, ingress.output, selectorMembers)
     val originalTree = buildOriginalEgressPath(pipeline, ingress, depth, selectorMembers)
 
     if (i2eCloneBranches.isNotEmpty()) {
@@ -362,7 +361,15 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
   ): TraceTree {
     val core: EgressCoreResult
     try {
-      core = runEgressCore(state, deparsedBytes, egressPort, instance, packetPath, selectorMembers)
+      core =
+        runEgressCore(
+          state,
+          PacketBits.ofBytes(deparsedBytes),
+          egressPort,
+          instance,
+          packetPath,
+          selectorMembers,
+        )
     } catch (fork: ActionSelectorFork) {
       return handleActionSelectorFork(fork, selectorMembers) { newSelectors ->
         runEgressWithPostProcessing(
@@ -426,14 +433,14 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
    */
   private fun runEgressCore(
     state: EgressState,
-    deparsedBytes: ByteArray,
+    packet: PacketBits,
     egressPort: Int,
     instance: Int,
     packetPath: String,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): EgressCoreResult {
     val p = state.pipeline
-    val egressCtx = PacketContext(deparsedBytes)
+    val egressCtx = PacketContext(packet)
     val egressEnv = Environment()
     val egressValues = createDefaultValues(p.config, p.typesByName)
 
@@ -490,7 +497,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
    */
   private fun buildI2ECloneBranches(
     pipeline: PipelineConfig,
-    originalPayload: ByteArray,
+    originalPacket: PacketBits,
     ingressOutput: StructVal?,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): List<ForkBranch> =
@@ -499,7 +506,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     buildCloneBranches(
       pipeline,
       ingressOutput,
-      originalPayload,
+      originalPacket,
       PACKET_PATH_CLONE_I2E,
       selectorMembers,
     )
@@ -519,7 +526,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     buildCloneBranches(
       pipeline,
       core.output,
-      core.deparsedBytes,
+      PacketBits.ofBytes(core.deparsedBytes),
       PACKET_PATH_CLONE_E2E,
       selectorMembers,
     )
@@ -534,7 +541,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
   private fun buildCloneBranches(
     pipeline: PipelineConfig,
     cloneMetadata: StructVal?,
-    clonePayload: ByteArray,
+    clonePacket: PacketBits,
     packetPath: String,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): List<ForkBranch> {
@@ -547,14 +554,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     return session.replicasList.map { replica ->
       val port = replicaPort(replica)
       val subtree =
-        runCloneEgress(
-          cloneState,
-          clonePayload,
-          port,
-          replica.instance,
-          packetPath,
-          selectorMembers,
-        )
+        runCloneEgress(cloneState, clonePacket, port, replica.instance, packetPath, selectorMembers)
       ForkBranch.newBuilder().setLabel("clone_port_$port").setSubtree(subtree).build()
     }
   }
@@ -567,7 +567,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
    */
   private fun runCloneEgress(
     cloneState: EgressState,
-    clonePayload: ByteArray,
+    clonePacket: PacketBits,
     egressPort: Int,
     instance: Int,
     packetPath: String,
@@ -578,11 +578,11 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       else buildOutputTrace(result.events, egressPort, result.deparsedBytes)
     return try {
       egressToTrace(
-        runEgressCore(cloneState, clonePayload, egressPort, instance, packetPath, selectorMembers)
+        runEgressCore(cloneState, clonePacket, egressPort, instance, packetPath, selectorMembers)
       )
     } catch (fork: ActionSelectorFork) {
       handleActionSelectorFork(fork, selectorMembers) { newSelectors ->
-        runCloneEgress(cloneState, clonePayload, egressPort, instance, packetPath, newSelectors)
+        runCloneEgress(cloneState, clonePacket, egressPort, instance, packetPath, newSelectors)
       }
     }
   }

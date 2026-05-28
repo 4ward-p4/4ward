@@ -96,7 +96,7 @@ class PacketContext(packet: PacketBits, initialOffset: Int = 0) {
 
   /** Remaining bytes in the input packet, consumed by parser extract(). */
   private val buffer: ParserCursor =
-    ParserCursor(packet.bytes, initialOffset, packet.validBitLength)
+    ParserCursor(packet.backingBytesForParser(), initialOffset, packet.validBitLength)
 
   /** Number of bytes consumed from the input buffer so far (parser extract position). */
   val bytesConsumed: Int

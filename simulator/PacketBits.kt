@@ -7,22 +7,31 @@ package fourward.simulator
  * width is not a multiple of eight. The transport still carries whole bytes, so callers must keep
  * the valid bit length alongside the padded byte buffer.
  */
-class PacketBits private constructor(
-  val bytes: ByteArray,
-  val validBitLength: Int,
-) {
+class PacketBits private constructor(private val paddedBytes: ByteArray, val validBitLength: Int) {
   init {
-    require(validBitLength in 0..bytes.size * Byte.SIZE_BITS) {
-      "validBitLength must be between 0 and ${bytes.size * Byte.SIZE_BITS}, got $validBitLength"
+    require(validBitLength in 0..paddedBytes.size * Byte.SIZE_BITS) {
+      "validBitLength must be between 0 and ${paddedBytes.size * Byte.SIZE_BITS}, " +
+        "got $validBitLength"
     }
   }
 
   val byteLength: Int
-    get() = bytes.size
+    get() = paddedBytes.size
+
+  /** Returns a copy of the whole transport buffer, including padding past [validBitLength]. */
+  fun copyPaddedBytesForTransport(): ByteArray = paddedBytes.copyOf()
+
+  /**
+   * Returns the mutable backing buffer for parser internals.
+   *
+   * Keep this internal so public callers cannot accidentally use the padded byte array while
+   * dropping [validBitLength].
+   */
+  internal fun backingBytesForParser(): ByteArray = paddedBytes
 
   fun truncateToBytes(maxBytes: Int): PacketBits =
-    if (maxBytes > 0 && maxBytes < bytes.size) {
-      PacketBits(bytes.copyOf(maxBytes), minOf(validBitLength, maxBytes * Byte.SIZE_BITS))
+    if (maxBytes > 0 && maxBytes < paddedBytes.size) {
+      PacketBits(paddedBytes.copyOf(maxBytes), minOf(validBitLength, maxBytes * Byte.SIZE_BITS))
     } else {
       this
     }
@@ -30,12 +39,12 @@ class PacketBits private constructor(
   override fun equals(other: Any?): Boolean =
     other is PacketBits &&
       validBitLength == other.validBitLength &&
-      bytes.contentEquals(other.bytes)
+      paddedBytes.contentEquals(other.paddedBytes)
 
-  override fun hashCode(): Int = 31 * bytes.contentHashCode() + validBitLength
+  override fun hashCode(): Int = 31 * paddedBytes.contentHashCode() + validBitLength
 
   override fun toString(): String =
-    "PacketBits(byteLength=${bytes.size}, validBitLength=$validBitLength)"
+    "PacketBits(byteLength=${paddedBytes.size}, validBitLength=$validBitLength)"
 
   companion object {
     fun ofBytes(bytes: ByteArray): PacketBits = PacketBits(bytes, bytes.size * Byte.SIZE_BITS)

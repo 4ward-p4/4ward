@@ -137,7 +137,7 @@ class PacketBroker(
   fun processPacket(ingressPort: Int, packet: PacketBits, tag: Long = 0): ProcessPacketResult {
     fireHookUnderMutex()
     val result = simulatorFn(ingressPort, packet)
-    dispatchToSubscribers(ingressPort, packet.bytes, result, tag)
+    dispatchToSubscribers(ingressPort, packet.copyPaddedBytesForTransport(), result, tag)
     return result
   }
 
