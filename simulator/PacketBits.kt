@@ -5,7 +5,9 @@ package fourward.simulator
  *
  * Most packets are byte-aligned, but P4Runtime PacketOut can prepend controller metadata whose
  * width is not a multiple of eight. The transport still carries whole bytes, so callers must keep
- * the valid bit length alongside the padded byte buffer.
+ * the valid bit length alongside the padded byte buffer. [validBitLength], not the backing array
+ * size, defines the packet; bytes beyond that boundary are transport padding and must not be
+ * interpreted as packet data.
  */
 class PacketBits private constructor(private val paddedBytes: ByteArray, val validBitLength: Int) {
   init {
@@ -21,7 +23,12 @@ class PacketBits private constructor(private val paddedBytes: ByteArray, val val
   private val paddedByteLength: Int
     get() = paddedBytes.size
 
-  /** Returns a copy of the whole transport buffer, including padding past [validBitLength]. */
+  /**
+   * Returns a copy of the whole transport buffer, including padding past [validBitLength].
+   *
+   * This is for observability/debug surfaces that report the original injected buffer. Parser and
+   * deparser semantics must use [validBitLength] instead of treating these bytes as all meaningful.
+   */
   fun copyPaddedBytes(): ByteArray = paddedBytes.copyOf()
 
   /**
@@ -53,6 +60,12 @@ class PacketBits private constructor(private val paddedBytes: ByteArray, val val
   companion object {
     fun ofBytes(bytes: ByteArray): PacketBits = PacketBits(bytes, bytes.size * Byte.SIZE_BITS)
 
+    /**
+     * Builds a packet from a byte buffer whose final byte may contain transport padding.
+     *
+     * Padding bits need not be zero. Consumers that return semantic packet bytes are responsible
+     * for masking the final partial byte.
+     */
     fun ofPaddedBytes(bytes: ByteArray, validBitLength: Int): PacketBits =
       PacketBits(bytes, validBitLength)
   }
