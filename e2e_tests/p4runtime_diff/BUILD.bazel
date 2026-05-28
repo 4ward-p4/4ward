@@ -70,6 +70,21 @@ p4_library(
     target_out = "action_selector.json",
 )
 
+# --- value_set: parser value_set (scenarios 12-13) ---
+
+fourward_pipeline(
+    name = "value_set_fourward",
+    src = "value_set.p4",
+    out = "value_set_fourward.txtpb",
+)
+
+p4_library(
+    name = "value_set_bmv2_json",
+    src = "value_set.p4",
+    target = "bmv2",
+    target_out = "value_set.json",
+)
+
 # =============================================================================
 # Diff harness — spawns simple_switch_grpc + 4ward, runs P4Runtime scenarios.
 # =============================================================================
@@ -88,6 +103,18 @@ kt_jvm_library(
         "//simulator:p4runtime_java_proto",
         "@fourward_maven//:io_grpc_grpc_api",
         "@fourward_maven//:io_grpc_grpc_netty",
+    ],
+)
+
+kt_jvm_library(
+    name = "p4runtime_status",
+    srcs = ["P4RuntimeStatus.kt"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//simulator:p4runtime_java_proto",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@fourward_maven//:io_grpc_grpc_api",
+        "@googleapis//google/rpc:rpc_java_proto",
     ],
 )
 
@@ -152,6 +179,20 @@ kt_jvm_test(
     target_compatible_with = ["@platforms//os:linux"],
     test_class = "fourward.e2e.p4runtimediff.P4RuntimeDiffActionProfileTest",
     deps = _DIFF_TEST_DEPS,
+)
+
+kt_jvm_test(
+    name = "P4RuntimeDiffValueSetTest",
+    srcs = ["P4RuntimeDiffValueSetTest.kt"],
+    data = [
+        ":simple_switch_grpc",
+        ":value_set_bmv2_json",
+        ":value_set_fourward",
+    ],
+    tags = ["heavy"],
+    target_compatible_with = ["@platforms//os:linux"],
+    test_class = "fourward.e2e.p4runtimediff.P4RuntimeDiffValueSetTest",
+    deps = _DIFF_TEST_DEPS + [":p4runtime_status"],
 )
 
 # =============================================================================
