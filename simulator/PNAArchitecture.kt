@@ -78,9 +78,8 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
 
   override fun processPacket(
     ingressPort: UInt,
-    payload: ByteArray,
+    packet: PacketBits,
     tableStore: TableStore,
-    payloadBitLength: Int,
   ): PipelineResult {
     val pipeline =
       PipelineConfig(
@@ -99,10 +98,9 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     val tree =
       processPacketRecursive(
         pipeline,
-        payload,
+        packet,
         ingressPort,
         PACKET_PATH_FROM_NET_PORT,
-        payloadBitLength,
         passNumber = 0,
         depth = 0,
       )
@@ -119,10 +117,9 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
   @Suppress("LongParameterList")
   private fun processPacketRecursive(
     pipeline: PipelineConfig,
-    payload: ByteArray,
+    packet: PacketBits,
     ingressPort: UInt,
     packetPath: String,
-    payloadBitLength: Int = payload.size * Byte.SIZE_BITS,
     passNumber: Int,
     depth: Int,
     selectorMembers: Map<String, Int> = emptyMap(),
@@ -131,7 +128,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
       "PNA recirculation depth exceeded ($MAX_RECIRCULATIONS) — possible infinite recirculate loop"
     }
 
-    val ctx = PacketContext(payload, payloadBitLength = payloadBitLength)
+    val ctx = PacketContext(packet)
     val env = Environment()
     val values = createDefaultValues(pipeline.config, pipeline.typesByName)
     val forwardingState = ForwardingState()
@@ -179,10 +176,9 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
       return handleActionSelectorFork(fork, selectorMembers) { newSelectors ->
         processPacketRecursive(
           pipeline,
-          payload,
+          packet,
           ingressPort,
           packetPath,
-          payloadBitLength = payloadBitLength,
           passNumber = passNumber,
           depth = depth,
           selectorMembers = newSelectors,
@@ -215,7 +211,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
       val recircTree =
         processPacketRecursive(
           pipeline,
-          deparsedBytes,
+          PacketBits.ofBytes(deparsedBytes),
           ingressPort,
           PACKET_PATH_FROM_NET_RECIRCULATED,
           passNumber = passNumber + 1,

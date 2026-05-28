@@ -4,6 +4,7 @@ import fourward.OutputPacket
 import fourward.PrePacketHookInvocation
 import fourward.PrePacketHookResponse
 import fourward.TraceTree
+import fourward.simulator.PacketBits
 import fourward.simulator.ProcessPacketResult
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.channels.Channel
@@ -30,9 +31,9 @@ class PacketBrokerTest {
 
   private fun fakeProcessor(
     vararg results: Pair<Int, ProcessPacketResult>
-  ): (Int, ByteArray, Int) -> ProcessPacketResult {
+  ): (Int, PacketBits) -> ProcessPacketResult {
     val map = results.toMap()
-    return { port, _, _ -> map[port] ?: result() }
+    return { port, _ -> map[port] ?: result() }
   }
 
   private fun broker(vararg results: Pair<Int, ProcessPacketResult>) =
@@ -48,18 +49,18 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `processPacket forwards explicit payload bit length`() {
+  fun `processPacket forwards packet bit length`() {
     var capturedBitLength = -1
     val broker =
       PacketBroker(
-        { _, _, payloadBitLength ->
-          capturedBitLength = payloadBitLength
+        { _, packet ->
+          capturedBitLength = packet.validBitLength
           result()
         },
         kotlinx.coroutines.sync.Mutex(),
       )
 
-    broker.processPacket(0, byteArrayOf(0xA0.toByte()), payloadBitLength = 4)
+    broker.processPacket(0, PacketBits.of(byteArrayOf(0xA0.toByte()), 4))
 
     assertEquals(4, capturedBitLength)
   }

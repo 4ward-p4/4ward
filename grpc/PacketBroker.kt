@@ -4,6 +4,7 @@ import fourward.OutputPacket
 import fourward.PrePacketHookInvocation
 import fourward.PrePacketHookResponse
 import fourward.TraceTree
+import fourward.simulator.PacketBits
 import fourward.simulator.ProcessPacketResult
 import java.util.concurrent.atomic.AtomicReference
 import java.util.logging.Level
@@ -32,8 +33,7 @@ import p4.v1.P4RuntimeOuterClass
  *   acquired when a pre-packet hook is registered (to apply hook updates atomically).
  */
 class PacketBroker(
-  private val simulatorFn:
-    (ingressPort: Int, payload: ByteArray, payloadBitLength: Int) -> ProcessPacketResult,
+  private val simulatorFn: (ingressPort: Int, packet: PacketBits) -> ProcessPacketResult,
   private val writeMutex: Mutex,
 ) {
 
@@ -116,12 +116,6 @@ class PacketBroker(
     java.util.concurrent.CopyOnWriteArrayList<(SubscriptionResult) -> Unit>()
 
   /**
-   * Processes a packet: fires the hook (if registered), runs the simulator, and dispatches results
-   * to subscribers. Lock-free on the hot path — the simulator reads from the published forwarding
-   * snapshot. Only acquires the [writeMutex] when a hook is registered (to fire the hook and apply
-   * its updates atomically).
-   */
-  /**
    * If a hook is registered, acquires the [writeMutex] and fires it. The hook may apply P4Runtime
    * updates that publish a new forwarding snapshot. No-op if no hook is registered.
    */
@@ -131,15 +125,19 @@ class PacketBroker(
     }
   }
 
-  fun processPacket(
-    ingressPort: Int,
-    payload: ByteArray,
-    tag: Long = 0,
-    payloadBitLength: Int = payload.size * Byte.SIZE_BITS,
-  ): ProcessPacketResult {
+  fun processPacket(ingressPort: Int, payload: ByteArray, tag: Long = 0): ProcessPacketResult =
+    processPacket(ingressPort, PacketBits.ofBytes(payload), tag)
+
+  /**
+   * Processes a packet: fires the hook (if registered), runs the simulator, and dispatches results
+   * to subscribers. Lock-free on the hot path — the simulator reads from the published forwarding
+   * snapshot. Only acquires the [writeMutex] when a hook is registered (to fire the hook and apply
+   * its updates atomically).
+   */
+  fun processPacket(ingressPort: Int, packet: PacketBits, tag: Long = 0): ProcessPacketResult {
     fireHookUnderMutex()
-    val result = simulatorFn(ingressPort, payload, payloadBitLength)
-    dispatchToSubscribers(ingressPort, payload, result, tag)
+    val result = simulatorFn(ingressPort, packet)
+    dispatchToSubscribers(ingressPort, packet.bytes, result, tag)
     return result
   }
 
@@ -151,7 +149,7 @@ class PacketBroker(
   fun <T> withHookOnce(block: (processor: (Int, ByteArray, Long) -> Unit) -> T): T {
     fireHookUnderMutex()
     return block { port, payload, tag ->
-      val result = simulatorFn(port, payload, payload.size * Byte.SIZE_BITS)
+      val result = simulatorFn(port, PacketBits.ofBytes(payload))
       dispatchToSubscribers(port, payload, result, tag)
     }
   }

@@ -65,9 +65,7 @@ class FourwardTestHarness(
   private val writeMutex = kotlinx.coroutines.sync.Mutex()
   private val broker =
     PacketBroker(
-      { ingressPort, payload, payloadBitLength ->
-        simulator.processPacket(ingressPort, payload, payloadBitLength)
-      },
+      { ingressPort, packet -> simulator.processPacket(ingressPort, packet) },
       writeMutex,
     )
   private val service =

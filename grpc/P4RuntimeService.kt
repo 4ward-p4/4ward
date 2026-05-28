@@ -8,6 +8,7 @@ import com.google.rpc.Code
 import fourward.DeviceConfig
 import fourward.OutputPacket
 import fourward.PipelineConfig
+import fourward.simulator.PacketBits
 import fourward.simulator.Simulator
 import fourward.simulator.WriteResult
 import io.grpc.Metadata
@@ -721,24 +722,22 @@ class P4RuntimeService(
       // If the pipeline has a packet_out header, serialize metadata into a binary
       // header and prepend it. The parser expects the packet to arrive on the CPU
       // port with the header prepended.
-      val (ingressPort, payload, payloadBitLength) =
+      val (ingressPort, packetBits) =
         if (codec != null) {
           val packetOutPayload = packetOut.payload.toByteArray()
-          Triple(
+          Pair(
             codec.cpuPort,
-            codec.packPacketOut(packetOut.metadataList, packetOutPayload),
-            codec.packedPacketOutBitLength(packetOutPayload.size),
+            PacketBits.of(
+              codec.packPacketOut(packetOut.metadataList, packetOutPayload),
+              codec.packedPacketOutBitLength(packetOutPayload.size),
+            ),
           )
         } else {
           val packetOutPayload = packetOut.payload.toByteArray()
-          Triple(
-            extractIngressPort(packetOut.metadataList),
-            packetOutPayload,
-            packetOutPayload.size * Byte.SIZE_BITS,
-          )
+          Pair(extractIngressPort(packetOut.metadataList), PacketBits.ofBytes(packetOutPayload))
         }
 
-      broker.processPacket(ingressPort, payload, payloadBitLength = payloadBitLength)
+      broker.processPacket(ingressPort, packetBits)
       null
     } catch (e: IllegalArgumentException) {
       packetOutError(Code.INVALID_ARGUMENT_VALUE, e.message)

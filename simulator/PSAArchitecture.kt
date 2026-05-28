@@ -70,9 +70,8 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
   override fun processPacket(
     ingressPort: UInt,
-    payload: ByteArray,
+    packet: PacketBits,
     tableStore: TableStore,
-    payloadBitLength: Int,
   ): PipelineResult {
     val pipeline =
       PipelineConfig(
@@ -90,15 +89,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         egressDeparser,
       )
 
-    val tree =
-      processPacketRecursive(
-        pipeline,
-        payload,
-        ingressPort,
-        PACKET_PATH_NORMAL,
-        payloadBitLength = payloadBitLength,
-        depth = 0,
-      )
+    val tree = processPacketRecursive(pipeline, packet, ingressPort, PACKET_PATH_NORMAL, depth = 0)
     return PipelineResult(tree)
   }
 
@@ -111,10 +102,9 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
    */
   private fun processPacketRecursive(
     pipeline: PipelineConfig,
-    payload: ByteArray,
+    packet: PacketBits,
     ingressPort: UInt,
     packetPath: String,
-    payloadBitLength: Int = payload.size * Byte.SIZE_BITS,
     depth: Int,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): TraceTree {
@@ -125,23 +115,14 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     // === Ingress pipeline ===
     val ingress: IngressResult
     try {
-      ingress =
-        runIngressPipeline(
-          pipeline,
-          payload,
-          ingressPort,
-          packetPath,
-          payloadBitLength,
-          selectorMembers,
-        )
+      ingress = runIngressPipeline(pipeline, packet, ingressPort, packetPath, selectorMembers)
     } catch (fork: ActionSelectorFork) {
       return handleActionSelectorFork(fork, selectorMembers) { newSelectors ->
         processPacketRecursive(
           pipeline,
-          payload,
+          packet,
           ingressPort,
           packetPath,
-          payloadBitLength = payloadBitLength,
           depth = depth,
           selectorMembers = newSelectors,
         )
@@ -154,7 +135,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
     if (ingress.dropped) {
       val i2eCloneBranches =
-        buildI2ECloneBranches(pipeline, payload, ingress.output, selectorMembers)
+        buildI2ECloneBranches(pipeline, packet.bytes, ingress.output, selectorMembers)
       if (i2eCloneBranches.isNotEmpty()) {
         return buildForkTree(ingress.events, ForkReason.CLONE, i2eCloneBranches)
       }
@@ -167,10 +148,9 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       val resubmitTree =
         processPacketRecursive(
           pipeline,
-          payload,
+          packet,
           ingressPort,
           PACKET_PATH_RESUBMIT,
-          payloadBitLength = payloadBitLength,
           depth = depth + 1,
         )
       return buildForkTree(
@@ -181,7 +161,8 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     }
 
     // === Traffic Manager: I2E clone + multicast/unicast ===
-    val i2eCloneBranches = buildI2ECloneBranches(pipeline, payload, ingress.output, selectorMembers)
+    val i2eCloneBranches =
+      buildI2ECloneBranches(pipeline, packet.bytes, ingress.output, selectorMembers)
     val originalTree = buildOriginalEgressPath(pipeline, ingress, depth, selectorMembers)
 
     if (i2eCloneBranches.isNotEmpty()) {
@@ -247,13 +228,12 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
   private fun runIngressPipeline(
     pipeline: PipelineConfig,
-    payload: ByteArray,
+    packet: PacketBits,
     ingressPort: UInt,
     packetPath: String,
-    payloadBitLength: Int = payload.size * Byte.SIZE_BITS,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): IngressResult {
-    val ctx = PacketContext(payload, payloadBitLength = payloadBitLength)
+    val ctx = PacketContext(packet)
     val env = Environment()
     val values = createDefaultValues(pipeline.config, pipeline.typesByName)
 
@@ -414,7 +394,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         val recircTree =
           processPacketRecursive(
             state.pipeline,
-            core.deparsedBytes,
+            PacketBits.ofBytes(core.deparsedBytes),
             PSA_PORT_RECIRCULATE_UINT,
             PACKET_PATH_RECIRCULATE,
             depth = depth + 1,

@@ -30,9 +30,7 @@ fun main(args: Array<String>) {
   val writeMutex = kotlinx.coroutines.sync.Mutex()
   val broker =
     PacketBroker(
-      { ingressPort, payload, payloadBitLength ->
-        simulator.processPacket(ingressPort, payload, payloadBitLength)
-      },
+      { ingressPort, packet -> simulator.processPacket(ingressPort, packet) },
       writeMutex,
     )
   val service =

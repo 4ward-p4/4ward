@@ -119,16 +119,11 @@ class Simulator : TableDataReader {
    *
    * @throws IllegalStateException if no pipeline is loaded.
    */
-  fun processPacket(
-    ingressPort: Int,
-    payload: ByteArray,
-    payloadBitLength: Int = payload.size * Byte.SIZE_BITS,
-  ): ProcessPacketResult {
+  fun processPacket(ingressPort: Int, payload: ByteArray): ProcessPacketResult =
+    processPacket(ingressPort, PacketBits.ofBytes(payload))
+
+  fun processPacket(ingressPort: Int, packet: PacketBits): ProcessPacketResult {
     val loaded = loaded()
-    require(payloadBitLength in 0..payload.size * Byte.SIZE_BITS) {
-      "payloadBitLength must be between 0 and ${payload.size * Byte.SIZE_BITS}, " +
-        "got $payloadBitLength"
-    }
     // Pin the forwarding snapshot before processing so the reproducer's entity extraction
     // uses the exact same state the packet saw — no race with concurrent publishSnapshot().
     val snapshot = loaded.tableStore.snapshot
@@ -136,9 +131,8 @@ class Simulator : TableDataReader {
     val result =
       loaded.architecture.processPacket(
         ingressPort = ingressPort.toUInt(),
-        payload = payload,
+        packet = packet,
         tableStore = loaded.tableStore,
-        payloadBitLength = payloadBitLength,
       )
 
     // Output packets are extracted from trace tree leaves — the tree is the single source

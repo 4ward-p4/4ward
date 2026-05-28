@@ -80,21 +80,23 @@ class Environment {
  * Holds the input packet buffer, the output (emit) buffer, and the execution trace. Created once
  * per packet in the architecture's [processPacket] and threaded through the interpreter.
  */
-class PacketContext(
-  payload: ByteArray,
-  initialOffset: Int = 0,
-  payloadBitLength: Int = payload.size * Byte.SIZE_BITS,
-) {
+class PacketContext(packet: PacketBits, initialOffset: Int = 0) {
+
+  constructor(
+    payload: ByteArray,
+    initialOffset: Int = 0,
+  ) : this(PacketBits.ofBytes(payload), initialOffset)
 
   /** Original ingress packet length in bytes (for direct counter byte counts). */
-  val payloadSize: Int = payload.size
+  val payloadSize: Int = packet.byteLength
 
   // -------------------------------------------------------------------------
   // Packet buffer
   // -------------------------------------------------------------------------
 
   /** Remaining bytes in the input packet, consumed by parser extract(). */
-  private val buffer: ParserCursor = ParserCursor(payload, initialOffset, payloadBitLength)
+  private val buffer: ParserCursor =
+    ParserCursor(packet.bytes, initialOffset, packet.validBitLength)
 
   /** Number of bytes consumed from the input buffer so far (parser extract position). */
   val bytesConsumed: Int
