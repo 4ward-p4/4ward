@@ -25,6 +25,7 @@ data class ProcessPacketResult(
   val trace: TraceTree,
   val possibleOutcomes: List<List<OutputPacket>>,
   val forwardingSnapshot: TableStore.ForwardingSnapshot,
+  val registerSeedDependencies: List<RegisterSeedDependency> = emptyList(),
 )
 
 /**
@@ -128,12 +129,15 @@ class Simulator : TableDataReader {
     // uses the exact same state the packet saw — no race with concurrent publishSnapshot().
     val snapshot = loaded.tableStore.snapshot
 
-    val result =
-      loaded.architecture.processPacket(
-        ingressPort = ingressPort.toUInt(),
-        packet = packet,
-        tableStore = loaded.tableStore,
-      )
+    val captured =
+      loaded.tableStore.captureRegisterSeeds {
+        loaded.architecture.processPacket(
+          ingressPort = ingressPort.toUInt(),
+          packet = packet,
+          tableStore = loaded.tableStore,
+        )
+      }
+    val result = captured.result
 
     // Output packets are extracted from trace tree leaves — the tree is the single source
     // of truth for packet outcomes. Parallel forks (clone, multicast) combine outputs within
@@ -143,6 +147,7 @@ class Simulator : TableDataReader {
       trace = trace,
       possibleOutcomes = collectPossibleOutcomes(trace),
       forwardingSnapshot = snapshot,
+      registerSeedDependencies = captured.dependencies,
     )
   }
 

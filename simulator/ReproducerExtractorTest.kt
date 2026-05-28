@@ -14,6 +14,7 @@ import fourward.TraceTree
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import p4.config.v1.P4InfoOuterClass
 import p4.v1.P4RuntimeOuterClass
 
 class ReproducerExtractorTest {
@@ -71,6 +72,24 @@ class ReproducerExtractorTest {
     PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.MARK_TO_DROP)).build()
 
   private fun emptyTableStore(): TableStore = TableStore()
+
+  private fun tableStoreWithRegister(): TableStore {
+    val store = TableStore()
+    val register =
+      P4InfoOuterClass.Register.newBuilder()
+        .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(500).setName("myRegister"))
+        .setTypeSpec(
+          p4.config.v1.P4Types.P4DataTypeSpec.newBuilder()
+            .setBitstring(
+              p4.config.v1.P4Types.P4BitstringLikeTypeSpec.newBuilder()
+                .setBit(p4.config.v1.P4Types.P4BitTypeSpec.newBuilder().setBitwidth(32))
+            )
+        )
+        .setSize(4)
+        .build()
+    store.loadMappings(P4InfoOuterClass.P4Info.newBuilder().addRegisters(register).build())
+    return store
+  }
 
   /** Creates a TableStore whose published snapshot has the given state pre-populated. */
   private fun tableStoreWith(setup: TableStore.ForwardingSnapshot.() -> Unit): TableStore {
@@ -149,6 +168,29 @@ class ReproducerExtractorTest {
 
     val entities = extract(trace, emptyTableStore())
     assertEquals("duplicate should be deduplicated", 1, entities.size)
+  }
+
+  @Test
+  fun `register seed dependencies extract register entries`() {
+    val trace = TraceTree.newBuilder().setPacketOutcome(dropOutcome()).build()
+    val store = tableStoreWithRegister()
+    val entities =
+      extractReproducerEntities(
+        trace,
+        store.snapshot,
+        store,
+        emptyList(),
+        listOf(RegisterSeedDependency("myRegister", 1, BitVal(42, 32))),
+      )
+
+    assertEquals(1, entities.size)
+    assertTrue(entities[0].hasRegisterEntry())
+    assertEquals(500, entities[0].registerEntry.registerId)
+    assertEquals(1, entities[0].registerEntry.index.index)
+    assertEquals(
+      ByteString.copyFrom(byteArrayOf(0, 0, 0, 42)),
+      entities[0].registerEntry.data.bitstring,
+    )
   }
 
   @Test

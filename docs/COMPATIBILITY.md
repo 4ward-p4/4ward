@@ -30,7 +30,7 @@ Legend:
 | Multicast | Supported | Supported | N/A | v1model forks one branch per configured PRE replica and sets `egress_port`/`egress_rid`. |
 | Resubmit | Supported | Supported | N/A | Produces trace tree forks where applicable. |
 | Recirculate | Supported | Supported | Supported | PNA recirculate tracks pass count. |
-| Registers | Supported | Supported | Supported | Reproducer extraction does not capture register state. |
+| Registers | Supported | Supported | Supported | Reproducers seed the packet-start register values read by the trace. |
 | Counters | Supported | Supported | Stub | PNA counters are no-op stubs. Counters do not influence forwarding. |
 | Meters | Stub | Stub | Stub | Meter externs always return GREEN. |
 | Checksums | Supported | Supported | Supported | v1model checksum externs and PSA/PNA `InternetChecksum` are implemented. |

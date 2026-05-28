@@ -19,6 +19,7 @@ fun extractReproducerEntities(
   snapshot: TableStore.ForwardingSnapshot,
   tableStore: TableStore,
   staticEntries: List<Update>,
+  registerSeeds: List<RegisterSeedDependency> = emptyList(),
 ): List<Entity> {
   val staticTableEntries =
     staticEntries.mapNotNullTo(mutableSetOf()) { update ->
@@ -26,6 +27,9 @@ fun extractReproducerEntities(
     }
   val entities = linkedSetOf<Entity>()
   collectEntities(trace, snapshot, tableStore, staticTableEntries, entities)
+  for (seed in registerSeeds) {
+    entities += tableStore.buildRegisterEntity(seed)
+  }
   return entities.toList()
 }
 
