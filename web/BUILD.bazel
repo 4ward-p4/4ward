@@ -83,6 +83,7 @@ kt_jvm_test(
     test_class = "fourward.web.WebServerTest",
     deps = [
         ":web",
+        "//bazel:runfiles",
         "//grpc",
         "//simulator",
         "//simulator:ir_java_proto",

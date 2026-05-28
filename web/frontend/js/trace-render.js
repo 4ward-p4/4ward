@@ -253,6 +253,8 @@ function formatMatchedEntry(tl) {
       parts.push(`${name} = ${base64ToHex(m.ternary.value)} & ${base64ToHex(m.ternary.mask)}`);
     } else if (m.optional) {
       parts.push(`${name} = ${base64ToHex(m.optional.value)}`);
+    } else if (m.range) {
+      parts.push(`${name} = ${base64ToHex(m.range.low)}..${base64ToHex(m.range.high)}`);
     }
   }
 

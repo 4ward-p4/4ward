@@ -33,11 +33,10 @@ export async function addTableEntry() {
       const rawValue = input.value.trim();
       matchDisplay.push({ name: mf.name, value: rawValue });
       const fieldMatch = { field_id: mf.id };
-      const value = encodeValue(rawValue, mf.bitwidth);
 
       switch (mf.match_type) {
         case MATCH_TYPE.EXACT:
-          fieldMatch.exact = { value };
+          fieldMatch.exact = { value: encodeValue(rawValue, mf.bitwidth) };
           break;
         case MATCH_TYPE.LPM: {
           const parts = rawValue.split('/');
@@ -56,10 +55,21 @@ export async function addTableEntry() {
           break;
         }
         case MATCH_TYPE.OPTIONAL:
-          fieldMatch.optional = { value };
+          fieldMatch.optional = { value: encodeValue(rawValue, mf.bitwidth) };
           break;
+        case MATCH_TYPE.RANGE: {
+          const parts = rawValue.split('..').map(s => s.trim());
+          if (parts.length !== 2 || !parts[0] || !parts[1]) {
+            throw new Error(`${mf.name}: range matches use low..high`);
+          }
+          fieldMatch.range = {
+            low: encodeValue(parts[0], mf.bitwidth),
+            high: encodeValue(parts[1], mf.bitwidth),
+          };
+          break;
+        }
         default:
-          fieldMatch.exact = { value };
+          throw new Error(`${mf.name}: unsupported match type ${mf.match_type}`);
       }
       matchFields.push(fieldMatch);
     }

@@ -8,6 +8,8 @@ import fourward.IntType
 import fourward.Type
 import fourward.TypeDecl
 import fourward.VarbitType
+import fourward.bazel.repoRoot
+import java.nio.file.Files
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -140,6 +142,24 @@ class WebServerTest {
       (if (status in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText()
         ?: ""
     assertTrue("compile should succeed (got $status); body: $body", status in 200..299)
+  }
+
+  @Test
+  fun `frontend encodes and displays range match fields explicitly`() {
+    val tablesJs = Files.readString(repoRoot.resolve("web/frontend/js/tables.js"))
+    assertTrue(tablesJs.contains("case MATCH_TYPE.RANGE"))
+    assertTrue(tablesJs.contains("fieldMatch.range = {"))
+    assertTrue(tablesJs.contains("unsupported match type"))
+
+    val encodingJs = Files.readString(repoRoot.resolve("web/frontend/js/encoding.js"))
+    assertTrue(encodingJs.contains("m.range"))
+    assertTrue(encodingJs.contains("m.range.low"))
+    assertTrue(encodingJs.contains("m.range.high"))
+
+    val traceRenderJs = Files.readString(repoRoot.resolve("web/frontend/js/trace-render.js"))
+    assertTrue(traceRenderJs.contains("m.range"))
+    assertTrue(traceRenderJs.contains("m.range.low"))
+    assertTrue(traceRenderJs.contains("m.range.high"))
   }
 
   // ---------------------------------------------------------------------------
