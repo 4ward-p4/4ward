@@ -28,6 +28,11 @@ bazel_dep(name = "rules_jvm_external", version = "6.10")
 # --- Protobuf & gRPC ---
 
 bazel_dep(name = "protobuf", version = "33.5")
+
+# Compatibility note: released grpc@1.80.0 pulls rules_swift@2.5.0, which
+# conflicts with Bazel 9's rules_swift@3.1.2 when 4ward is consumed as a
+# dependency. The BCR test module is pinned to Bazel 8 until grpc publishes a
+# Bazel-9-compatible BCR release.
 bazel_dep(name = "grpc", version = "1.80.0")  # For cc_grpc_library (dataplane_cc_grpc).
 bazel_dep(name = "grpc-java", version = "1.78.0.bcr.1")
 bazel_dep(name = "grpc_kotlin", version = "1.5.0")
@@ -37,8 +42,16 @@ bazel_dep(name = "grpc_kotlin", version = "1.5.0")
 # resolves under strict deps; it is also pulled transitively via @grpc.
 bazel_dep(name = "abseil-cpp", version = "20260107.1")
 
-# WORKAROUND for strict-deps issues in grpc_kotlin@1.5.0 — see
-# `bazel/grpc_kotlin.patch` for the details and upstream PR link.
+# Bzlmod overrides below are root-module only: downstream consumers of
+# @fourward do not inherit `git_override` or `single_version_override` entries.
+# Keep each override's local comment focused on why it exists and when it can
+# be removed.
+
+# WORKAROUND for strict-deps issues in grpc_kotlin@1.5.0.
+#
+# Exit criterion: drop the patch once a released grpc-kotlin version has the
+# strict-deps fix. See `bazel/grpc_kotlin.patch` for details and the upstream
+# PR link.
 single_version_override(
     module_name = "grpc_kotlin",
     patch_strip = 1,
@@ -74,13 +87,15 @@ bazel_dep(name = "googleapis-java", version = "1.1.5")
 
 # p4c provides the compiler frontend and midend that our backend builds on.
 # BCR consumers get p4c 1.2.5.11.bcr.1 (which has //p4include, testdata
-# exports, and the macOS build fix). Our own dev builds additionally pin
-# to the smolkaj/p4c fork via git_override — only honored when fourward
-# is the root module — because our e2e_tests/p4testgen PNA suite needs
-# the drop-by-default fix (p4lang/p4c#5569) that is still open upstream.
-# The fork is upstream main plus that single patch; PR #5570 (PNA STF
-# backend) is already in upstream main. Drop the git_override once
-# #5569 lands and ships in a released p4c.
+# exports, and the macOS build fix).
+#
+# Why: our e2e_tests/p4testgen PNA suite needs the drop-by-default fix
+# (p4lang/p4c#5569), which is still open upstream. The smolkaj/p4c fork is
+# upstream main plus that single patch; PR #5570 (PNA STF backend) is already
+# in upstream main.
+#
+# Exit criterion: drop the git_override once #5569 lands and ships in a
+# released p4c.
 bazel_dep(name = "p4c", version = "1.2.5.11.bcr.1")
 git_override(
     module_name = "p4c",
@@ -92,8 +107,13 @@ git_override(
 bazel_dep(name = "p4_constraints", version = "20260311.0")
 
 # BMv2 (behavioral-model) — v1model reference simulator for differential testing.
-# Patched to add native Bazel build rules (no Thrift, no nanomsg).
-# Dev-only: not needed by downstream consumers of the 4ward module.
+# Dev/CI-only via `dev_dependency = True`.
+#
+# Why: upstream uses Autotools. Our patch adds native Bazel rules (no Thrift,
+# no nanomsg) for BMv2 differential tests.
+#
+# Exit criterion: update the patch whenever BMv2 is bumped; drop it only if
+# upstream grows usable Bazel rules or we remove BMv2 diff testing.
 bazel_dep(name = "behavioral_model", version = "head", dev_dependency = True)
 git_override(
     module_name = "behavioral_model",
@@ -104,10 +124,15 @@ git_override(
 )
 
 # p4lang/PI — the P4Runtime backend library used by BMv2's simple_switch_grpc.
-# Native Bazel rules: PI's existing BUILD files for the C core (`:pi`,
-# `:pip4info`, etc.) reference no external @-deps and work cleanly under
-# Bzlmod with just a MODULE.bazel shim. The bmv2 adapter and proto/server
-# pieces are added incrementally on top. Dev-only — only //e2e_tests/p4runtime_diff.
+# Dev/CI-only via `dev_dependency = True`; used only by
+# //e2e_tests/p4runtime_diff.
+#
+# Why: native Bazel rules for PI's C core (`:pi`, `:pip4info`, etc.) work under
+# Bzlmod with a MODULE.bazel shim. Our patch adds the BMv2 adapter and
+# proto/server pieces needed by the P4Runtime diff harness.
+#
+# Exit criterion: update the patch when bumping PI; drop it only if upstream
+# ships suitable Bazel/Bzlmod rules or the diff harness no longer needs PI.
 bazel_dep(name = "p4lang_pi", version = "head", dev_dependency = True)
 git_override(
     module_name = "p4lang_pi",
@@ -181,14 +206,20 @@ bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = Tr
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 
 # Runs clang-tidy as a Bazel aspect — no compile_commands.json needed.
+# Root-module lint only via `dev_dependency = True`.
+#
+# Why: the upstream commit after `9e54bbb` ("Add builtin include flags for
+# clang-tidy", c4d35e0) passes cc_toolchain.built_in_include_directories as
+# explicit -isystem flags, which promotes /usr/include out of clang's internal
+# search order and breaks #include_next from <cstdlib>.
+#
+# Exit criterion: re-check upstream before bumping; drop the pin if the
+# include-order regression is fixed.
+#
 # Usage: bazel build //p4c_backend/... --config=clang-tidy
 bazel_dep(name = "bazel_clang_tidy", dev_dependency = True)
 git_override(
     module_name = "bazel_clang_tidy",
-    # Pin to the commit before "Add builtin include flags for clang-tidy"
-    # (c4d35e0).  That commit passes cc_toolchain.built_in_include_directories
-    # as explicit -isystem flags, which promotes /usr/include out of clang's
-    # internal search order and breaks #include_next from <cstdlib>.
     commit = "9e54bbb15d1939a9d030c52f3032886a0b278f98",
     remote = "https://github.com/erenon/bazel_clang_tidy.git",
 )

@@ -1,7 +1,7 @@
 # Bazel Central Registry (BCR) Test Module
 
 A minimal Bzlmod module that depends on `@fourward` via
-`local_path_override`, exercising the same resolution path 
+`local_path_override`, exercising the same resolution path
 [BCR](https://registry.bazel.build/) consumers use. It serves two purposes:
 
 - **BCR presubmit validation.** Referenced by `bcr_test_module:` in the
@@ -38,6 +38,5 @@ surface anyway.
 Use [bazelisk](https://github.com/bazelbuild/bazelisk): the
 [`.bazelversion`](.bazelversion) here pins Bazel 8.x because BCR's
 `grpc@1.80.0` pulls `rules_swift@2.5.0`, which conflicts with
-`rules_swift@3.1.2` from Bazel 9's `bazel_tools`. (`@fourward`-as-root
-sidesteps this with a `grpc` `git_override`, but overrides don't
-apply to non-root modules — which is the whole point of this test.)
+`rules_swift@3.1.2` from Bazel 9's `bazel_tools`. Keep this pin until
+`grpc` publishes a Bazel-9-compatible BCR release.
