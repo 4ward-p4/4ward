@@ -169,7 +169,7 @@ UNIMPLEMENTED (rejection is tested), **N/A** = out of scope
 | 9.42 | DELETE register → INVALID_ARGUMENT | Y | TableStoreTest |
 | 9.43 | Out-of-bounds index → error | Y | TableStoreTest |
 | 9.44 | Unknown register_id → NOT_FOUND | Y | TableStoreTest |
-| 9.70 | ValueSetEntry | R | Rejected with UNIMPLEMENTED; ConformanceTest #81 |
+| 9.70 | ValueSetEntry | P | MODIFY and Read supported; INSERT/DELETE rejected with INVALID_ARGUMENT; TableStoreTest, ConformanceTest #81 |
 | 9.71 | DigestEntry configuration | R | Rejected with UNIMPLEMENTED; ConformanceTest #83 |
 | 9.72 | ExternEntry | R | Rejected with UNIMPLEMENTED; ConformanceTest #82 |
 
