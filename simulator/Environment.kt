@@ -210,16 +210,25 @@ private class ParserCursor(
   /** Returns all bytes from the next byte boundary to the end (sub-byte remainder is discarded). */
   fun readAll(): ByteArray {
     val byteStart = (bitOffset + 7) / 8
-    val byteEnd = (validBitLength + 7) / 8
     bitOffset = validBitLength
-    return data.copyOfRange(byteStart, byteEnd)
+    return semanticBytesFrom(byteStart)
   }
 
   /** Returns all bytes from the current byte-aligned position without advancing. */
   fun peekAll(): ByteArray {
     val byteStart = (bitOffset + 7) / 8
+    return semanticBytesFrom(byteStart)
+  }
+
+  private fun semanticBytesFrom(byteStart: Int): ByteArray {
     val byteEnd = (validBitLength + 7) / 8
-    return data.copyOfRange(byteStart, byteEnd)
+    val bytes = data.copyOfRange(byteStart, byteEnd)
+    val finalPaddingBits = (Byte.SIZE_BITS - validBitLength % Byte.SIZE_BITS) % Byte.SIZE_BITS
+    if (bytes.isNotEmpty() && finalPaddingBits != 0) {
+      val finalByteMask = 0xFF shl finalPaddingBits
+      bytes[bytes.lastIndex] = (bytes.last().toInt() and finalByteMask).toByte()
+    }
+    return bytes
   }
 
   /** Reads [count] bytes from the current position (must be byte-aligned). */
