@@ -114,10 +114,8 @@ guilt — just write it down so someone can find it later.
   replica. Multi-replica cloning requires the gRPC API.
 - **No multicast group UI.** The backend supports multicast groups, but the
   web UI only exposes clone sessions.
-- **No MODIFY for table entries.** The UI only supports INSERT and DELETE.
-  To change an entry, delete and re-add it.
-- **No default action changes.** There is no UI to change a table's default
-  action.
+- **No MODIFY for non-default table entries.** The UI only supports INSERT and
+  DELETE for regular entries. To change an entry, delete and re-add it.
 - **No counters, meters, registers, or action profile UI.** These P4Runtime
   entities are supported by the backend but not exposed in the browser.
 - **Read API only returns table entries.** `GET /api/read` hard-codes a

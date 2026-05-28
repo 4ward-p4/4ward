@@ -72,6 +72,7 @@ kt_jvm_test(
     srcs = ["WebServerTest.kt"],
     data = [
         ":cc_shim",
+        "//e2e_tests/basic_table",
         "//p4c_backend:p4c-4ward",
         "@p4c//p4include",
         "@p4c//p4include:core.p4",
@@ -87,6 +88,9 @@ kt_jvm_test(
         "//grpc",
         "//simulator",
         "//simulator:ir_java_proto",
+        "//simulator:p4info_java_proto",
+        "//simulator:p4runtime_java_proto",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
     ],

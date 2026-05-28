@@ -136,6 +136,7 @@ export function decodeTableEntry(p4info, rawEntry) {
       const pInfo = actionInfo?.params?.find(pp => pp.id === p.param_id);
       return { name: pInfo?.name || `param_${p.param_id}`, value: p.value ? decodeParamValue(p.value) : '' };
     }),
+    isDefault: !!rawEntry.is_default_action,
     raw: rawEntry,
   };
 }
