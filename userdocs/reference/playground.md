@@ -42,7 +42,7 @@ Manage control-plane state for the loaded pipeline.
 **Add entry:**
 
 1. Select a table from the dropdown.
-2. Fill in match fields (supports exact, LPM, ternary, optional).
+2. Fill in match fields (supports exact, LPM, ternary, optional, and range).
 3. Select an action and fill in parameters.
 4. Set priority (for ternary/range tables).
 5. Click **Add Entry**.

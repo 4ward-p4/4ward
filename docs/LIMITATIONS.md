@@ -121,8 +121,6 @@ guilt — just write it down so someone can find it later.
   To change an entry, delete and re-add it.
 - **No default action changes.** There is no UI to change a table's default
   action.
-- **RANGE match type not supported.** The match field input falls through to
-  exact-match encoding — range values will be silently misinterpreted.
 - **No counters, meters, registers, or action profile UI.** These P4Runtime
   entities are supported by the backend but not exposed in the browser.
 - **Read API only returns table entries.** `GET /api/read` hard-codes a

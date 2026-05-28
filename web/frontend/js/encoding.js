@@ -122,8 +122,15 @@ export function decodeTableEntry(p4info, rawEntry) {
     actionName: actionInfo?.preamble.name || 'unknown',
     matchFields: (rawEntry.match || []).map(m => {
       const mfInfo = table?.match_fields?.find(f => f.id === m.field_id);
+      const name = mfInfo?.name || `field_${m.field_id}`;
+      if (m.range) {
+        return {
+          name,
+          value: `${base64ToHex(m.range.low)}..${base64ToHex(m.range.high)}`,
+        };
+      }
       const val = m.exact?.value || m.lpm?.value || m.ternary?.value || m.optional?.value || '';
-      return { name: mfInfo?.name || `field_${m.field_id}`, value: val ? base64ToHex(val) : '' };
+      return { name, value: val ? base64ToHex(val) : '' };
     }),
     params: (action?.params || []).map(p => {
       const pInfo = actionInfo?.params?.find(pp => pp.id === p.param_id);
