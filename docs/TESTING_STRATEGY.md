@@ -93,26 +93,29 @@ cites the spec requirement it validates. Three categories:
 The source of truth is the P4Runtime spec itself. The blind spot: only covers
 scenarios someone thought to write.
 
-### Layer 2: Round-trip testing — simulator agreement
+### Layer 2: Differential testing — external implementation agreement
 
 The simulator is already validated by three independent oracles. The P4Runtime
-server is just a different front door to the same simulator. So: for programs
-in the STF corpus that have p4info, load via P4Runtime
-(`SetForwardingPipelineConfig`), install entries via `Write`, send packets via
-`StreamChannel` PacketOut, and verify outputs match what the simulator produces
-through the direct protocol.
+server has a different risk: our implementation might encode our own mistaken
+reading of the P4Runtime spec. To catch that, `e2e_tests/p4runtime_diff` runs
+the same P4Runtime sessions against 4ward and BMv2's `simple_switch_grpc`, then
+canonicalizes and diffs the responses.
 
-This turns the existing 186-program corpus into P4Runtime integration tests
-for free. It answers the question: does the P4Runtime layer faithfully
-translate between the controller protocol and the simulator, or does it lose
-or corrupt information along the way?
+Current coverage is intentionally scoped: `Capabilities`, table entry
+write/read scenarios, bytestring canonicalization, default action reads,
+wildcard reads, error semantics, action profile members/groups, and table
+entries referencing selector groups. The suite is tagged `heavy` and Linux-only
+because it builds and spawns BMv2's P4Runtime server.
 
-The source of truth is the simulator (already validated by three independent
-oracles). The blind spot: can't catch bugs where both the P4Runtime layer and
-the simulator agree on the wrong answer — but Layer 1 and Layer 3 can.
+The source of truth is not "BMv2 is always right" — BMv2 has its own bugs and
+does not cover 4ward-specific features. The value is independence: where BMv2
+and 4ward agree on the same P4Runtime exchange, we have evidence that our
+spec-reading, encoding, canonicalization, and state transitions match a real
+external implementation.
 
-*Not implemented yet — requires p4info generation for corpus programs.
-Methodology documented here so it can be built incrementally.*
+The remaining gap is breadth. The diff suite does not yet cover the full STF
+corpus, `StreamChannel` PacketIO, arbitration/roles, PRE, registers,
+counters/meters, or randomized request sequences.
 
 ### Layer 3: Fuzz testing — robustness
 
@@ -135,8 +138,18 @@ The source of truth is the P4Runtime spec oracle (independent of our
 implementation). The blind spot: doesn't test data plane correctness, only
 control plane protocol compliance.
 
-*Not implemented yet — requires integrating sonic-pins p4_fuzzer as a Bazel
-dependency. Methodology documented here so it can be built in Track 4B+.*
+This has been proven as an external validation artifact, but is intentionally
+not merged. [PR #665](https://github.com/smolkaj/4ward/pull/665) wired
+sonic-pins' P4 fuzzer into 4ward, spawning a `FourwardServer`, pushing a
+pipeline, and running 10,000 iterations of random `WriteRequest`s against the
+P4Runtime oracle. The run covered roughly 400k updates with zero oracle
+failures after fixing validation-ordering bugs that the fuzzer surfaced.
+
+We keep that work out of `main` because it pulls heavy sonic-pins dependencies
+into the repo. The useful artifact is the evidence and the recipe: when we need
+another independent validation pass, run the fuzzer branch or an external
+harness against a built 4ward server rather than making those dependencies part
+of the default build.
 
 ### Compliance matrix
 
@@ -167,11 +180,11 @@ requirements, wrote the tests, and checked our own boxes. Four blind spots:
    re-evaluated as scope grows — particularly DATAPLANE_ATOMIC (§12) and
    role-based access control (§15) if DVaaS compatibility requires them.
 
-4. **No independent oracle.** The biggest gap. The data plane has BMv2
-   differential testing (186 programs, bit-for-bit). The P4Runtime server has
-   nothing equivalent — our tests encode our *interpretation* of the spec. If we
-   misread a requirement, the test happily passes our wrong implementation.
-   Layer 3 (p4-fuzzer) directly addresses this, but is not yet integrated.
+4. **Independent oracles are scoped.** The data plane has BMv2 differential
+   testing (186 programs, bit-for-bit). The P4Runtime server now has scoped BMv2
+   differential tests and a proven-but-unmerged fuzzer harness, but these do not
+   yet cover every RPC surface, entity type, or concurrency edge case. Our
+   remaining risk is breadth, not absence of independent validation.
 
 | Area | Confidence | Why |
 |------|-----------|-----|
@@ -180,15 +193,16 @@ requirements, wrote the tests, and checked our own boxes. Four blind spots:
 | Pipeline config lifecycle | High | Good coverage of load/reload/clear |
 | Translation (@p4runtime_translation) | High | Dedicated test suite + SAI P4 E2E |
 | Arbitration state machine | Medium | Core cases covered, edge cases not |
-| Error code compliance (exact gRPC status) | Medium | Tested but not independently verified |
+| Error code compliance (exact gRPC status) | Medium | Conformance-tested; fuzzer PR independently checked Write status codes |
 | Batch/atomicity semantics | Medium | Simple scenarios only |
+| P4Runtime diff coverage | Medium | BMv2 diff suite covers table/action-profile scenarios; broader RPC coverage remains |
 | Spec completeness (did we miss requirements?) | Low | Hand-distilled, no systematic extraction |
 
 ### Open questions
 
-- What's the P4Runtime equivalent of p4testgen? The p4_fuzzer (Layer 3)
-  explores the Write surface. Is there an analog for Read, StreamChannel, or
+- Can we extract a small, dependency-light subset of the sonic-pins P4 fuzzer
+  oracle, or is an external/manual fuzzer branch the right long-term boundary?
+- What is the equivalent of fuzzing for Read, StreamChannel, arbitration, and
   pipeline config lifecycle?
-- What's the equivalent of BMv2 diff testing? Run the same P4Runtime session
-  against BMv2's gRPC server and 4ward, compare responses. This would catch
-  compatibility bugs that spec-reading alone misses.
+- How far should the BMv2 P4Runtime diff suite grow before the maintenance cost
+  outweighs the additional confidence?
