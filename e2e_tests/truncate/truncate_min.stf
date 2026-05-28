@@ -1,0 +1,4 @@
+# BMv2 preserves the shortest requested truncate() length across calls.
+
+packet 0 AABBCCDD
+expect 1 AA $

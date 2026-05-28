@@ -53,10 +53,6 @@ guilt — just write it down so someone can find it later.
 
 ## v1model gaps
 
-- **`truncate()` not implemented.** The v1model extern
-  `truncate(in bit<32> length)` — which caps the output packet to the
-  given number of bytes after the deparser — is not handled. Calling it
-  will crash the simulator.
 - **`random()` not implemented.** The v1model free-function form
   `random(out bit<32> result, in bit<32> lo, in bit<32> hi)` is not
   handled and will crash at runtime. (PSA/PNA `Random.read()` works.)

@@ -48,6 +48,17 @@ private fun evalIntArg(eval: ExternEvaluator, index: Int): Int =
     else -> error("expected integer argument at index $index, got: $arg")
   }
 
+private fun evalPacketLengthArg(eval: ExternEvaluator, index: Int): Int {
+  val value =
+    when (val arg = eval.evalArg(index)) {
+      is BitVal -> arg.bits.value
+      is InfIntVal -> arg.value
+      else -> error("expected integer argument at index $index, got: $arg")
+    }
+  require(value >= BigInteger.ZERO) { "packet length must be non-negative, got: $value" }
+  return if (value > BigInteger.valueOf(Int.MAX_VALUE.toLong())) Int.MAX_VALUE else value.toInt()
+}
+
 /**
  * Benchmark-only knob for measuring the scaling impact of intra-packet parallelism. Not a public
  * API — no user documentation, no CLI flag. Normal users should leave this at the default (`true`).
@@ -724,7 +735,7 @@ class V1ModelArchitecture(
       }
     }
 
-    val outputBytes = s.packetCtx.deparsedPayload()
+    val outputBytes = truncateOutput(s.packetCtx.deparsedPayload(), s.pendingOps.truncateBytes)
 
     if (s.pendingOps.recirculate) {
       throw RecirculateFork(
@@ -738,6 +749,9 @@ class V1ModelArchitecture(
       (s.standardMetadata.fields["egress_port"] as? BitVal)?.bits?.value?.toInt() ?: 0
     return buildOutputTrace(s.packetCtx.getEvents(), egressPort, outputBytes)
   }
+
+  private fun truncateOutput(bytes: ByteArray, maxBytes: Int?): ByteArray =
+    if (maxBytes != null && maxBytes < bytes.size) bytes.copyOf(maxBytes) else bytes
 
   private fun readEgressPort(s: PipelineState): Int =
     (s.standardMetadata.fields["egress_port"] as? BitVal)?.bits?.value?.toInt() ?: 0
@@ -1090,6 +1104,13 @@ class V1ModelArchitecture(
         }
         UnitVal
       }
+      // truncate(length): cap the output packet after the deparser. BMv2 preserves the shortest
+      // requested cap when truncate() is called more than once.
+      "truncate" -> {
+        val requestedBytes = evalPacketLengthArg(eval, 0)
+        pendingOps.truncateBytes = minOf(pendingOps.truncateBytes ?: requestedBytes, requestedBytes)
+        UnitVal
+      }
       // verify_checksum[_with_payload](condition, data, checksum, algo): v1model §14.
       // Computes hash over data fields (and optionally the unparsed packet body) and
       // compares with checksum; sets standard_metadata.checksum_error = 1 on mismatch.
@@ -1293,6 +1314,7 @@ internal data class V1ModelPendingOps(
   var resubmitFieldListId: Int? = null,
   var recirculate: Boolean = false,
   var recirculateFieldListId: Int? = null,
+  var truncateBytes: Int? = null,
 )
 
 // -------------------------------------------------------------------------

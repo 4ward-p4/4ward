@@ -439,6 +439,88 @@ class V1ModelArchitectureTest {
   }
 
   @Test
+  fun `truncate caps output packet after deparser`() {
+    val config =
+      v1modelConfig(
+        externCall("truncate", intArg(2, 32)),
+        assignField("sm", "egress_spec", 5, V1ModelArchitecture.DEFAULT_PORT_BITS),
+      )
+    val payload = byteArrayOf(0x01, 0x02, 0x03, 0x04)
+    val result = V1ModelArchitecture(config).processPacket(0u, payload, TableStore())
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(1, outputs.size)
+    assertEquals(5, outputs[0].dataplaneEgressPort)
+    assertEquals(ByteString.copyFrom(byteArrayOf(0x01, 0x02)), outputs[0].payload)
+  }
+
+  @Test
+  fun `truncate zero emits empty packet`() {
+    val config =
+      v1modelConfig(
+        externCall("truncate", intArg(0, 32)),
+        assignField("sm", "egress_spec", 5, V1ModelArchitecture.DEFAULT_PORT_BITS),
+      )
+    val payload = byteArrayOf(0x01, 0x02, 0x03)
+    val result = V1ModelArchitecture(config).processPacket(0u, payload, TableStore())
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(1, outputs.size)
+    assertEquals(5, outputs[0].dataplaneEgressPort)
+    assertEquals(ByteString.EMPTY, outputs[0].payload)
+  }
+
+  @Test
+  fun `truncate longer than packet is a no-op`() {
+    val config =
+      v1modelConfig(
+        externCall("truncate", intArg(100, 32)),
+        assignField("sm", "egress_spec", 5, V1ModelArchitecture.DEFAULT_PORT_BITS),
+      )
+    val payload = byteArrayOf(0x01, 0x02)
+    val result = V1ModelArchitecture(config).processPacket(0u, payload, TableStore())
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(1, outputs.size)
+    assertEquals(5, outputs[0].dataplaneEgressPort)
+    assertEquals(ByteString.copyFrom(payload), outputs[0].payload)
+  }
+
+  @Test
+  fun `truncate preserves shortest requested length`() {
+    val config =
+      v1modelConfig(
+        externCall("truncate", intArg(1, 32)),
+        externCall("truncate", intArg(3, 32)),
+        assignField("sm", "egress_spec", 5, V1ModelArchitecture.DEFAULT_PORT_BITS),
+      )
+    val payload = byteArrayOf(0x01, 0x02, 0x03, 0x04)
+    val result = V1ModelArchitecture(config).processPacket(0u, payload, TableStore())
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(1, outputs.size)
+    assertEquals(5, outputs[0].dataplaneEgressPort)
+    assertEquals(ByteString.copyFrom(byteArrayOf(0x01)), outputs[0].payload)
+  }
+
+  @Test
+  fun `truncate uses shorter later requested length`() {
+    val config =
+      v1modelConfig(
+        externCall("truncate", intArg(3, 32)),
+        externCall("truncate", intArg(1, 32)),
+        assignField("sm", "egress_spec", 5, V1ModelArchitecture.DEFAULT_PORT_BITS),
+      )
+    val payload = byteArrayOf(0x01, 0x02, 0x03, 0x04)
+    val result = V1ModelArchitecture(config).processPacket(0u, payload, TableStore())
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(1, outputs.size)
+    assertEquals(5, outputs[0].dataplaneEgressPort)
+    assertEquals(ByteString.copyFrom(byteArrayOf(0x01)), outputs[0].payload)
+  }
+
+  @Test
   fun `mark_to_drop produces no output packets`() {
     val config =
       v1modelConfig(
