@@ -32,12 +32,6 @@ guilt — just write it down so someone can find it later.
   counters (stub no-op), and `Random.read()`. Add-on-miss externs (`add_entry`,
   `allocate_flow_id`, `set_entry_expire_time`, `restart_expire_timer`) are stubs.
   37 STF corpus tests, 31 compile-only tests, 33 p4testgen symbolic tests.
-- **PNA mirror_packet uses original (pre-parse) bytes.** The DPDK SoftNIC
-  mirrors the packet at its current state when `mirror_packet()` executes
-  (post-modification). The PNA spec is underspecified on this point. Our
-  approach matches PSA's I2E clone semantics but may diverge from DPDK for
-  programs that modify headers before mirroring.
-
 ## Externs
 
 - **No user-defined extern functions.** Extern functions declared in P4

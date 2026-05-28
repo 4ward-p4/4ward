@@ -53,6 +53,12 @@ fun bitType(width: Int): Type =
 
 fun namedType(name: String): Type = Type.newBuilder().setNamed(name).build()
 
+fun fieldAccess(expr: Expr, fieldName: String, type: Type? = null): Expr =
+  Expr.newBuilder()
+    .setFieldAccess(FieldAccess.newBuilder().setExpr(expr).setFieldName(fieldName))
+    .apply { if (type != null) setType(type) }
+    .build()
+
 fun ifStmt(
   condition: Expr,
   thenStmts: List<Stmt> = emptyList(),
@@ -134,6 +140,10 @@ fun assign(varName: String, rhs: Expr): Stmt =
     )
     .build()
 
+/** Assignment statement with an arbitrary expression [lhs], e.g. `hdr.eth.dst = rhs`. */
+fun assign(lhs: Expr, rhs: Expr): Stmt =
+  Stmt.newBuilder().setAssignment(AssignmentStmt.newBuilder().setLhs(lhs).setRhs(rhs)).build()
+
 /**
  * Statement that calls a free extern function: `name(args...)`.
  *
@@ -159,6 +169,20 @@ fun methodCallStmt(
                 .setTarget(nameRef(target, targetType))
                 .setMethod(method)
                 .addAllArgs(args.toList())
+            )
+        )
+    )
+    .build()
+
+/** Statement that calls `target.method(args...)` where [target] is already an expression. */
+fun methodCallStmt(target: Expr, method: String, vararg args: Expr): Stmt =
+  Stmt.newBuilder()
+    .setMethodCall(
+      MethodCallStmt.newBuilder()
+        .setCall(
+          Expr.newBuilder()
+            .setMethodCall(
+              MethodCall.newBuilder().setTarget(target).setMethod(method).addAllArgs(args.toList())
             )
         )
     )

@@ -26,7 +26,7 @@ Legend:
 | Parser select ranges/masks | Supported | Supported | Supported | Covered by parser/interpreter and corpus tests. |
 | Table match kinds | Supported | Supported | Supported | Exact, LPM, ternary, optional, and range are supported in the simulator/P4Runtime layers. UI coverage is listed separately below. |
 | Action selectors | Supported | Supported | N/A | PSA selector hits produce fork-based trace trees; PNA does not use the same selector model. |
-| Clone/mirror | Supported | Supported | Partial | PNA `mirror_packet` uses original pre-parse bytes; DPDK mirrors current packet state. |
+| Clone/mirror | Supported | Supported | Supported | PNA `mirror_packet` emits the deparsed current packet state, matching DPDK SoftNIC behavior. |
 | Multicast | Supported | Supported | N/A | v1model forks one branch per configured PRE replica and sets `egress_port`/`egress_rid`. |
 | Resubmit | Supported | Supported | N/A | Produces trace tree forks where applicable. |
 | Recirculate | Supported | Supported | Supported | PNA recirculate tracks pass count. |
