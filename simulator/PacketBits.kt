@@ -15,11 +15,14 @@ class PacketBits private constructor(private val paddedBytes: ByteArray, val val
     }
   }
 
-  val byteLength: Int
+  val packetByteLength: Int
+    get() = (validBitLength + Byte.SIZE_BITS - 1) / Byte.SIZE_BITS
+
+  private val paddedByteLength: Int
     get() = paddedBytes.size
 
   /** Returns a copy of the whole transport buffer, including padding past [validBitLength]. */
-  fun copyPaddedBytesForTransport(): ByteArray = paddedBytes.copyOf()
+  fun copyPaddedBytes(): ByteArray = paddedBytes.copyOf()
 
   /**
    * Returns the mutable backing buffer for parser internals.
@@ -30,7 +33,7 @@ class PacketBits private constructor(private val paddedBytes: ByteArray, val val
   internal fun backingBytesForParser(): ByteArray = paddedBytes
 
   fun truncateToBytes(maxBytes: Int): PacketBits =
-    if (maxBytes > 0 && maxBytes < paddedBytes.size) {
+    if (maxBytes > 0 && maxBytes < packetByteLength) {
       PacketBits(paddedBytes.copyOf(maxBytes), minOf(validBitLength, maxBytes * Byte.SIZE_BITS))
     } else {
       this
@@ -44,11 +47,13 @@ class PacketBits private constructor(private val paddedBytes: ByteArray, val val
   override fun hashCode(): Int = 31 * paddedBytes.contentHashCode() + validBitLength
 
   override fun toString(): String =
-    "PacketBits(byteLength=${paddedBytes.size}, validBitLength=$validBitLength)"
+    "PacketBits(packetByteLength=$packetByteLength, paddedByteLength=$paddedByteLength, " +
+      "validBitLength=$validBitLength)"
 
   companion object {
     fun ofBytes(bytes: ByteArray): PacketBits = PacketBits(bytes, bytes.size * Byte.SIZE_BITS)
 
-    fun of(bytes: ByteArray, validBitLength: Int): PacketBits = PacketBits(bytes, validBitLength)
+    fun ofPaddedBytes(bytes: ByteArray, validBitLength: Int): PacketBits =
+      PacketBits(bytes, validBitLength)
   }
 }

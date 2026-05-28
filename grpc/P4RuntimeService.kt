@@ -727,7 +727,7 @@ class P4RuntimeService(
           val packetOutPayload = packetOut.payload.toByteArray()
           Pair(
             codec.cpuPort,
-            PacketBits.of(
+            PacketBits.ofPaddedBytes(
               codec.packPacketOut(packetOut.metadataList, packetOutPayload),
               codec.packedPacketOutBitLength(packetOutPayload.size),
             ),

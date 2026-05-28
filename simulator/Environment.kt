@@ -88,7 +88,7 @@ class PacketContext(packet: PacketBits, initialOffset: Int = 0) {
   ) : this(PacketBits.ofBytes(payload), initialOffset)
 
   /** Original ingress packet length in bytes (for direct counter byte counts). */
-  val payloadSize: Int = packet.byteLength
+  val payloadSize: Int = packet.packetByteLength
 
   // -------------------------------------------------------------------------
   // Packet buffer

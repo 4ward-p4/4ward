@@ -60,7 +60,7 @@ class PacketBrokerTest {
         kotlinx.coroutines.sync.Mutex(),
       )
 
-    broker.processPacket(0, PacketBits.of(byteArrayOf(0xA0.toByte()), 4))
+    broker.processPacket(0, PacketBits.ofPaddedBytes(byteArrayOf(0xA0.toByte()), 4))
 
     assertEquals(4, capturedBitLength)
   }

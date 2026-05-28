@@ -457,7 +457,7 @@ class V1ModelArchitecture(
           s.standardMetadata.setBitField("instance_type", instanceType)
           s.standardMetadata.setBitField("egress_port", replica.port.toLong())
           s.standardMetadata.setBitField("egress_rid", replica.rid.toLong())
-          s.standardMetadata.setBitField("packet_length", ctx.packet.byteLength.toLong())
+          s.standardMetadata.setBitField("packet_length", ctx.packet.packetByteLength.toLong())
           applyPreservedMetadata(ctx, s.env, preservedMetadata)
         },
         pipelineTail = pipelineTail,
@@ -572,7 +572,7 @@ class V1ModelArchitecture(
       "$standardMetaTypeName has no packet_length"
     }
     standardMetadata.setBitField("ingress_port", ctx.ingressPort.toLong())
-    standardMetadata.setBitField("packet_length", ctx.packet.byteLength.toLong())
+    standardMetadata.setBitField("packet_length", ctx.packet.packetByteLength.toLong())
     standardMetadata.fields["parser_error"] = ErrorVal.NO_ERROR
     setTimestampField(
       standardMetadata,
@@ -994,7 +994,7 @@ class V1ModelArchitecture(
 
   /** Returns [ctx] with payload truncated to [maxBytes], or [ctx] unchanged if no truncation. */
   private fun truncatePayload(ctx: PipelineContext, maxBytes: Int): PipelineContext =
-    if (maxBytes > 0 && maxBytes < ctx.packet.byteLength) {
+    if (maxBytes > 0 && maxBytes < ctx.packet.packetByteLength) {
       ctx.copy(packet = ctx.packet.truncateToBytes(maxBytes))
     } else {
       ctx

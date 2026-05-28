@@ -110,7 +110,8 @@ class EnvironmentTest {
   fun `deparsedPayload ignores padding beyond valid packet bits`() {
     // Only the first 10 bits are meaningful: 1010_101111. The final 6 zeros only byte-align the
     // transport buffer and must not become packet data.
-    val pktCtx = PacketContext(PacketBits.of(byteArrayOf(0xAB.toByte(), 0xC0.toByte()), 10))
+    val pktCtx =
+      PacketContext(PacketBits.ofPaddedBytes(byteArrayOf(0xAB.toByte(), 0xC0.toByte()), 10))
     assertEquals(BigInteger.TEN, pktCtx.extractBits(4))
 
     assertArrayEquals(byteArrayOf(0xBC.toByte()), pktCtx.deparsedPayload())

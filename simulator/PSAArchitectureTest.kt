@@ -912,7 +912,7 @@ class PSAArchitectureTest {
     writeCloneSession(store, 100, listOf(0 to 5))
 
     // The first 10 bits are packet data; the final 14 bits are transport padding.
-    val packet = PacketBits.of(byteArrayOf(0xAB.toByte(), 0xC0.toByte(), 0x00), 10)
+    val packet = PacketBits.ofPaddedBytes(byteArrayOf(0xAB.toByte(), 0xC0.toByte(), 0x00), 10)
 
     val result = PSAArchitecture(config).processPacket(0u, packet, store)
     val outputs = result.possibleOutcomes.single()
