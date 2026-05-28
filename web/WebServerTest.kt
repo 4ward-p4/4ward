@@ -1,22 +1,31 @@
 package fourward.web
 
+import com.google.protobuf.TextFormat
 import fourward.BehavioralConfig
 import fourward.BitType
 import fourward.FieldDecl
 import fourward.HeaderDecl
 import fourward.IntType
+import fourward.PipelineConfig
 import fourward.Type
 import fourward.TypeDecl
 import fourward.VarbitType
 import fourward.bazel.repoRoot
+import fourward.grpc.P4RuntimeService
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import p4.v1.P4RuntimeOuterClass.Entity
+import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
+import p4.v1.P4RuntimeOuterClass.ReadRequest
+import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
+import p4.v1.P4RuntimeOuterClass.TableEntry
 
 class WebServerTest {
 
@@ -90,10 +99,18 @@ class WebServerTest {
   // Integration: static file serving + P4 compilation via runfiles
   // ---------------------------------------------------------------------------
 
+  private data class ServerContext(val port: Int, val service: P4RuntimeService)
+
   private fun <T> withServer(
     p4cPath: Path? = null,
     compileTimeout: Duration = WebServer.DEFAULT_COMPILE_TIMEOUT,
     block: (port: Int) -> T,
+  ): T = withServerContext(p4cPath, compileTimeout) { block(it.port) }
+
+  private fun <T> withServerContext(
+    p4cPath: Path? = null,
+    compileTimeout: Duration = WebServer.DEFAULT_COMPILE_TIMEOUT,
+    block: (context: ServerContext) -> T,
   ): T {
     val simulator = fourward.simulator.Simulator()
     val writeMutex = kotlinx.coroutines.sync.Mutex()
@@ -113,11 +130,73 @@ class WebServerTest {
         )
         .start()
     try {
-      return block(server.port())
+      return block(ServerContext(server.port(), service))
     } finally {
       server.stop()
       service.close()
     }
+  }
+
+  private fun loadPipeline(service: P4RuntimeService, config: PipelineConfig) = runBlocking {
+    service.setForwardingPipelineConfig(
+      SetForwardingPipelineConfigRequest.newBuilder()
+        .setDeviceId(1)
+        .setAction(SetForwardingPipelineConfigRequest.Action.VERIFY_AND_COMMIT)
+        .setConfig(
+          ForwardingPipelineConfig.newBuilder()
+            .setP4Info(config.p4Info)
+            .setP4DeviceConfig(config.device.toByteString())
+        )
+        .build()
+    )
+  }
+
+  private fun readDefaultEntries(service: P4RuntimeService, tableId: Int): List<Entity> =
+    runBlocking {
+      val entities = mutableListOf<Entity>()
+      service
+        .read(
+          ReadRequest.newBuilder()
+            .setDeviceId(1)
+            .addEntities(
+              Entity.newBuilder()
+                .setTableEntry(TableEntry.newBuilder().setTableId(tableId).setIsDefaultAction(true))
+            )
+            .build()
+        )
+        .collect { response -> entities.addAll(response.entitiesList) }
+      entities
+    }
+
+  private fun loadConfig(relativePath: String): PipelineConfig {
+    val builder = PipelineConfig.newBuilder()
+    TextFormat.merge(repoRoot.resolve(relativePath).toFile().readText(), builder)
+    return builder.build()
+  }
+
+  private fun findTable(config: PipelineConfig, alias: String) =
+    config.p4Info.tablesList.find { it.preamble.alias == alias }
+      ?: error("table '$alias' not found")
+
+  private fun findAction(config: PipelineConfig, alias: String) =
+    config.p4Info.actionsList.find { it.preamble.alias == alias }
+      ?: error("action '$alias' not found")
+
+  private data class HttpResponse(val status: Int, val body: String)
+
+  private fun postJson(port: Int, path: String, body: String): HttpResponse {
+    val conn =
+      java.net.URI("http://localhost:$port$path").toURL().openConnection()
+        as java.net.HttpURLConnection
+    conn.requestMethod = "POST"
+    conn.doOutput = true
+    conn.setRequestProperty("Content-Type", "application/json")
+    conn.outputStream.write(body.toByteArray())
+    val status = conn.responseCode
+    val responseBody =
+      (if (status in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText()
+        ?: ""
+    return HttpResponse(status, responseBody)
   }
 
   @Test
@@ -201,6 +280,50 @@ class WebServerTest {
   }
 
   @Test
+  fun `write endpoint accepts default action MODIFY updates`() = withServerContext { context ->
+    val config = loadConfig("e2e_tests/basic_table/basic_table.txtpb")
+    loadPipeline(context.service, config)
+    val table = findTable(config, "port_table")
+    val drop = findAction(config, "drop")
+
+    val response =
+      postJson(
+        context.port,
+        "/api/write",
+        """
+        {
+          "device_id": "1",
+          "updates": [
+            {
+              "type": "MODIFY",
+              "entity": {
+                "table_entry": {
+                  "table_id": ${table.preamble.id},
+                  "is_default_action": true,
+                  "action": {
+                    "action": {
+                      "action_id": ${drop.preamble.id}
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+        """
+          .trimIndent(),
+      )
+
+    assertEquals(response.body, 200, response.status)
+    val entries = readDefaultEntries(context.service, table.preamble.id)
+    assertEquals(entries.toString(), 1, entries.size)
+    val entry = entries.single().tableEntry
+    assertTrue(entry.isDefaultAction)
+    assertTrue(entry.matchList.isEmpty())
+    assertEquals(drop.preamble.id, entry.action.action.actionId)
+  }
+
+  @Test
   fun `frontend encodes and displays range match fields explicitly`() {
     val tablesJs = Files.readString(repoRoot.resolve("web/frontend/js/tables.js"))
     assertTrue(tablesJs.contains("case MATCH_TYPE.RANGE"))
@@ -216,6 +339,23 @@ class WebServerTest {
     assertTrue(traceRenderJs.contains("m.range"))
     assertTrue(traceRenderJs.contains("m.range.low"))
     assertTrue(traceRenderJs.contains("m.range.high"))
+  }
+
+  @Test
+  fun `frontend encodes default action changes as MODIFY table entries`() {
+    val indexHtml = Files.readString(repoRoot.resolve("web/frontend/index.html"))
+    assertTrue(indexHtml.contains("entry-default-action"))
+
+    val tablesJs = Files.readString(repoRoot.resolve("web/frontend/js/tables.js"))
+    assertTrue(tablesJs.contains("tableEntry.is_default_action = true"))
+    assertTrue(tablesJs.contains("type: isDefaultAction ? 'MODIFY' : 'INSERT'"))
+    assertTrue(tablesJs.contains("entry.isDefault"))
+
+    val mainJs = Files.readString(repoRoot.resolve("web/frontend/js/main.js"))
+    assertTrue(mainJs.contains("renderTableFields"))
+
+    val encodingJs = Files.readString(repoRoot.resolve("web/frontend/js/encoding.js"))
+    assertTrue(encodingJs.contains("rawEntry.is_default_action"))
   }
 
   // ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@ import { decodeTableEntry } from './encoding.js';
 import { setStatus, log, switchTab, updateButtonStates, updateTabBadges, initResize, initGraphResize } from './ui.js';
 import { initEditor, highlightCompileErrors, clearEditorDecorations } from './editor.js';
 import { renderControlGraph } from './graph.js';
-import { addTableEntry, deleteTableEntry, addCloneSession, deleteCloneSession, renderTablesPanel, renderEntriesList, renderCloneSessionsList } from './tables.js';
+import { addTableEntry, deleteTableEntry, addCloneSession, deleteCloneSession, renderTableFields, renderTablesPanel, renderEntriesList, renderCloneSessionsList } from './tables.js';
 import { sendPacket, applyPreset } from './packets.js';
 import { switchTraceView, stepForward, stepBack, resetPlayback, applyPlaybackState } from './trace.js';
 
@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Buttons
   document.getElementById('btn-compile').addEventListener('click', compileAndLoad);
   document.getElementById('btn-add-entry').addEventListener('click', addTableEntry);
+  document.getElementById('entry-default-action').addEventListener('change', renderTableFields);
   document.getElementById('btn-add-clone').addEventListener('click', addCloneSession);
   document.getElementById('btn-send-packet').addEventListener('click', sendPacket);
 
