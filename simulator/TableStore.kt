@@ -344,6 +344,9 @@ class TableStore : TableDataReader {
   private val tableActionProfile: MutableMap<String, Int> = mutableMapOf()
   private var directCounterTables: Set<String> = emptySet()
   private var directMeterTables: Set<String> = emptySet()
+  private var directCounterActionsByTable: Map<String, Set<String>> = emptyMap()
+  private var directMeterActionsByTable: Map<String, Set<String>> = emptyMap()
+  private var tableActionOverrides: Map<String, Map<String, String>> = emptyMap()
 
   // For unit tests: makes lookup() return hit=true with this action rather than searching entries.
   private val forcedHits: MutableMap<String, String> = mutableMapOf()
@@ -498,6 +501,17 @@ class TableStore : TableDataReader {
       p4info.directCountersList.mapNotNull { tableNameById[it.directTableId] }.toSet()
     this.directMeterTables =
       p4info.directMetersList.mapNotNull { tableNameById[it.directTableId] }.toSet()
+    tableActionOverrides = behavioral.tablesList.associate { it.name to it.actionOverridesMap }
+    val directResourceActions =
+      deriveDirectResourceActions(
+        behavioral,
+        p4info,
+        tableNameById,
+        actionNameById,
+        tableActionOverrides,
+      )
+    directCounterActionsByTable = directResourceActions.counterActionsByTable
+    directMeterActionsByTable = directResourceActions.meterActionsByTable
     writeState = ForwardingSnapshot()
     directCounterData.clear()
     registers.clear()
@@ -1174,8 +1188,21 @@ class TableStore : TableDataReader {
         "table '$tableName' has no direct meter, but TableEntry contained meter_config"
       )
     }
-    // TODO(#718): Also reject direct resource data when the selected action does not execute
-    // that direct resource, as required by P4Runtime §9.1.7.
+    validateInlineDirectResourceActions(
+        rawEntry,
+        tableName,
+        DirectResourceActionValidationContext(
+          actionNameById,
+          tableActionOverrides,
+          tableActionProfile,
+          writeState,
+          directCounterActionsByTable,
+          directMeterActionsByTable,
+        ),
+      )
+      ?.let {
+        return it
+      }
     val entry =
       if (!rawEntry.hasCounterData() && !rawEntry.hasMeterConfig()) {
         rawEntry

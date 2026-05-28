@@ -85,13 +85,6 @@ guilt — just write it down so someone can find it later.
   written and read via P4Runtime, but the simulator does not perform
   real rate limiting — `direct_meter.read()` always returns the default
   color (GREEN).
-- **P4Runtime TableEntry direct-resource writes are not action-checked
-  (#718).** P4Runtime §9.1.7 requires `INVALID_ARGUMENT` when a
-  `TableEntry` provides direct counter or meter data for an action that
-  does not execute that direct resource. 4ward validates that the table
-  has the direct resource and stores valid inline data in the simulator's
-  direct counter/meter state, but it does not yet validate the selected
-  action's direct-resource execution.
 - **No digests or idle timeouts (by design).** Both are inherently
   time-dependent features that have no meaningful semantics in a reference
   simulator: there are no real packet rates to trigger digests, and no

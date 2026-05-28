@@ -1,6 +1,16 @@
 package fourward.simulator
 
 import com.google.protobuf.ByteString
+import fourward.ActionDecl
+import fourward.BehavioralConfig
+import fourward.DeviceConfig
+import fourward.Expr
+import fourward.MethodCall
+import fourward.MethodCallStmt
+import fourward.NameRef
+import fourward.Stmt
+import fourward.TableBehavior
+import fourward.Type
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -192,6 +202,37 @@ class TableStoreTest {
     entry
       .toBuilder()
       .setMeterConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(cir).setCburst(cburst))
+      .build()
+
+  private fun actionDecl(name: String, vararg body: Stmt): ActionDecl =
+    ActionDecl.newBuilder().setName(name).addAllBody(body.toList()).build()
+
+  private fun directResourceCall(instance: String, externType: String, method: String): Stmt =
+    Stmt.newBuilder()
+      .setMethodCall(
+        MethodCallStmt.newBuilder()
+          .setCall(
+            Expr.newBuilder()
+              .setMethodCall(
+                MethodCall.newBuilder()
+                  .setTarget(
+                    Expr.newBuilder()
+                      .setNameRef(NameRef.newBuilder().setName(instance))
+                      .setType(Type.newBuilder().setNamed(externType))
+                  )
+                  .setMethod(method)
+              )
+          )
+      )
+      .build()
+
+  private fun deviceWithActions(vararg actions: ActionDecl): DeviceConfig =
+    DeviceConfig.newBuilder()
+      .setBehavioral(
+        BehavioralConfig.newBuilder()
+          .addTables(TableBehavior.newBuilder().setName(TABLE_NAME))
+          .addAllActions(actions.toList())
+      )
       .build()
 
   private fun write(entry: TableEntry) {
@@ -2251,6 +2292,35 @@ class TableStoreTest {
     return store
   }
 
+  private fun storeWithActionAwareDirectCounter(): TableStore {
+    val store = TableStore()
+    store.loadMappings(
+      p4info =
+        buildP4Info(
+          tables = listOf(p4infoTable(TABLE_ID, TABLE_NAME)),
+          actions = ACTION_LIST,
+          directCounters =
+            listOf(
+              P4InfoOuterClass.DirectCounter.newBuilder()
+                .setPreamble(
+                  P4InfoOuterClass.Preamble.newBuilder()
+                    .setId(DIRECT_COUNTER_ID)
+                    .setName("dc")
+                    .setAlias("dc")
+                )
+                .setDirectTableId(TABLE_ID)
+                .build()
+            ),
+        ),
+      device =
+        deviceWithActions(
+          actionDecl("action10", directResourceCall("dc", "direct_counter", "count")),
+          actionDecl("action20"),
+        ),
+    )
+    return store
+  }
+
   @Test
   fun `directCounterIncrement accumulates packet and byte counts`() {
     val s = storeWithDirectCounter()
@@ -2327,6 +2397,28 @@ class TableStoreTest {
       )
     assertEquals(42, readBack[0].directCounterEntry.data.packetCount)
     assertEquals(1000, readBack[0].directCounterEntry.data.byteCount)
+  }
+
+  @Test
+  fun `table entry INSERT with counter data rejects action that does not execute direct counter`() {
+    val s = storeWithActionAwareDirectCounter()
+    val entry = withCounterData(exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 20))
+
+    val result = s.writeAndPublish(insertUpdate(entry))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertTrue(s.getTableEntries(TABLE_NAME).isEmpty())
+  }
+
+  @Test
+  fun `table entry INSERT with counter data accepts action that executes direct counter`() {
+    val s = storeWithActionAwareDirectCounter()
+    val entry = withCounterData(exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 10))
+
+    val result = s.writeAndPublish(insertUpdate(entry))
+
+    assertEquals(WriteResult.Success, result)
+    assertEquals(1, s.getTableEntries(TABLE_NAME).size)
   }
 
   @Test
@@ -2469,6 +2561,35 @@ class TableStoreTest {
     return store
   }
 
+  private fun storeWithActionAwareDirectMeter(): TableStore {
+    val store = TableStore()
+    store.loadMappings(
+      p4info =
+        buildP4Info(
+          tables = listOf(p4infoTable(TABLE_ID, TABLE_NAME)),
+          actions = ACTION_LIST,
+          directMeters =
+            listOf(
+              P4InfoOuterClass.DirectMeter.newBuilder()
+                .setPreamble(
+                  P4InfoOuterClass.Preamble.newBuilder()
+                    .setId(DIRECT_METER_ID)
+                    .setName("dm")
+                    .setAlias("dm")
+                )
+                .setDirectTableId(TABLE_ID)
+                .build()
+            ),
+        ),
+      device =
+        deviceWithActions(
+          actionDecl("action10", directResourceCall("dm", "direct_meter", "read")),
+          actionDecl("action20"),
+        ),
+    )
+    return store
+  }
+
   @Test
   fun `writeDirectMeterEntry MODIFY persists config`() {
     val s = storeWithDirectMeter()
@@ -2581,6 +2702,28 @@ class TableStoreTest {
       )
     assertEquals(1000, readBack[0].directMeterEntry.config.cir)
     assertEquals(100, readBack[0].directMeterEntry.config.cburst)
+  }
+
+  @Test
+  fun `table entry INSERT with meter config rejects action that does not execute direct meter`() {
+    val s = storeWithActionAwareDirectMeter()
+    val entry = withMeterConfig(exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 20))
+
+    val result = s.writeAndPublish(insertUpdate(entry))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertTrue(s.getTableEntries(TABLE_NAME).isEmpty())
+  }
+
+  @Test
+  fun `table entry INSERT with meter config accepts action that executes direct meter`() {
+    val s = storeWithActionAwareDirectMeter()
+    val entry = withMeterConfig(exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 10))
+
+    val result = s.writeAndPublish(insertUpdate(entry))
+
+    assertEquals(WriteResult.Success, result)
+    assertEquals(1, s.getTableEntries(TABLE_NAME).size)
   }
 
   @Test
