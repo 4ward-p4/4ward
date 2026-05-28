@@ -4,7 +4,7 @@
 
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  <title>LCOV - coverage.lcov - simulator/simulator/TraceHelpers.kt - functions</title>
+  <title>LCOV - coverage.lcov - simulator/simulator/PacketBits.kt - functions</title>
   <link rel="stylesheet" type="text/css" href="../../gcov.css">
 </head>
 
@@ -19,7 +19,7 @@
                 <table cellpadding=1 border=0 width="100%">
           <tr>
             <td width="10%" class="headerItem">Current view:</td>
-            <td width="10%" class="headerValue"><a href="../../index.html">top level</a> - <a href="index.html">simulator/simulator</a> - TraceHelpers.kt<span style="font-size: 80%;"> (<a href="TraceHelpers.kt.gcov.html">source</a> / functions)</span></td>
+            <td width="10%" class="headerValue"><a href="../../index.html">top level</a> - <a href="index.html">simulator/simulator</a> - PacketBits.kt<span style="font-size: 80%;"> (<a href="PacketBits.kt.gcov.html">source</a> / functions)</span></td>
             <td width="5%"></td>
             <td width="5%"></td>
             <td width="5%" class="headerCovTableHead">Coverage</td>
@@ -31,18 +31,18 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">97.8&nbsp;%</td>
-            <td class="headerCovTableEntry">46</td>
-            <td class="headerCovTableEntry">45</td>
+            <td class="headerCovTableEntryLo">63.6&nbsp;%</td>
+            <td class="headerCovTableEntry">22</td>
+            <td class="headerCovTableEntry">14</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
             <td class="headerValue">2026-05-28 14:49:29</td>
             <td></td>
             <td class="headerItem">Functions:</td>
-            <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
-            <td class="headerCovTableEntry">11</td>
-            <td class="headerCovTableEntry">11</td>
+            <td class="headerCovTableEntryLo">66.7&nbsp;%</td>
+            <td class="headerCovTableEntry">12</td>
+            <td class="headerCovTableEntry">8</td>
           </tr>
                   <tr><td><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
                 </table>
@@ -58,82 +58,96 @@
             <tr>
               <td class="tableHead">Function Name <span  title="Click to sort table by function name" class="tableHeadSort"><img src="../../glass.png" width=10 height=14 alt="Sort by function name" title="Click to sort table by function name" border=0></span></td>
               
-              <td class="tableHead">Hit count <span  title="Click to sort table by function hit count" class="tableHeadSort"><a href="TraceHelpers.kt.func-c.html"><img src="../../updown.png" width=10 height=14 alt="Sort by function hit count" title="Click to sort table by function hit count" border=0></a></span></td>
+              <td class="tableHead">Hit count <span  title="Click to sort table by function hit count" class="tableHeadSort"><a href="PacketBits.kt.func-c.html"><img src="../../updown.png" width=10 height=14 alt="Sort by function hit count" title="Click to sort table by function hit count" border=0></a></span></td>
               
               
             </tr>
             <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L22">fourward/simulator/ForkMode::&lt;clinit&gt; ()V</a></td>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L59">fourward/simulator/PacketBits$Companion::ofBytes ([B)Lfourward/simulator/PacketBits;</a></td>
               
               <td class="coverFnHi">1</td>
               
               
             </tr>
             <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L47">fourward/simulator/TraceHelpersKt::buildDropTrace (Ljava/util/List;Lfourward/DropReason;)Lfourward/TraceTree;</a></td>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L68">fourward/simulator/PacketBits$Companion::ofPaddedBytes ([BI)Lfourward/simulator/PacketBits;</a></td>
               
               <td class="coverFnHi">1</td>
               
               
             </tr>
             <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L43">fourward/simulator/TraceHelpersKt::buildDropTrace$default (Ljava/util/List;Lfourward/DropReason;ILjava/lang/Object;)Lfourward/TraceTree;</a></td>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L10">fourward/simulator/PacketBits::&lt;init&gt; ([BI)V</a></td>
+              
+              <td class="coverFnHi">2</td>
+              
+              
+            </tr>
+            <tr>
+              <td class="coverFnAlias"><a href="PacketBits.kt.gcov.html#L10">fourward/simulator/PacketBits::<init> ([BI)V</a></td>
+              
+              <td class="coverFnAliasHi">1</td>
+              
+              
+            </tr>
+            <tr>
+              <td class="coverFnAlias"><a href="PacketBits.kt.gcov.html#L10">fourward/simulator/PacketBits::getValidBitLength ()I</a></td>
+              
+              <td class="coverFnAliasHi">1</td>
+              
+              
+            </tr>
+            <tr>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L38">fourward/simulator/PacketBits::backingBytesForParser$simulator_simulator ()[B</a></td>
               
               <td class="coverFnHi">1</td>
               
               
             </tr>
             <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L109">fourward/simulator/TraceHelpersKt::buildForkTree (Ljava/util/List;Lfourward/ForkReason;Ljava/util/List;)Lfourward/TraceTree;</a></td>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L30">fourward/simulator/PacketBits::copyPaddedBytes ()[B</a></td>
               
               <td class="coverFnHi">1</td>
               
               
             </tr>
             <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L53">fourward/simulator/TraceHelpersKt::buildOutputTrace (Ljava/util/List;I[B)Lfourward/TraceTree;</a></td>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L48">fourward/simulator/PacketBits::equals (Ljava/lang/Object;)Z</a></td>
+              
+              <td class="coverFnLo">0</td>
+              
+              
+            </tr>
+            <tr>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L19">fourward/simulator/PacketBits::getPacketByteLength ()I</a></td>
               
               <td class="coverFnHi">1</td>
               
               
             </tr>
             <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L32">fourward/simulator/TraceHelpersKt::forkModeOf (Lfourward/ForkReason;)Lfourward/simulator/ForkMode;</a></td>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L22">fourward/simulator/PacketBits::getPaddedByteLength ()I</a></td>
               
-              <td class="coverFnHi">1</td>
-              
-              
-            </tr>
-            <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L86">fourward/simulator/TraceHelpersKt::multicastGroupLookupEvent (II)Lfourward/TraceEvent;</a></td>
-              
-              <td class="coverFnHi">1</td>
+              <td class="coverFnLo">0</td>
               
               
             </tr>
             <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L97">fourward/simulator/TraceHelpersKt::multicastGroupMissEvent (I)Lfourward/TraceEvent;</a></td>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L52">fourward/simulator/PacketBits::hashCode ()I</a></td>
               
-              <td class="coverFnHi">1</td>
-              
-              
-            </tr>
-            <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L64">fourward/simulator/TraceHelpersKt::packetIngressEvent-WZ4Q5Ns (I)Lfourward/TraceEvent;</a></td>
-              
-              <td class="coverFnHi">1</td>
+              <td class="coverFnLo">0</td>
               
               
             </tr>
             <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L74">fourward/simulator/TraceHelpersKt::stageEvent (Lfourward/PipelineStage;Lfourward/PipelineStageEvent$Direction;Ljava/lang/Integer;)Lfourward/TraceEvent;</a></td>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L55">fourward/simulator/PacketBits::toString ()Ljava/lang/String;</a></td>
               
-              <td class="coverFnHi">1</td>
+              <td class="coverFnLo">0</td>
               
               
             </tr>
             <tr>
-              <td class="coverFn"><a href="TraceHelpers.kt.gcov.html#L69">fourward/simulator/TraceHelpersKt::stageEvent$default (Lfourward/PipelineStage;Lfourward/PipelineStageEvent$Direction;Ljava/lang/Integer;ILjava/lang/Object;)Lfourward/TraceEvent;</a></td>
+              <td class="coverFn"><a href="PacketBits.kt.gcov.html#L41">fourward/simulator/PacketBits::truncateToBytes (I)Lfourward/simulator/PacketBits;</a></td>
               
               <td class="coverFnHi">1</td>
               
