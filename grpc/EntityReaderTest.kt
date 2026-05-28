@@ -227,6 +227,36 @@ class EntityReaderTest {
   }
 
   @Test
+  fun `default entry in table with direct counter includes counter data`() {
+    stub.directCounters += TABLE_A_NAME
+    stub.modifiedDefaults.add(TABLE_A_NAME)
+    stub.counterData[defaultEntry(TABLE_A_ID)] =
+      P4RuntimeOuterClass.CounterData.newBuilder().setByteCount(100).setPacketCount(5).build()
+
+    val result = readDefaultTable(TABLE_A_ID)
+
+    assertEquals(1, result.size)
+    assertTrue(result[0].tableEntry.hasCounterData())
+    assertEquals(100, result[0].tableEntry.counterData.byteCount)
+    assertEquals(5, result[0].tableEntry.counterData.packetCount)
+  }
+
+  @Test
+  fun `default entry in table with direct meter includes meter config`() {
+    stub.directMeters += TABLE_A_NAME
+    stub.modifiedDefaults.add(TABLE_A_NAME)
+    stub.meterData[defaultEntry(TABLE_A_ID)] =
+      P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(1000).setCburst(500).build()
+
+    val result = readDefaultTable(TABLE_A_ID)
+
+    assertEquals(1, result.size)
+    assertTrue(result[0].tableEntry.hasMeterConfig())
+    assertEquals(1000, result[0].tableEntry.meterConfig.cir)
+    assertEquals(500, result[0].tableEntry.meterConfig.cburst)
+  }
+
+  @Test
   fun `entry in table without direct counter has no counter data`() {
     stub.addEntry(TABLE_A_NAME, TABLE_A_ID, byteArrayOf(1))
     val result = readTable(TABLE_A_ID)
@@ -275,6 +305,9 @@ class EntityReaderTest {
           )
       )
       .build()
+
+  private fun defaultEntry(tableId: Int): TableEntry =
+    TableEntry.newBuilder().setTableId(tableId).setIsDefaultAction(true).build()
 
   private fun matchValue(entity: Entity): List<Byte> =
     entity.tableEntry.getMatch(0).exact.value.toByteArray().toList()

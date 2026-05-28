@@ -104,10 +104,9 @@ class P4RuntimeWriteErrorTest {
     assertGrpcError(Status.Code.NOT_FOUND) { harness.deleteEntry(entry) }
   }
 
-  // P4Runtime spec §9.1.7: counter_data is invalid for any write to a table
-  // without a direct counter.
+  // P4Runtime spec §12: DELETE ignores non-key fields, including counter_data.
   @Test
-  fun `delete with counter data on table without direct counter returns INVALID_ARGUMENT`() {
+  fun `delete with counter data on table without direct counter succeeds`() {
     val config = loadBasicTableConfig()
     harness.loadPipeline(config)
     val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
@@ -122,15 +121,12 @@ class P4RuntimeWriteErrorTest {
         )
         .build()
 
-    assertGrpcError(Status.Code.INVALID_ARGUMENT, "TableEntry contained counter_data") {
-      harness.deleteEntry(deleteEntry)
-    }
+    harness.deleteEntry(deleteEntry)
   }
 
-  // P4Runtime spec §9.1.7: meter_config is invalid for any write to a table
-  // without a direct meter.
+  // P4Runtime spec §12: DELETE ignores non-key fields, including meter_config.
   @Test
-  fun `delete with meter config on table without direct meter returns INVALID_ARGUMENT`() {
+  fun `delete with meter config on table without direct meter succeeds`() {
     val config = loadBasicTableConfig()
     harness.loadPipeline(config)
     val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
@@ -145,9 +141,7 @@ class P4RuntimeWriteErrorTest {
         )
         .build()
 
-    assertGrpcError(Status.Code.INVALID_ARGUMENT, "TableEntry contained meter_config") {
-      harness.deleteEntry(deleteEntry)
-    }
+    harness.deleteEntry(deleteEntry)
   }
 
   // =========================================================================
