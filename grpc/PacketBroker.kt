@@ -101,7 +101,7 @@ class PacketBroker(
   /** Delivered to each [subscribe] subscriber for every processed packet. */
   class SubscriptionResult(
     val ingressPort: Int,
-    val payload: ByteArray,
+    val packet: PacketBits,
     val possibleOutcomes: List<List<OutputPacket>>,
     val trace: TraceTree,
     val tag: Long = 0,
@@ -137,7 +137,7 @@ class PacketBroker(
   fun processPacket(ingressPort: Int, packet: PacketBits, tag: Long = 0): ProcessPacketResult {
     fireHookUnderMutex()
     val result = simulatorFn(ingressPort, packet)
-    dispatchToSubscribers(ingressPort, packet.copyPaddedBytes(), result, tag)
+    dispatchToSubscribers(ingressPort, packet, result, tag)
     return result
   }
 
@@ -149,8 +149,9 @@ class PacketBroker(
   fun <T> withHookOnce(block: (processor: (Int, ByteArray, Long) -> Unit) -> T): T {
     fireHookUnderMutex()
     return block { port, payload, tag ->
-      val result = simulatorFn(port, PacketBits.ofBytes(payload))
-      dispatchToSubscribers(port, payload, result, tag)
+      val packet = PacketBits.ofBytes(payload)
+      val result = simulatorFn(port, packet)
+      dispatchToSubscribers(port, packet, result, tag)
     }
   }
 
@@ -162,13 +163,13 @@ class PacketBroker(
 
   private fun dispatchToSubscribers(
     ingressPort: Int,
-    payload: ByteArray,
+    packet: PacketBits,
     result: ProcessPacketResult,
     tag: Long = 0,
   ) {
     if (subscribers.isEmpty()) return
     val subResult =
-      SubscriptionResult(ingressPort, payload, result.possibleOutcomes, result.trace, tag)
+      SubscriptionResult(ingressPort, packet, result.possibleOutcomes, result.trace, tag)
     for (subscriber in subscribers) {
       try {
         subscriber(subResult)

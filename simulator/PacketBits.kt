@@ -24,12 +24,17 @@ class PacketBits private constructor(private val paddedBytes: ByteArray, val val
     get() = paddedBytes.size
 
   /**
-   * Returns a copy of the whole transport buffer, including padding past [validBitLength].
+   * Returns packet bytes with non-semantic padding removed as far as a byte API can express.
    *
-   * This is for observability/debug surfaces that report the original injected buffer. Parser and
-   * deparser semantics must use [validBitLength] instead of treating these bytes as all meaningful.
+   * Byte-only callers cannot carry [validBitLength], so the best representation is the smallest
+   * byte array that covers the semantic packet bits, with any low padding bits in the final byte
+   * cleared. Use this for public observability surfaces that expose packets as bytes.
    */
-  fun copyPaddedBytes(): ByteArray = paddedBytes.copyOf()
+  fun copySemanticBytes(): ByteArray {
+    val bytes = paddedBytes.copyOf(packetByteLength)
+    maskFinalPacketByteInPlace(bytes, validBitLength)
+    return bytes
+  }
 
   /**
    * Returns the mutable backing buffer for parser internals.
@@ -63,10 +68,23 @@ class PacketBits private constructor(private val paddedBytes: ByteArray, val val
     /**
      * Builds a packet from a byte buffer whose final byte may contain transport padding.
      *
-     * Padding bits need not be zero. Consumers that return semantic packet bytes are responsible
-     * for masking the final partial byte.
+     * Padding bits need not be zero. Use [copySemanticBytes] when converting back to a byte-only
+     * packet view.
      */
     fun ofPaddedBytes(bytes: ByteArray, validBitLength: Int): PacketBits =
       PacketBits(bytes, validBitLength)
+  }
+}
+
+/**
+ * Clears transport padding bits from the final semantic packet byte.
+ *
+ * Packet bit order is MSB-first, so the non-packet bits in a partial final byte are the low bits.
+ */
+internal fun maskFinalPacketByteInPlace(bytes: ByteArray, validBitLength: Int) {
+  val finalPaddingBits = (Byte.SIZE_BITS - validBitLength % Byte.SIZE_BITS) % Byte.SIZE_BITS
+  if (bytes.isNotEmpty() && finalPaddingBits != 0) {
+    val finalByteMask = 0xFF shl finalPaddingBits
+    bytes[bytes.lastIndex] = (bytes.last().toInt() and finalByteMask).toByte()
   }
 }

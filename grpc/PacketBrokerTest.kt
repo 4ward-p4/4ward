@@ -81,6 +81,24 @@ class PacketBrokerTest {
   }
 
   @Test
+  fun `subscriber receives PacketBits for padded packet`() {
+    val broker = broker(0 to result(outputPacket(1)))
+    val received = mutableListOf<PacketBroker.SubscriptionResult>()
+    broker.subscribe { received.add(it) }
+
+    broker.processPacket(
+      0,
+      PacketBits.ofPaddedBytes(byteArrayOf(0xAB.toByte(), 0xFF.toByte(), 0xFF.toByte()), 10),
+    )
+
+    assertEquals(10, received.single().packet.validBitLength)
+    assertEquals(
+      byteArrayOf(0xAB.toByte(), 0xC0.toByte()).toList(),
+      received.single().packet.copySemanticBytes().toList(),
+    )
+  }
+
+  @Test
   fun `multiple subscribers each receive results`() {
     val broker = broker(0 to result(outputPacket(1)))
 

@@ -15,13 +15,21 @@ class PacketBitsTest {
   }
 
   @Test
-  fun `transport bytes are copied for public callers`() {
+  fun `semantic bytes are copied for public callers`() {
     val packet = PacketBits.ofPaddedBytes(byteArrayOf(0xA0.toByte()), 4)
 
-    val copy = packet.copyPaddedBytes()
+    val copy = packet.copySemanticBytes()
     copy[0] = 0x00
 
-    assertArrayEquals(byteArrayOf(0xA0.toByte()), packet.copyPaddedBytes())
+    assertArrayEquals(byteArrayOf(0xA0.toByte()), packet.copySemanticBytes())
+  }
+
+  @Test
+  fun `semantic bytes drop whole padding bytes and mask final partial byte`() {
+    val packet =
+      PacketBits.ofPaddedBytes(byteArrayOf(0xAB.toByte(), 0xFF.toByte(), 0xFF.toByte()), 10)
+
+    assertArrayEquals(byteArrayOf(0xAB.toByte(), 0xC0.toByte()), packet.copySemanticBytes())
   }
 
   @Test
@@ -38,6 +46,6 @@ class PacketBitsTest {
     val truncated = packet.truncateToBytes(1)
 
     assertEquals(8, truncated.validBitLength)
-    assertArrayEquals(byteArrayOf(0xAB.toByte()), truncated.copyPaddedBytes())
+    assertArrayEquals(byteArrayOf(0xAB.toByte()), truncated.copySemanticBytes())
   }
 }
