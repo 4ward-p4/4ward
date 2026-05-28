@@ -151,6 +151,10 @@ private constructor(
     return acc.toByteArray()
   }
 
+  /** Number of meaningful packet bits in [packPacketOut]'s byte-aligned output. */
+  fun packedPacketOutBitLength(payloadBytes: Int): Int =
+    packetOutHeaderBits + payloadBytes * Byte.SIZE_BITS
+
   /**
    * Builds PacketIn metadata from ingress and egress port values.
    *

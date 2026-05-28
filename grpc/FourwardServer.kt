@@ -25,7 +25,11 @@ class FourwardServer(
    */
   val simulator = Simulator()
   private val writeMutex = Mutex()
-  private val broker = PacketBroker(simulator::processPacket, writeMutex)
+  private val broker =
+    PacketBroker(
+      { ingressPort, packet -> simulator.processPacket(ingressPort, packet) },
+      writeMutex,
+    )
   private val service =
     P4RuntimeService(
       simulator,

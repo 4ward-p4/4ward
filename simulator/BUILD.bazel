@@ -250,6 +250,16 @@ kt_jvm_test(
 )
 
 kt_jvm_test(
+    name = "PacketBitsTest",
+    srcs = ["PacketBitsTest.kt"],
+    test_class = "fourward.simulator.PacketBitsTest",
+    deps = [
+        ":simulator",
+        "@fourward_maven//:junit_junit",
+    ],
+)
+
+kt_jvm_test(
     name = "InterpreterInlineActionTest",
     srcs = ["InterpreterInlineActionTest.kt"],
     test_class = "fourward.simulator.InterpreterInlineActionTest",

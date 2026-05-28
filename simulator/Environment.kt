@@ -80,17 +80,23 @@ class Environment {
  * Holds the input packet buffer, the output (emit) buffer, and the execution trace. Created once
  * per packet in the architecture's [processPacket] and threaded through the interpreter.
  */
-class PacketContext(payload: ByteArray, initialOffset: Int = 0) {
+class PacketContext(packet: PacketBits, initialOffset: Int = 0) {
+
+  constructor(
+    payload: ByteArray,
+    initialOffset: Int = 0,
+  ) : this(PacketBits.ofBytes(payload), initialOffset)
 
   /** Original ingress packet length in bytes (for direct counter byte counts). */
-  val payloadSize: Int = payload.size
+  val payloadSize: Int = packet.packetByteLength
 
   // -------------------------------------------------------------------------
   // Packet buffer
   // -------------------------------------------------------------------------
 
   /** Remaining bytes in the input packet, consumed by parser extract(). */
-  private val buffer: ParserCursor = ParserCursor(payload, initialOffset)
+  private val buffer: ParserCursor =
+    ParserCursor(packet.backingBytesForParser(), initialOffset, packet.validBitLength)
 
   /** Number of bytes consumed from the input buffer so far (parser extract position). */
   val bytesConsumed: Int
@@ -170,35 +176,61 @@ open class ParserErrorException(val errorName: String, message: String) : Except
  * length) consume exactly the right number of bits without over-reading.
  */
 @Suppress("MagicNumber")
-private class ParserCursor(private val data: ByteArray, initialByteOffset: Int = 0) {
+private class ParserCursor(
+  private val data: ByteArray,
+  initialByteOffset: Int = 0,
+  private val validBitLength: Int = data.size * Byte.SIZE_BITS,
+) {
+  init {
+    require(validBitLength in 0..data.size * Byte.SIZE_BITS) {
+      "validBitLength must be between 0 and ${data.size * Byte.SIZE_BITS}, got $validBitLength"
+    }
+    require(initialByteOffset * Byte.SIZE_BITS <= validBitLength) {
+      "initialByteOffset $initialByteOffset is past validBitLength $validBitLength"
+    }
+  }
+
   private var bitOffset: Int = initialByteOffset * 8
 
   /** Number of whole bytes consumed from the start of the buffer. */
   val bytesConsumed: Int
     get() = (bitOffset + 7) / 8
 
-  fun hasRemaining(): Boolean = bitOffset < data.size * 8
+  fun hasRemaining(): Boolean = bitOffset < validBitLength
 
   val isByteAligned: Boolean
     get() = bitOffset % 8 == 0
 
   fun appendRemainingTo(acc: BitAccumulator) {
-    acc.appendRawBytes(data, bitOffset, data.size * 8 - bitOffset)
+    acc.appendRawBytes(data, bitOffset, validBitLength - bitOffset)
   }
 
-  private fun remainingBits(): Int = data.size * 8 - bitOffset
+  private fun remainingBits(): Int = validBitLength - bitOffset
 
   /** Returns all bytes from the next byte boundary to the end (sub-byte remainder is discarded). */
   fun readAll(): ByteArray {
     val byteStart = (bitOffset + 7) / 8
-    bitOffset = data.size * 8
-    return data.copyOfRange(byteStart, data.size)
+    bitOffset = validBitLength
+    return semanticBytesFrom(byteStart)
   }
 
   /** Returns all bytes from the current byte-aligned position without advancing. */
   fun peekAll(): ByteArray {
     val byteStart = (bitOffset + 7) / 8
-    return data.copyOfRange(byteStart, data.size)
+    return semanticBytesFrom(byteStart)
+  }
+
+  private fun semanticBytesFrom(byteStart: Int): ByteArray {
+    val byteEnd = (validBitLength + 7) / 8
+    val bytes = data.copyOfRange(byteStart, byteEnd)
+    val finalPaddingBits = (Byte.SIZE_BITS - validBitLength % Byte.SIZE_BITS) % Byte.SIZE_BITS
+    if (bytes.isNotEmpty() && finalPaddingBits != 0) {
+      // PacketBits may carry arbitrary transport padding in the final byte. Byte-returning helpers
+      // expose semantic packet bytes, so clear the non-packet low bits before returning them.
+      val finalByteMask = 0xFF shl finalPaddingBits
+      bytes[bytes.lastIndex] = (bytes.last().toInt() and finalByteMask).toByte()
+    }
+    return bytes
   }
 
   /** Reads [count] bytes from the current position (must be byte-aligned). */

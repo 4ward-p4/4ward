@@ -84,7 +84,7 @@ class V1ModelArchitecture(
   /** Invariant inputs to the pipeline, shared across fork re-executions. */
   private data class PipelineContext(
     val ingressPort: UInt,
-    val payload: ByteArray,
+    val packet: PacketBits,
     val config: BehavioralConfig,
     val tableStore: TableStore,
     val interpreter: Interpreter,
@@ -122,10 +122,10 @@ class V1ModelArchitecture(
 
   override fun processPacket(
     ingressPort: UInt,
-    payload: ByteArray,
+    packet: PacketBits,
     tableStore: TableStore,
   ): PipelineResult {
-    val ctx = PipelineContext(ingressPort, payload, config, tableStore, interpreter)
+    val ctx = PipelineContext(ingressPort, packet, config, tableStore, interpreter)
     return buildTraceTree(ctx, V1ModelDecisions())
   }
 
@@ -204,7 +204,7 @@ class V1ModelArchitecture(
     snapshotPendingOps: V1ModelPendingOps? = null,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): PipelineState {
-    val packetCtx = PacketContext(ctx.payload, bytesConsumed)
+    val packetCtx = PacketContext(ctx.packet, bytesConsumed)
     val env = snapshotEnv.deepCopy()
     val pendingOps = snapshotPendingOps?.copy() ?: V1ModelPendingOps()
     val standardMetadata = resolveStandardMetadata(ctx, env)
@@ -457,7 +457,7 @@ class V1ModelArchitecture(
           s.standardMetadata.setBitField("instance_type", instanceType)
           s.standardMetadata.setBitField("egress_port", replica.port.toLong())
           s.standardMetadata.setBitField("egress_rid", replica.rid.toLong())
-          s.standardMetadata.setBitField("packet_length", ctx.payload.size.toLong())
+          s.standardMetadata.setBitField("packet_length", ctx.packet.packetByteLength.toLong())
           applyPreservedMetadata(ctx, s.env, preservedMetadata)
         },
         pipelineTail = pipelineTail,
@@ -527,7 +527,9 @@ class V1ModelArchitecture(
     val branch =
       ForkBranch.newBuilder()
         .setLabel("recirculate")
-        .setSubtree(buildTraceTree(ctx.copy(payload = fork.deparsedBytes), decisions).trace)
+        .setSubtree(
+          buildTraceTree(ctx.copy(packet = PacketBits.ofBytes(fork.deparsedBytes)), decisions).trace
+        )
         .build()
     return PipelineResult(
       buildForkTree(fork.eventsBeforeFork, ForkReason.RECIRCULATE, listOf(branch))
@@ -570,7 +572,7 @@ class V1ModelArchitecture(
       "$standardMetaTypeName has no packet_length"
     }
     standardMetadata.setBitField("ingress_port", ctx.ingressPort.toLong())
-    standardMetadata.setBitField("packet_length", ctx.payload.size.toLong())
+    standardMetadata.setBitField("packet_length", ctx.packet.packetByteLength.toLong())
     standardMetadata.fields["parser_error"] = ErrorVal.NO_ERROR
     setTimestampField(
       standardMetadata,
@@ -606,7 +608,7 @@ class V1ModelArchitecture(
       }
     }
 
-    return finishPipelineState(ctx, decisions, PacketContext(ctx.payload), env, standardMetadata)
+    return finishPipelineState(ctx, decisions, PacketContext(ctx.packet), env, standardMetadata)
   }
 
   /**
@@ -992,8 +994,8 @@ class V1ModelArchitecture(
 
   /** Returns [ctx] with payload truncated to [maxBytes], or [ctx] unchanged if no truncation. */
   private fun truncatePayload(ctx: PipelineContext, maxBytes: Int): PipelineContext =
-    if (maxBytes > 0 && maxBytes < ctx.payload.size) {
-      ctx.copy(payload = ctx.payload.copyOf(maxBytes))
+    if (maxBytes > 0 && maxBytes < ctx.packet.packetByteLength) {
+      ctx.copy(packet = ctx.packet.truncateToBytes(maxBytes))
     } else {
       ctx
     }

@@ -28,7 +28,11 @@ fun main(args: Array<String>) {
 
   val simulator = Simulator()
   val writeMutex = kotlinx.coroutines.sync.Mutex()
-  val broker = PacketBroker(simulator::processPacket, writeMutex)
+  val broker =
+    PacketBroker(
+      { ingressPort, packet -> simulator.processPacket(ingressPort, packet) },
+      writeMutex,
+    )
   val service =
     P4RuntimeService(
       simulator,

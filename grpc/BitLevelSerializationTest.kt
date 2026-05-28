@@ -593,6 +593,109 @@ class BitLevelSerializationTest {
   }
 
   @Test
+  @Suppress("MagicNumber")
+  fun `PacketOut with SAI-shaped 10-bit header does not leak padding into payload`() {
+    // SAI's packet_out header is 10 bits: 9-bit egress_port plus 1-bit submit_to_ingress.
+    // PacketOut has to be byte-padded before it enters the simulator, but those transport padding
+    // bits are not packet bits. They must not become an extra byte on the PacketIn payload.
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      @controller_header("packet_out")
+      header packet_out_t {
+        bit<9> egress_port;
+        bit<1> submit_to_ingress;
+      }
+
+      @controller_header("packet_in")
+      header packet_in_t { bit<5> tag; }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { packet_out_t pkt_out; packet_in_t pkt_in; ethernet_t eth; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start {
+          pkt.extract(hdr.pkt_out);
+          pkt.extract(hdr.eth);
+          transition accept;
+        }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = 510; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply {
+          h.pkt_out.setInvalid();
+          h.pkt_in.setValid();
+          h.pkt_in.tag = 0;
+        }
+      }
+      control D(packet_out pkt, in headers_t h) {
+        apply {
+          pkt.emit(h.pkt_out);
+          pkt.emit(h.pkt_in);
+          pkt.emit(h.eth);
+        }
+      }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val harness = FourwardTestHarness()
+    harness.use {
+      it.loadPipeline(config)
+
+      it.openStream().use { session ->
+        session.arbitrate()
+
+        val originalPayload =
+          byteArrayOf(
+            0xAA.toByte(),
+            0xAA.toByte(),
+            0xAA.toByte(),
+            0xAA.toByte(),
+            0xAA.toByte(),
+            0xAA.toByte(),
+            0xBB.toByte(),
+            0xBB.toByte(),
+            0xBB.toByte(),
+            0xBB.toByte(),
+            0xBB.toByte(),
+            0xBB.toByte(),
+            0x08,
+            0x06,
+          )
+        val packetOut =
+          p4.v1.P4RuntimeOuterClass.PacketOut.newBuilder()
+            .setPayload(com.google.protobuf.ByteString.copyFrom(originalPayload))
+            .addMetadata(
+              p4.v1.P4RuntimeOuterClass.PacketMetadata.newBuilder()
+                .setMetadataId(1)
+                .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(123)))
+            )
+            .addMetadata(
+              p4.v1.P4RuntimeOuterClass.PacketMetadata.newBuilder()
+                .setMetadataId(2)
+                .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(1)))
+            )
+            .build()
+
+        val response = session.sendPacketOut(packetOut)
+
+        assertNotNull("should get PacketIn response from CPU port", response)
+        assertTrue("response should be PacketIn", response!!.hasPacket())
+        assertEquals(originalPayload.toList(), response.packet.payload.toByteArray().toList())
+      }
+    }
+  }
+
+  @Test
   fun `field_list_ids emitted for enum-valued field_list annotations`() {
     val config =
       compileInlineP4(

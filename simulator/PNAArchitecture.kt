@@ -78,7 +78,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
 
   override fun processPacket(
     ingressPort: UInt,
-    payload: ByteArray,
+    packet: PacketBits,
     tableStore: TableStore,
   ): PipelineResult {
     val pipeline =
@@ -98,7 +98,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     val tree =
       processPacketRecursive(
         pipeline,
-        payload,
+        packet,
         ingressPort,
         PACKET_PATH_FROM_NET_PORT,
         passNumber = 0,
@@ -117,7 +117,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
   @Suppress("LongParameterList")
   private fun processPacketRecursive(
     pipeline: PipelineConfig,
-    payload: ByteArray,
+    packet: PacketBits,
     ingressPort: UInt,
     packetPath: String,
     passNumber: Int,
@@ -128,7 +128,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
       "PNA recirculation depth exceeded ($MAX_RECIRCULATIONS) — possible infinite recirculate loop"
     }
 
-    val ctx = PacketContext(payload)
+    val ctx = PacketContext(packet)
     val env = Environment()
     val values = createDefaultValues(pipeline.config, pipeline.typesByName)
     val forwardingState = ForwardingState()
@@ -176,12 +176,12 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
       return handleActionSelectorFork(fork, selectorMembers) { newSelectors ->
         processPacketRecursive(
           pipeline,
-          payload,
+          packet,
           ingressPort,
           packetPath,
-          passNumber,
-          depth,
-          newSelectors,
+          passNumber = passNumber,
+          depth = depth,
+          selectorMembers = newSelectors,
         )
       }
     }
@@ -211,11 +211,11 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
       val recircTree =
         processPacketRecursive(
           pipeline,
-          deparsedBytes,
+          PacketBits.ofBytes(deparsedBytes),
           ingressPort,
           PACKET_PATH_FROM_NET_RECIRCULATED,
-          passNumber + 1,
-          depth + 1,
+          passNumber = passNumber + 1,
+          depth = depth + 1,
         )
       val recircBranch =
         ForkBranch.newBuilder().setLabel("recirculate").setSubtree(recircTree).build()
