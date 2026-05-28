@@ -1179,12 +1179,20 @@ class GoldenErrorTest(private val testName: String) {
     }
   }
 
-  private fun triggerDigestStreamNotSupported() = runBlocking {
-    val request =
-      P4RuntimeOuterClass.StreamMessageRequest.newBuilder()
-        .setDigestAck(P4RuntimeOuterClass.DigestListAck.newBuilder().setDigestId(1))
-        .build()
-    harness.stub.streamChannel(flowOf(request)).collect {}
+  private fun triggerDigestStreamNotSupported() {
+    harness.openStream().use { stream ->
+      stream.arbitrate()
+      val request =
+        P4RuntimeOuterClass.StreamMessageRequest.newBuilder()
+          .setDigestAck(P4RuntimeOuterClass.DigestListAck.newBuilder().setDigestId(1))
+          .build()
+      val response =
+        stream.sendRaw(request)
+          ?: throw AssertionError("expected StreamError response for digest ack")
+      if (!response.hasError()) throw AssertionError("expected StreamError, got: $response")
+      val err = response.error
+      throw Status.fromCodeValue(err.canonicalCode).withDescription(err.message).asException()
+    }
   }
 
   @Suppress("MagicNumber")
