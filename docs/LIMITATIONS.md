@@ -83,12 +83,6 @@ guilt — just write it down so someone can find it later.
   time-dependent features that have no meaningful semantics in a reference
   simulator: there are no real packet rates to trigger digests, and no
   wall-clock time to expire idle entries. These are explicitly out of scope.
-- **Reproducer does not capture register state (#679).** Programs that read
-  registers and branch on the result will produce a different trace when
-  replayed from a reproducer (registers start at zero). Counter and
-  meter state is not affected: counters don't influence forwarding,
-  and meters always return GREEN in the simulator.
-
 ## Simulator
 
 - **Fork-point resume is v1model only.** When the trace tree forks (action

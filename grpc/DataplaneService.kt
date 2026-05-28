@@ -17,6 +17,7 @@ import fourward.SubscribeResultsRequest
 import fourward.SubscribeResultsResponse
 import fourward.SubscriptionActive
 import fourward.TraceTree
+import fourward.simulator.RegisterSeedDependency
 import fourward.simulator.TableStore
 import fourward.simulator.extractReproducerEntities
 import io.grpc.Status
@@ -77,6 +78,7 @@ class DataplaneService(
           enrichedResult.forwardingSnapshot,
           pipeline.tableStore,
           pipeline.config.device.staticEntries.updatesList,
+          enrichedResult.registerSeedDependencies,
         )
       )
       .setResult(enrichedResult.toProcessPacketResult())
@@ -89,6 +91,7 @@ class DataplaneService(
     val tag: Long,
     val rawTrace: TraceTree,
     val forwardingSnapshot: TableStore.ForwardingSnapshot,
+    val registerSeedDependencies: List<RegisterSeedDependency>,
     val trace: TraceTree,
     val possibleOutcomes: List<PacketSet>,
   ) {
@@ -126,6 +129,7 @@ class DataplaneService(
           tag = request.tag,
           rawTrace = result.trace,
           forwardingSnapshot = result.forwardingSnapshot,
+          registerSeedDependencies = result.registerSeedDependencies,
           trace = enrichTrace(result.trace, translator),
           possibleOutcomes =
             result.possibleOutcomes.map { world ->

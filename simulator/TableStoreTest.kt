@@ -1781,6 +1781,51 @@ class TableStoreTest {
     assertTrue(s.readRegisterEntries(filter).isEmpty())
   }
 
+  @Test
+  fun `captureRegisterSeeds records packet-start value for read registers`() {
+    val s = storeWithRegister()
+    s.registerWrite(REGISTER_NAME, 0, BitVal(42, REGISTER_BITWIDTH))
+
+    val captured =
+      s.captureRegisterSeeds {
+        s.registerWrite(REGISTER_NAME, 0, BitVal(7, REGISTER_BITWIDTH))
+        s.registerRead(REGISTER_NAME, 0)
+      }
+
+    assertEquals(BitVal(7, REGISTER_BITWIDTH), captured.result)
+    assertEquals(
+      listOf(RegisterSeedDependency(REGISTER_NAME, 0, BitVal(42, REGISTER_BITWIDTH))),
+      captured.dependencies,
+    )
+  }
+
+  @Test
+  fun `captureRegisterSeeds ignores default-zero dependencies`() {
+    val s = storeWithRegister()
+
+    val captured = s.captureRegisterSeeds { s.registerRead(REGISTER_NAME, 0) }
+
+    assertNull(captured.result)
+    assertTrue(captured.dependencies.isEmpty())
+  }
+
+  @Test
+  fun `buildRegisterEntity encodes register seed dependency`() {
+    val s = storeWithRegister()
+    val entity =
+      s.buildRegisterEntity(
+        RegisterSeedDependency(REGISTER_NAME, 2, BitVal(0xABCD, REGISTER_BITWIDTH))
+      )
+
+    assertTrue(entity.hasRegisterEntry())
+    assertEquals(REGISTER_ID, entity.registerEntry.registerId)
+    assertEquals(2, entity.registerEntry.index.index)
+    assertEquals(
+      ByteString.copyFrom(longToBytes(0xABCD, (REGISTER_BITWIDTH + 7) / 8)),
+      entity.registerEntry.data.bitstring,
+    )
+  }
+
   // ---------------------------------------------------------------------------
   // Per-entry reads
   // ---------------------------------------------------------------------------

@@ -264,6 +264,7 @@ class TableStore : TableDataReader {
    * read-modify-write sequences split across two extern calls, matching hardware semantics.
    */
   private val registers = ConcurrentHashMap<String, ConcurrentHashMap<Int, Value>>()
+  private val registerReadCapture = ThreadLocal<RegisterReadCapture?>()
 
   /**
    * Publishes the current [writeState] as a new immutable [snapshot] for data-plane threads.
@@ -379,6 +380,7 @@ class TableStore : TableDataReader {
   private var tableNameByAlias: Map<String, String> = emptyMap()
 
   private var registerInfoById: Map<Int, RegisterInfo> = emptyMap()
+  private var registerInfoByName: Map<String, Pair<Int, RegisterInfo>> = emptyMap()
   private var counterInfoById: Map<Int, IndexedExternInfo> = emptyMap()
   private var meterInfoById: Map<Int, IndexedExternInfo> = emptyMap()
 
@@ -488,6 +490,7 @@ class TableStore : TableDataReader {
         val bitwidth = reg.typeSpec.bitstring.bit.bitwidth
         reg.preamble.id to RegisterInfo(reg.preamble.name, bitwidth, reg.size)
       }
+    this.registerInfoByName = registerInfoById.entries.associate { it.value.name to it.toPair() }
     this.counterInfoById =
       p4info.countersList.associate { it.preamble.id to IndexedExternInfo(it.size.toInt()) }
     this.meterInfoById =
@@ -775,10 +778,41 @@ class TableStore : TableDataReader {
   // Registers
   // -------------------------------------------------------------------------
 
-  fun registerRead(name: String, index: Int): Value? = registers[name]?.get(index)
+  fun registerRead(name: String, index: Int): Value? {
+    val value = registers[name]?.get(index)
+    registerReadCapture.get()?.recordRead(name, index, value)
+    return value
+  }
 
   fun registerWrite(name: String, index: Int, value: Value) {
+    registerReadCapture.get()?.rememberInitial(name, index, registers[name]?.get(index))
     registers.getOrPut(name) { ConcurrentHashMap() }[index] = value
+  }
+
+  fun <T> captureRegisterSeeds(block: () -> T): CapturedRegisterSeeds<T> {
+    check(registerReadCapture.get() == null) { "nested register seed capture is not supported" }
+    val capture = RegisterReadCapture()
+    registerReadCapture.set(capture)
+    try {
+      return CapturedRegisterSeeds(block(), capture.dependencies())
+    } finally {
+      registerReadCapture.remove()
+    }
+  }
+
+  fun buildRegisterEntity(dependency: RegisterSeedDependency): P4RuntimeOuterClass.Entity {
+    val (regId, info) =
+      registerInfoByName[dependency.registerName]
+        ?: error("register '${dependency.registerName}' has no P4Info mapping")
+    val value =
+      dependency.initialValue as? BitVal
+        ?: error(
+          "register '${dependency.registerName}' stored non-bit value ${dependency.initialValue}"
+        )
+    require(dependency.index in 0 until info.size) {
+      "register index ${dependency.index} out of bounds [0, ${info.size})"
+    }
+    return buildRegisterEntity(regId, dependency.index, value.bits)
   }
 
   // P4Runtime spec: RegisterEntry MODIFY only (statically allocated arrays).
@@ -828,17 +862,25 @@ class TableStore : TableDataReader {
       val indices = if (hasIndex) listOf(filter.index.index.toInt()) else (0 until info.size)
       indices.map { idx ->
         val bits = (registerRead(info.name, idx) as? BitVal)?.bits ?: zeroBits
-        val data = ByteString.copyFrom(bits.toByteArray())
-        P4RuntimeOuterClass.Entity.newBuilder()
-          .setRegisterEntry(
-            P4RuntimeOuterClass.RegisterEntry.newBuilder()
-              .setRegisterId(regId)
-              .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(idx.toLong()))
-              .setData(p4.v1.P4DataOuterClass.P4Data.newBuilder().setBitstring(data))
-          )
-          .build()
+        buildRegisterEntity(regId, idx, bits)
       }
     }
+  }
+
+  private fun buildRegisterEntity(
+    registerId: Int,
+    index: Int,
+    bits: BitVector,
+  ): P4RuntimeOuterClass.Entity {
+    val data = ByteString.copyFrom(bits.toByteArray())
+    return P4RuntimeOuterClass.Entity.newBuilder()
+      .setRegisterEntry(
+        P4RuntimeOuterClass.RegisterEntry.newBuilder()
+          .setRegisterId(registerId)
+          .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(index.toLong()))
+          .setData(p4.v1.P4DataOuterClass.P4Data.newBuilder().setBitstring(data))
+      )
+      .build()
   }
 
   // -------------------------------------------------------------------------

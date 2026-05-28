@@ -66,14 +66,14 @@ complexity:
   # that grow proportionally with the feature set. The more targeted
   # TooManyFunctions and CyclomaticComplexMethod checks catch actual complexity.
   LargeClass:
-    threshold: 2700
+    threshold: 2800
 
   # 11 is far too low for operator-rich value classes like BitVector (21 functions)
   # or dispatch classes like Interpreter (one function per AST node kind).
   # Google style sets no hard limit.
   TooManyFunctions:
     thresholdInFiles: 65
-    thresholdInClasses: 70
+    thresholdInClasses: 75
     thresholdInInterfaces: 30
     thresholdInObjects: 30
     thresholdInEnums: 11

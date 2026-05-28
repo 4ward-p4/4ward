@@ -410,6 +410,7 @@ kt_jvm_test(
         ":ir_java_proto",
         ":p4info_java_proto",
         ":p4runtime_java_proto",
+        ":p4types_java_proto",
         ":simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
