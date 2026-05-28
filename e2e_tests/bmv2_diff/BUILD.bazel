@@ -58,6 +58,7 @@ bmv2_diff_test_suite(
     local_tests = {
         "action_selector_3": "//e2e_tests/trace_tree",
         "selector_exit": "//e2e_tests/trace_tree",
+        "truncate_min": "//e2e_tests/truncate",
     },
     tests = [
         "arith-bmv2",

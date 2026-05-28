@@ -1,0 +1,11 @@
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = True,
+    licenses = ["notice"],
+)
+
+# P4/STF files used by bmv2_diff tests (cross-package reference).
+exports_files([
+    "truncate_min.p4",
+    "truncate_min.stf",
+])
