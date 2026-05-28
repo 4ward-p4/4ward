@@ -114,8 +114,9 @@ run.
 
 ### Commits and PRs
 
-Open PRs in draft mode (`gh pr create --draft`). Rebase onto
-`origin/main` before submitting.
+After committing and pushing a completed change, proactively open a draft PR
+unless the user explicitly asks not to. Open PRs in draft mode
+(`gh pr create --draft`). Rebase onto `origin/main` before submitting.
 
 Commit messages: focus on *why*, not *what* — the diff already shows
 what changed. PR descriptions: lead with the win, be concise. Don't
