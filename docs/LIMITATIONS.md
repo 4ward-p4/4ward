@@ -136,8 +136,6 @@ guilt — just write it down so someone can find it later.
   server clears everything. Editor content is not saved across page refreshes.
 - **Single shared state.** All browser sessions share one simulator instance.
   Concurrent users will interfere with each other.
-- **No compilation timeout.** The p4c subprocess has no timeout. A
-  pathological P4 program could hang the server indefinitely.
 - **Monaco editor requires internet.** Loaded from `cdn.jsdelivr.net`.
   The playground does not work offline.
 - **Three bundled examples only.** `basic_table`, `passthrough`, `mirror`.

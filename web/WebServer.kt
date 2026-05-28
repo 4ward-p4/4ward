@@ -9,12 +9,16 @@ import fourward.bazel.repoRoot
 import fourward.bazel.resolveRunfileProperty
 import fourward.simulator.Simulator
 import java.io.File
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.logging.Level
 import java.util.logging.Logger
+import kotlin.concurrent.thread
 import kotlinx.coroutines.runBlocking
 import p4.v1.P4RuntimeOuterClass.Entity
 import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
@@ -38,6 +42,8 @@ class WebServer(
   private val service: fourward.grpc.P4RuntimeService,
   private val httpPort: Int = DEFAULT_HTTP_PORT,
   private val staticDir: Path? = null,
+  private val p4cPath: Path? = null,
+  private val compileTimeout: Duration = DEFAULT_COMPILE_TIMEOUT,
 ) {
 
   private val logger = Logger.getLogger(WebServer::class.java.name)
@@ -48,6 +54,10 @@ class WebServer(
   private val textPrinter: TextFormat.Printer = TextFormat.printer().escapingNonAscii(false)
 
   @Volatile private var loadedP4Info: p4.config.v1.P4InfoOuterClass.P4Info? = null
+
+  init {
+    require(compileTimeout.toMillis() > 0) { "compileTimeout must be at least 1 ms" }
+  }
 
   fun start(): WebServer {
     server.createContext("/api/compile-and-load") { cors(it, ::handleCompileAndLoad) }
@@ -332,15 +342,48 @@ class WebServer(
     cmd += listOf("-o", outputPath.toString())
     cmd += source.toString()
 
+    return runP4c(cmd)
+  }
+
+  private fun runP4c(cmd: List<String>): CompileResult {
     val pb = ProcessBuilder(cmd).redirectErrorStream(true)
     fourward.bazel.ensureCcOnPath(pb, shimPropertyKey = "fourward.cc_shim")
     val process = pb.start()
-    val processOutput = process.inputStream.bufferedReader().readText()
-    val exitCode = process.waitFor()
-    return CompileResult(exitCode, processOutput)
+
+    val processOutput = StringBuilder()
+    val outputReader =
+      thread(name = "p4c-4ward-output", isDaemon = true) {
+        try {
+          process.inputStream.bufferedReader().use { processOutput.append(it.readText()) }
+        } catch (_: IOException) {
+          // The stream may close while destroying a timed-out compiler process.
+        }
+      }
+
+    val finished =
+      try {
+        process.waitFor(compileTimeout.toMillis(), TimeUnit.MILLISECONDS)
+      } catch (_: InterruptedException) {
+        destroyProcessTree(process)
+        Thread.currentThread().interrupt()
+        return CompileResult(1, "p4c-4ward interrupted")
+      }
+
+    if (!finished) {
+      destroyProcessTree(process)
+      outputReader.join(OUTPUT_READER_JOIN_TIMEOUT_MS)
+      val output = processOutput.toString().trim()
+      val suffix = if (output.isEmpty()) "" else "\n\nCompiler output before timeout:\n$output"
+      return CompileResult(1, "p4c-4ward timed out after ${compileTimeout.toMillis()} ms$suffix")
+    }
+
+    outputReader.join()
+    val exitCode = process.exitValue()
+    return CompileResult(exitCode, processOutput.toString())
   }
 
   private fun findP4c(): Path? {
+    p4cPath?.let { if (Files.isExecutable(it)) return it }
     repoRoot.resolve("p4c_backend/p4c-4ward").let { if (Files.isExecutable(it)) return it }
     val pathDirs = System.getenv("PATH")?.split(File.pathSeparator) ?: emptyList()
     for (dir in pathDirs) {
@@ -348,6 +391,12 @@ class WebServer(
       if (Files.isExecutable(candidate)) return candidate
     }
     return null
+  }
+
+  private fun destroyProcessTree(process: Process) {
+    process.descendants().forEach { it.destroyForcibly() }
+    process.destroyForcibly()
+    process.waitFor()
   }
 
   // ---------------------------------------------------------------------------
@@ -386,8 +435,10 @@ class WebServer(
 
   companion object {
     const val DEFAULT_HTTP_PORT = 8080
+    val DEFAULT_COMPILE_TIMEOUT: Duration = Duration.ofSeconds(30)
 
     private const val THREAD_POOL_SIZE = 4
+    private const val OUTPUT_READER_JOIN_TIMEOUT_MS = 1000L
     private const val HTTP_OK = 200
     private const val HTTP_NO_CONTENT = 204
     private const val HTTP_BAD_REQUEST = 400

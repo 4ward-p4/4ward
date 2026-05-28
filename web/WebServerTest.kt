@@ -10,6 +10,8 @@ import fourward.TypeDecl
 import fourward.VarbitType
 import fourward.bazel.repoRoot
 import java.nio.file.Files
+import java.nio.file.Path
+import java.time.Duration
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -88,12 +90,24 @@ class WebServerTest {
   // Integration: static file serving + P4 compilation via runfiles
   // ---------------------------------------------------------------------------
 
-  private fun <T> withServer(block: (port: Int) -> T): T {
+  private fun <T> withServer(
+    p4cPath: Path? = null,
+    compileTimeout: Duration = WebServer.DEFAULT_COMPILE_TIMEOUT,
+    block: (port: Int) -> T,
+  ): T {
     val simulator = fourward.simulator.Simulator()
     val writeMutex = kotlinx.coroutines.sync.Mutex()
     val broker = fourward.grpc.PacketBroker(simulator::processPacket, writeMutex)
     val service = fourward.grpc.P4RuntimeService(simulator, broker, writeMutex = writeMutex)
-    val server = WebServer(simulator, service, httpPort = 0).start()
+    val server =
+      WebServer(
+          simulator,
+          service,
+          httpPort = 0,
+          p4cPath = p4cPath,
+          compileTimeout = compileTimeout,
+        )
+        .start()
     try {
       return block(server.port())
     } finally {
@@ -142,6 +156,44 @@ class WebServerTest {
       (if (status in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText()
         ?: ""
     assertTrue("compile should succeed (got $status); body: $body", status in 200..299)
+  }
+
+  @Test
+  fun `compile endpoint times out stuck p4c process`() {
+    val tempDir = Files.createTempDirectory("4ward-web-test-")
+    val fakeP4c = tempDir.resolve("p4c-4ward")
+    try {
+      Files.writeString(
+        fakeP4c,
+        """
+        #!/bin/sh
+        echo started
+        sleep 5
+        echo done
+        """
+          .trimIndent(),
+      )
+      fakeP4c.toFile().setExecutable(true)
+
+      withServer(p4cPath = fakeP4c, compileTimeout = Duration.ofMillis(100)) { port ->
+        val conn =
+          java.net.URI("http://localhost:$port/api/compile-and-load").toURL().openConnection()
+            as java.net.HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.readTimeout = 3000
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.outputStream.write("""{"source":"ignored"}""".toByteArray())
+
+        assertEquals(400, conn.responseCode)
+        val body = conn.errorStream.bufferedReader().readText()
+        assertTrue(body, body.contains("timed out"))
+        assertTrue(body, body.contains("100 ms"))
+      }
+    } finally {
+      Files.deleteIfExists(fakeP4c)
+      Files.deleteIfExists(tempDir)
+    }
   }
 
   @Test
