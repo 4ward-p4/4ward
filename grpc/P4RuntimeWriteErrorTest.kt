@@ -9,8 +9,10 @@ import io.grpc.Status
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import p4.v1.P4RuntimeOuterClass.CounterData
 import p4.v1.P4RuntimeOuterClass.DigestEntry
 import p4.v1.P4RuntimeOuterClass.Entity
+import p4.v1.P4RuntimeOuterClass.MeterConfig
 import p4.v1.P4RuntimeOuterClass.TableEntry
 import p4.v1.P4RuntimeOuterClass.Update
 import p4.v1.P4RuntimeOuterClass.WriteRequest
@@ -100,6 +102,52 @@ class P4RuntimeWriteErrorTest {
     val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
 
     assertGrpcError(Status.Code.NOT_FOUND) { harness.deleteEntry(entry) }
+  }
+
+  // P4Runtime spec §9.1.7: counter_data is invalid for any write to a table
+  // without a direct counter.
+  @Test
+  fun `delete with counter data on table without direct counter returns INVALID_ARGUMENT`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
+    harness.installEntry(entry)
+    val deleteEntry =
+      entry
+        .toBuilder()
+        .setTableEntry(
+          entry.tableEntry
+            .toBuilder()
+            .setCounterData(CounterData.newBuilder().setPacketCount(42).setByteCount(1000))
+        )
+        .build()
+
+    assertGrpcError(Status.Code.INVALID_ARGUMENT, "TableEntry contained counter_data") {
+      harness.deleteEntry(deleteEntry)
+    }
+  }
+
+  // P4Runtime spec §9.1.7: meter_config is invalid for any write to a table
+  // without a direct meter.
+  @Test
+  fun `delete with meter config on table without direct meter returns INVALID_ARGUMENT`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
+    harness.installEntry(entry)
+    val deleteEntry =
+      entry
+        .toBuilder()
+        .setTableEntry(
+          entry.tableEntry
+            .toBuilder()
+            .setMeterConfig(MeterConfig.newBuilder().setCir(1000).setCburst(100))
+        )
+        .build()
+
+    assertGrpcError(Status.Code.INVALID_ARGUMENT, "TableEntry contained meter_config") {
+      harness.deleteEntry(deleteEntry)
+    }
   }
 
   // =========================================================================
@@ -260,6 +308,36 @@ class P4RuntimeWriteErrorTest {
         b.tableEntryBuilder.getMatchBuilder(0).clearExact().setFieldId(matchField.id)
       }
     assertGrpcError(Status.Code.INVALID_ARGUMENT, "no value set") { harness.installEntry(entity) }
+  }
+
+  // P4Runtime spec §9.1.7: counter_data is only valid for tables with a direct counter.
+  @Test
+  fun `insert with counter data on table without direct counter returns INVALID_ARGUMENT`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    val entity =
+      buildInvalidEntry(config) { b ->
+        b.tableEntryBuilder.setCounterData(
+          CounterData.newBuilder().setPacketCount(42).setByteCount(1000)
+        )
+      }
+    assertGrpcError(Status.Code.INVALID_ARGUMENT, "TableEntry contained counter_data") {
+      harness.installEntry(entity)
+    }
+  }
+
+  // P4Runtime spec §9.1.7: meter_config is only valid for tables with a direct meter.
+  @Test
+  fun `insert with meter config on table without direct meter returns INVALID_ARGUMENT`() {
+    val config = loadBasicTableConfig()
+    harness.loadPipeline(config)
+    val entity =
+      buildInvalidEntry(config) { b ->
+        b.tableEntryBuilder.setMeterConfig(MeterConfig.newBuilder().setCir(1000).setCburst(100))
+      }
+    assertGrpcError(Status.Code.INVALID_ARGUMENT, "TableEntry contained meter_config") {
+      harness.installEntry(entity)
+    }
   }
 
   // P4Runtime spec §9.1.1: exact-only tables must have priority == 0.

@@ -168,6 +168,32 @@ class TableStoreTest {
       .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
       .build()
 
+  private fun withAction(entry: TableEntry, actionId: Int): TableEntry =
+    entry
+      .toBuilder()
+      .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
+      .build()
+
+  private fun withCounterData(
+    entry: TableEntry,
+    packetCount: Long = 42,
+    byteCount: Long = 1000,
+  ): TableEntry =
+    entry
+      .toBuilder()
+      .setCounterData(
+        P4RuntimeOuterClass.CounterData.newBuilder()
+          .setPacketCount(packetCount)
+          .setByteCount(byteCount)
+      )
+      .build()
+
+  private fun withMeterConfig(entry: TableEntry, cir: Long = 1000, cburst: Long = 100): TableEntry =
+    entry
+      .toBuilder()
+      .setMeterConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(cir).setCburst(cburst))
+      .build()
+
   private fun write(entry: TableEntry) {
     store.writeAndPublish(
       Update.newBuilder()
@@ -1732,6 +1758,62 @@ class TableStoreTest {
   }
 
   @Test
+  fun `insert rejects counter data for table without direct counter`() {
+    val entry = withCounterData(exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10))
+
+    val result = store.writeAndPublish(insertUpdate(entry))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertTrue(store.getTableEntries(TABLE_NAME).isEmpty())
+  }
+
+  @Test
+  fun `insert rejects meter config for table without direct meter`() {
+    val entry = withMeterConfig(exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10))
+
+    val result = store.writeAndPublish(insertUpdate(entry))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertTrue(store.getTableEntries(TABLE_NAME).isEmpty())
+  }
+
+  @Test
+  fun `modify rejects counter data for table without direct counter`() {
+    val original = exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10)
+    store.writeAndPublish(insertUpdate(original))
+    val modified = withCounterData(withAction(original, actionId = 20))
+
+    val result = store.writeAndPublish(modifyUpdate(modified))
+
+    val entries = store.getTableEntries(TABLE_NAME)
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertEquals(1, entries.size)
+    assertEquals(10, entries[0].action.action.actionId)
+  }
+
+  @Test
+  fun `delete rejects counter data for table without direct counter`() {
+    val entry = exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10)
+    store.writeAndPublish(insertUpdate(entry))
+
+    val result = store.writeAndPublish(deleteUpdate(withCounterData(entry)))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertEquals(1, store.getTableEntries(TABLE_NAME).size)
+  }
+
+  @Test
+  fun `delete rejects meter config for table without direct meter`() {
+    val entry = exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10)
+    store.writeAndPublish(insertUpdate(entry))
+
+    val result = store.writeAndPublish(deleteUpdate(withMeterConfig(entry)))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertEquals(1, store.getTableEntries(TABLE_NAME).size)
+  }
+
+  @Test
   fun `getTableEntries returns empty for unknown table`() {
     val entry = exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10)
     store.writeAndPublish(insertUpdate(entry))
@@ -1795,6 +1877,18 @@ class TableStoreTest {
   private fun insertUpdate(entry: TableEntry): Update =
     Update.newBuilder()
       .setType(Update.Type.INSERT)
+      .setEntity(Entity.newBuilder().setTableEntry(entry))
+      .build()
+
+  private fun modifyUpdate(entry: TableEntry): Update =
+    Update.newBuilder()
+      .setType(Update.Type.MODIFY)
+      .setEntity(Entity.newBuilder().setTableEntry(entry))
+      .build()
+
+  private fun deleteUpdate(entry: TableEntry): Update =
+    Update.newBuilder()
+      .setType(Update.Type.DELETE)
       .setEntity(Entity.newBuilder().setTableEntry(entry))
       .build()
 
@@ -2218,6 +2312,46 @@ class TableStoreTest {
   }
 
   @Test
+  fun `table entry INSERT with counter data initializes direct counter`() {
+    val s = storeWithDirectCounter()
+    val entry = withCounterData(exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 10))
+
+    val result = s.writeAndPublish(insertUpdate(entry))
+
+    assertEquals(WriteResult.Success, result)
+    val stored = s.getTableEntries(TABLE_NAME).single()
+    assertFalse(stored.hasCounterData())
+    val readBack =
+      s.readDirectCounterEntries(
+        P4RuntimeOuterClass.DirectCounterEntry.newBuilder().setTableEntry(stored).build()
+      )
+    assertEquals(42, readBack[0].directCounterEntry.data.packetCount)
+    assertEquals(1000, readBack[0].directCounterEntry.data.byteCount)
+  }
+
+  @Test
+  fun `table entry MODIFY with counter data updates direct counter`() {
+    val s = storeWithDirectCounter()
+    val original = exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 10)
+    s.writeAndPublish(insertUpdate(original))
+    s.directCounterIncrement(TABLE_NAME, original, 100)
+    val modified = withCounterData(withAction(original, actionId = 20))
+
+    val result = s.writeAndPublish(modifyUpdate(modified))
+
+    assertEquals(WriteResult.Success, result)
+    val stored = s.getTableEntries(TABLE_NAME).single()
+    assertEquals(20, stored.action.action.actionId)
+    assertFalse(stored.hasCounterData())
+    val readBack =
+      s.readDirectCounterEntries(
+        P4RuntimeOuterClass.DirectCounterEntry.newBuilder().setTableEntry(stored).build()
+      )
+    assertEquals(42, readBack[0].directCounterEntry.data.packetCount)
+    assertEquals(1000, readBack[0].directCounterEntry.data.byteCount)
+  }
+
+  @Test
   fun `writeDirectCounterEntry MODIFY updates counter data`() {
     val s = storeWithDirectCounter()
     val entry = exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 10)
@@ -2429,6 +2563,44 @@ class TableStoreTest {
       "unconfigured direct meter should have no config",
       results[0].directMeterEntry.hasConfig(),
     )
+  }
+
+  @Test
+  fun `table entry INSERT with meter config initializes direct meter`() {
+    val s = storeWithDirectMeter()
+    val entry = withMeterConfig(exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 10))
+
+    val result = s.writeAndPublish(insertUpdate(entry))
+
+    assertEquals(WriteResult.Success, result)
+    val stored = s.getTableEntries(TABLE_NAME).single()
+    assertFalse(stored.hasMeterConfig())
+    val readBack =
+      s.readDirectMeterEntries(
+        P4RuntimeOuterClass.DirectMeterEntry.newBuilder().setTableEntry(stored).build()
+      )
+    assertEquals(1000, readBack[0].directMeterEntry.config.cir)
+    assertEquals(100, readBack[0].directMeterEntry.config.cburst)
+  }
+
+  @Test
+  fun `table entry MODIFY without meter config resets direct meter`() {
+    val s = storeWithDirectMeter()
+    val original = withMeterConfig(exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 10))
+    s.writeAndPublish(insertUpdate(original))
+    val modified = withAction(original, actionId = 20).toBuilder().clearMeterConfig().build()
+
+    val result = s.writeAndPublish(modifyUpdate(modified))
+
+    assertEquals(WriteResult.Success, result)
+    val stored = s.getTableEntries(TABLE_NAME).single()
+    assertEquals(20, stored.action.action.actionId)
+    assertFalse(stored.hasMeterConfig())
+    val readBack =
+      s.readDirectMeterEntries(
+        P4RuntimeOuterClass.DirectMeterEntry.newBuilder().setTableEntry(stored).build()
+      )
+    assertFalse("direct meter should reset to default", readBack[0].directMeterEntry.hasConfig())
   }
 
   @Test
