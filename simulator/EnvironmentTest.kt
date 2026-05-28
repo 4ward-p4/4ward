@@ -106,6 +106,17 @@ class EnvironmentTest {
   }
 
   @Test
+  @Suppress("MagicNumber")
+  fun `deparsedPayload ignores padding beyond valid packet bits`() {
+    // Only the first 10 bits are meaningful: 1010_101111. The final 6 zeros only byte-align the
+    // transport buffer and must not become packet data.
+    val pktCtx = PacketContext(byteArrayOf(0xAB.toByte(), 0xC0.toByte()), payloadBitLength = 10)
+    assertEquals(BigInteger.TEN, pktCtx.extractBits(4))
+
+    assertArrayEquals(byteArrayOf(0xBC.toByte()), pktCtx.deparsedPayload())
+  }
+
+  @Test
   fun `extractBytes throws when fewer bytes remain than requested`() {
     val pktCtx = PacketContext(byteArrayOf(0x01))
     assertThrows(PacketTooShortException::class.java) { pktCtx.extractBytes(2) }

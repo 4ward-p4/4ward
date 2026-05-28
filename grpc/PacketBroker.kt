@@ -32,7 +32,8 @@ import p4.v1.P4RuntimeOuterClass
  *   acquired when a pre-packet hook is registered (to apply hook updates atomically).
  */
 class PacketBroker(
-  private val simulatorFn: (ingressPort: Int, payload: ByteArray) -> ProcessPacketResult,
+  private val simulatorFn:
+    (ingressPort: Int, payload: ByteArray, payloadBitLength: Int) -> ProcessPacketResult,
   private val writeMutex: Mutex,
 ) {
 
@@ -130,9 +131,14 @@ class PacketBroker(
     }
   }
 
-  fun processPacket(ingressPort: Int, payload: ByteArray, tag: Long = 0): ProcessPacketResult {
+  fun processPacket(
+    ingressPort: Int,
+    payload: ByteArray,
+    tag: Long = 0,
+    payloadBitLength: Int = payload.size * Byte.SIZE_BITS,
+  ): ProcessPacketResult {
     fireHookUnderMutex()
-    val result = simulatorFn(ingressPort, payload)
+    val result = simulatorFn(ingressPort, payload, payloadBitLength)
     dispatchToSubscribers(ingressPort, payload, result, tag)
     return result
   }
@@ -145,7 +151,7 @@ class PacketBroker(
   fun <T> withHookOnce(block: (processor: (Int, ByteArray, Long) -> Unit) -> T): T {
     fireHookUnderMutex()
     return block { port, payload, tag ->
-      val result = simulatorFn(port, payload)
+      val result = simulatorFn(port, payload, payload.size * Byte.SIZE_BITS)
       dispatchToSubscribers(port, payload, result, tag)
     }
   }

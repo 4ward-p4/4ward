@@ -91,7 +91,13 @@ class WebServerTest {
   private fun <T> withServer(block: (port: Int) -> T): T {
     val simulator = fourward.simulator.Simulator()
     val writeMutex = kotlinx.coroutines.sync.Mutex()
-    val broker = fourward.grpc.PacketBroker(simulator::processPacket, writeMutex)
+    val broker =
+      fourward.grpc.PacketBroker(
+        { ingressPort, payload, payloadBitLength ->
+          simulator.processPacket(ingressPort, payload, payloadBitLength)
+        },
+        writeMutex,
+      )
     val service = fourward.grpc.P4RuntimeService(simulator, broker, writeMutex = writeMutex)
     val server = WebServer(simulator, service, httpPort = 0).start()
     try {

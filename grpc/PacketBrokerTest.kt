@@ -30,9 +30,9 @@ class PacketBrokerTest {
 
   private fun fakeProcessor(
     vararg results: Pair<Int, ProcessPacketResult>
-  ): (Int, ByteArray) -> ProcessPacketResult {
+  ): (Int, ByteArray, Int) -> ProcessPacketResult {
     val map = results.toMap()
-    return { port, _ -> map[port] ?: result() }
+    return { port, _, _ -> map[port] ?: result() }
   }
 
   private fun broker(vararg results: Pair<Int, ProcessPacketResult>) =
@@ -45,6 +45,23 @@ class PacketBrokerTest {
 
     val actual = broker.processPacket(0, byteArrayOf(0x01))
     assertEquals(expected.possibleOutcomes, actual.possibleOutcomes)
+  }
+
+  @Test
+  fun `processPacket forwards explicit payload bit length`() {
+    var capturedBitLength = -1
+    val broker =
+      PacketBroker(
+        { _, _, payloadBitLength ->
+          capturedBitLength = payloadBitLength
+          result()
+        },
+        kotlinx.coroutines.sync.Mutex(),
+      )
+
+    broker.processPacket(0, byteArrayOf(0xA0.toByte()), payloadBitLength = 4)
+
+    assertEquals(4, capturedBitLength)
   }
 
   @Test

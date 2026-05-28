@@ -85,6 +85,7 @@ class V1ModelArchitecture(
   private data class PipelineContext(
     val ingressPort: UInt,
     val payload: ByteArray,
+    val payloadBitLength: Int,
     val config: BehavioralConfig,
     val tableStore: TableStore,
     val interpreter: Interpreter,
@@ -124,8 +125,10 @@ class V1ModelArchitecture(
     ingressPort: UInt,
     payload: ByteArray,
     tableStore: TableStore,
+    payloadBitLength: Int,
   ): PipelineResult {
-    val ctx = PipelineContext(ingressPort, payload, config, tableStore, interpreter)
+    val ctx =
+      PipelineContext(ingressPort, payload, payloadBitLength, config, tableStore, interpreter)
     return buildTraceTree(ctx, V1ModelDecisions())
   }
 
@@ -204,7 +207,7 @@ class V1ModelArchitecture(
     snapshotPendingOps: V1ModelPendingOps? = null,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): PipelineState {
-    val packetCtx = PacketContext(ctx.payload, bytesConsumed)
+    val packetCtx = PacketContext(ctx.payload, bytesConsumed, ctx.payloadBitLength)
     val env = snapshotEnv.deepCopy()
     val pendingOps = snapshotPendingOps?.copy() ?: V1ModelPendingOps()
     val standardMetadata = resolveStandardMetadata(ctx, env)
@@ -606,7 +609,13 @@ class V1ModelArchitecture(
       }
     }
 
-    return finishPipelineState(ctx, decisions, PacketContext(ctx.payload), env, standardMetadata)
+    return finishPipelineState(
+      ctx,
+      decisions,
+      PacketContext(ctx.payload, payloadBitLength = ctx.payloadBitLength),
+      env,
+      standardMetadata,
+    )
   }
 
   /**
@@ -993,7 +1002,10 @@ class V1ModelArchitecture(
   /** Returns [ctx] with payload truncated to [maxBytes], or [ctx] unchanged if no truncation. */
   private fun truncatePayload(ctx: PipelineContext, maxBytes: Int): PipelineContext =
     if (maxBytes > 0 && maxBytes < ctx.payload.size) {
-      ctx.copy(payload = ctx.payload.copyOf(maxBytes))
+      ctx.copy(
+        payload = ctx.payload.copyOf(maxBytes),
+        payloadBitLength = minOf(ctx.payloadBitLength, maxBytes * Byte.SIZE_BITS),
+      )
     } else {
       ctx
     }

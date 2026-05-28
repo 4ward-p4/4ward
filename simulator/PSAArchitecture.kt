@@ -72,6 +72,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     ingressPort: UInt,
     payload: ByteArray,
     tableStore: TableStore,
+    payloadBitLength: Int,
   ): PipelineResult {
     val pipeline =
       PipelineConfig(
@@ -89,7 +90,15 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         egressDeparser,
       )
 
-    val tree = processPacketRecursive(pipeline, payload, ingressPort, PACKET_PATH_NORMAL, depth = 0)
+    val tree =
+      processPacketRecursive(
+        pipeline,
+        payload,
+        ingressPort,
+        PACKET_PATH_NORMAL,
+        payloadBitLength = payloadBitLength,
+        depth = 0,
+      )
     return PipelineResult(tree)
   }
 
@@ -105,6 +114,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     payload: ByteArray,
     ingressPort: UInt,
     packetPath: String,
+    payloadBitLength: Int = payload.size * Byte.SIZE_BITS,
     depth: Int,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): TraceTree {
@@ -115,10 +125,26 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     // === Ingress pipeline ===
     val ingress: IngressResult
     try {
-      ingress = runIngressPipeline(pipeline, payload, ingressPort, packetPath, selectorMembers)
+      ingress =
+        runIngressPipeline(
+          pipeline,
+          payload,
+          ingressPort,
+          packetPath,
+          payloadBitLength,
+          selectorMembers,
+        )
     } catch (fork: ActionSelectorFork) {
       return handleActionSelectorFork(fork, selectorMembers) { newSelectors ->
-        processPacketRecursive(pipeline, payload, ingressPort, packetPath, depth, newSelectors)
+        processPacketRecursive(
+          pipeline,
+          payload,
+          ingressPort,
+          packetPath,
+          payloadBitLength = payloadBitLength,
+          depth = depth,
+          selectorMembers = newSelectors,
+        )
       }
     }
 
@@ -139,7 +165,14 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val resubmit = (ingress.output?.fields?.get("resubmit") as? BoolVal)?.value == true
     if (resubmit) {
       val resubmitTree =
-        processPacketRecursive(pipeline, payload, ingressPort, PACKET_PATH_RESUBMIT, depth + 1)
+        processPacketRecursive(
+          pipeline,
+          payload,
+          ingressPort,
+          PACKET_PATH_RESUBMIT,
+          payloadBitLength = payloadBitLength,
+          depth = depth + 1,
+        )
       return buildForkTree(
         ingress.events,
         ForkReason.RESUBMIT,
@@ -217,9 +250,10 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     payload: ByteArray,
     ingressPort: UInt,
     packetPath: String,
+    payloadBitLength: Int = payload.size * Byte.SIZE_BITS,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): IngressResult {
-    val ctx = PacketContext(payload)
+    val ctx = PacketContext(payload, payloadBitLength = payloadBitLength)
     val env = Environment()
     val values = createDefaultValues(pipeline.config, pipeline.typesByName)
 
@@ -383,7 +417,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
             core.deparsedBytes,
             PSA_PORT_RECIRCULATE_UINT,
             PACKET_PATH_RECIRCULATE,
-            depth + 1,
+            depth = depth + 1,
           )
         TraceTree.newBuilder()
           .addAllEvents(core.events)

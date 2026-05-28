@@ -80,6 +80,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     ingressPort: UInt,
     payload: ByteArray,
     tableStore: TableStore,
+    payloadBitLength: Int,
   ): PipelineResult {
     val pipeline =
       PipelineConfig(
@@ -101,6 +102,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
         payload,
         ingressPort,
         PACKET_PATH_FROM_NET_PORT,
+        payloadBitLength,
         passNumber = 0,
         depth = 0,
       )
@@ -120,6 +122,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     payload: ByteArray,
     ingressPort: UInt,
     packetPath: String,
+    payloadBitLength: Int = payload.size * Byte.SIZE_BITS,
     passNumber: Int,
     depth: Int,
     selectorMembers: Map<String, Int> = emptyMap(),
@@ -128,7 +131,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
       "PNA recirculation depth exceeded ($MAX_RECIRCULATIONS) — possible infinite recirculate loop"
     }
 
-    val ctx = PacketContext(payload)
+    val ctx = PacketContext(payload, payloadBitLength = payloadBitLength)
     val env = Environment()
     val values = createDefaultValues(pipeline.config, pipeline.typesByName)
     val forwardingState = ForwardingState()
@@ -179,9 +182,10 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
           payload,
           ingressPort,
           packetPath,
-          passNumber,
-          depth,
-          newSelectors,
+          payloadBitLength = payloadBitLength,
+          passNumber = passNumber,
+          depth = depth,
+          selectorMembers = newSelectors,
         )
       }
     }
@@ -214,8 +218,8 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
           deparsedBytes,
           ingressPort,
           PACKET_PATH_FROM_NET_RECIRCULATED,
-          passNumber + 1,
-          depth + 1,
+          passNumber = passNumber + 1,
+          depth = depth + 1,
         )
       val recircBranch =
         ForkBranch.newBuilder().setLabel("recirculate").setSubtree(recircTree).build()

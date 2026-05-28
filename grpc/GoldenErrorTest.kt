@@ -190,7 +190,7 @@ class GoldenErrorTest(private val testName: String) {
     // reproduce here; what this golden protects is the *translation format*.
     val throwingBroker =
       PacketBroker(
-        simulatorFn = { _, _ -> throw ArithmeticException("simulated failure") },
+        simulatorFn = { _, _, _ -> throw ArithmeticException("simulated failure") },
         writeMutex = kotlinx.coroutines.sync.Mutex(),
       )
     val service = DataplaneService(throwingBroker)
