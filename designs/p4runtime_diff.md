@@ -69,9 +69,10 @@ Pipeline fixture: `basic_table.p4` compiled both ways
 for BMv2 `.json`). Each scenario sets the pipeline config on both
 servers, runs gRPC operations, diffs responses.
 
-Two fixtures: `basic_table.p4` (single exact-match table, scenarios
-1-7) and `action_selector_3.p4` (exact-match table with action
-selector, scenarios 8-10).
+Fixtures: `basic_table.p4` (single exact-match table plus PRE
+multicast, scenarios 1-7 and 11), `action_selector_3.p4`
+(exact-match table with action selector, scenarios 8-10), and
+`value_set.p4` (parser value_set oracle-gap coverage).
 
 | # | Scenario | Fixture | Status |
 |---|----------|---------|--------|
@@ -85,6 +86,20 @@ selector, scenarios 8-10).
 | 8 | Action profile member CRUD | action_selector | ✓ pass |
 | 9 | Action profile group with members | action_selector | ✓ pass |
 | 10 | Table entry referencing action profile group | action_selector | ✓ pass |
+| 11 | PRE multicast group CRUD/read-back | basic_table | ✓ pass |
+
+## Oracle Gaps
+
+The harness targets the intersection where BMv2's P4Runtime server can
+act as an external oracle. Some 4ward-supported P4Runtime surfaces are
+outside that intersection. `ValueSetEntry` is one: 4ward implements
+P4Runtime §9.6 (`MODIFY` and read supported, `INSERT`/`DELETE`
+rejected), while p4lang/PI's `DeviceMgr` used by
+`simple_switch_grpc` returns "ValueSet reads/writes are not supported
+yet". `P4RuntimeDiffValueSetTest` keeps this gap executable by testing
+4ward's behavior on the same fixture and asserting BMv2's unsupported
+read/write path, instead of pretending there is a strict differential
+oracle for that entity.
 
 ## Canonicalizations before diff
 

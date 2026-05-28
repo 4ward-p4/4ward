@@ -29,6 +29,8 @@ Top-level targets:
   compiled for both backends (scenarios 1-7 and 11).
 - `:action_selector_fourward` / `:action_selector_bmv2_json` —
   `action_selector_3.p4` compiled for both backends (scenarios 8-10).
+- `:value_set_fourward` / `:value_set_bmv2_json` — `value_set.p4`
+  compiled for both backends (ValueSetEntry oracle-gap coverage).
 
 Test targets:
 
@@ -41,3 +43,6 @@ Test targets:
   multicast groups).
 - `:P4RuntimeDiffActionProfileTest` — action profile scenarios
   (member CRUD, groups, table entries referencing groups).
+- `:P4RuntimeDiffValueSetTest` — parser value_set oracle-gap scenarios:
+  4ward's `ValueSetEntry` `MODIFY`/read behavior, plus BMv2 PI's
+  unsupported `ValueSetEntry` read/write path.
