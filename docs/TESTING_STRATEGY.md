@@ -145,11 +145,13 @@ pipeline, and running 10,000 iterations of random `WriteRequest`s against the
 P4Runtime oracle. The run covered roughly 400k updates with zero oracle
 failures after fixing validation-ordering bugs that the fuzzer surfaced.
 
-We keep that work out of `main` because it pulls heavy sonic-pins dependencies
-into the repo. The useful artifact is the evidence and the recipe: when we need
-another independent validation pass, run the fuzzer branch or an external
-harness against a built 4ward server rather than making those dependencies part
-of the default build.
+We keep that work out of `main` because sonic-pins contains DVaaS, and DVaaS is
+the downstream system that should use 4ward as an oracle. Making 4ward depend on
+sonic-pins would create the wrong dependency direction; it would also pull heavy
+sonic-pins dependencies into the repo. The useful artifact is the evidence and
+the recipe: when we need another independent validation pass, run the fuzzer
+branch or an external harness against a built 4ward server rather than making
+those dependencies part of the default build.
 
 ### Compliance matrix
 
