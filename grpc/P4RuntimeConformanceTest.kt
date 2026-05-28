@@ -2134,17 +2134,24 @@ class P4RuntimeConformanceTest {
     }
   }
 
-  /** StreamChannel: digest ack is not supported and must be explicitly rejected. */
+  /** StreamChannel: digest ack is not supported: returns StreamError, does not terminate stream. */
   @Test
-  fun `101 - digest ack via stream returns UNIMPLEMENTED`() {
-    assertGrpcError(Status.Code.UNIMPLEMENTED, "digest") {
-      runBlocking {
-        val request =
-          StreamMessageRequest.newBuilder()
-            .setDigestAck(P4RuntimeOuterClass.DigestListAck.newBuilder().setDigestId(1))
-            .build()
-        harness.stub.streamChannel(flowOf(request)).collect {}
-      }
+  fun `101 - digest ack via stream returns StreamError`() {
+    harness.openStream().use { stream ->
+      stream.arbitrate()
+      val request =
+        StreamMessageRequest.newBuilder()
+          .setDigestAck(P4RuntimeOuterClass.DigestListAck.newBuilder().setDigestId(1))
+          .build()
+      val response = stream.sendRaw(request)
+      assertNotNull("expected a StreamError response", response)
+      assertTrue("should be a StreamError", response!!.hasError())
+      assertEquals(com.google.rpc.Code.UNIMPLEMENTED_VALUE, response.error.canonicalCode)
+      assertTrue(
+        "message should mention digest",
+        response.error.message.contains("digest", ignoreCase = true),
+      )
+      assertTrue("details should use digest_list_ack oneof", response.error.hasDigestListAck())
     }
   }
 

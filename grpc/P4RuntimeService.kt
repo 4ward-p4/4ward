@@ -655,9 +655,18 @@ class P4RuntimeService(
           when (msg.updateCase) {
             StreamMessageRequest.UpdateCase.ARBITRATION ->
               send(handleArbitration(streamId, msg.arbitration, notifications))
-            StreamMessageRequest.UpdateCase.PACKET -> handlePacketOut(msg.packet)
+            StreamMessageRequest.UpdateCase.PACKET -> handlePacketOut(msg.packet)?.let { send(it) }
             StreamMessageRequest.UpdateCase.DIGEST_ACK ->
-              throw Status.UNIMPLEMENTED.withDescription(DIGEST_NOT_SUPPORTED).asException()
+              send(
+                StreamMessageResponse.newBuilder()
+                  .setError(
+                    P4RuntimeOuterClass.StreamError.newBuilder()
+                      .setCanonicalCode(Code.UNIMPLEMENTED_VALUE)
+                      .setMessage(DIGEST_NOT_SUPPORTED)
+                      .setDigestListAck(P4RuntimeOuterClass.DigestListAckError.getDefaultInstance())
+                  )
+                  .build()
+              )
             // P4Runtime spec §16: unrecognized stream messages get an error response.
             StreamMessageRequest.UpdateCase.OTHER,
             StreamMessageRequest.UpdateCase.UPDATE_NOT_SET,
@@ -687,30 +696,49 @@ class P4RuntimeService(
    * Processes a PacketOut: translates metadata, serializes the packet header, and runs the packet
    * through the broker. PacketIn delivery is handled by the broker subscription in [streamChannel],
    * not here. The broker handles locking and the pre-packet hook.
+   *
+   * Returns a [StreamError] response on failure (P4Runtime spec §16.6), or null on success. A
+   * single bad PacketOut must not terminate arbitration or PacketIn delivery on the stream.
    */
-  private fun handlePacketOut(packet: p4.v1.P4RuntimeOuterClass.PacketOut) {
-    val state = pipeline ?: return
-    val translator = state.typeTranslator?.takeIf { it.hasTranslations }
-    val codec = state.packetHeaderCodec
-    val packetOut = translator?.translatePacketOut(packet) ?: packet
+  private fun handlePacketOut(packet: p4.v1.P4RuntimeOuterClass.PacketOut): StreamMessageResponse? {
+    val state = pipeline ?: return null
 
-    // If the pipeline has a packet_out header, serialize metadata into a binary
-    // header and prepend it. The parser expects the packet to arrive on the CPU
-    // port with the header prepended.
-    val (ingressPort, payload) =
-      if (codec != null) {
-        codec.cpuPort to
-          codec.packPacketOut(packetOut.metadataList, packetOut.payload.toByteArray())
-      } else {
-        extractIngressPort(packetOut.metadataList) to packetOut.payload.toByteArray()
-      }
+    fun packetOutError(code: Int, message: String?): StreamMessageResponse =
+      StreamMessageResponse.newBuilder()
+        .setError(
+          P4RuntimeOuterClass.StreamError.newBuilder()
+            .setCanonicalCode(code)
+            .setMessage("PacketOut processing failed: ${message ?: "unknown error"}")
+            .setPacketOut(P4RuntimeOuterClass.PacketOutError.newBuilder().setPacketOut(packet))
+        )
+        .build()
 
-    try {
+    return try {
+      val translator = state.typeTranslator?.takeIf { it.hasTranslations }
+      val codec = state.packetHeaderCodec
+      val packetOut = translator?.translatePacketOut(packet) ?: packet
+
+      // If the pipeline has a packet_out header, serialize metadata into a binary
+      // header and prepend it. The parser expects the packet to arrive on the CPU
+      // port with the header prepended.
+      val (ingressPort, payload) =
+        if (codec != null) {
+          codec.cpuPort to
+            codec.packPacketOut(packetOut.metadataList, packetOut.payload.toByteArray())
+        } else {
+          extractIngressPort(packetOut.metadataList) to packetOut.payload.toByteArray()
+        }
+
       broker.processPacket(ingressPort, payload)
-    } catch (e: IllegalStateException) {
-      throw Status.INTERNAL.withDescription("PacketOut processing failed: ${e.message}")
-        .withCause(e)
-        .asException()
+      null
+    } catch (e: IllegalArgumentException) {
+      packetOutError(Code.INVALID_ARGUMENT_VALUE, e.message)
+    } catch (e: TranslationException) {
+      packetOutError(Code.INVALID_ARGUMENT_VALUE, e.message)
+    } catch (
+      @Suppress("TooGenericExceptionCaught") // Report as StreamError, don't crash the stream.
+      e: Exception) {
+      packetOutError(Code.INTERNAL_VALUE, e.message)
     }
   }
 

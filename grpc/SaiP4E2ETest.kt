@@ -597,6 +597,51 @@ class SaiP4E2ETest {
     }
   }
 
+  @Test
+  fun `PacketOut with invalid translated metadata returns StreamError and keeps stream open`() {
+    config =
+      withPortMappings(
+        FourwardTestHarness.loadConfig("e2e_tests/sai_p4/sai_middleblock.txtpb"),
+        mapOf(
+          "0" to 0,
+          "1" to 1,
+          MIRROR_PORT.toString() to MIRROR_PORT,
+          CPU_PORT.toString() to CPU_PORT,
+        ),
+        autoAllocate = false,
+      )
+    harness.loadPipeline(config)
+    val packetOutMeta =
+      config.p4Info.controllerPacketMetadataList.find { it.preamble.name == "packet_out" }!!
+    val egressPortId = packetOutMeta.metadataList.find { it.name == "egress_port" }!!.id
+    val badPacketOut =
+      buildCpuPacketOut(submitToIngress = false)
+        .toBuilder()
+        .removeMetadata(0)
+        .addMetadata(
+          0,
+          P4RuntimeOuterClass.PacketMetadata.newBuilder()
+            .setMetadataId(egressPortId)
+            .setValue(ByteString.copyFromUtf8("Ethernet999"))
+            .build(),
+        )
+        .build()
+
+    harness.openStream().use { session ->
+      session.arbitrate()
+      val response = session.sendPacketOut(badPacketOut)
+      assertNotNull("invalid PacketOut should produce StreamError", response)
+      assertTrue("response should be StreamError", response!!.hasError())
+      assertEquals(com.google.rpc.Code.INVALID_ARGUMENT_VALUE, response.error.canonicalCode)
+      assertTrue("details should use packet_out oneof", response.error.hasPacketOut())
+
+      val stillOpen = session.sendRaw(P4RuntimeOuterClass.StreamMessageRequest.getDefaultInstance())
+      assertNotNull("stream should remain usable after PacketOut StreamError", stillOpen)
+      assertTrue("follow-up response should be StreamError", stillOpen!!.hasError())
+      assertEquals(com.google.rpc.Code.INVALID_ARGUMENT_VALUE, stillOpen.error.canonicalCode)
+    }
+  }
+
   // =========================================================================
   // PacketIO: ACL trap/copy → PacketIn via StreamChannel
   // =========================================================================
@@ -2070,9 +2115,13 @@ class SaiP4E2ETest {
      * architecture-defined ports like the CPU port need fixed P4RT ↔ dataplane mappings that
      * auto-allocation alone can't provide.
      */
-    private fun withPortMappings(config: PipelineConfig, ports: Map<String, Int>): PipelineConfig {
+    private fun withPortMappings(
+      config: PipelineConfig,
+      ports: Map<String, Int>,
+      autoAllocate: Boolean = true,
+    ): PipelineConfig {
       val portTranslation =
-        TypeTranslation.newBuilder().setTypeName("port_id_t").setAutoAllocate(true)
+        TypeTranslation.newBuilder().setTypeName("port_id_t").setAutoAllocate(autoAllocate)
       for ((name, dpValue) in ports) {
         portTranslation.addEntries(
           TranslationEntry.newBuilder().setSdnStr(name).setDataplaneValue(encodeMinWidth(dpValue))
