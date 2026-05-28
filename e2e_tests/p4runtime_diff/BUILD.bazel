@@ -40,7 +40,7 @@ kt_jvm_test(
 # Test fixtures — P4 programs compiled for both backends.
 # =============================================================================
 
-# --- basic_table: single exact-match table (scenarios 1-6) ---
+# --- basic_table: single exact-match table (scenarios 1-7 and 11) ---
 
 fourward_pipeline(
     name = "basic_table_fourward",
@@ -55,7 +55,7 @@ p4_library(
     target_out = "basic_table.json",
 )
 
-# --- action_selector_3: exact-match table with action selector (scenarios 7+) ---
+# --- action_selector_3: exact-match table with action selector (scenarios 8-10) ---
 
 fourward_pipeline(
     name = "action_selector_fourward",
