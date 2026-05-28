@@ -1,11 +1,15 @@
 package fourward.e2e.p4runtimediff
 
+import com.google.protobuf.ByteString
 import com.google.protobuf.Message
 import com.google.protobuf.TextFormat
 import fourward.grpc.canonicalizeTableEntry as canonicalizeTableEntryBytestrings
 import p4.v1.P4RuntimeOuterClass.Entity
 import p4.v1.P4RuntimeOuterClass.FieldMatch
+import p4.v1.P4RuntimeOuterClass.MulticastGroupEntry
+import p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry
 import p4.v1.P4RuntimeOuterClass.ReadResponse
+import p4.v1.P4RuntimeOuterClass.Replica
 import p4.v1.P4RuntimeOuterClass.TableEntry
 
 /**
@@ -29,6 +33,42 @@ fun sortMatchesByFieldId(entry: TableEntry): TableEntry {
   return entry.toBuilder().clearMatch().addAllMatch(sortedMatches).build()
 }
 
+/** Returns a copy of [entry] with replicas sorted by `(port, instance)`. */
+fun sortReplicasByPortAndInstance(entry: MulticastGroupEntry): MulticastGroupEntry {
+  val sortedReplicas =
+    entry.replicasList.sortedWith { left, right -> compareReplicasByPortAndInstance(left, right) }
+  if (sortedReplicas == entry.replicasList) return entry
+  return entry.toBuilder().clearReplicas().addAllReplicas(sortedReplicas).build()
+}
+
+private fun compareReplicasByPortAndInstance(left: Replica, right: Replica): Int {
+  val portOrder = compareByteStrings(left.port, right.port)
+  if (portOrder != 0) return portOrder
+  return left.instance.compareTo(right.instance)
+}
+
+private fun compareByteStrings(left: ByteString, right: ByteString): Int {
+  for (index in 0 until minOf(left.size(), right.size())) {
+    val byteOrder =
+      (left.byteAt(index).toInt() and 0xff).compareTo(right.byteAt(index).toInt() and 0xff)
+    if (byteOrder != 0) return byteOrder
+  }
+  return left.size().compareTo(right.size())
+}
+
+fun canonicalizePacketReplicationEngineEntry(
+  entry: PacketReplicationEngineEntry
+): PacketReplicationEngineEntry =
+  when (entry.typeCase) {
+    PacketReplicationEngineEntry.TypeCase.MULTICAST_GROUP_ENTRY -> {
+      val sortedGroup = sortReplicasByPortAndInstance(entry.multicastGroupEntry)
+      if (sortedGroup === entry.multicastGroupEntry) entry
+      else entry.toBuilder().setMulticastGroupEntry(sortedGroup).build()
+    }
+    PacketReplicationEngineEntry.TypeCase.CLONE_SESSION_ENTRY,
+    PacketReplicationEngineEntry.TypeCase.TYPE_NOT_SET -> entry
+  }
+
 /**
  * Applies both spec §8.3 bytestring canonicalization (via `fourward.grpc`'s helper) and match-list
  * ordering. Either or both may differ between server implementations; both are documented
@@ -42,6 +82,11 @@ fun canonicalizeEntity(entity: Entity): Entity =
       val withCanonicalBytes = canonicalizeTableEntryBytestrings(withSortedMatches)
       if (withCanonicalBytes === entity.tableEntry) entity
       else entity.toBuilder().setTableEntry(withCanonicalBytes).build()
+    }
+    Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY -> {
+      val canonical = canonicalizePacketReplicationEngineEntry(entity.packetReplicationEngineEntry)
+      if (canonical === entity.packetReplicationEngineEntry) entity
+      else entity.toBuilder().setPacketReplicationEngineEntry(canonical).build()
     }
     else -> entity
   }
