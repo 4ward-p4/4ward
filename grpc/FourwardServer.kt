@@ -70,6 +70,7 @@ class FourwardServer(
         // awaiting the next client message) can prevent other RPCs on the same
         // HTTP/2 connection from being dispatched.
         .executor(Executors.newCachedThreadPool())
+        .maxHeaderListSize(10 * 1024 * 1024)
         .addService(service)
         .addService(dataplaneService)
         .build()

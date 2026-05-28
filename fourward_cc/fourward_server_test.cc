@@ -54,6 +54,24 @@ TEST(FourwardServerTest, StartExposesLiveGrpcEndpoint) {
   ExpectHealthy(*server);
 }
 
+TEST(FourwardServerTest, LargeHeaderSucceeds) {
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start();
+  ASSERT_TRUE(server.ok()) << server.status();
+
+  auto stub = server->NewP4RuntimeStub();
+  p4::v1::CapabilitiesRequest req;
+  p4::v1::CapabilitiesResponse resp;
+  grpc::ClientContext ctx;
+
+  // 5MB header is well above default 8KB but below our 10MB limit.
+  std::string large_value(5 * 1024 * 1024, 'a');
+  ctx.AddMetadata("large-header", large_value);
+
+  grpc::Status status = stub->Capabilities(&ctx, req, &resp);
+  EXPECT_TRUE(status.ok()) << "Capabilities failed with large header: code=" << status.error_code()
+                           << " msg=" << status.error_message();
+}
+
 TEST(FourwardServerTest, CustomDeviceIdFlowsThroughToP4Runtime) {
   absl::StatusOr<FourwardServer> server =
       FourwardServer::Start({.device_id = 42});

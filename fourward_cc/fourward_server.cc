@@ -252,8 +252,11 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
   absl::StatusOr<int> port = ReadPortFile(port_file);
   if (!port.ok()) return std::move(port).status();
 
-  auto channel = grpc::CreateChannel(absl::StrCat("localhost:", *port),
-                                     grpc::InsecureChannelCredentials());
+  grpc::ChannelArguments channel_args;
+  channel_args.SetInt("grpc.max_metadata_size", 10 * 1024 * 1024);
+  auto channel = grpc::CreateCustomChannel(absl::StrCat("localhost:", *port),
+                                           grpc::InsecureChannelCredentials(),
+                                           channel_args);
 
   std::move(guard).Cancel();
   return FourwardServer(pid, *port, options.device_id, std::move(*scratch),
