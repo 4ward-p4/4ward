@@ -437,7 +437,7 @@ class DataplaneServiceTest {
 
   @Test
   @Suppress("MagicNumber")
-  fun `toDualEncoded crashes when egress port has no P4RT mapping`() {
+  fun `unmapped egress port omits P4RT port but preserves PacketIn enrichment`() {
     val baseConfig =
       compileInlineP4(
         """
