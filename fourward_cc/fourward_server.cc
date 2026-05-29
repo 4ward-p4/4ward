@@ -187,13 +187,41 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
   if (!scratch.ok()) return std::move(scratch).status();
   std::string port_file = absl::StrCat(*scratch, "/port");
 
-  // One guard owns every in-flight resource until Start() commits. On any
-  // early return (spawn failure, port-file timeout, malformed port, …) the
-  // guard kills the child and removes the scratch dir. On success we cancel
-  // it and transfer ownership of scratch to the FourwardServer instance.
+  // Pipes for capturing the child's stdout and stderr. Sentinels of -1
+  // mean "not yet created"; the cleanup guard closes any that are still open
+  // on early return.
+  int stdout_pipe[2] = {-1, -1};
+  int stderr_pipe[2] = {-1, -1};
+  if (::pipe(stdout_pipe) != 0) {
+    return absl::ErrnoToStatus(errno, "pipe (stdout)");
+  }
+  if (::pipe(stderr_pipe) != 0) {
+    ::close(stdout_pipe[0]);
+    ::close(stdout_pipe[1]);
+    return absl::ErrnoToStatus(errno, "pipe (stderr)");
+  }
+
+  // Captures must be declared before the guard so the guard (which runs
+  // first in destruction order) kills the child — unblocking the reader
+  // threads — before the captures' destructors join them.
   pid_t pid = -1;
+  std::unique_ptr<OutputCapture> stdout_capture;
+  std::unique_ptr<OutputCapture> stderr_capture;
+
+  // One guard owns every in-flight resource until Start() commits. On any
+  // early return (spawn failure, port-file timeout, malformed port, ...) the
+  // guard kills the child, closes pipe fds, joins reader threads, and removes
+  // the scratch dir. On success we cancel it and transfer ownership to the
+  // FourwardServer instance.
   absl::Cleanup guard = [&] {
     KillAndReap(pid);
+    // Kill first so the pipe write-ends close, then join reader threads.
+    stdout_capture.reset();
+    stderr_capture.reset();
+    if (stdout_pipe[0] >= 0) ::close(stdout_pipe[0]);
+    if (stdout_pipe[1] >= 0) ::close(stdout_pipe[1]);
+    if (stderr_pipe[0] >= 0) ::close(stderr_pipe[0]);
+    if (stderr_pipe[1] >= 0) ::close(stderr_pipe[1]);
     RemoveScratchDir(*scratch);
   };
 
@@ -255,11 +283,45 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
     return absl::ErrnoToStatus(rc, "posix_spawnattr_setpgroup");
   }
 
-  if (int rc = posix_spawn(&pid, server_path.c_str(), /*file_actions=*/nullptr,
-                           &attr, argv.data(), environ);
+  // Redirect the child's stdout/stderr to our pipes.
+  posix_spawn_file_actions_t file_actions;
+  if (int rc = posix_spawn_file_actions_init(&file_actions); rc != 0) {
+    return absl::ErrnoToStatus(rc, "posix_spawn_file_actions_init");
+  }
+  absl::Cleanup file_actions_destroy = [&] {
+    posix_spawn_file_actions_destroy(&file_actions);
+  };
+  // Child closes read-ends, dups write-ends onto stdout/stderr, then closes
+  // the original write-end fds (dup2 doesn't close the source).
+  posix_spawn_file_actions_addclose(&file_actions, stdout_pipe[0]);
+  posix_spawn_file_actions_addclose(&file_actions, stderr_pipe[0]);
+  posix_spawn_file_actions_adddup2(&file_actions, stdout_pipe[1],
+                                   STDOUT_FILENO);
+  posix_spawn_file_actions_adddup2(&file_actions, stderr_pipe[1],
+                                   STDERR_FILENO);
+  posix_spawn_file_actions_addclose(&file_actions, stdout_pipe[1]);
+  posix_spawn_file_actions_addclose(&file_actions, stderr_pipe[1]);
+
+  if (int rc = posix_spawn(&pid, server_path.c_str(), &file_actions, &attr,
+                           argv.data(), environ);
       rc != 0) {
     return absl::ErrnoToStatus(rc, "posix_spawn");
   }
+
+  // Parent closes write-ends (the child owns them now) and starts capturing
+  // from the read-ends. Mark write-end sentinels so the cleanup guard
+  // doesn't double-close.
+  ::close(stdout_pipe[1]);
+  stdout_pipe[1] = -1;
+  ::close(stderr_pipe[1]);
+  stderr_pipe[1] = -1;
+
+  int stdout_tee_fd = options.quiet ? -1 : STDOUT_FILENO;
+  int stderr_tee_fd = options.quiet ? -1 : STDERR_FILENO;
+  stdout_capture = OutputCapture::Start(stdout_pipe[0], stdout_tee_fd);
+  stdout_pipe[0] = -1;  // Ownership transferred to OutputCapture.
+  stderr_capture = OutputCapture::Start(stderr_pipe[0], stderr_tee_fd);
+  stderr_pipe[0] = -1;  // Ownership transferred to OutputCapture.
 
   absl::Time deadline = absl::Now() + options.startup_timeout;
   if (absl::Status s = WaitForPortFile(port_file, pid, deadline); !s.ok()) {
@@ -277,24 +339,31 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
 
   std::move(guard).Cancel();
   return FourwardServer(pid, *port, options.device_id, std::move(*scratch),
-                        std::move(channel));
+                        std::move(channel), std::move(stdout_capture),
+                        std::move(stderr_capture));
 }
 
 FourwardServer::FourwardServer(pid_t pid, int port, uint64_t device_id,
                                std::string scratch_dir,
-                               std::shared_ptr<grpc::Channel> channel)
+                               std::shared_ptr<grpc::Channel> channel,
+                               std::unique_ptr<OutputCapture> stdout_capture,
+                               std::unique_ptr<OutputCapture> stderr_capture)
     : pid_(pid),
       port_(port),
       device_id_(device_id),
       scratch_dir_(std::move(scratch_dir)),
-      channel_(std::move(channel)) {}
+      channel_(std::move(channel)),
+      stdout_capture_(std::move(stdout_capture)),
+      stderr_capture_(std::move(stderr_capture)) {}
 
 FourwardServer::FourwardServer(FourwardServer&& other) noexcept
     : pid_(std::exchange(other.pid_, -1)),
       port_(other.port_),
       device_id_(other.device_id_),
       scratch_dir_(std::move(other.scratch_dir_)),
-      channel_(std::move(other.channel_)) {}
+      channel_(std::move(other.channel_)),
+      stdout_capture_(std::move(other.stdout_capture_)),
+      stderr_capture_(std::move(other.stderr_capture_)) {}
 
 FourwardServer& FourwardServer::operator=(FourwardServer&& other) noexcept {
   if (this != &other) {
@@ -304,6 +373,8 @@ FourwardServer& FourwardServer::operator=(FourwardServer&& other) noexcept {
     device_id_ = other.device_id_;
     scratch_dir_ = std::move(other.scratch_dir_);
     channel_ = std::move(other.channel_);
+    stdout_capture_ = std::move(other.stdout_capture_);
+    stderr_capture_ = std::move(other.stderr_capture_);
   }
   return *this;
 }
@@ -317,8 +388,22 @@ void FourwardServer::Shutdown() {
   channel_.reset();
   KillAndReap(pid_);
   pid_ = -1;
+  // Join reader threads (they see EOF once the child is dead) before removing
+  // the scratch dir, so all captured output is finalized.
+  stdout_capture_.reset();
+  stderr_capture_.reset();
   RemoveScratchDir(scratch_dir_);
   scratch_dir_.clear();
+}
+
+std::string FourwardServer::Stdout() const {
+  if (stdout_capture_ == nullptr) return "";
+  return stdout_capture_->CapturedOutput();
+}
+
+std::string FourwardServer::Stderr() const {
+  if (stderr_capture_ == nullptr) return "";
+  return stderr_capture_->CapturedOutput();
 }
 
 }  // namespace fourward

@@ -39,6 +39,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
+#include "fourward_cc/output_capture.h"
 #include "grpc/dataplane.grpc.pb.h"
 #include "grpcpp/channel.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
@@ -122,6 +123,10 @@ struct FourwardServerOptions {
   bool permit_keepalive_without_calls = true;
   int permit_keepalive_time_ms = 0;
 
+  // When true, captured stdout/stderr is not tee'd to the parent's original
+  // fds. The output is still captured and available via Stdout()/Stderr().
+  bool quiet = false;
+
   // Maximum time to wait for Start() to complete.
   absl::Duration startup_timeout = absl::Seconds(5);
 };
@@ -169,10 +174,17 @@ class FourwardServer {
   const std::shared_ptr<grpc::Channel>& Channel() const { return channel_; }
   pid_t Pid() const { return pid_; }
 
+  // Subprocess stdout/stderr captured since Start(). Thread-safe; may be
+  // called while the server is still running to observe partial output.
+  std::string Stdout() const;
+  std::string Stderr() const;
+
  private:
   FourwardServer(pid_t pid, int port, uint64_t device_id,
                  std::string scratch_dir,
-                 std::shared_ptr<grpc::Channel> channel);
+                 std::shared_ptr<grpc::Channel> channel,
+                 std::unique_ptr<OutputCapture> stdout_capture,
+                 std::unique_ptr<OutputCapture> stderr_capture);
 
   // Kills the subprocess (SIGTERM → SIGKILL) and removes the scratch dir.
   void Shutdown();
@@ -183,6 +195,8 @@ class FourwardServer {
   // Scratch directory holding the `--port-file`. Removed on Shutdown.
   std::string scratch_dir_;
   std::shared_ptr<grpc::Channel> channel_;
+  std::unique_ptr<OutputCapture> stdout_capture_;
+  std::unique_ptr<OutputCapture> stderr_capture_;
 };
 
 }  // namespace fourward

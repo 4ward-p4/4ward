@@ -18,7 +18,9 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "gmock/gmock.h"
 #include "grpcpp/client_context.h"
 #include "grpcpp/support/status.h"
 #include "gtest/gtest.h"
@@ -369,6 +371,44 @@ TEST(FourwardServerTest, LargeResponseSucceedsUnderDefaultLimits) {
       << "GetForwardingPipelineConfig failed on >4MB response: code="
       << get_status.error_code()
       << " msg=" << get_status.error_message();
+}
+
+TEST(FourwardServerTest, StdoutCapturesStartupMessage) {
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start();
+  ASSERT_TRUE(server.ok()) << server.status();
+  absl::SleepFor(absl::Milliseconds(100));
+  std::string stdout_output = server->Stdout();
+  EXPECT_THAT(stdout_output,
+              ::testing::HasSubstr("P4Runtime server listening on port"));
+  EXPECT_THAT(stdout_output,
+              ::testing::HasSubstr(absl::StrCat(server->Port())));
+}
+
+TEST(FourwardServerTest, StderrInitiallyEmptyForHealthyServer) {
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start();
+  ASSERT_TRUE(server.ok()) << server.status();
+  absl::SleepFor(absl::Milliseconds(100));
+  EXPECT_TRUE(server->Stderr().empty())
+      << "unexpected stderr: " << server->Stderr();
+}
+
+TEST(FourwardServerTest, QuietModeSuppressesTeeButStillCaptures) {
+  absl::StatusOr<FourwardServer> server =
+      FourwardServer::Start({.quiet = true});
+  ASSERT_TRUE(server.ok()) << server.status();
+  absl::SleepFor(absl::Milliseconds(100));
+  EXPECT_THAT(server->Stdout(),
+              ::testing::HasSubstr("P4Runtime server listening on port"));
+}
+
+TEST(FourwardServerTest, CapturedOutputSurvivesMove) {
+  absl::StatusOr<FourwardServer> original = FourwardServer::Start();
+  ASSERT_TRUE(original.ok()) << original.status();
+  absl::SleepFor(absl::Milliseconds(100));
+
+  FourwardServer moved = *std::move(original);
+  EXPECT_THAT(moved.Stdout(),
+              ::testing::HasSubstr("P4Runtime server listening on port"));
 }
 
 }  // namespace
