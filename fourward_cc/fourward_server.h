@@ -107,6 +107,21 @@ struct FourwardServerOptions {
   // Skip @entry_restriction / @action_restriction checking on Write RPCs.
   bool disable_p4_constraints_checking = false;
 
+  // Maximum gRPC metadata (header) size in bytes. Large P4Runtime batch errors
+  // return per-entity status details that easily exceed the default 8KB limit,
+  // causing Netty to reset the HTTP/2 stream with PROTOCOL_ERROR.
+  int max_metadata_size = 10 * 1024 * 1024;  // 10MB
+
+  // Maximum inbound gRPC message size in bytes. -1 means unlimited. Prevents
+  // client failures under the default 4MB limit when reading large flow tables
+  // via P4Runtime Read.
+  int max_receive_message_size = -1;
+
+  // Server-side keepalive permissions. Permissive defaults allow aggressive
+  // SDN controller keepalive pings without triggering Netty ping strikes.
+  bool permit_keepalive_without_calls = true;
+  int permit_keepalive_time_ms = 0;
+
   // Maximum time to wait for Start() to complete.
   absl::Duration startup_timeout = absl::Seconds(5);
 };
