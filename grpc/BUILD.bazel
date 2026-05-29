@@ -687,6 +687,7 @@ kt_jvm_test(
         "//simulator:p4data_java_proto",
         "//simulator:p4info_java_proto",
         "//simulator:p4runtime_java_proto",
+        "//simulator:p4types_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",

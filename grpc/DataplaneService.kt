@@ -316,16 +316,10 @@ private fun OutputPacket.toDualEncoded(
     .setDataplaneEgressPort(dataplaneEgressPort)
     .setPayload(rawPayload)
     .apply {
-      if (pt != null) {
-        val p4rtPort =
-          pt.dataplaneToP4rt(dataplaneEgressPort)
-            ?: error(
-              "No P4Runtime port name for dataplane egress port $dataplaneEgressPort. " +
-                "Ensure the port has a @p4runtime_translation_mappings entry or was " +
-                "auto-allocated via a prior P4Runtime Write."
-            )
-        setP4RtEgressPort(p4rtPort)
-      }
+      // Egress ports may come from P4 pipeline logic (e.g. the CPU port, hardcoded
+      // by the architecture) that was never forward-allocated via a P4Runtime Write,
+      // so a missing reverse mapping is expected — same as for ingress ports above.
+      pt?.dataplaneToP4rt(dataplaneEgressPort)?.let { setP4RtEgressPort(it) }
       if (codec != null && dataplaneEgressPort == codec.cpuPort) {
         val rawPacketIn =
           p4.v1.P4RuntimeOuterClass.PacketIn.newBuilder()
