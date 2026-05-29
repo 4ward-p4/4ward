@@ -61,6 +61,35 @@ TEST(OutputCaptureTest, TeesDataToTargetFd) {
   ::close(tee_pipe[0]);
 }
 
+TEST(OutputCaptureTest, TeePrefixPrependedToEachLine) {
+  int capture_pipe[2];
+  ASSERT_EQ(::pipe(capture_pipe), 0);
+
+  int tee_pipe[2];
+  ASSERT_EQ(::pipe(tee_pipe), 0);
+
+  auto capture = OutputCapture::Start(capture_pipe[0], /*tee_fd=*/tee_pipe[1],
+                                      "[srv] ");
+
+  const std::string data = "line one\nline two\n";
+  ASSERT_EQ(::write(capture_pipe[1], data.data(), data.size()),
+            static_cast<ssize_t>(data.size()));
+  ::close(capture_pipe[1]);
+
+  absl::SleepFor(absl::Milliseconds(50));
+
+  // Captured buffer is raw — no prefix.
+  EXPECT_EQ(capture->CapturedOutput(), data);
+
+  // Tee target has the prefix on each line.
+  ::close(tee_pipe[1]);
+  char buf[256];
+  ssize_t n = ::read(tee_pipe[0], buf, sizeof(buf));
+  ASSERT_GT(n, 0);
+  EXPECT_EQ(std::string(buf, n), "[srv] line one\n[srv] line two\n");
+  ::close(tee_pipe[0]);
+}
+
 TEST(OutputCaptureTest, EmptyPipeReturnsEmptyString) {
   int fds[2];
   ASSERT_EQ(::pipe(fds), 0);

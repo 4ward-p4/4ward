@@ -20,8 +20,12 @@ class OutputCapture {
  public:
   // Creates an OutputCapture that reads from `pipe_read_fd` (takes ownership,
   // closes on destruction) and optionally tees to `tee_fd` (-1 to suppress).
+  // When teeing, `tee_prefix` is prepended to each line so tee'd output is
+  // clearly attributed (e.g. "[4ward stdout] "). The prefix only affects the
+  // tee target — the captured buffer always contains the raw output.
   // Starts the reader thread immediately.
-  static std::unique_ptr<OutputCapture> Start(int pipe_read_fd, int tee_fd);
+  static std::unique_ptr<OutputCapture> Start(int pipe_read_fd, int tee_fd,
+                                              std::string tee_prefix = "");
 
   ~OutputCapture();
 
@@ -34,15 +38,19 @@ class OutputCapture {
   std::string CapturedOutput() const;
 
  private:
-  OutputCapture(int pipe_read_fd, int tee_fd);
+  OutputCapture(int pipe_read_fd, int tee_fd, std::string tee_prefix);
 
   void ReadLoop();
 
   const int pipe_read_fd_;
   const int tee_fd_;
+  const std::string tee_prefix_;
   std::thread thread_;
   mutable absl::Mutex mu_;
   std::string buffer_ ABSL_GUARDED_BY(mu_);
+  // Whether the last tee'd byte was a newline (or start-of-stream), meaning
+  // the next tee'd byte starts a new line that needs the prefix.
+  bool tee_at_line_start_ = true;
 };
 
 }  // namespace fourward

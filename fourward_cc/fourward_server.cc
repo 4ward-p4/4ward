@@ -341,9 +341,11 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
 
   int stdout_tee_fd = options.tee ? STDOUT_FILENO : -1;
   int stderr_tee_fd = options.tee ? STDERR_FILENO : -1;
-  stdout_capture = OutputCapture::Start(stdout_pipe[0], stdout_tee_fd);
+  stdout_capture = OutputCapture::Start(stdout_pipe[0], stdout_tee_fd,
+                                        "[4ward stdout] ");
   stdout_pipe[0] = -1;  // Ownership transferred to OutputCapture.
-  stderr_capture = OutputCapture::Start(stderr_pipe[0], stderr_tee_fd);
+  stderr_capture = OutputCapture::Start(stderr_pipe[0], stderr_tee_fd,
+                                        "[4ward stderr] ");
   stderr_pipe[0] = -1;  // Ownership transferred to OutputCapture.
 
   absl::Time deadline = absl::Now() + options.startup_timeout;
