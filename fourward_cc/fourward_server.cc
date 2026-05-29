@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include "fourward_cc/output_capture.h"
+
 #include "absl/cleanup/cleanup.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -216,11 +218,13 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
   int stdout_pipe[2] = {-1, -1};
   int stderr_pipe[2] = {-1, -1};
   if (::pipe(stdout_pipe) != 0) {
+    RemoveScratchDir(*scratch);
     return absl::ErrnoToStatus(errno, "pipe (stdout)");
   }
   if (::pipe(stderr_pipe) != 0) {
     ::close(stdout_pipe[0]);
     ::close(stdout_pipe[1]);
+    RemoveScratchDir(*scratch);
     return absl::ErrnoToStatus(errno, "pipe (stderr)");
   }
 
@@ -316,14 +320,18 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
   };
   // Child closes read-ends, dups write-ends onto stdout/stderr, then closes
   // the original write-end fds (dup2 doesn't close the source).
-  posix_spawn_file_actions_addclose(&file_actions, stdout_pipe[0]);
-  posix_spawn_file_actions_addclose(&file_actions, stderr_pipe[0]);
-  posix_spawn_file_actions_adddup2(&file_actions, stdout_pipe[1],
-                                   STDOUT_FILENO);
-  posix_spawn_file_actions_adddup2(&file_actions, stderr_pipe[1],
-                                   STDERR_FILENO);
-  posix_spawn_file_actions_addclose(&file_actions, stdout_pipe[1]);
-  posix_spawn_file_actions_addclose(&file_actions, stderr_pipe[1]);
+  for (int rc : {
+           posix_spawn_file_actions_addclose(&file_actions, stdout_pipe[0]),
+           posix_spawn_file_actions_addclose(&file_actions, stderr_pipe[0]),
+           posix_spawn_file_actions_adddup2(&file_actions, stdout_pipe[1],
+                                            STDOUT_FILENO),
+           posix_spawn_file_actions_adddup2(&file_actions, stderr_pipe[1],
+                                            STDERR_FILENO),
+           posix_spawn_file_actions_addclose(&file_actions, stdout_pipe[1]),
+           posix_spawn_file_actions_addclose(&file_actions, stderr_pipe[1]),
+       }) {
+    if (rc != 0) return absl::ErrnoToStatus(rc, "posix_spawn_file_actions");
+  }
 
   if (int rc = posix_spawn(&pid, server_path.c_str(), &file_actions, &attr,
                            argv.data(), environ);

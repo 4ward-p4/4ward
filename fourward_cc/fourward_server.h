@@ -39,12 +39,13 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
-#include "fourward_cc/output_capture.h"
 #include "grpc/dataplane.grpc.pb.h"
 #include "grpcpp/channel.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 
 namespace fourward {
+
+class OutputCapture;
 
 // A port override: either a raw dataplane port number or a P4Runtime port
 // name that gets resolved at pipeline load time.
