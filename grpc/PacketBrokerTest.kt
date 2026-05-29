@@ -40,7 +40,7 @@ class PacketBrokerTest {
     PacketBroker(fakeProcessor(*results), kotlinx.coroutines.sync.Mutex())
 
   @Test
-  fun `processPacket returns outputs and trace`() {
+  fun `processPacket returns outputs and trace`(): Unit = runBlocking {
     val expected = result(outputPacket(1, byteArrayOf(0xAB.toByte())))
     val broker = broker(0 to expected)
 
@@ -49,7 +49,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `processPacket forwards packet bit length`() {
+  fun `processPacket forwards packet bit length`(): Unit = runBlocking {
     var capturedBitLength = -1
     val broker =
       PacketBroker(
@@ -66,7 +66,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `subscriber receives result with input and outputs`() {
+  fun `subscriber receives result with input and outputs`(): Unit = runBlocking {
     val outputs = listOf(outputPacket(1))
     val broker = broker(0 to result(outputPacket(1)))
 
@@ -81,7 +81,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `subscriber receives PacketBits for padded packet`() {
+  fun `subscriber receives PacketBits for padded packet`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
     val received = mutableListOf<PacketBroker.SubscriptionResult>()
     broker.subscribe { received.add(it) }
@@ -99,7 +99,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `multiple subscribers each receive results`() {
+  fun `multiple subscribers each receive results`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
 
     val received1 = mutableListOf<PacketBroker.SubscriptionResult>()
@@ -114,13 +114,13 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `no subscribers does not cause errors`() {
+  fun `no subscribers does not cause errors`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
     broker.processPacket(0, byteArrayOf())
   }
 
   @Test
-  fun `unsubscribe stops delivery`() {
+  fun `unsubscribe stops delivery`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
 
     val received = mutableListOf<PacketBroker.SubscriptionResult>()
@@ -135,7 +135,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `subscriber receives tag from processPacket`() {
+  fun `subscriber receives tag from processPacket`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
     val received = mutableListOf<PacketBroker.SubscriptionResult>()
     broker.subscribe { received.add(it) }
@@ -147,7 +147,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `throwing subscriber does not crash caller or block other subscribers`() {
+  fun `throwing subscriber does not crash caller or block other subscribers`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
 
     val received = mutableListOf<PacketBroker.SubscriptionResult>()
@@ -197,7 +197,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `processPacket fires hook when registered`() {
+  fun `processPacket fires hook when registered`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
     val hookCount = registerAutoRespondHook(broker)
 
@@ -207,7 +207,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `processPacket fires hook on every call`() {
+  fun `processPacket fires hook on every call`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
     val hookCount = registerAutoRespondHook(broker)
 
@@ -219,7 +219,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `processPacket works without hook`() {
+  fun `processPacket works without hook`(): Unit = runBlocking {
     val expected = result(outputPacket(1))
     val broker = broker(0 to expected)
 
@@ -229,7 +229,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `withHookOnce fires hook exactly once for multiple packets`() {
+  fun `withHookOnce fires hook exactly once for multiple packets`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
     val hookCount = registerAutoRespondHook(broker)
 
@@ -243,7 +243,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `withHookOnce without hook does not fire hook`() {
+  fun `withHookOnce without hook does not fire hook`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
     // No hook registered.
     val processed = AtomicInteger(0)
@@ -257,7 +257,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `registerHook fails if hook already registered`() {
+  fun `registerHook fails if hook already registered`(): Unit = runBlocking {
     val broker = broker(0 to result())
     val hook1 = PacketBroker.Hook(Channel(Channel.UNLIMITED), Channel(Channel.UNLIMITED))
     val hook2 = PacketBroker.Hook(Channel(Channel.UNLIMITED), Channel(Channel.UNLIMITED))
@@ -267,7 +267,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `deregisterHook allows re-registration`() {
+  fun `deregisterHook allows re-registration`(): Unit = runBlocking {
     val broker = broker(0 to result())
     val hook1 = PacketBroker.Hook(Channel(Channel.UNLIMITED), Channel(Channel.UNLIMITED))
     val hook2 = PacketBroker.Hook(Channel(Channel.UNLIMITED), Channel(Channel.UNLIMITED))
@@ -278,7 +278,7 @@ class PacketBrokerTest {
   }
 
   @Test
-  fun `hook applyUpdates is called when response has updates`() {
+  fun `hook applyUpdates is called when response has updates`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
     val appliedUpdates = mutableListOf<p4.v1.P4RuntimeOuterClass.Update>()
     broker.applyUpdates = { updates -> appliedUpdates.addAll(updates) }

@@ -701,7 +701,9 @@ class P4RuntimeService(
    * Returns a [StreamError] response on failure (P4Runtime spec §16.6), or null on success. A
    * single bad PacketOut must not terminate arbitration or PacketIn delivery on the stream.
    */
-  private fun handlePacketOut(packet: p4.v1.P4RuntimeOuterClass.PacketOut): StreamMessageResponse? {
+  private suspend fun handlePacketOut(
+    packet: p4.v1.P4RuntimeOuterClass.PacketOut
+  ): StreamMessageResponse? {
     val state = pipeline ?: return null
 
     fun packetOutError(code: Int, message: String?): StreamMessageResponse =

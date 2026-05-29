@@ -361,11 +361,11 @@ class DataplaneServiceTest {
   }
 
   // =========================================================================
-  // Subscriber-falls-behind close (regression for the silent-drop bug)
+  // Subscriber backpressure
   // =========================================================================
 
   @Test
-  fun `SubscribeResults flow closes when subscriber falls behind`() = runBlocking {
+  fun `SubscribeResults preserves results when subscriber falls behind`() = runBlocking {
     harness.loadPipeline(loadPassthroughConfig())
     val stub = DataplaneCoroutineStub(harness.channel)
 
@@ -373,18 +373,14 @@ class DataplaneServiceTest {
     val ready = CompletableDeferred<Unit>()
     val collectJob =
       launch(Dispatchers.IO) {
-        // Any exception is expected here — the stream closes abruptly on overflow.
-        @Suppress("TooGenericExceptionCaught")
-        try {
-          stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
-            if (it.hasActive()) {
-              ready.complete(Unit)
-            } else {
-              collected.incrementAndGet()
-              delay(50) // slow consumer: forces the buffer to fill on bursty input
-            }
+        stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
+          if (it.hasActive()) {
+            ready.complete(Unit)
+          } else {
+            collected.incrementAndGet()
+            delay(50) // slow consumer: forces backpressure on bursty input
           }
-        } catch (_: Exception) {}
+        }
       }
 
     withTimeout(5000) { ready.await() }
@@ -392,14 +388,10 @@ class DataplaneServiceTest {
     // 200 packets is well above the typical callbackFlow buffer (~64).
     repeat(200) { i -> harness.injectPacket(ingressPort = 0, payload = byteArrayOf(i.toByte())) }
 
-    withTimeout(20_000) { collectJob.join() }
+    withTimeout(20_000) { while (collected.get() < 200) delay(50) }
+    collectJob.cancel()
 
-    assertTrue("collector should have received at least some items", collected.get() > 0)
-    assertTrue(
-      "flow should close before all 200 items delivered " +
-        "(overflow surfaced); got ${collected.get()}",
-      collected.get() < 200,
-    )
+    assertEquals("all results should be preserved", 200, collected.get())
   }
 
   // =========================================================================

@@ -177,6 +177,29 @@ TEST_F(DataplaneClientE2ETest, InjectPacketsResultsDeliveredViaSubscribe) {
   }
 }
 
+TEST_F(DataplaneClientE2ETest, InjectPacketsBurstCanBeDrainedAfterInjection) {
+  DataplaneClient client(*server_);
+
+  absl::StatusOr<ResultStream> stream = client.SubscribeResults();
+  ASSERT_TRUE(stream.ok()) << stream.status();
+
+  constexpr int kPackets = 10'000;
+  PacketWriter writer = client.InjectPackets();
+  for (int i = 0; i < kPackets; ++i) {
+    ASSERT_TRUE(writer.Inject(DataplanePort{0}, MakeEthernetFrame()).ok())
+        << "packet " << i;
+  }
+  absl::StatusOr<int> count = writer.Finish();
+  ASSERT_TRUE(count.ok()) << count.status();
+  ASSERT_EQ(*count, kPackets);
+
+  for (int i = 0; i < kPackets; ++i) {
+    absl::StatusOr<ProcessPacketResult> result = stream->Next();
+    ASSERT_TRUE(result.ok()) << "result " << i << ": " << result.status();
+    EXPECT_THAT(*result, ForwardsTo(1));
+  }
+}
+
 TEST_F(DataplaneClientE2ETest,
        InjectPacketWithP4RuntimePortFailsWithoutTranslation) {
   DataplaneClient client(*server_);

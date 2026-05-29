@@ -26,6 +26,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -108,7 +109,7 @@ class DataplaneService(
         .build()
   }
 
-  private fun processAndEnrich(
+  private suspend fun processAndEnrich(
     request: InjectPacketRequest,
     rpcName: String,
   ): Pair<EnrichedResult, PipelineSnapshot?> {
@@ -153,26 +154,18 @@ class DataplaneService(
   override suspend fun injectPackets(requests: Flow<InjectPacketRequest>): InjectPacketsResponse {
     val translator = pipelineSnapshot()?.typeTranslator
     broker.withHookOnce { processPacket ->
-      val futures = mutableListOf<java.util.concurrent.ForkJoinTask<*>>()
-      kotlinx.coroutines.runBlocking {
-        requests.collect { request ->
-          val port = resolveIngressPort(request, translator)
-          val payload = request.payload.toByteArray()
-          val tag = request.tag
-          futures.add(
-            java.util.concurrent.ForkJoinPool.commonPool().submit {
-              processPacket(port, payload, tag)
-            }
-          )
-        }
+      requests.collect { request ->
+        val port = resolveIngressPort(request, translator)
+        val payload = request.payload.toByteArray()
+        val tag = request.tag
+        processPacket(port, payload, tag)
       }
-      futures.forEach { it.join() }
     }
     return InjectPacketsResponse.getDefaultInstance()
   }
 
   override fun subscribeResults(request: SubscribeResultsRequest): Flow<SubscribeResultsResponse> =
-    callbackFlow {
+    channelFlow {
       send(
         SubscribeResultsResponse.newBuilder()
           .setActive(SubscriptionActive.getDefaultInstance())
@@ -210,11 +203,10 @@ class DataplaneService(
                 )
                 .setTrace(enrichTrace(subResult.trace, translator))
                 .build()
-            // Close the stream if the channel is full or closed — silently dropping a packet
-            // result would violate the SubscribeResults contract.
-            val sendResult =
-              trySend(SubscribeResultsResponse.newBuilder().setResult(result).build())
-            if (sendResult.isFailure) close(sendResult.exceptionOrNull())
+            val response = SubscribeResultsResponse.newBuilder().setResult(result).build()
+            // Packet processing waits here when the gRPC subscriber is slow: SubscribeResults is
+            // the lossless result channel for batch InjectPackets callers.
+            send(response)
           } catch (
             @Suppress("TooGenericExceptionCaught") // Any translation/encoding failure should
             e: Exception // terminate this subscription stream, not crash the packet sender.

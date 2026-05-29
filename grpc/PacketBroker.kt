@@ -10,7 +10,6 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.logging.Level
 import java.util.logging.Logger
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import p4.v1.P4RuntimeOuterClass
@@ -75,22 +74,20 @@ class PacketBroker(
    * The hook may apply P4Runtime updates (via [applyUpdates]) which mutate forwarding state and
    * publish a new snapshot — all under the mutex.
    */
-  private fun fireHookIfRegistered() {
+  private suspend fun fireHookIfRegistered() {
     val h = hook.get() ?: return
-    runBlocking {
-      val invocation =
-        PrePacketHookInvocation.newBuilder()
-          .setPacket(
-            PrePacketHookInvocation.PacketEvent.newBuilder()
-              .addAllEntities(readAllEntities())
-              .apply { readP4Info()?.let { setP4Info(it) } }
-          )
-          .build()
-      h.invocations.send(invocation)
-      val response = h.responses.receive()
-      if (response.updatesList.isNotEmpty()) {
-        applyUpdates(response.updatesList)
-      }
+    val invocation =
+      PrePacketHookInvocation.newBuilder()
+        .setPacket(
+          PrePacketHookInvocation.PacketEvent.newBuilder().addAllEntities(readAllEntities()).apply {
+            readP4Info()?.let { setP4Info(it) }
+          }
+        )
+        .build()
+    h.invocations.send(invocation)
+    val response = h.responses.receive()
+    if (response.updatesList.isNotEmpty()) {
+      applyUpdates(response.updatesList)
     }
   }
 
@@ -113,20 +110,23 @@ class PacketBroker(
   }
 
   private val subscribers =
-    java.util.concurrent.CopyOnWriteArrayList<(SubscriptionResult) -> Unit>()
+    java.util.concurrent.CopyOnWriteArrayList<suspend (SubscriptionResult) -> Unit>()
 
   /**
    * If a hook is registered, acquires the [writeMutex] and fires it. The hook may apply P4Runtime
    * updates that publish a new forwarding snapshot. No-op if no hook is registered.
    */
-  private fun fireHookUnderMutex() {
+  private suspend fun fireHookUnderMutex() {
     if (hook.get() != null) {
-      runBlocking { writeMutex.withLock { fireHookIfRegistered() } }
+      writeMutex.withLock { fireHookIfRegistered() }
     }
   }
 
-  fun processPacket(ingressPort: Int, payload: ByteArray, tag: Long = 0): ProcessPacketResult =
-    processPacket(ingressPort, PacketBits.ofBytes(payload), tag)
+  suspend fun processPacket(
+    ingressPort: Int,
+    payload: ByteArray,
+    tag: Long = 0,
+  ): ProcessPacketResult = processPacket(ingressPort, PacketBits.ofBytes(payload), tag)
 
   /**
    * Processes a packet: fires the hook (if registered), runs the simulator, and dispatches results
@@ -134,7 +134,11 @@ class PacketBroker(
    * snapshot. Only acquires the [writeMutex] when a hook is registered (to fire the hook and apply
    * its updates atomically).
    */
-  fun processPacket(ingressPort: Int, packet: PacketBits, tag: Long = 0): ProcessPacketResult {
+  suspend fun processPacket(
+    ingressPort: Int,
+    packet: PacketBits,
+    tag: Long = 0,
+  ): ProcessPacketResult {
     fireHookUnderMutex()
     val result = simulatorFn(ingressPort, packet)
     dispatchToSubscribers(ingressPort, packet, result, tag)
@@ -146,7 +150,9 @@ class PacketBroker(
    *
    * Used by [DataplaneService.injectPackets] to stream packets without buffering the entire batch.
    */
-  fun <T> withHookOnce(block: (processor: (Int, ByteArray, Long) -> Unit) -> T): T {
+  suspend fun <T> withHookOnce(
+    block: suspend (processor: suspend (Int, ByteArray, Long) -> Unit) -> T
+  ): T {
     fireHookUnderMutex()
     return block { port, payload, tag ->
       val packet = PacketBits.ofBytes(payload)
@@ -155,13 +161,19 @@ class PacketBroker(
     }
   }
 
-  /** Registers a subscriber that receives results for every processed packet. */
-  fun subscribe(callback: (SubscriptionResult) -> Unit): SubscriptionHandle {
+  /**
+   * Registers a subscriber that receives results for every processed packet.
+   *
+   * Subscriber delivery is lossless and backpressured: packet processing waits for each subscriber
+   * callback to return. Keep subscriber callbacks lightweight or hand work off to a bounded queue
+   * if they need to do slow I/O.
+   */
+  fun subscribe(callback: suspend (SubscriptionResult) -> Unit): SubscriptionHandle {
     subscribers.add(callback)
     return SubscriptionHandle { subscribers.remove(callback) }
   }
 
-  private fun dispatchToSubscribers(
+  private suspend fun dispatchToSubscribers(
     ingressPort: Int,
     packet: PacketBits,
     result: ProcessPacketResult,
