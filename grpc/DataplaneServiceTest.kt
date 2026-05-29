@@ -528,6 +528,103 @@ class DataplaneServiceTest {
     }
   }
 
+  @Test
+  @Suppress("MagicNumber")
+  fun `SubscribeResults survives unmapped egress port`() = runBlocking {
+    val baseConfig =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      @controller_header("packet_out")
+      header packet_out_t { bit<9> egress_port; }
+
+      @controller_header("packet_in")
+      header packet_in_t { bit<9> ingress_port; bit<9> target_egress_port; }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { packet_out_t pkt_out; packet_in_t pkt_in; ethernet_t eth; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start { pkt.extract(hdr.eth); transition accept; }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = 510; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply {
+          h.pkt_in.setValid();
+          h.pkt_in.ingress_port = sm.ingress_port;
+          h.pkt_in.target_egress_port = sm.egress_spec;
+        }
+      }
+      control D(packet_out pkt, in headers_t h) {
+        apply { pkt.emit(h.pkt_in); pkt.emit(h.eth); }
+      }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val config =
+      baseConfig
+        .toBuilder()
+        .setDevice(
+          baseConfig.device
+            .toBuilder()
+            .setBehavioral(
+              baseConfig.device.behavioral
+                .toBuilder()
+                .setArchitecture(
+                  baseConfig.device.behavioral.architecture
+                    .toBuilder()
+                    .setPortTypeName("port_id_t")
+                )
+            )
+        )
+        .setP4Info(
+          baseConfig.p4Info
+            .toBuilder()
+            .setTypeInfo(
+              P4Types.P4TypeInfo.newBuilder()
+                .putNewTypes(
+                  "port_id_t",
+                  P4Types.P4NewTypeSpec.newBuilder()
+                    .setTranslatedType(
+                      P4Types.P4NewTypeTranslation.newBuilder()
+                        .setUri("")
+                        .setSdnString(
+                          P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance()
+                        )
+                    )
+                    .build(),
+                )
+            )
+        )
+        .build()
+
+    val testHarness = FourwardTestHarness()
+    testHarness.use {
+      it.loadPipeline(config)
+      val stub = DataplaneCoroutineStub(it.channel)
+      val (job, results) = subscribeAndAwaitActive(stub)
+
+      it.injectPacket(ingressPort = 0, payload = buildEthernetFrame(etherType = 0x0800))
+
+      val msg = withTimeout(5000) { results.receive() }
+      assertTrue("should be a result", msg.hasResult())
+      val output = msg.result.possibleOutcomesList.single().getPackets(0)
+      assertEquals("should egress on CPU port", 510, output.dataplaneEgressPort)
+      assertTrue("p4rt_egress_port should be empty", output.p4RtEgressPort.isEmpty)
+      assertTrue("should have packet_in enrichment", output.hasPacketIn())
+
+      job.cancel()
+    }
+  }
+
   // =========================================================================
   // PacketIn enrichment
   // =========================================================================
