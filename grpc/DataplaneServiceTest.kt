@@ -466,7 +466,7 @@ class DataplaneServiceTest {
         apply {
           h.pkt_in.setValid();
           h.pkt_in.ingress_port = sm.ingress_port;
-          h.pkt_in.target_egress_port = sm.egress_spec;
+          h.pkt_in.target_egress_port = sm.egress_port;
         }
       }
       control D(packet_out pkt, in headers_t h) {
@@ -477,8 +477,8 @@ class DataplaneServiceTest {
       )
 
     // Inject port translation: pretend the port type has @p4runtime_translation.
-    // This creates a PortTranslator with an empty translation table —
-    // dataplaneToP4rt(510) returns null, and toDualEncoded throws IllegalStateException.
+    // This creates a PortTranslator with an empty translation table, so
+    // dataplaneToP4rt(510) returns null and p4rt_egress_port is omitted.
     val config =
       baseConfig
         .toBuilder()
@@ -512,20 +512,17 @@ class DataplaneServiceTest {
         )
         .build()
 
-    val testHarness = FourwardTestHarness()
-    testHarness.use {
-      it.loadPipeline(config)
-      val payload = buildEthernetFrame(etherType = 0x0800)
-      val response = it.injectPacket(ingressPort = 0, payload = payload)
+    harness.loadPipeline(config)
+    val payload = buildEthernetFrame(etherType = 0x0800)
+    val response = harness.injectPacket(ingressPort = 0, payload = payload)
 
-      val output = response.possibleOutcomesList.single().getPackets(0)
-      assertEquals("should egress on CPU port", 510, output.dataplaneEgressPort)
-      assertTrue(
-        "p4rt_egress_port should be empty (no mapping for CPU port)",
-        output.p4RtEgressPort.isEmpty,
-      )
-      assertTrue("should have packet_in enrichment", output.hasPacketIn())
-    }
+    val output = response.possibleOutcomesList.single().getPackets(0)
+    assertEquals("should egress on CPU port", 510, output.dataplaneEgressPort)
+    assertTrue(
+      "p4rt_egress_port should be empty (no mapping for CPU port)",
+      output.p4RtEgressPort.isEmpty,
+    )
+    assertTrue("should have packet_in enrichment", output.hasPacketIn())
   }
 
   @Test
@@ -559,7 +556,7 @@ class DataplaneServiceTest {
         apply {
           h.pkt_in.setValid();
           h.pkt_in.ingress_port = sm.ingress_port;
-          h.pkt_in.target_egress_port = sm.egress_spec;
+          h.pkt_in.target_egress_port = sm.egress_port;
         }
       }
       control D(packet_out pkt, in headers_t h) {
@@ -606,23 +603,20 @@ class DataplaneServiceTest {
         )
         .build()
 
-    val testHarness = FourwardTestHarness()
-    testHarness.use {
-      it.loadPipeline(config)
-      val stub = DataplaneCoroutineStub(it.channel)
-      val (job, results) = subscribeAndAwaitActive(stub)
+    harness.loadPipeline(config)
+    val stub = DataplaneCoroutineStub(harness.channel)
+    val (job, results) = subscribeAndAwaitActive(stub)
 
-      it.injectPacket(ingressPort = 0, payload = buildEthernetFrame(etherType = 0x0800))
+    harness.injectPacket(ingressPort = 0, payload = buildEthernetFrame(etherType = 0x0800))
 
-      val msg = withTimeout(5000) { results.receive() }
-      assertTrue("should be a result", msg.hasResult())
-      val output = msg.result.possibleOutcomesList.single().getPackets(0)
-      assertEquals("should egress on CPU port", 510, output.dataplaneEgressPort)
-      assertTrue("p4rt_egress_port should be empty", output.p4RtEgressPort.isEmpty)
-      assertTrue("should have packet_in enrichment", output.hasPacketIn())
+    val msg = withTimeout(5000) { results.receive() }
+    assertTrue("should be a result", msg.hasResult())
+    val output = msg.result.possibleOutcomesList.single().getPackets(0)
+    assertEquals("should egress on CPU port", 510, output.dataplaneEgressPort)
+    assertTrue("p4rt_egress_port should be empty", output.p4RtEgressPort.isEmpty)
+    assertTrue("should have packet_in enrichment", output.hasPacketIn())
 
-      job.cancel()
-    }
+    job.cancel()
   }
 
   // =========================================================================
