@@ -576,9 +576,7 @@ class DataplaneServiceTest {
               baseConfig.device.behavioral
                 .toBuilder()
                 .setArchitecture(
-                  baseConfig.device.behavioral.architecture
-                    .toBuilder()
-                    .setPortTypeName("port_id_t")
+                  baseConfig.device.behavioral.architecture.toBuilder().setPortTypeName("port_id_t")
                 )
             )
         )
@@ -593,9 +591,7 @@ class DataplaneServiceTest {
                     .setTranslatedType(
                       P4Types.P4NewTypeTranslation.newBuilder()
                         .setUri("")
-                        .setSdnString(
-                          P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance()
-                        )
+                        .setSdnString(P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance())
                     )
                     .build(),
                 )
