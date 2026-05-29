@@ -134,6 +134,7 @@ cc_test(
     srcs = ["output_capture_test.cc"],
     deps = [
         ":output_capture",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
         "@googletest//:gtest",
         "@googletest//:gtest_main",

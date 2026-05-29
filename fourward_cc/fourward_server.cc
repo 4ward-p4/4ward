@@ -161,6 +161,29 @@ void KillAndReap(pid_t pid) {
   }
 }
 
+// Appends any captured stdout/stderr to the error message so the caller sees
+// server output inline with the failure reason — the key diagnostic when the
+// server crashes or misbehaves during startup.
+absl::Status EnrichWithCapturedOutput(
+    absl::Status status,
+    const std::unique_ptr<OutputCapture>& stdout_capture,
+    const std::unique_ptr<OutputCapture>& stderr_capture) {
+  std::string enriched = std::string(status.message());
+  if (stdout_capture != nullptr) {
+    std::string out = stdout_capture->CapturedOutput();
+    if (!out.empty()) {
+      absl::StrAppend(&enriched, "\n--- server stdout ---\n", out);
+    }
+  }
+  if (stderr_capture != nullptr) {
+    std::string err = stderr_capture->CapturedOutput();
+    if (!err.empty()) {
+      absl::StrAppend(&enriched, "\n--- server stderr ---\n", err);
+    }
+  }
+  return absl::Status(status.code(), enriched);
+}
+
 }  // namespace
 
 absl::StatusOr<FourwardServer> FourwardServer::Start(
@@ -325,10 +348,13 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
 
   absl::Time deadline = absl::Now() + options.startup_timeout;
   if (absl::Status s = WaitForPortFile(port_file, pid, deadline); !s.ok()) {
-    return s;
+    return EnrichWithCapturedOutput(s, stdout_capture, stderr_capture);
   }
   absl::StatusOr<int> port = ReadPortFile(port_file);
-  if (!port.ok()) return std::move(port).status();
+  if (!port.ok()) {
+    return EnrichWithCapturedOutput(port.status(), stdout_capture,
+                                    stderr_capture);
+  }
 
   grpc::ChannelArguments channel_args;
   channel_args.SetInt("grpc.max_metadata_size", options.max_metadata_size);

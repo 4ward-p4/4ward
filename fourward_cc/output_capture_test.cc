@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "gtest/gtest.h"
@@ -68,6 +69,32 @@ TEST(OutputCaptureTest, EmptyPipeReturnsEmptyString) {
 
   absl::SleepFor(absl::Milliseconds(50));
   EXPECT_TRUE(capture->CapturedOutput().empty());
+}
+
+TEST(OutputCaptureTest, IncrementalCaptureWhileWriteEndOpen) {
+  int fds[2];
+  ASSERT_EQ(::pipe(fds), 0);
+  auto capture = OutputCapture::Start(fds[0], /*tee_fd=*/-1);
+
+  // First chunk: write and verify CapturedOutput() returns it while the
+  // write-end is still open (data still flowing).
+  const std::string chunk1 = "chunk one\n";
+  ASSERT_EQ(::write(fds[1], chunk1.data(), chunk1.size()),
+            static_cast<ssize_t>(chunk1.size()));
+  absl::SleepFor(absl::Milliseconds(50));
+  EXPECT_EQ(capture->CapturedOutput(), chunk1);
+
+  // Second chunk: verify CapturedOutput() now returns both chunks.
+  const std::string chunk2 = "chunk two\n";
+  ASSERT_EQ(::write(fds[1], chunk2.data(), chunk2.size()),
+            static_cast<ssize_t>(chunk2.size()));
+  absl::SleepFor(absl::Milliseconds(50));
+  EXPECT_EQ(capture->CapturedOutput(), absl::StrCat(chunk1, chunk2));
+
+  // Close the write-end and verify the final output matches.
+  ::close(fds[1]);
+  absl::SleepFor(absl::Milliseconds(50));
+  EXPECT_EQ(capture->CapturedOutput(), absl::StrCat(chunk1, chunk2));
 }
 
 TEST(OutputCaptureTest, LargeDataCapturedCorrectly) {
