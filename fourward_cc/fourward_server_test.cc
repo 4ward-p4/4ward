@@ -7,6 +7,11 @@
 #include <sys/types.h>
 
 #include <chrono>
+#include <cstddef>
+#include <fstream>
+#include <iterator>
+#include <memory>
+#include <string>
 #include <thread>
 #include <utility>
 
@@ -19,9 +24,16 @@
 #include "gtest/gtest.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "tools/cpp/runfiles/runfiles.h"
+
+#ifndef PASSTHROUGH_PIPELINE_RLOCATION
+#error "PASSTHROUGH_PIPELINE_RLOCATION must be set by the BUILD rule"
+#endif
 
 namespace fourward {
 namespace {
+
+using ::bazel::tools::cpp::runfiles::Runfiles;
 
 // Issues a Capabilities RPC and asserts it succeeds. This proves the server
 // is not just TCP-listening but actually serving gRPC. Capabilities is used
@@ -169,6 +181,194 @@ TEST(FourwardServerTest, StartupTimeoutYieldsDeadlineExceeded) {
   ASSERT_FALSE(server.ok());
   EXPECT_EQ(server.status().code(), absl::StatusCode::kDeadlineExceeded)
       << server.status();
+}
+
+TEST(FourwardServerTest, LargeMetadataSucceedsUnderDefaultLimits) {
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start();
+  ASSERT_TRUE(server.ok()) << server.status();
+
+  auto stub = server->NewP4RuntimeStub();
+  p4::v1::CapabilitiesRequest req;
+  p4::v1::CapabilitiesResponse resp;
+  grpc::ClientContext ctx;
+
+  // 1MB header is well above the default gRPC 8KB limit but below our 10MB.
+  std::string large_value(1024 * 1024, 'a');
+  ctx.AddMetadata("large-header", large_value);
+
+  grpc::Status status = stub->Capabilities(&ctx, req, &resp);
+  EXPECT_TRUE(status.ok()) << "Capabilities failed: code=" << status.error_code()
+                           << " msg=" << status.error_message();
+}
+
+TEST(FourwardServerTest, TightMetadataLimitRejectsLargeHeader) {
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start({
+      .max_metadata_size = 8192,
+  });
+  ASSERT_TRUE(server.ok()) << server.status();
+
+  auto stub = server->NewP4RuntimeStub();
+  p4::v1::CapabilitiesRequest req;
+  p4::v1::CapabilitiesResponse resp;
+  grpc::ClientContext ctx;
+
+  // 16KB header exceeds the 8KB limit.
+  std::string large_value(16384, 'a');
+  ctx.AddMetadata("large-header", large_value);
+
+  grpc::Status status = stub->Capabilities(&ctx, req, &resp);
+  EXPECT_FALSE(status.ok());
+}
+
+TEST(FourwardServerTest, LargeMessageSucceedsUnderDefaultLimits) {
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start();
+  ASSERT_TRUE(server.ok()) << server.status();
+
+  auto stub = server->NewP4RuntimeStub();
+  p4::v1::SetForwardingPipelineConfigRequest req;
+  p4::v1::SetForwardingPipelineConfigResponse resp;
+  grpc::ClientContext ctx;
+
+  req.set_device_id(server->DeviceId());
+  req.set_action(p4::v1::SetForwardingPipelineConfigRequest::VERIFY);
+  // 5MB payload exceeds the default 4MB gRPC limit. The RPC will fail for
+  // application-level reasons (garbage config), but it must not fail with
+  // RESOURCE_EXHAUSTED — that would mean the size gate rejected it.
+  req.mutable_config()->set_p4_device_config(
+      std::string(5 * 1024 * 1024, 'a'));
+
+  grpc::Status status =
+      stub->SetForwardingPipelineConfig(&ctx, req, &resp);
+  EXPECT_NE(status.error_code(), grpc::StatusCode::RESOURCE_EXHAUSTED)
+      << "SetForwardingPipelineConfig hit message size limit: "
+      << status.error_message();
+}
+
+TEST(FourwardServerTest, TightMessageLimitRejectsLargeMessage) {
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start({
+      .max_receive_message_size = 1024 * 1024,
+  });
+  ASSERT_TRUE(server.ok()) << server.status();
+
+  auto stub = server->NewP4RuntimeStub();
+  p4::v1::SetForwardingPipelineConfigRequest req;
+  p4::v1::SetForwardingPipelineConfigResponse resp;
+  grpc::ClientContext ctx;
+
+  req.set_device_id(server->DeviceId());
+  req.set_action(p4::v1::SetForwardingPipelineConfigRequest::VERIFY);
+  // 2MB payload exceeds the 1MB limit.
+  req.mutable_config()->set_p4_device_config(
+      std::string(2 * 1024 * 1024, 'a'));
+
+  grpc::Status status =
+      stub->SetForwardingPipelineConfig(&ctx, req, &resp);
+  // The server rejects the message with RESOURCE_EXHAUSTED, but Netty may
+  // close the stream before the error propagates to the client — so we only
+  // assert the RPC fails, not the specific code.
+  EXPECT_FALSE(status.ok())
+      << "Expected RPC failure due to message size limit";
+}
+
+TEST(FourwardServerTest, CustomGrpcOptionsAccepted) {
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start({
+      .max_metadata_size = 16 * 1024 * 1024,
+      .max_receive_message_size = 8 * 1024 * 1024,
+      .permit_keepalive_without_calls = false,
+      .permit_keepalive_time_ms = 15000,
+  });
+  ASSERT_TRUE(server.ok()) << server.status();
+  ExpectHealthy(*server);
+}
+
+// Appends a valid proto field to `proto` so the serialized message grows by
+// `size` bytes of payload. Uses field 15 (wire type 2 / length-delimited)
+// which is treated as an unknown field by any proto message type — the proto
+// parser preserves it, inflating the serialized size on round-trip.
+void AppendProtoPadding(std::string& proto, size_t size) {
+  proto.push_back(static_cast<char>(0x7A));  // tag: (15 << 3) | 2
+  size_t remaining = size;
+  while (remaining >= 0x80) {
+    proto.push_back(static_cast<char>((remaining & 0x7F) | 0x80));
+    remaining >>= 7;
+  }
+  proto.push_back(static_cast<char>(remaining));
+  proto.append(size, 'x');
+}
+
+// Pushes a ForwardingPipelineConfig to the server via the P4Runtime API.
+// Establishes master arbitration first.
+grpc::Status PushPipeline(
+    const FourwardServer& server,
+    const p4::v1::ForwardingPipelineConfig& config) {
+  auto stub = server.NewP4RuntimeStub();
+
+  grpc::ClientContext stream_ctx;
+  auto stream = stub->StreamChannel(&stream_ctx);
+  p4::v1::StreamMessageRequest arb_req;
+  arb_req.mutable_arbitration()->set_device_id(server.DeviceId());
+  arb_req.mutable_arbitration()->mutable_election_id()->set_low(1);
+  stream->Write(arb_req);
+  p4::v1::StreamMessageResponse arb_resp;
+  stream->Read(&arb_resp);
+
+  grpc::ClientContext set_ctx;
+  p4::v1::SetForwardingPipelineConfigRequest req;
+  req.set_device_id(server.DeviceId());
+  req.mutable_election_id()->set_low(1);
+  req.set_action(
+      p4::v1::SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
+  *req.mutable_config() = config;
+  p4::v1::SetForwardingPipelineConfigResponse resp;
+  grpc::Status status =
+      stub->SetForwardingPipelineConfig(&set_ctx, req, &resp);
+
+  stream_ctx.TryCancel();
+  return status;
+}
+
+TEST(FourwardServerTest, LargeResponseSucceedsUnderDefaultLimits) {
+  // Load the passthrough pipeline from runfiles and inflate p4_device_config
+  // to >4MB with a valid proto unknown field. After pushing the padded config,
+  // GetForwardingPipelineConfig returns it — producing a response that exceeds
+  // gRPC's default 4MB receive limit. This verifies the client channel is
+  // correctly configured with an unlimited receive message size.
+  std::string error;
+  std::unique_ptr<Runfiles> runfiles(Runfiles::Create("", &error));
+  ASSERT_NE(runfiles, nullptr) << error;
+  std::string path =
+      runfiles->Rlocation(PASSTHROUGH_PIPELINE_RLOCATION);
+  std::ifstream file(path, std::ios::binary);
+  ASSERT_TRUE(file.good()) << "cannot open: " << path;
+  std::string bytes((std::istreambuf_iterator<char>(file)),
+                    std::istreambuf_iterator<char>());
+
+  p4::v1::ForwardingPipelineConfig config;
+  ASSERT_TRUE(config.ParseFromString(bytes));
+  std::string padded_device_config = config.p4_device_config();
+  AppendProtoPadding(padded_device_config, 5 * 1024 * 1024);
+  config.set_p4_device_config(padded_device_config);
+
+  absl::StatusOr<FourwardServer> server = FourwardServer::Start();
+  ASSERT_TRUE(server.ok()) << server.status();
+
+  grpc::Status push_status = PushPipeline(*server, config);
+  ASSERT_TRUE(push_status.ok())
+      << "Push failed: " << push_status.error_message();
+
+  auto stub = server->NewP4RuntimeStub();
+  grpc::ClientContext get_ctx;
+  p4::v1::GetForwardingPipelineConfigRequest get_req;
+  get_req.set_device_id(server->DeviceId());
+  get_req.set_response_type(
+      p4::v1::GetForwardingPipelineConfigRequest::ALL);
+  p4::v1::GetForwardingPipelineConfigResponse get_resp;
+  grpc::Status get_status =
+      stub->GetForwardingPipelineConfig(&get_ctx, get_req, &get_resp);
+  EXPECT_TRUE(get_status.ok())
+      << "GetForwardingPipelineConfig failed on >4MB response: code="
+      << get_status.error_code()
+      << " msg=" << get_status.error_message();
 }
 
 }  // namespace
