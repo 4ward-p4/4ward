@@ -7,6 +7,17 @@ package(
 )
 
 cc_library(
+    name = "output_capture",
+    srcs = ["output_capture.cc"],
+    hdrs = ["output_capture.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/synchronization",
+    ],
+)
+
+cc_library(
     name = "fourward_server",
     srcs = ["fourward_server.cc"],
     hdrs = ["fourward_server.h"],
@@ -18,6 +29,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":output_capture",
         "//grpc:dataplane_cc_grpc",
         "//grpc:dataplane_cc_proto",
         "@abseil-cpp//absl/cleanup",
@@ -114,6 +126,18 @@ cc_test(
         "@grpc//:grpc++",
         "@p4runtime//proto/p4/v1:p4runtime_cc_grpc",
         "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+    ],
+)
+
+cc_test(
+    name = "output_capture_test",
+    srcs = ["output_capture_test.cc"],
+    deps = [
+        ":output_capture",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )
 

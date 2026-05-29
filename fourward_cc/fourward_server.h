@@ -45,6 +45,8 @@
 
 namespace fourward {
 
+class OutputCapture;
+
 // A port override: either a raw dataplane port number or a P4Runtime port
 // name that gets resolved at pipeline load time.
 struct PortOverride {
@@ -122,6 +124,10 @@ struct FourwardServerOptions {
   bool permit_keepalive_without_calls = true;
   int permit_keepalive_time_ms = 0;
 
+  // Tee captured stdout/stderr to the parent's original fds so server output
+  // appears in the test log. Disable to capture without console noise.
+  bool tee = true;
+
   // Maximum time to wait for Start() to complete.
   absl::Duration startup_timeout = absl::Seconds(5);
 };
@@ -169,10 +175,17 @@ class FourwardServer {
   const std::shared_ptr<grpc::Channel>& Channel() const { return channel_; }
   pid_t Pid() const { return pid_; }
 
+  // Subprocess stdout/stderr captured since Start(). Thread-safe; may be
+  // called while the server is still running to observe partial output.
+  std::string Stdout() const;
+  std::string Stderr() const;
+
  private:
   FourwardServer(pid_t pid, int port, uint64_t device_id,
                  std::string scratch_dir,
-                 std::shared_ptr<grpc::Channel> channel);
+                 std::shared_ptr<grpc::Channel> channel,
+                 std::unique_ptr<OutputCapture> stdout_capture,
+                 std::unique_ptr<OutputCapture> stderr_capture);
 
   // Kills the subprocess (SIGTERM → SIGKILL) and removes the scratch dir.
   void Shutdown();
@@ -183,6 +196,8 @@ class FourwardServer {
   // Scratch directory holding the `--port-file`. Removed on Shutdown.
   std::string scratch_dir_;
   std::shared_ptr<grpc::Channel> channel_;
+  std::unique_ptr<OutputCapture> stdout_capture_;
+  std::unique_ptr<OutputCapture> stderr_capture_;
 };
 
 }  // namespace fourward
