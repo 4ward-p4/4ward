@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">90.2&nbsp;%</td>
-            <td class="headerCovTableEntry">183</td>
-            <td class="headerCovTableEntry">165</td>
+            <td class="headerCovTableEntryHi">91.0&nbsp;%</td>
+            <td class="headerCovTableEntry">178</td>
+            <td class="headerCovTableEntry">162</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-29 11:58:21</td>
+            <td class="headerValue">2026-05-29 12:04:44</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryMed">84.2&nbsp;%</td>
@@ -378,27 +378,21 @@
 <span id="L316"><span class="lineNum">     316</span> <span class="tlaGNC">           1 :     .setDataplaneEgressPort(dataplaneEgressPort)</span></span>
 <span id="L317"><span class="lineNum">     317</span> <span class="tlaGNC">           1 :     .setPayload(rawPayload)</span></span>
 <span id="L318"><span class="lineNum">     318</span> <span class="tlaGNC">           1 :     .apply {</span></span>
-<span id="L319"><span class="lineNum">     319</span> <span class="tlaGNC">           1 :       if (pt != null) {</span></span>
-<span id="L320"><span class="lineNum">     320</span> <span class="tlaGNC">           1 :         val p4rtPort =</span></span>
-<span id="L321"><span class="lineNum">     321</span> <span class="tlaGNC">           1 :           pt.dataplaneToP4rt(dataplaneEgressPort)</span></span>
-<span id="L322"><span class="lineNum">     322</span> <span class="tlaUNC tlaBgUNC">           0 :             ?: error(</span></span>
-<span id="L323"><span class="lineNum">     323</span> <span class="tlaUNC">           0 :               &quot;No P4Runtime port name for dataplane egress port $dataplaneEgressPort. &quot; +</span></span>
-<span id="L324"><span class="lineNum">     324</span>              :                 &quot;Ensure the port has a @p4runtime_translation_mappings entry or was &quot; +</span>
-<span id="L325"><span class="lineNum">     325</span>              :                 &quot;auto-allocated via a prior P4Runtime Write.&quot;</span>
-<span id="L326"><span class="lineNum">     326</span>              :             )</span>
-<span id="L327"><span class="lineNum">     327</span> <span class="tlaGNC tlaBgGNC">           1 :         setP4RtEgressPort(p4rtPort)</span></span>
-<span id="L328"><span class="lineNum">     328</span>              :       }</span>
-<span id="L329"><span class="lineNum">     329</span> <span class="tlaGNC">           1 :       if (codec != null &amp;&amp; dataplaneEgressPort == codec.cpuPort) {</span></span>
-<span id="L330"><span class="lineNum">     330</span> <span class="tlaGNC">           1 :         val rawPacketIn =</span></span>
-<span id="L331"><span class="lineNum">     331</span> <span class="tlaGNC">           1 :           p4.v1.P4RuntimeOuterClass.PacketIn.newBuilder()</span></span>
-<span id="L332"><span class="lineNum">     332</span> <span class="tlaGNC">           1 :             .setPayload(codec.stripPacketInHeader(rawPayload))</span></span>
-<span id="L333"><span class="lineNum">     333</span> <span class="tlaGNC">           1 :             .addAllMetadata(codec.buildPacketInMetadata(ingressPort, dataplaneEgressPort))</span></span>
-<span id="L334"><span class="lineNum">     334</span> <span class="tlaGNC">           1 :             .build()</span></span>
-<span id="L335"><span class="lineNum">     335</span> <span class="tlaGNC">           1 :         setPacketIn(translator?.translatePacketIn(rawPacketIn) ?: rawPacketIn)</span></span>
-<span id="L336"><span class="lineNum">     336</span>              :       }</span>
-<span id="L337"><span class="lineNum">     337</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L338"><span class="lineNum">     338</span> <span class="tlaGNC">           1 :     .build()</span></span>
-<span id="L339"><span class="lineNum">     339</span>              : }</span>
+<span id="L319"><span class="lineNum">     319</span>              :       // Egress ports may come from P4 pipeline logic (e.g. the CPU port, hardcoded</span>
+<span id="L320"><span class="lineNum">     320</span>              :       // by the architecture) that was never forward-allocated via a P4Runtime Write,</span>
+<span id="L321"><span class="lineNum">     321</span>              :       // so a missing reverse mapping is expected — same as for ingress ports above.</span>
+<span id="L322"><span class="lineNum">     322</span> <span class="tlaGNC">           1 :       pt?.dataplaneToP4rt(dataplaneEgressPort)?.let { setP4RtEgressPort(it) }</span></span>
+<span id="L323"><span class="lineNum">     323</span> <span class="tlaGNC">           1 :       if (codec != null &amp;&amp; dataplaneEgressPort == codec.cpuPort) {</span></span>
+<span id="L324"><span class="lineNum">     324</span> <span class="tlaGNC">           1 :         val rawPacketIn =</span></span>
+<span id="L325"><span class="lineNum">     325</span> <span class="tlaGNC">           1 :           p4.v1.P4RuntimeOuterClass.PacketIn.newBuilder()</span></span>
+<span id="L326"><span class="lineNum">     326</span> <span class="tlaGNC">           1 :             .setPayload(codec.stripPacketInHeader(rawPayload))</span></span>
+<span id="L327"><span class="lineNum">     327</span> <span class="tlaGNC">           1 :             .addAllMetadata(codec.buildPacketInMetadata(ingressPort, dataplaneEgressPort))</span></span>
+<span id="L328"><span class="lineNum">     328</span> <span class="tlaGNC">           1 :             .build()</span></span>
+<span id="L329"><span class="lineNum">     329</span> <span class="tlaGNC">           1 :         setPacketIn(translator?.translatePacketIn(rawPacketIn) ?: rawPacketIn)</span></span>
+<span id="L330"><span class="lineNum">     330</span>              :       }</span>
+<span id="L331"><span class="lineNum">     331</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L332"><span class="lineNum">     332</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L333"><span class="lineNum">     333</span>              : }</span>
         </pre>
               </td>
             </tr>
