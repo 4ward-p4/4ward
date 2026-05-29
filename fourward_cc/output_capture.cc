@@ -37,19 +37,19 @@ std::string OutputCapture::CapturedOutput() const {
   return buffer_;
 }
 
-// Best-effort write — partial writes are acceptable for diagnostic output.
-static void WriteAll(int fd, const char* data, size_t len) {
+static void TeeWrite(int fd, const char* data, size_t len) {
   (void)::write(fd, data, len);
 }
 
 void OutputCapture::ReadLoop() {
+  bool at_line_start = true;
   char buf[4096];
   while (true) {
     ssize_t n = ::read(pipe_read_fd_, buf, sizeof(buf));
     if (n > 0) {
       if (tee_fd_ >= 0) {
         if (tee_prefix_.empty()) {
-          WriteAll(tee_fd_, buf, n);
+          TeeWrite(tee_fd_, buf, n);
         } else {
           // Prepend the prefix at the start of each line so tee'd output is
           // clearly attributed. Scan for newlines and insert the prefix after
@@ -57,18 +57,18 @@ void OutputCapture::ReadLoop() {
           const char* p = buf;
           const char* end = buf + n;
           while (p < end) {
-            if (tee_at_line_start_) {
-              WriteAll(tee_fd_, tee_prefix_.data(), tee_prefix_.size());
-              tee_at_line_start_ = false;
+            if (at_line_start) {
+              TeeWrite(tee_fd_, tee_prefix_.data(), tee_prefix_.size());
+              at_line_start = false;
             }
             const char* nl = static_cast<const char*>(
                 std::memchr(p, '\n', end - p));
             if (nl != nullptr) {
-              WriteAll(tee_fd_, p, nl - p + 1);
-              tee_at_line_start_ = true;
+              TeeWrite(tee_fd_, p, nl - p + 1);
+              at_line_start = true;
               p = nl + 1;
             } else {
-              WriteAll(tee_fd_, p, end - p);
+              TeeWrite(tee_fd_, p, end - p);
               p = end;
             }
           }

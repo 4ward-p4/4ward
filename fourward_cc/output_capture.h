@@ -48,9 +48,6 @@ class OutputCapture {
   std::thread thread_;
   mutable absl::Mutex mu_;
   std::string buffer_ ABSL_GUARDED_BY(mu_);
-  // Whether the last tee'd byte was a newline (or start-of-stream), meaning
-  // the next tee'd byte starts a new line that needs the prefix.
-  bool tee_at_line_start_ = true;
 };
 
 }  // namespace fourward
