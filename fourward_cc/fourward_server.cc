@@ -339,8 +339,8 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
   ::close(stderr_pipe[1]);
   stderr_pipe[1] = -1;
 
-  int stdout_tee_fd = options.quiet ? -1 : STDOUT_FILENO;
-  int stderr_tee_fd = options.quiet ? -1 : STDERR_FILENO;
+  int stdout_tee_fd = options.tee ? STDOUT_FILENO : -1;
+  int stderr_tee_fd = options.tee ? STDERR_FILENO : -1;
   stdout_capture = OutputCapture::Start(stdout_pipe[0], stdout_tee_fd);
   stdout_pipe[0] = -1;  // Ownership transferred to OutputCapture.
   stderr_capture = OutputCapture::Start(stderr_pipe[0], stderr_tee_fd);

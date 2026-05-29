@@ -392,9 +392,9 @@ TEST(FourwardServerTest, StderrInitiallyEmptyForHealthyServer) {
       << "unexpected stderr: " << server->Stderr();
 }
 
-TEST(FourwardServerTest, QuietModeSuppressesTeeButStillCaptures) {
+TEST(FourwardServerTest, TeeDisabledStillCaptures) {
   absl::StatusOr<FourwardServer> server =
-      FourwardServer::Start({.quiet = true});
+      FourwardServer::Start({.tee = false});
   ASSERT_TRUE(server.ok()) << server.status();
   absl::SleepFor(absl::Milliseconds(100));
   EXPECT_THAT(server->Stdout(),

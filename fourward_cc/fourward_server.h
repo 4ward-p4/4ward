@@ -123,9 +123,9 @@ struct FourwardServerOptions {
   bool permit_keepalive_without_calls = true;
   int permit_keepalive_time_ms = 0;
 
-  // When true, captured stdout/stderr is not tee'd to the parent's original
-  // fds. The output is still captured and available via Stdout()/Stderr().
-  bool quiet = false;
+  // Tee captured stdout/stderr to the parent's original fds so server output
+  // appears in the test log. Disable to capture without console noise.
+  bool tee = true;
 
   // Maximum time to wait for Start() to complete.
   absl::Duration startup_timeout = absl::Seconds(5);
