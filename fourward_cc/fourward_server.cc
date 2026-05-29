@@ -358,10 +358,20 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
 
   absl::Time deadline = absl::Now() + options.startup_timeout;
   if (absl::Status s = WaitForPortFile(port_file, pid, deadline); !s.ok()) {
+    // Kill the child and drain the reader threads so the enriched status
+    // contains all server output, not just what was consumed so far.
+    KillAndReap(pid);
+    pid = -1;
+    stdout_capture->Join();
+    stderr_capture->Join();
     return EnrichWithCapturedOutput(s, stdout_capture, stderr_capture);
   }
   absl::StatusOr<int> port = ReadPortFile(port_file);
   if (!port.ok()) {
+    KillAndReap(pid);
+    pid = -1;
+    stdout_capture->Join();
+    stderr_capture->Join();
     return EnrichWithCapturedOutput(port.status(), stdout_capture,
                                     stderr_capture);
   }

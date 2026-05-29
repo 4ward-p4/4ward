@@ -28,7 +28,9 @@ OutputCapture::OutputCapture(int pipe_read_fd, int tee_fd,
       tee_fd_(tee_fd),
       tee_prefix_(std::move(tee_prefix)) {}
 
-OutputCapture::~OutputCapture() {
+OutputCapture::~OutputCapture() { Join(); }
+
+void OutputCapture::Join() {
   if (thread_.joinable()) thread_.join();
 }
 

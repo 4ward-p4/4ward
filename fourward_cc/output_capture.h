@@ -34,6 +34,10 @@ class OutputCapture {
   OutputCapture(OutputCapture&&) = delete;
   OutputCapture& operator=(OutputCapture&&) = delete;
 
+  // Blocks until the reader thread has finished (the pipe write-end must be
+  // closed first, or this blocks forever). Safe to call multiple times.
+  void Join();
+
   // Returns a snapshot of captured output so far. Thread-safe.
   std::string CapturedOutput() const;
 
