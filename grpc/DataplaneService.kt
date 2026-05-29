@@ -55,8 +55,8 @@ class DataplaneService(
   override suspend fun injectPacket(request: InjectPacketRequest): InjectPacketResponse {
     val (enrichedResult, _) = processAndEnrich(request, "InjectPacket")
     return InjectPacketResponse.newBuilder()
-      .addAllPossibleOutcomes(enrichedResult.possibleOutcomes)
-      .setTrace(enrichedResult.trace)
+      .addAllPossibleOutcomes(enrichedResult.proto.possibleOutcomesList)
+      .setTrace(enrichedResult.proto.trace)
       .build()
   }
 
@@ -82,32 +82,16 @@ class DataplaneService(
           enrichedResult.registerSeedDependencies,
         )
       )
-      .setResult(enrichedResult.toProcessPacketResult())
+      .setResult(enrichedResult.proto)
       .build()
   }
 
   private class EnrichedResult(
-    val ingressPort: Int,
-    val payload: ByteArray,
-    val tag: Long,
     val rawTrace: TraceTree,
     val forwardingSnapshot: TableStore.ForwardingSnapshot,
     val registerSeedDependencies: List<RegisterSeedDependency>,
-    val trace: TraceTree,
-    val possibleOutcomes: List<PacketSet>,
-  ) {
-    fun toProcessPacketResult(): ProcessPacketResultProto =
-      ProcessPacketResultProto.newBuilder()
-        .setInputPacket(
-          InputPacket.newBuilder()
-            .setDataplaneIngressPort(ingressPort)
-            .setPayload(ByteString.copyFrom(payload))
-            .setTag(tag)
-        )
-        .setTrace(trace)
-        .addAllPossibleOutcomes(possibleOutcomes)
-        .build()
-  }
+    val proto: ProcessPacketResultProto,
+  )
 
   private suspend fun processAndEnrich(
     request: InjectPacketRequest,
@@ -122,22 +106,20 @@ class DataplaneService(
     @Suppress("TooGenericExceptionCaught")
     try {
       val result = broker.processPacket(ingressPort, payload, request.tag)
-      val codec = pipeline?.packetHeaderCodec
       val enrichedResult =
         EnrichedResult(
-          ingressPort = ingressPort,
-          payload = payload,
-          tag = request.tag,
           rawTrace = result.trace,
           forwardingSnapshot = result.forwardingSnapshot,
           registerSeedDependencies = result.registerSeedDependencies,
-          trace = enrichTrace(result.trace, translator),
-          possibleOutcomes =
-            result.possibleOutcomes.map { world ->
-              PacketSet.newBuilder()
-                .addAllPackets(world.map { it.toDualEncoded(translator, codec, ingressPort) })
-                .build()
-            },
+          proto =
+            enrichResult(
+              ingressPort,
+              payload,
+              request.tag,
+              result.possibleOutcomes,
+              result.trace,
+              pipeline,
+            ),
         )
       return enrichedResult to pipeline
     } catch (e: StatusException) {
@@ -175,38 +157,18 @@ class DataplaneService(
       val handle =
         broker.subscribe { subResult ->
           try {
-            val snapshot = pipelineSnapshot()
-            val translator = snapshot?.typeTranslator
-            val pt = translator?.portTranslator
-            val codec = snapshot?.packetHeaderCodec
             val result =
-              ProcessPacketResultProto.newBuilder()
-                .setInputPacket(
-                  InputPacket.newBuilder()
-                    .setDataplaneIngressPort(subResult.ingressPort)
-                    .apply {
-                      // Ingress ports may come from InjectPacket.dataplane_ingress_port (raw int,
-                      // never forward-allocated), so a missing reverse mapping is expected.
-                      pt?.dataplaneToP4rt(subResult.ingressPort)?.let { setP4RtIngressPort(it) }
-                    }
-                    .setPayload(ByteString.copyFrom(subResult.packet.copySemanticBytes()))
-                    .setTag(subResult.tag)
-                )
-                .addAllPossibleOutcomes(
-                  subResult.possibleOutcomes.map { world ->
-                    PacketSet.newBuilder()
-                      .addAllPackets(
-                        world.map { it.toDualEncoded(translator, codec, subResult.ingressPort) }
-                      )
-                      .build()
-                  }
-                )
-                .setTrace(enrichTrace(subResult.trace, translator))
-                .build()
-            val response = SubscribeResultsResponse.newBuilder().setResult(result).build()
+              enrichResult(
+                subResult.ingressPort,
+                subResult.packet.copySemanticBytes(),
+                subResult.tag,
+                subResult.possibleOutcomes,
+                subResult.trace,
+                pipelineSnapshot(),
+              )
             // Packet processing waits here when the gRPC subscriber is slow: SubscribeResults is
             // the lossless result channel for batch InjectPackets callers.
-            send(response)
+            send(SubscribeResultsResponse.newBuilder().setResult(result).build())
           } catch (
             @Suppress("TooGenericExceptionCaught") // Any translation/encoding failure should
             e: Exception // terminate this subscription stream, not crash the packet sender.
@@ -296,6 +258,36 @@ private fun missingPortTranslation(
         "Alternatively, use dataplane_ingress_port (numeric) to bypass P4Runtime port translation."
     )
     .asException()
+}
+
+private fun enrichResult(
+  ingressPort: Int,
+  payload: ByteArray,
+  tag: Long,
+  possibleOutcomes: List<List<OutputPacket>>,
+  trace: TraceTree,
+  snapshot: DataplaneService.PipelineSnapshot?,
+): ProcessPacketResultProto {
+  val translator = snapshot?.typeTranslator
+  val pt = translator?.portTranslator
+  val codec = snapshot?.packetHeaderCodec
+  return ProcessPacketResultProto.newBuilder()
+    .setInputPacket(
+      InputPacket.newBuilder()
+        .setDataplaneIngressPort(ingressPort)
+        .apply { pt?.dataplaneToP4rt(ingressPort)?.let { setP4RtIngressPort(it) } }
+        .setPayload(ByteString.copyFrom(payload))
+        .setTag(tag)
+    )
+    .addAllPossibleOutcomes(
+      possibleOutcomes.map { world ->
+        PacketSet.newBuilder()
+          .addAllPackets(world.map { it.toDualEncoded(translator, codec, ingressPort) })
+          .build()
+      }
+    )
+    .setTrace(enrichTrace(trace, translator))
+    .build()
 }
 
 private fun enrichTrace(trace: TraceTree, translator: TypeTranslator?): TraceTree =
