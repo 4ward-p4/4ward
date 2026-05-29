@@ -34,6 +34,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
+import p4.config.v1.P4Types
 
 class DataplaneServiceTest {
 
@@ -433,6 +434,99 @@ class DataplaneServiceTest {
 
   // Positive dual-encoding tests (P4RT port injection and response population) are in
   // SaiP4E2ETest, which uses a program with @controller_header and @p4runtime_translation.
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `toDualEncoded crashes when egress port has no P4RT mapping`() {
+    val baseConfig =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      @controller_header("packet_out")
+      header packet_out_t { bit<9> egress_port; }
+
+      @controller_header("packet_in")
+      header packet_in_t { bit<9> ingress_port; bit<9> target_egress_port; }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { packet_out_t pkt_out; packet_in_t pkt_in; ethernet_t eth; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start { pkt.extract(hdr.eth); transition accept; }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = 510; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply {
+          h.pkt_in.setValid();
+          h.pkt_in.ingress_port = sm.ingress_port;
+          h.pkt_in.target_egress_port = sm.egress_spec;
+        }
+      }
+      control D(packet_out pkt, in headers_t h) {
+        apply { pkt.emit(h.pkt_in); pkt.emit(h.eth); }
+      }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    // Inject port translation: pretend the port type has @p4runtime_translation.
+    // This creates a PortTranslator with an empty translation table —
+    // dataplaneToP4rt(510) returns null, and toDualEncoded throws IllegalStateException.
+    val config =
+      baseConfig
+        .toBuilder()
+        .setDevice(
+          baseConfig.device
+            .toBuilder()
+            .setBehavioral(
+              baseConfig.device.behavioral
+                .toBuilder()
+                .setArchitecture(
+                  baseConfig.device.behavioral.architecture.toBuilder().setPortTypeName("port_id_t")
+                )
+            )
+        )
+        .setP4Info(
+          baseConfig.p4Info
+            .toBuilder()
+            .setTypeInfo(
+              P4Types.P4TypeInfo.newBuilder()
+                .putNewTypes(
+                  "port_id_t",
+                  P4Types.P4NewTypeSpec.newBuilder()
+                    .setTranslatedType(
+                      P4Types.P4NewTypeTranslation.newBuilder()
+                        .setUri("")
+                        .setSdnString(P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance())
+                    )
+                    .build(),
+                )
+            )
+        )
+        .build()
+
+    val testHarness = FourwardTestHarness()
+    testHarness.use {
+      it.loadPipeline(config)
+      val payload = buildEthernetFrame(etherType = 0x0800)
+      val response = it.injectPacket(ingressPort = 0, payload = payload)
+
+      val output = response.possibleOutcomesList.single().getPackets(0)
+      assertEquals("should egress on CPU port", 510, output.dataplaneEgressPort)
+      assertTrue(
+        "p4rt_egress_port should be empty (no mapping for CPU port)",
+        output.p4RtEgressPort.isEmpty,
+      )
+      assertTrue("should have packet_in enrichment", output.hasPacketIn())
+    }
+  }
 
   // =========================================================================
   // PacketIn enrichment
