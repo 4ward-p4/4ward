@@ -6,6 +6,10 @@
 
 #include <memory>
 #include <string>
+#include <thread>  // NOLINT(build/c++11)
+
+#include "absl/base/thread_annotations.h"
+#include "absl/synchronization/mutex.h"
 
 namespace fourward {
 
@@ -30,9 +34,15 @@ class OutputCapture {
   std::string CapturedOutput() const;
 
  private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
-  explicit OutputCapture(std::unique_ptr<Impl> impl);
+  OutputCapture(int pipe_read_fd, int tee_fd);
+
+  void ReadLoop();
+
+  const int pipe_read_fd_;
+  const int tee_fd_;
+  std::thread thread_;
+  mutable absl::Mutex mu_;
+  std::string buffer_ ABSL_GUARDED_BY(mu_);
 };
 
 }  // namespace fourward
