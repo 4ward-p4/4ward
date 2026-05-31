@@ -193,13 +193,32 @@ private fun deriveExplicitDirectResourceActions(
 private fun ActionDecl.p4RuntimeNames(): List<String> =
   listOf(name, currentName).filter { it.isNotEmpty() }
 
-private fun directResourceInstanceNames(preamble: P4InfoOuterClass.Preamble): Set<String> =
-  buildSet {
-    for (name in listOf(preamble.name, preamble.alias)) {
-      if (name.isEmpty()) continue
-      add(name)
-      add(name.replace('.', '_'))
-      add(name.substringAfterLast('.'))
+// Generates all name variants under which an action body might reference this
+// direct resource. p4info uses dot-separated fully-qualified names
+// ("ingress.ctrl.counter"); the IR uses midend-qualified names that may not
+// match any simple normalization of the p4info name ("ctrl_ctrl_counter").
+// Including matching IR instance names closes the gap.
+private fun directResourceInstanceNames(
+  preamble: P4InfoOuterClass.Preamble,
+  irInstanceNames: List<String>?,
+): Set<String> = buildSet {
+  val p4infoNames = mutableSetOf<String>()
+  for (name in listOf(preamble.name, preamble.alias)) {
+    if (name.isEmpty()) continue
+    add(name)
+    p4infoNames.add(name)
+    add(name.replace('.', '_'))
+    p4infoNames.add(name.replace('.', '_'))
+    add(name.substringAfterLast('.'))
+    p4infoNames.add(name.substringAfterLast('.'))
+  }
+  // Match IR instance names whose suffix (after a '_' word boundary) matches
+  // a p4info-derived variant. This handles midend control-block qualification
+  // like "ctrl_ctrl_counter" where the p4info alias is "ctrl_counter".
+  irInstanceNames?.forEach { irName ->
+    if (irName in p4infoNames) return@forEach
+    if (p4infoNames.any { variant -> irName.endsWith("_$variant") }) {
+      add(irName)
     }
   }
 
