@@ -162,7 +162,6 @@ private fun validateInlineDirectResourceWrite(
   directMeterTables: Set<String>,
   context: DirectResourceActionValidationContext,
 ): WriteResult? {
-  if (updateType == Update.Type.DELETE) return null
   val rawEntry = write.rawEntry
   if (rawEntry.hasCounterData() && tableName !in directCounterTables) {
     return WriteResult.InvalidArgument(
@@ -174,6 +173,8 @@ private fun validateInlineDirectResourceWrite(
       "table '$tableName' has no direct meter, but TableEntry contained meter_config"
     )
   }
+  // DELETE matches by key, but inline direct-resource fields still have to be valid for the table.
+  if (updateType == Update.Type.DELETE) return null
   if (
     (rawEntry.hasCounterData() || rawEntry.hasMeterConfig()) &&
       write.effectiveEntryForValidation?.action?.typeCase ==

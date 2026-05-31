@@ -7,6 +7,7 @@ import fourward.grpc.FourwardTestHarness.Companion.assertGrpcError
 import fourward.grpc.FourwardTestHarness.Companion.buildExactEntry
 import io.grpc.Status
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import p4.v1.P4RuntimeOuterClass.CounterData
@@ -104,9 +105,9 @@ class P4RuntimeWriteErrorTest {
     assertGrpcError(Status.Code.NOT_FOUND) { harness.deleteEntry(entry) }
   }
 
-  // P4Runtime spec §12: DELETE ignores non-key fields, including counter_data.
+  // P4Runtime spec §9.1: counter_data is only valid for tables with a direct counter.
   @Test
-  fun `delete with counter data on table without direct counter succeeds`() {
+  fun `delete with counter data on table without direct counter returns INVALID_ARGUMENT`() {
     val config = loadBasicTableConfig()
     harness.loadPipeline(config)
     val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
@@ -121,12 +122,15 @@ class P4RuntimeWriteErrorTest {
         )
         .build()
 
-    harness.deleteEntry(deleteEntry)
+    assertGrpcError(Status.Code.INVALID_ARGUMENT, "has no direct counter") {
+      harness.deleteEntry(deleteEntry)
+    }
+    assertEquals(1, harness.readEntry(entry).size)
   }
 
-  // P4Runtime spec §12: DELETE ignores non-key fields, including meter_config.
+  // P4Runtime spec §9.1: meter_config is only valid for tables with a direct meter.
   @Test
-  fun `delete with meter config on table without direct meter succeeds`() {
+  fun `delete with meter config on table without direct meter returns INVALID_ARGUMENT`() {
     val config = loadBasicTableConfig()
     harness.loadPipeline(config)
     val entry = buildExactEntry(config, matchValue = 0x0800, port = 1)
@@ -141,7 +145,10 @@ class P4RuntimeWriteErrorTest {
         )
         .build()
 
-    harness.deleteEntry(deleteEntry)
+    assertGrpcError(Status.Code.INVALID_ARGUMENT, "has no direct meter") {
+      harness.deleteEntry(deleteEntry)
+    }
+    assertEquals(1, harness.readEntry(entry).size)
   }
 
   // =========================================================================

@@ -6,8 +6,8 @@ import fourward.Architecture
 import fourward.BehavioralConfig
 import fourward.ControlDecl
 import fourward.DeviceConfig
-import fourward.ExternInstanceDecl
 import fourward.Expr
+import fourward.ExternInstanceDecl
 import fourward.MethodCall
 import fourward.MethodCallStmt
 import fourward.NameRef
@@ -163,19 +163,37 @@ class DirectResourceUsageTest {
   }
 
   @Test
-  fun `DELETE ignores counter data on table without direct counter`() {
+  fun `DELETE rejects counter data on table without direct counter`() {
     val store = TableStore()
     store.loadMappings(
       p4info = p4infoWithoutDirectResources(),
       device = deviceWithDirectCounterAction(),
     )
-    assertEquals(WriteResult.Success, store.writeAndPublish(insertUpdate(exactEntry(ACTION_20_ID))))
+    val inserted = insertUpdate(exactEntry(ACTION_20_ID))
+    assertEquals(WriteResult.Success, store.writeAndPublish(inserted))
     val delete = withCounterData(exactEntryBuilder().build())
 
     val result = store.writeAndPublish(deleteUpdate(delete))
 
-    assertEquals(WriteResult.Success, result)
-    assertTrue(store.getTableEntries(TABLE_NAME).isEmpty())
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertEquals(1, store.getTableEntries(TABLE_NAME).size)
+  }
+
+  @Test
+  fun `DELETE rejects meter config on table without direct meter`() {
+    val store = TableStore()
+    store.loadMappings(
+      p4info = p4infoWithoutDirectResources(),
+      device = deviceWithDirectMeterAction(),
+    )
+    val inserted = insertUpdate(exactEntry(ACTION_20_ID))
+    assertEquals(WriteResult.Success, store.writeAndPublish(inserted))
+    val delete = withMeterConfig(exactEntryBuilder().build())
+
+    val result = store.writeAndPublish(deleteUpdate(delete))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertEquals(1, store.getTableEntries(TABLE_NAME).size)
   }
 
   @Test
@@ -391,7 +409,7 @@ class DirectResourceUsageTest {
             .setFieldId(FIELD_ID)
             .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(1))))
         )
-        .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(ACTION_10_ID)))
+        .setAction(tableAction(ACTION_10_ID))
         .setCounterData(P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(1))
         .build()
     assertEquals(WriteResult.Success, store.writeAndPublish(insertUpdate(entryA)))
@@ -404,7 +422,7 @@ class DirectResourceUsageTest {
             .setFieldId(FIELD_ID)
             .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(2))))
         )
-        .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(ACTION_20_ID)))
+        .setAction(tableAction(ACTION_20_ID))
         .setCounterData(P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(1))
         .build()
     val result = store.writeAndPublish(insertUpdate(entryA2))
@@ -415,9 +433,7 @@ class DirectResourceUsageTest {
     write(update).also { publishSnapshot() }
 
   private fun exactEntry(actionId: Int): TableEntry =
-    exactEntryBuilder()
-      .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
-      .build()
+    exactEntryBuilder().setAction(tableAction(actionId)).build()
 
   private fun exactMemberEntry(memberId: Int): TableEntry =
     exactEntryBuilder()
@@ -426,6 +442,9 @@ class DirectResourceUsageTest {
 
   private fun exactGroupEntry(groupId: Int): TableEntry =
     exactEntryBuilder().setAction(TableAction.newBuilder().setActionProfileGroupId(groupId)).build()
+
+  private fun tableAction(actionId: Int): TableAction.Builder =
+    TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId))
 
   private fun exactOneShotEntry(vararg actionIds: Int): TableEntry =
     exactEntryBuilder()
@@ -448,9 +467,7 @@ class DirectResourceUsageTest {
   private fun defaultEntry(actionId: Int? = null): TableEntry {
     val builder = TableEntry.newBuilder().setTableId(TABLE_ID).setIsDefaultAction(true)
     if (actionId != null) {
-      builder.setAction(
-        TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId))
-      )
+      builder.setAction(tableAction(actionId))
     }
     return builder.build()
   }
@@ -537,9 +554,7 @@ class DirectResourceUsageTest {
       )
       .build()
 
-  private fun deviceWithDirectCounterAction(
-    counterInstanceName: String = "dc",
-  ): DeviceConfig =
+  private fun deviceWithDirectCounterAction(counterInstanceName: String = "dc"): DeviceConfig =
     DeviceConfig.newBuilder()
       .setBehavioral(
         BehavioralConfig.newBuilder()
