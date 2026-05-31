@@ -38,9 +38,11 @@ guilt — just write it down so someone can find it later.
   without a body (e.g. `extern void f(out bit<32> d, bit<32> s)`) cannot be
   executed — their semantics exist only in architecture-specific libraries.
   Blocks 1 corpus test (`extern-funcs-bmv2`).
-- **Meters always return GREEN.** `meter.execute_meter()` and
-  `direct_meter.read()` always return GREEN (0). Rate limiting is not
-  simulated — there are no real packet rates in STF tests.
+- **Meters always return GREEN by design.** `meter.execute_meter()` and
+  `direct_meter.read()` always return GREEN (0). P4Runtime meter configs can be
+  written and read back, but token buckets, refill timing, and rate-based color
+  transitions are permanently out of scope: 4ward is a deterministic packet
+  simulator with no wall-clock traffic-rate model.
 - **`digest` is a no-op stub.** PSA `Digest.pack()` is accepted but doesn't
   deliver messages to the control plane. v1model `digest()` is not
   implemented and will crash at runtime.
@@ -75,10 +77,9 @@ guilt — just write it down so someone can find it later.
   to forward-allocate mappings, and provide explicit `TypeTranslation` entries
   for architecture-defined ports (like the CPU port) that auto-allocation
   cannot assign correctly.
-- **Direct meters always return GREEN.** Direct meter configs can be
-  written and read via P4Runtime, but the simulator does not perform
-  real rate limiting — `direct_meter.read()` always returns the default
-  color (GREEN).
+- **Direct meters always return GREEN by design.** Direct meter configs can be
+  written and read via P4Runtime, but `direct_meter.read()` does not consume or
+  refill buckets. It always returns the default color (GREEN).
 - **No digests or idle timeouts (by design).** Both are inherently
   time-dependent features that have no meaningful semantics in a reference
   simulator: there are no real packet rates to trigger digests, and no

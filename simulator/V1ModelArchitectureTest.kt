@@ -33,6 +33,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import p4.config.v1.P4InfoOuterClass
 import p4.v1.P4RuntimeOuterClass
 
 /**
@@ -151,6 +152,29 @@ class V1ModelArchitectureTest {
                       )
                       .setType(bitType(width))
                   )
+                  .setRight(
+                    Expr.newBuilder()
+                      .setLiteral(Literal.newBuilder().setInteger(value))
+                      .setType(bitType(width))
+                  )
+              )
+              .setType(Type.newBuilder().setBoolean(true))
+          )
+          .setThenBlock(BlockStmt.newBuilder().addStmts(body))
+      )
+      .build()
+
+  /** Wraps [body] in `if (name == value) { body }`. */
+  private fun ifNameEquals(name: String, value: Long, width: Int, body: Stmt): Stmt =
+    Stmt.newBuilder()
+      .setIfStmt(
+        IfStmt.newBuilder()
+          .setCondition(
+            Expr.newBuilder()
+              .setBinaryOp(
+                BinaryOp.newBuilder()
+                  .setOp(BinaryOperator.EQ)
+                  .setLeft(nameRef(name, bitType(width)))
                   .setRight(
                     Expr.newBuilder()
                       .setLiteral(Literal.newBuilder().setInteger(value))
@@ -581,6 +605,66 @@ class V1ModelArchitectureTest {
           ),
       )
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(1, outputs.size)
+    assertEquals(5, outputs[0].dataplaneEgressPort)
+  }
+
+  @Test
+  fun `execute_meter returns GREEN even when meter config is present`() {
+    val config =
+      v1modelConfig(
+        ingressLocalVars =
+          listOf(VarDecl.newBuilder().setName("color").setType(bitType(8)).build()),
+        ingressStmts =
+          listOf(
+            methodCallStmt(
+              "my_meter",
+              "execute_meter",
+              bit(0, 32),
+              nameRef("color", bitType(8)),
+              targetType = namedType("meter"),
+            ),
+            ifNameEquals(
+              "color",
+              0,
+              8,
+              assignField("sm", "egress_spec", 5, V1ModelArchitecture.DEFAULT_PORT_BITS),
+            ),
+          ),
+      )
+    val tableStore = TableStore()
+    tableStore.loadMappings(
+      p4info =
+        P4InfoOuterClass.P4Info.newBuilder()
+          .addMeters(
+            P4InfoOuterClass.Meter.newBuilder()
+              .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(1).setName("my_meter"))
+              .setSize(1)
+          )
+          .build()
+    )
+    assertEquals(
+      WriteResult.Success,
+      tableStore.write(
+        P4RuntimeOuterClass.Update.newBuilder()
+          .setType(P4RuntimeOuterClass.Update.Type.MODIFY)
+          .setEntity(
+            P4RuntimeOuterClass.Entity.newBuilder()
+              .setMeterEntry(
+                P4RuntimeOuterClass.MeterEntry.newBuilder()
+                  .setMeterId(1)
+                  .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(0))
+                  .setConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(1).setPir(1))
+              )
+          )
+          .build()
+      ),
+    )
+    tableStore.publishSnapshot()
+
+    val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(1, outputs.size)
