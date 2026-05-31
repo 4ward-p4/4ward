@@ -1137,6 +1137,39 @@ class P4RuntimeConformanceTest {
     assertGrpcError(Status.Code.INVALID_ARGUMENT) { harness.installEntry(directCounterEntity) }
   }
 
+  /** P4Runtime spec §9.3.1: DirectCounterEntry can modify the default entry's counter. */
+  @Test
+  fun `54a - write default direct counter entry and read it back`() {
+    val config = loadConfigWithDirectCounter()
+    harness.loadPipeline(config)
+    val tableId = config.p4Info.tablesList.first().preamble.id
+    val dropActionId =
+      config.p4Info.actionsList.first { it.preamble.name.contains("drop") }.preamble.id
+    harness.modifyEntry(FourwardTestHarness.buildDefaultActionEntity(tableId, dropActionId))
+
+    val directCounterEntity =
+      Entity.newBuilder()
+        .setDirectCounterEntry(
+          P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+            .setTableEntry(defaultDirectExternTableEntry(tableId, dropActionId))
+            .setData(
+              P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(42).setByteCount(1000)
+            )
+        )
+        .build()
+    harness.modifyEntry(directCounterEntity)
+
+    val directRead = readDefaultDirectCounterEntry(tableId)
+    assertEquals(1, directRead.size)
+    assertEquals(42, directRead[0].directCounterEntry.data.packetCount)
+    assertEquals(1000, directRead[0].directCounterEntry.data.byteCount)
+
+    val tableRead = harness.readDefaultEntries(tableId)
+    assertEquals(1, tableRead.size)
+    assertEquals(42, tableRead[0].tableEntry.counterData.packetCount)
+    assertEquals(1000, tableRead[0].tableEntry.counterData.byteCount)
+  }
+
   // =========================================================================
   // Direct meter entries (scenarios 55-57)
   // =========================================================================
@@ -1219,6 +1252,47 @@ class P4RuntimeConformanceTest {
         )
         .build()
     assertGrpcError(Status.Code.INVALID_ARGUMENT) { harness.installEntry(directMeterEntity) }
+  }
+
+  /** P4Runtime spec §9.4.1: DirectMeterEntry can modify the default entry's meter config. */
+  @Test
+  fun `57a - write default direct meter entry and read it back`() {
+    val config = loadConfigWithDirectMeter()
+    harness.loadPipeline(config)
+    val tableId = config.p4Info.tablesList.first().preamble.id
+    val dropActionId =
+      config.p4Info.actionsList.first { it.preamble.name.contains("drop") }.preamble.id
+    harness.modifyEntry(FourwardTestHarness.buildDefaultActionEntity(tableId, dropActionId))
+
+    val directMeterEntity =
+      Entity.newBuilder()
+        .setDirectMeterEntry(
+          P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+            .setTableEntry(defaultDirectExternTableEntry(tableId, dropActionId))
+            .setConfig(
+              P4RuntimeOuterClass.MeterConfig.newBuilder()
+                .setCir(1000)
+                .setCburst(500)
+                .setPir(2000)
+                .setPburst(1000)
+            )
+        )
+        .build()
+    harness.modifyEntry(directMeterEntity)
+
+    val directRead = readDefaultDirectMeterEntry(tableId)
+    assertEquals(1, directRead.size)
+    assertEquals(1000, directRead[0].directMeterEntry.config.cir)
+    assertEquals(500, directRead[0].directMeterEntry.config.cburst)
+    assertEquals(2000, directRead[0].directMeterEntry.config.pir)
+    assertEquals(1000, directRead[0].directMeterEntry.config.pburst)
+
+    val tableRead = harness.readDefaultEntries(tableId)
+    assertEquals(1, tableRead.size)
+    assertEquals(1000, tableRead[0].tableEntry.meterConfig.cir)
+    assertEquals(500, tableRead[0].tableEntry.meterConfig.cburst)
+    assertEquals(2000, tableRead[0].tableEntry.meterConfig.pir)
+    assertEquals(1000, tableRead[0].tableEntry.meterConfig.pburst)
   }
 
   // =========================================================================
@@ -2741,6 +2815,55 @@ class P4RuntimeConformanceTest {
 
   private fun buildReadFilter(config: PipelineConfig, matchValue: Long): Entity =
     FourwardTestHarness.buildMatchFilter(config, matchValue)
+
+  private fun defaultDirectExternTableEntry(
+    tableId: Int,
+    actionId: Int,
+  ): P4RuntimeOuterClass.TableEntry =
+    P4RuntimeOuterClass.TableEntry.newBuilder()
+      .setTableId(tableId)
+      .setIsDefaultAction(true)
+      .setAction(
+        P4RuntimeOuterClass.TableAction.newBuilder()
+          .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId))
+      )
+      .build()
+
+  private fun readDefaultDirectCounterEntry(tableId: Int): List<Entity> =
+    harness.readEntries(
+      ReadRequest.newBuilder()
+        .setDeviceId(1)
+        .addEntities(
+          Entity.newBuilder()
+            .setDirectCounterEntry(
+              P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+                .setTableEntry(
+                  P4RuntimeOuterClass.TableEntry.newBuilder()
+                    .setTableId(tableId)
+                    .setIsDefaultAction(true)
+                )
+            )
+        )
+        .build()
+    )
+
+  private fun readDefaultDirectMeterEntry(tableId: Int): List<Entity> =
+    harness.readEntries(
+      ReadRequest.newBuilder()
+        .setDeviceId(1)
+        .addEntities(
+          Entity.newBuilder()
+            .setDirectMeterEntry(
+              P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+                .setTableEntry(
+                  P4RuntimeOuterClass.TableEntry.newBuilder()
+                    .setTableId(tableId)
+                    .setIsDefaultAction(true)
+                )
+            )
+        )
+        .build()
+    )
 
   /** Sends a raw SetForwardingPipelineConfig — bypasses the harness to test validation paths. */
   private fun loadRawPipeline(config: ForwardingPipelineConfig.Builder) = runBlocking {
