@@ -4879,8 +4879,8 @@ DA:86,1
 DA:87,1
 DA:88,1
 DA:89,1
-DA:93,0
-DA:94,0
+DA:93,1
+DA:94,1
 DA:97,0
 DA:108,1
 DA:109,1
@@ -4983,7 +4983,7 @@ DA:273,0
 DA:275,1
 DA:277,1
 DA:278,1
-LH:136
+LH:138
 LF:151
 end_of_record
 SF:simulator/Environment.kt
