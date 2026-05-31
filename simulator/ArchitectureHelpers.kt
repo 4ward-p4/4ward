@@ -8,10 +8,21 @@ import fourward.PipelineStageEvent
 import fourward.TraceTree
 import fourward.TypeDecl
 import java.math.BigInteger
+import java.util.concurrent.ThreadLocalRandom
 import p4.v1.P4RuntimeOuterClass
 
 /** Simplified parameter descriptor: just name and type. */
 internal data class BlockParam(val name: String, val typeName: String)
+
+internal fun randomInInclusiveRange(lo: BigInteger, hi: BigInteger): BigInteger {
+  if (hi <= lo) return lo
+  val rangeSize = hi - lo + BigInteger.ONE
+  var offset: BigInteger
+  do {
+    offset = BigInteger(rangeSize.bitLength(), ThreadLocalRandom.current())
+  } while (offset >= rangeSize)
+  return lo + offset
+}
 
 /**
  * Reads the egress port from a [P4RuntimeOuterClass.Replica], supporting both `port` (bytes,
@@ -221,8 +232,12 @@ internal fun handleCommonExternMethod(
           val instance = externInstances[call.instanceName]
           val lo = instance?.constructorArgsList?.getOrNull(0)?.literal?.integer ?: 0L
           val hi = instance?.constructorArgsList?.getOrNull(1)?.literal?.integer ?: 0L
-          val value = if (hi > lo) kotlin.random.Random.nextLong(lo, hi + 1) else lo
-          BitVal(BitVector(BigInteger.valueOf(value), eval.returnType().bit.width))
+          BitVal(
+            BitVector(
+              randomInInclusiveRange(BigInteger.valueOf(lo), BigInteger.valueOf(hi)),
+              eval.returnType().bit.width,
+            )
+          )
         }
         else -> null
       }

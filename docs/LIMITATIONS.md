@@ -49,9 +49,6 @@ guilt — just write it down so someone can find it later.
 
 ## v1model gaps
 
-- **`random()` not implemented.** The v1model free-function form
-  `random(out bit<32> result, in bit<32> lo, in bit<32> hi)` is not
-  handled and will crash at runtime. (PSA/PNA `Random.read()` works.)
 - **`standard_metadata` queue depth fields are always zero.**
   `enq_qdepth`, `deq_qdepth`, and `deq_timedelta` are never populated.
   The simulator has no traffic manager queue model, so these fields stay

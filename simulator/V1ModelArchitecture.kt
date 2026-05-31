@@ -41,23 +41,20 @@ import java.math.BigInteger
  * Evaluates an extern argument as an Int, handling both sized (BitVal) and unsized (InfIntVal)
  * integer literals. p4c sometimes emits unsized literals for field list IDs.
  */
-private fun evalIntArg(eval: ExternEvaluator, index: Int): Int =
-  when (val arg = eval.evalArg(index)) {
-    is BitVal -> arg.bits.value.toInt()
-    is InfIntVal -> arg.value.toInt()
-    else -> error("expected integer argument at index $index, got: $arg")
-  }
+private fun evalIntArg(eval: ExternEvaluator, index: Int): Int = evalIntegerArg(eval, index).toInt()
 
 private fun evalPacketLengthArg(eval: ExternEvaluator, index: Int): Int {
-  val value =
-    when (val arg = eval.evalArg(index)) {
-      is BitVal -> arg.bits.value
-      is InfIntVal -> arg.value
-      else -> error("expected integer argument at index $index, got: $arg")
-    }
+  val value = evalIntegerArg(eval, index)
   require(value >= BigInteger.ZERO) { "packet length must be non-negative, got: $value" }
   return if (value > BigInteger.valueOf(Int.MAX_VALUE.toLong())) Int.MAX_VALUE else value.toInt()
 }
+
+private fun evalIntegerArg(eval: ExternEvaluator, index: Int): BigInteger =
+  when (val arg = eval.evalArg(index)) {
+    is BitVal -> arg.bits.value
+    is InfIntVal -> arg.value
+    else -> error("expected integer argument at index $index, got: $arg")
+  }
 
 /**
  * Benchmark-only knob for measuring the scaling impact of intra-packet parallelism. Not a public
@@ -1159,6 +1156,14 @@ class V1ModelArchitecture(
         val result = if (max > BigInteger.ZERO) base + hashVal.mod(max) else base
         val resultWidth = eval.argType(0).bit.width
         eval.writeOutArg(0, BitVal(BitVector(result, resultWidth)))
+        UnitVal
+      }
+      // random(out result, in lo, in hi): inclusive uniform random value in [lo, hi].
+      "random" -> {
+        val lo = evalIntegerArg(eval, 1)
+        val hi = evalIntegerArg(eval, 2)
+        val resultWidth = eval.argType(0).bit.width
+        eval.writeOutArg(0, BitVal(BitVector(randomInInclusiveRange(lo, hi), resultWidth)))
         UnitVal
       }
       // log_msg(msg) / log_msg(msg, data): debug output with {} placeholders.

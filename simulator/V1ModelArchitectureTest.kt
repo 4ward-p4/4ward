@@ -672,6 +672,30 @@ class V1ModelArchitectureTest {
   }
 
   @Test
+  fun `random writes inclusive random value to out parameter`() {
+    val config =
+      v1modelConfig(
+        ingressLocalVars =
+          listOf(VarDecl.newBuilder().setName("value").setType(bitType(8)).build()),
+        ingressStmts =
+          listOf(
+            externCall("random", nameRef("value", bitType(8)), bit(7, 8), bit(7, 8)),
+            ifNameEquals(
+              "value",
+              7,
+              8,
+              assignField("sm", "egress_spec", 5, V1ModelArchitecture.DEFAULT_PORT_BITS),
+            ),
+          ),
+      )
+    val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(1, outputs.size)
+    assertEquals(5, outputs[0].dataplaneEgressPort)
+  }
+
+  @Test
   fun `multicast fork trace tree has fork node`() {
     val config = v1modelConfig(assignField("sm", "mcast_grp", 1, 16))
     val tableStore = TableStore()
