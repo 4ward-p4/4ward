@@ -102,7 +102,7 @@ class DirectResourceUsageTest {
   // -------------------------------------------------------------------------
   // v1model + action profile/selector: counters fire implicitly on every hit,
   // so counter_data must be accepted even for actions that don't call count().
-  // Regression tests for https://github.com/4ward/issues/737.
+  // Regression tests for https://github.com/smolkaj/4ward/issues/737.
   // -------------------------------------------------------------------------
 
   @Test
@@ -121,8 +121,11 @@ class DirectResourceUsageTest {
   @Test
   fun `v1model action selector one-shot accepts counter data for action without explicit count`() {
     val store = TableStore()
-    store.loadMappings(p4info = p4infoWithActionSelectorDirectCounter(), device = v1modelDevice())
-    val entry = withCounterData(exactOneShotEntry(ACTION_10_ID, ACTION_20_ID))
+    store.loadMappings(
+      p4info = p4infoWithActionProfileDirectCounter(withSelector = true),
+      device = v1modelDevice(),
+    )
+    val entry = withCounterData(exactOneShotEntry(ACTION_20_ID))
 
     val result = store.writeAndPublish(insertUpdate(entry))
 
@@ -149,13 +152,7 @@ class DirectResourceUsageTest {
     write(update).also { publishSnapshot() }
 
   private fun exactEntry(actionId: Int): TableEntry =
-    TableEntry.newBuilder()
-      .setTableId(TABLE_ID)
-      .addMatch(
-        FieldMatch.newBuilder()
-          .setFieldId(FIELD_ID)
-          .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(10))))
-      )
+    exactEntryBuilder()
       .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
       .build()
 
@@ -324,30 +321,14 @@ class DirectResourceUsageTest {
       )
       .build()
 
-  private fun p4infoWithActionProfileDirectCounter(): P4InfoOuterClass.P4Info =
+  private fun p4infoWithActionProfileDirectCounter(
+    withSelector: Boolean = false
+  ): P4InfoOuterClass.P4Info =
     baseP4InfoBuilder(implementationId = PROFILE_ID)
       .addActionProfiles(
         P4InfoOuterClass.ActionProfile.newBuilder()
           .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(PROFILE_ID))
-      )
-      .addDirectCounters(
-        P4InfoOuterClass.DirectCounter.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder()
-              .setId(DIRECT_COUNTER_ID)
-              .setName("dc")
-              .setAlias("dc")
-          )
-          .setDirectTableId(TABLE_ID)
-      )
-      .build()
-
-  private fun p4infoWithActionSelectorDirectCounter(): P4InfoOuterClass.P4Info =
-    baseP4InfoBuilder(implementationId = PROFILE_ID)
-      .addActionProfiles(
-        P4InfoOuterClass.ActionProfile.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(PROFILE_ID))
-          .setWithSelector(true)
+          .setWithSelector(withSelector)
       )
       .addDirectCounters(
         P4InfoOuterClass.DirectCounter.newBuilder()
