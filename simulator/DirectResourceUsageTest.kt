@@ -4,7 +4,9 @@ import com.google.protobuf.ByteString
 import fourward.ActionDecl
 import fourward.Architecture
 import fourward.BehavioralConfig
+import fourward.ControlDecl
 import fourward.DeviceConfig
+import fourward.ExternInstanceDecl
 import fourward.Expr
 import fourward.MethodCall
 import fourward.MethodCallStmt
@@ -244,6 +246,171 @@ class DirectResourceUsageTest {
     assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
   }
 
+  @Test
+  fun `explicit direct counter matches midend-qualified IR instance name`() {
+    // After p4c midend, a counter declared as "my_counter" inside control
+    // "my_ctrl" may appear in the IR as "my_ctrl_my_counter". The p4info
+    // preamble has name="ingress.my_ctrl.my_counter" and alias="my_counter".
+    // The action body references the IR name, not the p4info name.
+    val store = TableStore()
+    store.loadMappings(
+      p4info =
+        baseP4InfoBuilder()
+          .addDirectCounters(
+            P4InfoOuterClass.DirectCounter.newBuilder()
+              .setPreamble(
+                P4InfoOuterClass.Preamble.newBuilder()
+                  .setId(DIRECT_COUNTER_ID)
+                  .setName("ingress.my_ctrl.my_counter")
+                  .setAlias("my_counter")
+              )
+              .setDirectTableId(TABLE_ID)
+          )
+          .build(),
+      device = deviceWithDirectCounterAction(counterInstanceName = "my_ctrl_my_counter"),
+    )
+    val entry = withCounterData(exactEntry(actionId = ACTION_10_ID))
+
+    val result = store.writeAndPublish(insertUpdate(entry))
+
+    assertEquals(WriteResult.Success, result)
+  }
+
+  @Test
+  fun `explicit direct counter rejects action without count even with qualified names`() {
+    val store = TableStore()
+    store.loadMappings(
+      p4info =
+        baseP4InfoBuilder()
+          .addDirectCounters(
+            P4InfoOuterClass.DirectCounter.newBuilder()
+              .setPreamble(
+                P4InfoOuterClass.Preamble.newBuilder()
+                  .setId(DIRECT_COUNTER_ID)
+                  .setName("ingress.my_ctrl.my_counter")
+                  .setAlias("my_counter")
+              )
+              .setDirectTableId(TABLE_ID)
+          )
+          .build(),
+      device = deviceWithDirectCounterAction(counterInstanceName = "my_ctrl_my_counter"),
+    )
+    val entry = withCounterData(exactEntry(actionId = ACTION_20_ID))
+
+    val result = store.writeAndPublish(insertUpdate(entry))
+
+    assertTrue("expected InvalidArgument, got $result", result is WriteResult.InvalidArgument)
+  }
+
+  @Test
+  fun `suffix match does not cross-contaminate counters on different tables`() {
+    val tableAId = 1
+    val tableBId = 2
+    val store = TableStore()
+    store.loadMappings(
+      p4info =
+        P4InfoOuterClass.P4Info.newBuilder()
+          .addTables(
+            P4InfoOuterClass.Table.newBuilder()
+              .setPreamble(
+                P4InfoOuterClass.Preamble.newBuilder().setId(tableAId).setAlias("tableA")
+              )
+              .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_10_ID))
+              .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_20_ID))
+          )
+          .addTables(
+            P4InfoOuterClass.Table.newBuilder()
+              .setPreamble(
+                P4InfoOuterClass.Preamble.newBuilder().setId(tableBId).setAlias("tableB")
+              )
+              .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_10_ID))
+              .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_20_ID))
+          )
+          .addActions(action(ACTION_10_ID, "action10"))
+          .addActions(action(ACTION_20_ID, "action20"))
+          .addDirectCounters(
+            P4InfoOuterClass.DirectCounter.newBuilder()
+              .setPreamble(
+                P4InfoOuterClass.Preamble.newBuilder()
+                  .setId(801)
+                  .setName("ingress.ctrl.a_counter")
+                  .setAlias("a_counter")
+              )
+              .setDirectTableId(tableAId)
+          )
+          .addDirectCounters(
+            P4InfoOuterClass.DirectCounter.newBuilder()
+              .setPreamble(
+                P4InfoOuterClass.Preamble.newBuilder()
+                  .setId(802)
+                  .setName("ingress.ctrl.b_counter")
+                  .setAlias("b_counter")
+              )
+              .setDirectTableId(tableBId)
+          )
+          .build(),
+      device =
+        DeviceConfig.newBuilder()
+          .setBehavioral(
+            BehavioralConfig.newBuilder()
+              .addTables(TableBehavior.newBuilder().setName("tableA"))
+              .addTables(TableBehavior.newBuilder().setName("tableB"))
+              .addActions(
+                ActionDecl.newBuilder()
+                  .setName("action10")
+                  .addBody(directResourceCall("ctrl_a_counter", "direct_counter", "count"))
+              )
+              .addActions(
+                ActionDecl.newBuilder()
+                  .setName("action20")
+                  .addBody(directResourceCall("ctrl_b_counter", "direct_counter", "count"))
+              )
+              .addControls(
+                ControlDecl.newBuilder()
+                  .setName("ctrl")
+                  .addExternInstances(
+                    ExternInstanceDecl.newBuilder()
+                      .setTypeName("direct_counter")
+                      .setName("ctrl_a_counter")
+                  )
+                  .addExternInstances(
+                    ExternInstanceDecl.newBuilder()
+                      .setTypeName("direct_counter")
+                      .setName("ctrl_b_counter")
+                  )
+              )
+          )
+          .build(),
+    )
+
+    val entryA =
+      TableEntry.newBuilder()
+        .setTableId(tableAId)
+        .addMatch(
+          FieldMatch.newBuilder()
+            .setFieldId(FIELD_ID)
+            .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(1))))
+        )
+        .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(ACTION_10_ID)))
+        .setCounterData(P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(1))
+        .build()
+    assertEquals(WriteResult.Success, store.writeAndPublish(insertUpdate(entryA)))
+
+    val entryA2 =
+      TableEntry.newBuilder()
+        .setTableId(tableAId)
+        .addMatch(
+          FieldMatch.newBuilder()
+            .setFieldId(FIELD_ID)
+            .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(2))))
+        )
+        .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(ACTION_20_ID)))
+        .setCounterData(P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(1))
+        .build()
+    val result = store.writeAndPublish(insertUpdate(entryA2))
+    assertTrue("expected InvalidArgument, got $result", result is WriteResult.InvalidArgument)
+  }
+
   private fun TableStore.writeAndPublish(update: Update): WriteResult =
     write(update).also { publishSnapshot() }
 
@@ -370,7 +537,9 @@ class DirectResourceUsageTest {
       )
       .build()
 
-  private fun deviceWithDirectCounterAction(): DeviceConfig =
+  private fun deviceWithDirectCounterAction(
+    counterInstanceName: String = "dc",
+  ): DeviceConfig =
     DeviceConfig.newBuilder()
       .setBehavioral(
         BehavioralConfig.newBuilder()
@@ -378,9 +547,18 @@ class DirectResourceUsageTest {
           .addActions(
             ActionDecl.newBuilder()
               .setName("action10")
-              .addBody(directResourceCall("dc", "direct_counter", "count"))
+              .addBody(directResourceCall(counterInstanceName, "direct_counter", "count"))
           )
           .addActions(ActionDecl.newBuilder().setName("action20"))
+          .addControls(
+            ControlDecl.newBuilder()
+              .setName("ctrl")
+              .addExternInstances(
+                ExternInstanceDecl.newBuilder()
+                  .setTypeName("direct_counter")
+                  .setName(counterInstanceName)
+              )
+          )
       )
       .build()
 
