@@ -32,17 +32,17 @@
             <td></td>
             <td class="headerItem">Lines:</td>
             <td class="headerCovTableEntryHi">90.1&nbsp;%</td>
-            <td class="headerCovTableEntry">798</td>
-            <td class="headerCovTableEntry">719</td>
+            <td class="headerCovTableEntry">799</td>
+            <td class="headerCovTableEntry">720</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-31 12:38:02</td>
+            <td class="headerValue">2026-05-31 12:45:18</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">96.0&nbsp;%</td>
-            <td class="headerCovTableEntry">99</td>
-            <td class="headerCovTableEntry">95</td>
+            <td class="headerCovTableEntry">100</td>
+            <td class="headerCovTableEntry">96</td>
           </tr>
                   <tr><td><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
                 </table>
@@ -1229,443 +1229,445 @@
 <span id="L1167"><span class="lineNum">    1167</span>              : </span>
 <span id="L1168"><span class="lineNum">    1168</span> <span class="tlaGNC">           1 :         override fun peekRemainingInput(): ByteArray = packet.peekRemainingInput()</span></span>
 <span id="L1169"><span class="lineNum">    1169</span>              : </span>
-<span id="L1170"><span class="lineNum">    1170</span> <span class="tlaGNC">           1 :         override fun lastTableMiss(): TableMissContext? = lastTableMissCtx</span></span>
-<span id="L1171"><span class="lineNum">    1171</span> <span class="tlaGNC">           1 :       }</span></span>
-<span id="L1172"><span class="lineNum">    1172</span>              : </span>
-<span id="L1173"><span class="lineNum">    1173</span>              :     private fun execExternCall(call: MethodCall, env: Environment): Value {</span>
-<span id="L1174"><span class="lineNum">    1174</span> <span class="tlaGNC">           1 :       val funcName = call.target.nameRef.name</span></span>
-<span id="L1175"><span class="lineNum">    1175</span>              : </span>
-<span id="L1176"><span class="lineNum">    1176</span>              :       // verify() is a P4 core language construct (spec §12.8), not an architecture extern.</span>
-<span id="L1177"><span class="lineNum">    1177</span> <span class="tlaGNC">           1 :       if (funcName == &quot;verify&quot;) {</span></span>
-<span id="L1178"><span class="lineNum">    1178</span> <span class="tlaGNC">           1 :         val condition = (evalExpr(call.argsList[0], env) as BoolVal).value</span></span>
-<span id="L1179"><span class="lineNum">    1179</span> <span class="tlaGNC">           1 :         if (!condition) {</span></span>
-<span id="L1180"><span class="lineNum">    1180</span> <span class="tlaGNC">           1 :           val err = (evalExpr(call.argsList[1], env) as ErrorVal).member</span></span>
-<span id="L1181"><span class="lineNum">    1181</span> <span class="tlaGNC">           1 :           throw ParserErrorException(err, &quot;verify failed: $err&quot;)</span></span>
-<span id="L1182"><span class="lineNum">    1182</span>              :         }</span>
-<span id="L1183"><span class="lineNum">    1183</span> <span class="tlaGNC">           1 :         return UnitVal</span></span>
-<span id="L1184"><span class="lineNum">    1184</span>              :       }</span>
-<span id="L1185"><span class="lineNum">    1185</span>              : </span>
-<span id="L1186"><span class="lineNum">    1186</span>              :       // assert(condition) / assume(condition): P4 spec §12.9.</span>
-<span id="L1187"><span class="lineNum">    1187</span>              :       // At runtime, assume behaves identically to assert — the distinction is for</span>
-<span id="L1188"><span class="lineNum">    1188</span>              :       // static analysis tools. On failure, emit a trace event and abort processing.</span>
-<span id="L1189"><span class="lineNum">    1189</span> <span class="tlaGNC">           1 :       if (funcName == &quot;assert&quot; || funcName == &quot;assume&quot;) {</span></span>
-<span id="L1190"><span class="lineNum">    1190</span> <span class="tlaGNC">           1 :         val assertExpr = call.argsList[0]</span></span>
-<span id="L1191"><span class="lineNum">    1191</span> <span class="tlaGNC">           1 :         val condition = (evalExpr(assertExpr, env) as BoolVal).value</span></span>
-<span id="L1192"><span class="lineNum">    1192</span> <span class="tlaGNC">           1 :         packetCtx?.addTraceEvent(</span></span>
-<span id="L1193"><span class="lineNum">    1193</span> <span class="tlaGNC">           1 :           traceEventBuilder()</span></span>
-<span id="L1194"><span class="lineNum">    1194</span> <span class="tlaGNC">           1 :             .setAssertion(AssertionEvent.newBuilder().setPassed(condition))</span></span>
-<span id="L1195"><span class="lineNum">    1195</span> <span class="tlaGNC">           1 :             .putAllVariableValues(collectVariableValues(assertExpr, env))</span></span>
-<span id="L1196"><span class="lineNum">    1196</span> <span class="tlaGNC">           1 :             .setResultValue(condition.toString())</span></span>
-<span id="L1197"><span class="lineNum">    1197</span> <span class="tlaGNC">           1 :             .build()</span></span>
-<span id="L1198"><span class="lineNum">    1198</span>              :         )</span>
-<span id="L1199"><span class="lineNum">    1199</span> <span class="tlaGNC">           1 :         if (!condition) throw AssertionFailureException(&quot;$funcName failed&quot;)</span></span>
-<span id="L1200"><span class="lineNum">    1200</span> <span class="tlaGNC">           1 :         return UnitVal</span></span>
-<span id="L1201"><span class="lineNum">    1201</span>              :       }</span>
-<span id="L1202"><span class="lineNum">    1202</span>              : </span>
-<span id="L1203"><span class="lineNum">    1203</span>              :       // All other externs are architecture-specific — delegate to the handler.</span>
-<span id="L1204"><span class="lineNum">    1204</span> <span class="tlaGNC">           1 :       val handler = externHandler ?: error(&quot;no extern handler for: $funcName&quot;)</span></span>
-<span id="L1205"><span class="lineNum">    1205</span> <span class="tlaGNC">           1 :       return handler.handle(ExternCall.FreeFunction(funcName), createExternEvaluator(call, env))</span></span>
-<span id="L1206"><span class="lineNum">    1206</span>              :     }</span>
-<span id="L1207"><span class="lineNum">    1207</span>              : </span>
-<span id="L1208"><span class="lineNum">    1208</span>              :     /** Whether [expr] is a field access into a header union. */</span>
-<span id="L1209"><span class="lineNum">    1209</span>              :     private fun isUnionFieldAccess(expr: Expr): Boolean =</span>
-<span id="L1210"><span class="lineNum">    1210</span> <span class="tlaGNC">           1 :       expr.hasFieldAccess() &amp;&amp;</span></span>
-<span id="L1211"><span class="lineNum">    1211</span> <span class="tlaGNC">           1 :         expr.fieldAccess.expr.type.let { t -&gt;</span></span>
-<span id="L1212"><span class="lineNum">    1212</span> <span class="tlaGNC">           1 :           t.hasNamed() &amp;&amp; types[t.named]?.hasHeaderUnion() == true</span></span>
-<span id="L1213"><span class="lineNum">    1213</span> <span class="tlaGNC">           1 :         }</span></span>
-<span id="L1214"><span class="lineNum">    1214</span>              : </span>
-<span id="L1215"><span class="lineNum">    1215</span>              :     /** If [expr] is a field access into a header union, enforce one-valid-at-a-time (P4 §8.20). */</span>
-<span id="L1216"><span class="lineNum">    1216</span>              :     private fun invalidateUnionSiblings(expr: Expr, target: HeaderVal, env: Environment) {</span>
-<span id="L1217"><span class="lineNum">    1217</span> <span class="tlaGNC">           1 :       if (!isUnionFieldAccess(expr)) return</span></span>
-<span id="L1218"><span class="lineNum">    1218</span> <span class="tlaGNC">           1 :       val parent = evalExpr(expr.fieldAccess.expr, env) as StructVal</span></span>
-<span id="L1219"><span class="lineNum">    1219</span> <span class="tlaGNC">           1 :       parent.invalidateUnionExcept(target)</span></span>
-<span id="L1220"><span class="lineNum">    1220</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L1221"><span class="lineNum">    1221</span>              : </span>
-<span id="L1222"><span class="lineNum">    1222</span>              :     // -------------------------------------------------------------------------</span>
-<span id="L1223"><span class="lineNum">    1223</span>              :     // Packet extract / emit</span>
+<span id="L1170"><span class="lineNum">    1170</span> <span class="tlaGNC">           1 :         override fun ingressPacketLengthBytes(): Int = packetCtx?.payloadSize ?: 0</span></span>
+<span id="L1171"><span class="lineNum">    1171</span>              : </span>
+<span id="L1172"><span class="lineNum">    1172</span> <span class="tlaGNC">           1 :         override fun lastTableMiss(): TableMissContext? = lastTableMissCtx</span></span>
+<span id="L1173"><span class="lineNum">    1173</span> <span class="tlaGNC">           1 :       }</span></span>
+<span id="L1174"><span class="lineNum">    1174</span>              : </span>
+<span id="L1175"><span class="lineNum">    1175</span>              :     private fun execExternCall(call: MethodCall, env: Environment): Value {</span>
+<span id="L1176"><span class="lineNum">    1176</span> <span class="tlaGNC">           1 :       val funcName = call.target.nameRef.name</span></span>
+<span id="L1177"><span class="lineNum">    1177</span>              : </span>
+<span id="L1178"><span class="lineNum">    1178</span>              :       // verify() is a P4 core language construct (spec §12.8), not an architecture extern.</span>
+<span id="L1179"><span class="lineNum">    1179</span> <span class="tlaGNC">           1 :       if (funcName == &quot;verify&quot;) {</span></span>
+<span id="L1180"><span class="lineNum">    1180</span> <span class="tlaGNC">           1 :         val condition = (evalExpr(call.argsList[0], env) as BoolVal).value</span></span>
+<span id="L1181"><span class="lineNum">    1181</span> <span class="tlaGNC">           1 :         if (!condition) {</span></span>
+<span id="L1182"><span class="lineNum">    1182</span> <span class="tlaGNC">           1 :           val err = (evalExpr(call.argsList[1], env) as ErrorVal).member</span></span>
+<span id="L1183"><span class="lineNum">    1183</span> <span class="tlaGNC">           1 :           throw ParserErrorException(err, &quot;verify failed: $err&quot;)</span></span>
+<span id="L1184"><span class="lineNum">    1184</span>              :         }</span>
+<span id="L1185"><span class="lineNum">    1185</span> <span class="tlaGNC">           1 :         return UnitVal</span></span>
+<span id="L1186"><span class="lineNum">    1186</span>              :       }</span>
+<span id="L1187"><span class="lineNum">    1187</span>              : </span>
+<span id="L1188"><span class="lineNum">    1188</span>              :       // assert(condition) / assume(condition): P4 spec §12.9.</span>
+<span id="L1189"><span class="lineNum">    1189</span>              :       // At runtime, assume behaves identically to assert — the distinction is for</span>
+<span id="L1190"><span class="lineNum">    1190</span>              :       // static analysis tools. On failure, emit a trace event and abort processing.</span>
+<span id="L1191"><span class="lineNum">    1191</span> <span class="tlaGNC">           1 :       if (funcName == &quot;assert&quot; || funcName == &quot;assume&quot;) {</span></span>
+<span id="L1192"><span class="lineNum">    1192</span> <span class="tlaGNC">           1 :         val assertExpr = call.argsList[0]</span></span>
+<span id="L1193"><span class="lineNum">    1193</span> <span class="tlaGNC">           1 :         val condition = (evalExpr(assertExpr, env) as BoolVal).value</span></span>
+<span id="L1194"><span class="lineNum">    1194</span> <span class="tlaGNC">           1 :         packetCtx?.addTraceEvent(</span></span>
+<span id="L1195"><span class="lineNum">    1195</span> <span class="tlaGNC">           1 :           traceEventBuilder()</span></span>
+<span id="L1196"><span class="lineNum">    1196</span> <span class="tlaGNC">           1 :             .setAssertion(AssertionEvent.newBuilder().setPassed(condition))</span></span>
+<span id="L1197"><span class="lineNum">    1197</span> <span class="tlaGNC">           1 :             .putAllVariableValues(collectVariableValues(assertExpr, env))</span></span>
+<span id="L1198"><span class="lineNum">    1198</span> <span class="tlaGNC">           1 :             .setResultValue(condition.toString())</span></span>
+<span id="L1199"><span class="lineNum">    1199</span> <span class="tlaGNC">           1 :             .build()</span></span>
+<span id="L1200"><span class="lineNum">    1200</span>              :         )</span>
+<span id="L1201"><span class="lineNum">    1201</span> <span class="tlaGNC">           1 :         if (!condition) throw AssertionFailureException(&quot;$funcName failed&quot;)</span></span>
+<span id="L1202"><span class="lineNum">    1202</span> <span class="tlaGNC">           1 :         return UnitVal</span></span>
+<span id="L1203"><span class="lineNum">    1203</span>              :       }</span>
+<span id="L1204"><span class="lineNum">    1204</span>              : </span>
+<span id="L1205"><span class="lineNum">    1205</span>              :       // All other externs are architecture-specific — delegate to the handler.</span>
+<span id="L1206"><span class="lineNum">    1206</span> <span class="tlaGNC">           1 :       val handler = externHandler ?: error(&quot;no extern handler for: $funcName&quot;)</span></span>
+<span id="L1207"><span class="lineNum">    1207</span> <span class="tlaGNC">           1 :       return handler.handle(ExternCall.FreeFunction(funcName), createExternEvaluator(call, env))</span></span>
+<span id="L1208"><span class="lineNum">    1208</span>              :     }</span>
+<span id="L1209"><span class="lineNum">    1209</span>              : </span>
+<span id="L1210"><span class="lineNum">    1210</span>              :     /** Whether [expr] is a field access into a header union. */</span>
+<span id="L1211"><span class="lineNum">    1211</span>              :     private fun isUnionFieldAccess(expr: Expr): Boolean =</span>
+<span id="L1212"><span class="lineNum">    1212</span> <span class="tlaGNC">           1 :       expr.hasFieldAccess() &amp;&amp;</span></span>
+<span id="L1213"><span class="lineNum">    1213</span> <span class="tlaGNC">           1 :         expr.fieldAccess.expr.type.let { t -&gt;</span></span>
+<span id="L1214"><span class="lineNum">    1214</span> <span class="tlaGNC">           1 :           t.hasNamed() &amp;&amp; types[t.named]?.hasHeaderUnion() == true</span></span>
+<span id="L1215"><span class="lineNum">    1215</span> <span class="tlaGNC">           1 :         }</span></span>
+<span id="L1216"><span class="lineNum">    1216</span>              : </span>
+<span id="L1217"><span class="lineNum">    1217</span>              :     /** If [expr] is a field access into a header union, enforce one-valid-at-a-time (P4 §8.20). */</span>
+<span id="L1218"><span class="lineNum">    1218</span>              :     private fun invalidateUnionSiblings(expr: Expr, target: HeaderVal, env: Environment) {</span>
+<span id="L1219"><span class="lineNum">    1219</span> <span class="tlaGNC">           1 :       if (!isUnionFieldAccess(expr)) return</span></span>
+<span id="L1220"><span class="lineNum">    1220</span> <span class="tlaGNC">           1 :       val parent = evalExpr(expr.fieldAccess.expr, env) as StructVal</span></span>
+<span id="L1221"><span class="lineNum">    1221</span> <span class="tlaGNC">           1 :       parent.invalidateUnionExcept(target)</span></span>
+<span id="L1222"><span class="lineNum">    1222</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L1223"><span class="lineNum">    1223</span>              : </span>
 <span id="L1224"><span class="lineNum">    1224</span>              :     // -------------------------------------------------------------------------</span>
-<span id="L1225"><span class="lineNum">    1225</span>              : </span>
-<span id="L1226"><span class="lineNum">    1226</span>              :     private fun execExtract(call: MethodCall, env: Environment): Value {</span>
-<span id="L1227"><span class="lineNum">    1227</span>              :       // packet_in.extract(hdr.field): the header to extract into is args[0], not the target.</span>
-<span id="L1228"><span class="lineNum">    1228</span>              :       // P4's don't-care extract `p.extract&lt;T&gt;(_)` compiles to extract(arg) where</span>
-<span id="L1229"><span class="lineNum">    1229</span>              :       // `arg` is an undeclared temporary. Create a throw-away header to consume bytes.</span>
-<span id="L1230"><span class="lineNum">    1230</span> <span class="tlaGNC">           1 :       val arg = call.argsList[0]</span></span>
-<span id="L1231"><span class="lineNum">    1231</span>              :       // When the arg is a field access into a union (e.g. hdr.u.next.byte), resolve the</span>
-<span id="L1232"><span class="lineNum">    1232</span>              :       // union parent once and invalidate siblings inline. This avoids re-evaluating</span>
-<span id="L1233"><span class="lineNum">    1233</span>              :       // side-effecting expressions like `.next` on header stacks.</span>
-<span id="L1234"><span class="lineNum">    1234</span> <span class="tlaGNC">           1 :       var unionHandled = false</span></span>
-<span id="L1235"><span class="lineNum">    1235</span> <span class="tlaGNC">           1 :       val header =</span></span>
-<span id="L1236"><span class="lineNum">    1236</span> <span class="tlaGNC">           1 :         if (arg.hasNameRef() &amp;&amp; env.lookup(arg.nameRef.name) == null &amp;&amp; arg.type.hasNamed()) {</span></span>
-<span id="L1237"><span class="lineNum">    1237</span> <span class="tlaUNC tlaBgUNC">           0 :           defaultValue(arg.type.named, types) as? HeaderVal</span></span>
-<span id="L1238"><span class="lineNum">    1238</span> <span class="tlaUNC">           0 :             ?: error(&quot;type not found for don't-care extract: ${arg.type.named}&quot;)</span></span>
-<span id="L1239"><span class="lineNum">    1239</span> <span class="tlaGNC tlaBgGNC">           1 :         } else if (isUnionFieldAccess(arg)) {</span></span>
-<span id="L1240"><span class="lineNum">    1240</span>              :           // Parent is a header union — resolve it once, invalidate siblings (P4 §8.20).</span>
-<span id="L1241"><span class="lineNum">    1241</span> <span class="tlaGNC">           1 :           val parent = evalExpr(arg.fieldAccess.expr, env) as StructVal</span></span>
-<span id="L1242"><span class="lineNum">    1242</span> <span class="tlaGNC">           1 :           val member = parent.fields[arg.fieldAccess.fieldName] as HeaderVal</span></span>
-<span id="L1243"><span class="lineNum">    1243</span> <span class="tlaGNC">           1 :           parent.invalidateUnionExcept(member)</span></span>
-<span id="L1244"><span class="lineNum">    1244</span> <span class="tlaGNC">           1 :           unionHandled = true</span></span>
-<span id="L1245"><span class="lineNum">    1245</span> <span class="tlaGNC">           1 :           member</span></span>
-<span id="L1246"><span class="lineNum">    1246</span>              :         } else {</span>
-<span id="L1247"><span class="lineNum">    1247</span> <span class="tlaGNC">           1 :           evalExpr(arg, env) as HeaderVal</span></span>
-<span id="L1248"><span class="lineNum">    1248</span>              :         }</span>
-<span id="L1249"><span class="lineNum">    1249</span> <span class="tlaGNC">           1 :       val headerDecl =</span></span>
-<span id="L1250"><span class="lineNum">    1250</span> <span class="tlaGNC">           1 :         (types[header.typeName] ?: error(&quot;type not found: ${header.typeName}&quot;)).header</span></span>
-<span id="L1251"><span class="lineNum">    1251</span>              : </span>
-<span id="L1252"><span class="lineNum">    1252</span>              :       // The 2-argument form b.extract(hdr, varbitBits) is used when the header contains a varbit</span>
-<span id="L1253"><span class="lineNum">    1253</span>              :       // field. The second argument gives the varbit field's runtime length in bits.</span>
-<span id="L1254"><span class="lineNum">    1254</span> <span class="tlaGNC">           1 :       val varbitBits: Int = if (call.argsCount &gt; 1) intValue(evalExpr(call.argsList[1], env)) else 0</span></span>
-<span id="L1255"><span class="lineNum">    1255</span>              : </span>
-<span id="L1256"><span class="lineNum">    1256</span>              :       // P4 spec §12.8.1: validate varbit extract constraints.</span>
-<span id="L1257"><span class="lineNum">    1257</span> <span class="tlaGNC">           1 :       if (varbitBits &gt; 0) {</span></span>
-<span id="L1258"><span class="lineNum">    1258</span> <span class="tlaGNC">           1 :         if (varbitBits % 8 != 0) {</span></span>
-<span id="L1259"><span class="lineNum">    1259</span> <span class="tlaGNC">           1 :           throw ParserErrorException(</span></span>
-<span id="L1260"><span class="lineNum">    1260</span> <span class="tlaGNC">           1 :             &quot;ParserInvalidArgument&quot;,</span></span>
-<span id="L1261"><span class="lineNum">    1261</span> <span class="tlaGNC">           1 :             &quot;varbit extract length $varbitBits is not a multiple of 8&quot;,</span></span>
-<span id="L1262"><span class="lineNum">    1262</span>              :           )</span>
-<span id="L1263"><span class="lineNum">    1263</span>              :         }</span>
-<span id="L1264"><span class="lineNum">    1264</span> <span class="tlaGNC">           1 :         val varbitField = headerDecl.fieldsList.find { it.type.hasVarbit() }</span></span>
-<span id="L1265"><span class="lineNum">    1265</span> <span class="tlaGNC">           1 :         if (varbitField != null &amp;&amp; varbitBits &gt; varbitField.type.varbit.maxWidth) {</span></span>
-<span id="L1266"><span class="lineNum">    1266</span> <span class="tlaGNC">           1 :           throw ParserErrorException(</span></span>
-<span id="L1267"><span class="lineNum">    1267</span> <span class="tlaGNC">           1 :             &quot;HeaderTooShort&quot;,</span></span>
-<span id="L1268"><span class="lineNum">    1268</span> <span class="tlaGNC">           1 :             &quot;varbit extract length $varbitBits exceeds max width &quot; +</span></span>
-<span id="L1269"><span class="lineNum">    1269</span> <span class="tlaGNC">           1 :               &quot;${varbitField.type.varbit.maxWidth}&quot;,</span></span>
-<span id="L1270"><span class="lineNum">    1270</span>              :           )</span>
-<span id="L1271"><span class="lineNum">    1271</span>              :         }</span>
-<span id="L1272"><span class="lineNum">    1272</span>              :       }</span>
-<span id="L1273"><span class="lineNum">    1273</span>              : </span>
-<span id="L1274"><span class="lineNum">    1274</span> <span class="tlaGNC">           1 :       val widths = headerDecl.fieldsList.map { fieldWireWidth(it.type, varbitBits) }</span></span>
-<span id="L1275"><span class="lineNum">    1275</span> <span class="tlaGNC">           1 :       val totalBits = widths.sum()</span></span>
-<span id="L1276"><span class="lineNum">    1276</span> <span class="tlaGNC">           1 :       val allBits = packet.extractBits(totalBits)</span></span>
-<span id="L1277"><span class="lineNum">    1277</span> <span class="tlaGNC">           1 :       val newFields = unpackFields(headerDecl.fieldsList, widths, allBits, totalBits)</span></span>
-<span id="L1278"><span class="lineNum">    1278</span> <span class="tlaGNC">           1 :       if (!unionHandled) invalidateUnionSiblings(call.argsList[0], header, env)</span></span>
-<span id="L1279"><span class="lineNum">    1279</span> <span class="tlaGNC">           1 :       header.setValid(newFields)</span></span>
-<span id="L1280"><span class="lineNum">    1280</span> <span class="tlaGNC">           1 :       return UnitVal</span></span>
-<span id="L1281"><span class="lineNum">    1281</span>              :     }</span>
-<span id="L1282"><span class="lineNum">    1282</span>              : </span>
-<span id="L1283"><span class="lineNum">    1283</span>              :     /** P4 spec §12.8.2: peek at packet bits and construct a value of type T without consuming. */</span>
-<span id="L1284"><span class="lineNum">    1284</span>              :     private fun execLookahead(returnType: Type): Value {</span>
-<span id="L1285"><span class="lineNum">    1285</span> <span class="tlaGNC">           1 :       if (returnType.hasBit()) {</span></span>
-<span id="L1286"><span class="lineNum">    1286</span> <span class="tlaGNC">           1 :         val width = returnType.bit.width</span></span>
-<span id="L1287"><span class="lineNum">    1287</span> <span class="tlaGNC">           1 :         return BitVal(BitVector(packet.peekBits(width), width))</span></span>
-<span id="L1288"><span class="lineNum">    1288</span>              :       }</span>
-<span id="L1289"><span class="lineNum">    1289</span>              : </span>
-<span id="L1290"><span class="lineNum">    1290</span> <span class="tlaGNC">           1 :       val typeName = returnType.named</span></span>
-<span id="L1291"><span class="lineNum">    1291</span> <span class="tlaGNC">           1 :       val typeDecl = types[typeName] ?: error(&quot;type not found for lookahead: $typeName&quot;)</span></span>
-<span id="L1292"><span class="lineNum">    1292</span> <span class="tlaGNC">           1 :       val fields =</span></span>
-<span id="L1293"><span class="lineNum">    1293</span> <span class="tlaGNC">           1 :         when (typeDecl.kindCase) {</span></span>
-<span id="L1294"><span class="lineNum">    1294</span> <span class="tlaGNC">           1 :           TypeDecl.KindCase.HEADER -&gt; typeDecl.header.fieldsList</span></span>
-<span id="L1295"><span class="lineNum">    1295</span> <span class="tlaGNC">           1 :           TypeDecl.KindCase.STRUCT -&gt; typeDecl.struct.fieldsList</span></span>
-<span id="L1296"><span class="lineNum">    1296</span>              :           TypeDecl.KindCase.HEADER_UNION,</span>
-<span id="L1297"><span class="lineNum">    1297</span>              :           TypeDecl.KindCase.ENUM,</span>
-<span id="L1298"><span class="lineNum">    1298</span>              :           TypeDecl.KindCase.KIND_NOT_SET,</span>
-<span id="L1299"><span class="lineNum">    1299</span> <span class="tlaUNC tlaBgUNC">           0 :           null -&gt; error(&quot;lookahead type must be a header or struct: $typeName&quot;)</span></span>
-<span id="L1300"><span class="lineNum">    1300</span>              :         }</span>
-<span id="L1301"><span class="lineNum">    1301</span> <span class="tlaGNC tlaBgGNC">           1 :       val widths = fields.map { fieldWireWidth(it.type) }</span></span>
-<span id="L1302"><span class="lineNum">    1302</span> <span class="tlaGNC">           1 :       val totalBits = widths.sum()</span></span>
-<span id="L1303"><span class="lineNum">    1303</span> <span class="tlaGNC">           1 :       val allBits = packet.peekBits(totalBits)</span></span>
-<span id="L1304"><span class="lineNum">    1304</span> <span class="tlaGNC">           1 :       val newFields = unpackFields(fields, widths, allBits, totalBits)</span></span>
-<span id="L1305"><span class="lineNum">    1305</span> <span class="tlaGNC">           1 :       return if (typeDecl.hasHeader()) {</span></span>
-<span id="L1306"><span class="lineNum">    1306</span> <span class="tlaGNC">           1 :         HeaderVal(typeName, newFields, valid = true)</span></span>
-<span id="L1307"><span class="lineNum">    1307</span>              :       } else {</span>
-<span id="L1308"><span class="lineNum">    1308</span> <span class="tlaGNC">           1 :         StructVal(typeName, newFields)</span></span>
-<span id="L1309"><span class="lineNum">    1309</span>              :       }</span>
-<span id="L1310"><span class="lineNum">    1310</span>              :     }</span>
-<span id="L1311"><span class="lineNum">    1311</span>              : </span>
-<span id="L1312"><span class="lineNum">    1312</span>              :     /**</span>
-<span id="L1313"><span class="lineNum">    1313</span>              :      * Unpacks a BigInteger of raw packet bits into named field values.</span>
-<span id="L1314"><span class="lineNum">    1314</span>              :      *</span>
-<span id="L1315"><span class="lineNum">    1315</span>              :      * Handles sub-byte fields (e.g. IPv4's bit&lt;4&gt; version and ihl) that share a byte by shift+mask</span>
-<span id="L1316"><span class="lineNum">    1316</span>              :      * from a single MSB-first BigInteger. Used by both extract and lookahead.</span>
-<span id="L1317"><span class="lineNum">    1317</span>              :      */</span>
-<span id="L1318"><span class="lineNum">    1318</span>              :     private fun unpackFields(</span>
-<span id="L1319"><span class="lineNum">    1319</span>              :       fields: List&lt;FieldDecl&gt;,</span>
-<span id="L1320"><span class="lineNum">    1320</span>              :       widths: List&lt;Int&gt;,</span>
-<span id="L1321"><span class="lineNum">    1321</span>              :       allBits: BigInteger,</span>
-<span id="L1322"><span class="lineNum">    1322</span>              :       totalBits: Int,</span>
-<span id="L1323"><span class="lineNum">    1323</span>              :     ): MutableMap&lt;String, Value&gt; {</span>
-<span id="L1324"><span class="lineNum">    1324</span> <span class="tlaGNC">           1 :       val result = mutableMapOf&lt;String, Value&gt;()</span></span>
-<span id="L1325"><span class="lineNum">    1325</span> <span class="tlaGNC">           1 :       var bitOffset = 0</span></span>
-<span id="L1326"><span class="lineNum">    1326</span> <span class="tlaGNC">           1 :       for ((field, width) in fields.zip(widths)) {</span></span>
-<span id="L1327"><span class="lineNum">    1327</span> <span class="tlaGNC">           1 :         if (width == 0) {</span></span>
-<span id="L1328"><span class="lineNum">    1328</span>              :           // Zero-width varbit fields still need a map entry so checksum StructExprs</span>
-<span id="L1329"><span class="lineNum">    1329</span>              :           // can reference them (e.g. hdr.ipv4.options when IHL=5).</span>
-<span id="L1330"><span class="lineNum">    1330</span> <span class="tlaGNC">           1 :           if (field.type.hasVarbit()) result[field.name] = BitVal(BitVector(BigInteger.ZERO, 0))</span></span>
-<span id="L1331"><span class="lineNum">    1331</span> <span class="tlaGNC">           1 :           continue</span></span>
-<span id="L1332"><span class="lineNum">    1332</span>              :         }</span>
-<span id="L1333"><span class="lineNum">    1333</span> <span class="tlaGNC">           1 :         val mask = BigInteger.ONE.shiftLeft(width) - BigInteger.ONE</span></span>
-<span id="L1334"><span class="lineNum">    1334</span> <span class="tlaGNC">           1 :         val raw = (allBits shr (totalBits - bitOffset - width)) and mask</span></span>
-<span id="L1335"><span class="lineNum">    1335</span> <span class="tlaGNC">           1 :         result[field.name] = bitsToValue(field.type, raw, width)</span></span>
-<span id="L1336"><span class="lineNum">    1336</span> <span class="tlaGNC">           1 :         bitOffset += width</span></span>
-<span id="L1337"><span class="lineNum">    1337</span>              :       }</span>
-<span id="L1338"><span class="lineNum">    1338</span> <span class="tlaGNC">           1 :       return result</span></span>
-<span id="L1339"><span class="lineNum">    1339</span>              :     }</span>
-<span id="L1340"><span class="lineNum">    1340</span>              : </span>
-<span id="L1341"><span class="lineNum">    1341</span>              :     /**</span>
-<span id="L1342"><span class="lineNum">    1342</span>              :      * Returns the on-wire bit-width of a header field type.</span>
-<span id="L1343"><span class="lineNum">    1343</span>              :      *</span>
-<span id="L1344"><span class="lineNum">    1344</span>              :      * P4 spec §8.9.2: bool in a header occupies exactly 1 bit on the wire. int&lt;N&gt; and bit&lt;N&gt; occupy</span>
-<span id="L1345"><span class="lineNum">    1345</span>              :      * N bits. varbit&lt;N&gt; occupies [varbitBits] bits (caller must supply the runtime value).</span>
-<span id="L1346"><span class="lineNum">    1346</span>              :      * Serializable enums are looked up by name and use their declared underlying width.</span>
-<span id="L1347"><span class="lineNum">    1347</span>              :      */</span>
-<span id="L1348"><span class="lineNum">    1348</span> <span class="tlaGNC">           1 :     private fun fieldWireWidth(type: Type, varbitBits: Int = 0): Int =</span></span>
-<span id="L1349"><span class="lineNum">    1349</span> <span class="tlaGNC">           1 :       when (type.kindCase) {</span></span>
-<span id="L1350"><span class="lineNum">    1350</span> <span class="tlaGNC">           1 :         TypeKind.BIT -&gt; type.bit.width</span></span>
-<span id="L1351"><span class="lineNum">    1351</span> <span class="tlaGNC">           1 :         TypeKind.SIGNED_INT -&gt; type.signedInt.width</span></span>
-<span id="L1352"><span class="lineNum">    1352</span> <span class="tlaGNC">           1 :         TypeKind.BOOLEAN -&gt; 1</span></span>
-<span id="L1353"><span class="lineNum">    1353</span> <span class="tlaGNC">           1 :         TypeKind.VARBIT -&gt; varbitBits</span></span>
-<span id="L1354"><span class="lineNum">    1354</span>              :         TypeKind.NAMED -&gt; {</span>
-<span id="L1355"><span class="lineNum">    1355</span> <span class="tlaGNC">           1 :           val decl = types[type.named]</span></span>
-<span id="L1356"><span class="lineNum">    1356</span> <span class="tlaGNC">           1 :           when (decl?.kindCase) {</span></span>
-<span id="L1357"><span class="lineNum">    1357</span> <span class="tlaGNC">           1 :             TypeDecl.KindCase.ENUM -&gt; decl.enum.width</span></span>
-<span id="L1358"><span class="lineNum">    1358</span>              :             TypeDecl.KindCase.HEADER,</span>
-<span id="L1359"><span class="lineNum">    1359</span>              :             TypeDecl.KindCase.STRUCT,</span>
-<span id="L1360"><span class="lineNum">    1360</span>              :             TypeDecl.KindCase.HEADER_UNION,</span>
-<span id="L1361"><span class="lineNum">    1361</span>              :             TypeDecl.KindCase.KIND_NOT_SET,</span>
-<span id="L1362"><span class="lineNum">    1362</span> <span class="tlaUNC tlaBgUNC">           0 :             null -&gt; 0</span></span>
-<span id="L1363"><span class="lineNum">    1363</span>              :           }</span>
-<span id="L1364"><span class="lineNum">    1364</span>              :         }</span>
-<span id="L1365"><span class="lineNum">    1365</span>              :         TypeKind.HEADER_STACK,</span>
-<span id="L1366"><span class="lineNum">    1366</span>              :         TypeKind.ERROR,</span>
-<span id="L1367"><span class="lineNum">    1367</span>              :         TypeKind.KIND_NOT_SET,</span>
-<span id="L1368"><span class="lineNum">    1368</span> <span class="tlaUNC">           0 :         null -&gt; 0</span></span>
-<span id="L1369"><span class="lineNum">    1369</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
-<span id="L1370"><span class="lineNum">    1370</span>              : </span>
-<span id="L1371"><span class="lineNum">    1371</span>              :     /**</span>
-<span id="L1372"><span class="lineNum">    1372</span>              :      * Converts raw extracted bits to the appropriate [Value] for a header field.</span>
-<span id="L1373"><span class="lineNum">    1373</span>              :      *</span>
-<span id="L1374"><span class="lineNum">    1374</span>              :      * bit&lt;N&gt; → [BitVal], bool → [BoolVal], int&lt;N&gt; → [IntVal], varbit / enum → [BitVal].</span>
-<span id="L1375"><span class="lineNum">    1375</span>              :      */</span>
-<span id="L1376"><span class="lineNum">    1376</span>              :     private fun bitsToValue(type: Type, raw: BigInteger, width: Int): Value =</span>
-<span id="L1377"><span class="lineNum">    1377</span> <span class="tlaGNC">           1 :       when (type.kindCase) {</span></span>
-<span id="L1378"><span class="lineNum">    1378</span> <span class="tlaGNC">           1 :         TypeKind.BOOLEAN -&gt; BoolVal(raw != BigInteger.ZERO)</span></span>
-<span id="L1379"><span class="lineNum">    1379</span> <span class="tlaGNC">           1 :         TypeKind.SIGNED_INT -&gt; IntVal(SignedBitVector.fromUnsignedBits(raw, width))</span></span>
-<span id="L1380"><span class="lineNum">    1380</span>              :         TypeKind.BIT,</span>
-<span id="L1381"><span class="lineNum">    1381</span>              :         TypeKind.VARBIT,</span>
-<span id="L1382"><span class="lineNum">    1382</span>              :         TypeKind.NAMED,</span>
-<span id="L1383"><span class="lineNum">    1383</span>              :         TypeKind.HEADER_STACK,</span>
-<span id="L1384"><span class="lineNum">    1384</span>              :         TypeKind.ERROR,</span>
-<span id="L1385"><span class="lineNum">    1385</span>              :         TypeKind.KIND_NOT_SET,</span>
-<span id="L1386"><span class="lineNum">    1386</span> <span class="tlaGNC">           1 :         null -&gt; BitVal(BitVector(raw, width))</span></span>
-<span id="L1387"><span class="lineNum">    1387</span> <span class="tlaGNC">           1 :       }</span></span>
-<span id="L1388"><span class="lineNum">    1388</span>              : </span>
-<span id="L1389"><span class="lineNum">    1389</span>              :     private fun execEmit(call: MethodCall, env: Environment): Value {</span>
-<span id="L1390"><span class="lineNum">    1390</span> <span class="tlaGNC">           1 :       emitValue(evalExpr(call.argsList[0], env))</span></span>
-<span id="L1391"><span class="lineNum">    1391</span> <span class="tlaGNC">           1 :       return UnitVal</span></span>
-<span id="L1392"><span class="lineNum">    1392</span>              :     }</span>
-<span id="L1393"><span class="lineNum">    1393</span>              : </span>
-<span id="L1394"><span class="lineNum">    1394</span>              :     /**</span>
-<span id="L1395"><span class="lineNum">    1395</span>              :      * Recursively emits a value to the packet output buffer.</span>
-<span id="L1396"><span class="lineNum">    1396</span>              :      * - [HeaderVal]: packs all fields into bytes (MSB-first) and appends if valid.</span>
-<span id="L1397"><span class="lineNum">    1397</span>              :      * - [StructVal]: iterates fields in declaration order (looking up the TypeDecl) and emits each.</span>
-<span id="L1398"><span class="lineNum">    1398</span>              :      * - Other types: no-op (non-emittable values such as BoolVal in metadata structs).</span>
-<span id="L1399"><span class="lineNum">    1399</span>              :      *</span>
-<span id="L1400"><span class="lineNum">    1400</span>              :      * This handles both `pkt.emit(hdr.ethernet)` (single header) and `pkt.emit(hdr)` where `hdr` is</span>
-<span id="L1401"><span class="lineNum">    1401</span>              :      * a struct containing multiple headers, as required by the P4 deparser model.</span>
-<span id="L1402"><span class="lineNum">    1402</span>              :      */</span>
-<span id="L1403"><span class="lineNum">    1403</span>              :     private fun emitValue(value: Value) {</span>
-<span id="L1404"><span class="lineNum">    1404</span> <span class="tlaGNC">           1 :       when (value) {</span></span>
-<span id="L1405"><span class="lineNum">    1405</span> <span class="tlaGNC">           1 :         is HeaderVal -&gt; emitHeader(value)</span></span>
-<span id="L1406"><span class="lineNum">    1406</span> <span class="tlaGNC">           1 :         is StructVal -&gt; {</span></span>
-<span id="L1407"><span class="lineNum">    1407</span>              :           // Emit in the declaration order from the TypeDecl; fall back to map order if unknown.</span>
-<span id="L1408"><span class="lineNum">    1408</span> <span class="tlaGNC">           1 :           val typeDecl = types[value.typeName]</span></span>
-<span id="L1409"><span class="lineNum">    1409</span> <span class="tlaGNC">           1 :           val fieldDecls =</span></span>
-<span id="L1410"><span class="lineNum">    1410</span> <span class="tlaGNC">           1 :             when (typeDecl?.kindCase) {</span></span>
-<span id="L1411"><span class="lineNum">    1411</span> <span class="tlaGNC">           1 :               TypeDecl.KindCase.STRUCT -&gt; typeDecl.struct.fieldsList</span></span>
-<span id="L1412"><span class="lineNum">    1412</span> <span class="tlaGNC">           1 :               TypeDecl.KindCase.HEADER_UNION -&gt; typeDecl.headerUnion.fieldsList</span></span>
-<span id="L1413"><span class="lineNum">    1413</span>              :               TypeDecl.KindCase.HEADER,</span>
-<span id="L1414"><span class="lineNum">    1414</span>              :               TypeDecl.KindCase.ENUM,</span>
-<span id="L1415"><span class="lineNum">    1415</span>              :               TypeDecl.KindCase.KIND_NOT_SET,</span>
-<span id="L1416"><span class="lineNum">    1416</span> <span class="tlaUNC tlaBgUNC">           0 :               null -&gt; null</span></span>
-<span id="L1417"><span class="lineNum">    1417</span>              :             }</span>
-<span id="L1418"><span class="lineNum">    1418</span> <span class="tlaGNC tlaBgGNC">           1 :           if (fieldDecls != null) {</span></span>
-<span id="L1419"><span class="lineNum">    1419</span> <span class="tlaGNC">           1 :             for (field in fieldDecls) {</span></span>
-<span id="L1420"><span class="lineNum">    1420</span> <span class="tlaGNC">           1 :               emitValue(value.fields[field.name] ?: continue)</span></span>
-<span id="L1421"><span class="lineNum">    1421</span>              :             }</span>
-<span id="L1422"><span class="lineNum">    1422</span>              :           } else {</span>
-<span id="L1423"><span class="lineNum">    1423</span> <span class="tlaUNC tlaBgUNC">           0 :             for (fieldVal in value.fields.values) emitValue(fieldVal)</span></span>
-<span id="L1424"><span class="lineNum">    1424</span>              :           }</span>
-<span id="L1425"><span class="lineNum">    1425</span>              :         }</span>
-<span id="L1426"><span class="lineNum">    1426</span> <span class="tlaGNC tlaBgGNC">           1 :         is HeaderStackVal -&gt; {</span></span>
-<span id="L1427"><span class="lineNum">    1427</span> <span class="tlaGNC">           1 :           for (header in value.headers) emitValue(header)</span></span>
-<span id="L1428"><span class="lineNum">    1428</span>              :         }</span>
-<span id="L1429"><span class="lineNum">    1429</span>              :         else -&gt; {} // BoolVal, BitVal outside a header, UnitVal — not emittable</span>
-<span id="L1430"><span class="lineNum">    1430</span>              :       }</span>
-<span id="L1431"><span class="lineNum">    1431</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L1432"><span class="lineNum">    1432</span>              : </span>
-<span id="L1433"><span class="lineNum">    1433</span>              :     /** Packs a valid header's fields into bytes (MSB-first) and appends to the output buffer. */</span>
-<span id="L1434"><span class="lineNum">    1434</span>              :     private fun emitHeader(header: HeaderVal) {</span>
-<span id="L1435"><span class="lineNum">    1435</span> <span class="tlaGNC">           1 :       if (!header.valid) return</span></span>
-<span id="L1436"><span class="lineNum">    1436</span> <span class="tlaGNC">           1 :       val headerDecl =</span></span>
-<span id="L1437"><span class="lineNum">    1437</span> <span class="tlaGNC">           1 :         (types[header.typeName] ?: error(&quot;type not found: ${header.typeName}&quot;)).header</span></span>
-<span id="L1438"><span class="lineNum">    1438</span>              :       // Compute total wire bits from field declarations; varbit fields use their stored BitVal</span>
-<span id="L1439"><span class="lineNum">    1439</span>              :       // width since we don't have the runtime length separately at emit time.</span>
-<span id="L1440"><span class="lineNum">    1440</span> <span class="tlaGNC">           1 :       val totalBits =</span></span>
-<span id="L1441"><span class="lineNum">    1441</span> <span class="tlaGNC">           1 :         headerDecl.fieldsList.sumOf { field -&gt;</span></span>
-<span id="L1442"><span class="lineNum">    1442</span> <span class="tlaGNC">           1 :           when (val v = header.fields[field.name]) {</span></span>
-<span id="L1443"><span class="lineNum">    1443</span> <span class="tlaGNC">           1 :             is BitVal -&gt; v.bits.width</span></span>
-<span id="L1444"><span class="lineNum">    1444</span> <span class="tlaGNC">           1 :             is BoolVal -&gt; 1</span></span>
-<span id="L1445"><span class="lineNum">    1445</span> <span class="tlaGNC">           1 :             is IntVal -&gt; v.bits.width</span></span>
-<span id="L1446"><span class="lineNum">    1446</span> <span class="tlaUNC tlaBgUNC">           0 :             else -&gt; 0</span></span>
-<span id="L1447"><span class="lineNum">    1447</span> <span class="tlaGNC tlaBgGNC">           1 :           }</span></span>
-<span id="L1448"><span class="lineNum">    1448</span>              :         }</span>
-<span id="L1449"><span class="lineNum">    1449</span> <span class="tlaGNC">           1 :       var packedBits = BigInteger.ZERO</span></span>
-<span id="L1450"><span class="lineNum">    1450</span> <span class="tlaGNC">           1 :       var bitOffset = 0</span></span>
-<span id="L1451"><span class="lineNum">    1451</span> <span class="tlaGNC">           1 :       for (field in headerDecl.fieldsList) {</span></span>
-<span id="L1452"><span class="lineNum">    1452</span> <span class="tlaGNC">           1 :         val fieldBits: BigInteger</span></span>
-<span id="L1453"><span class="lineNum">    1453</span> <span class="tlaGNC">           1 :         val width: Int</span></span>
-<span id="L1454"><span class="lineNum">    1454</span> <span class="tlaGNC">           1 :         when (val fieldVal = header.fields[field.name]) {</span></span>
-<span id="L1455"><span class="lineNum">    1455</span> <span class="tlaGNC">           1 :           is BitVal -&gt; {</span></span>
-<span id="L1456"><span class="lineNum">    1456</span> <span class="tlaGNC">           1 :             fieldBits = fieldVal.bits.value</span></span>
-<span id="L1457"><span class="lineNum">    1457</span> <span class="tlaGNC">           1 :             width = fieldVal.bits.width</span></span>
-<span id="L1458"><span class="lineNum">    1458</span>              :           }</span>
-<span id="L1459"><span class="lineNum">    1459</span> <span class="tlaGNC">           1 :           is BoolVal -&gt; {</span></span>
-<span id="L1460"><span class="lineNum">    1460</span>              :             // P4 spec §8.9.2: bool occupies 1 bit on the wire.</span>
-<span id="L1461"><span class="lineNum">    1461</span> <span class="tlaGNC">           1 :             fieldBits = if (fieldVal.value) BigInteger.ONE else BigInteger.ZERO</span></span>
-<span id="L1462"><span class="lineNum">    1462</span> <span class="tlaGNC">           1 :             width = 1</span></span>
-<span id="L1463"><span class="lineNum">    1463</span>              :           }</span>
-<span id="L1464"><span class="lineNum">    1464</span> <span class="tlaGNC">           1 :           is IntVal -&gt; {</span></span>
-<span id="L1465"><span class="lineNum">    1465</span> <span class="tlaGNC">           1 :             fieldBits = fieldVal.bits.toUnsigned().value</span></span>
-<span id="L1466"><span class="lineNum">    1466</span> <span class="tlaGNC">           1 :             width = fieldVal.bits.width</span></span>
-<span id="L1467"><span class="lineNum">    1467</span>              :           }</span>
-<span id="L1468"><span class="lineNum">    1468</span> <span class="tlaUNC tlaBgUNC">           0 :           else -&gt; continue // UnitVal (e.g. varbit placeholder) — skip</span></span>
-<span id="L1469"><span class="lineNum">    1469</span>              :         }</span>
-<span id="L1470"><span class="lineNum">    1470</span> <span class="tlaGNC tlaBgGNC">           1 :         if (totalBits &gt; 0 &amp;&amp; width &gt; 0) {</span></span>
-<span id="L1471"><span class="lineNum">    1471</span> <span class="tlaGNC">           1 :           val shift = totalBits - bitOffset - width</span></span>
-<span id="L1472"><span class="lineNum">    1472</span> <span class="tlaGNC">           1 :           packedBits = packedBits or fieldBits.shiftLeft(shift)</span></span>
-<span id="L1473"><span class="lineNum">    1473</span>              :         }</span>
-<span id="L1474"><span class="lineNum">    1474</span> <span class="tlaGNC">           1 :         bitOffset += width</span></span>
-<span id="L1475"><span class="lineNum">    1475</span>              :       }</span>
-<span id="L1476"><span class="lineNum">    1476</span> <span class="tlaGNC">           1 :       if (totalBits &gt; 0) {</span></span>
-<span id="L1477"><span class="lineNum">    1477</span> <span class="tlaGNC">           1 :         packet.emitBits(packedBits, totalBits)</span></span>
-<span id="L1478"><span class="lineNum">    1478</span> <span class="tlaGNC">           1 :         packetCtx?.addTraceEvent(</span></span>
-<span id="L1479"><span class="lineNum">    1479</span> <span class="tlaGNC">           1 :           TraceEvent.newBuilder()</span></span>
-<span id="L1480"><span class="lineNum">    1480</span> <span class="tlaGNC">           1 :             .setDeparserEmit(</span></span>
-<span id="L1481"><span class="lineNum">    1481</span> <span class="tlaGNC">           1 :               DeparserEmitEvent.newBuilder()</span></span>
-<span id="L1482"><span class="lineNum">    1482</span> <span class="tlaGNC">           1 :                 .setHeaderType(header.typeName)</span></span>
-<span id="L1483"><span class="lineNum">    1483</span> <span class="tlaGNC">           1 :                 .setByteLength((totalBits + 7) / 8)</span></span>
-<span id="L1484"><span class="lineNum">    1484</span>              :             )</span>
-<span id="L1485"><span class="lineNum">    1485</span> <span class="tlaGNC">           1 :             .build()</span></span>
-<span id="L1486"><span class="lineNum">    1486</span>              :         )</span>
-<span id="L1487"><span class="lineNum">    1487</span>              :       }</span>
-<span id="L1488"><span class="lineNum">    1488</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L1489"><span class="lineNum">    1489</span>              : </span>
-<span id="L1490"><span class="lineNum">    1490</span>              :     // -------------------------------------------------------------------------</span>
-<span id="L1491"><span class="lineNum">    1491</span>              :     // LValue assignment</span>
+<span id="L1225"><span class="lineNum">    1225</span>              :     // Packet extract / emit</span>
+<span id="L1226"><span class="lineNum">    1226</span>              :     // -------------------------------------------------------------------------</span>
+<span id="L1227"><span class="lineNum">    1227</span>              : </span>
+<span id="L1228"><span class="lineNum">    1228</span>              :     private fun execExtract(call: MethodCall, env: Environment): Value {</span>
+<span id="L1229"><span class="lineNum">    1229</span>              :       // packet_in.extract(hdr.field): the header to extract into is args[0], not the target.</span>
+<span id="L1230"><span class="lineNum">    1230</span>              :       // P4's don't-care extract `p.extract&lt;T&gt;(_)` compiles to extract(arg) where</span>
+<span id="L1231"><span class="lineNum">    1231</span>              :       // `arg` is an undeclared temporary. Create a throw-away header to consume bytes.</span>
+<span id="L1232"><span class="lineNum">    1232</span> <span class="tlaGNC">           1 :       val arg = call.argsList[0]</span></span>
+<span id="L1233"><span class="lineNum">    1233</span>              :       // When the arg is a field access into a union (e.g. hdr.u.next.byte), resolve the</span>
+<span id="L1234"><span class="lineNum">    1234</span>              :       // union parent once and invalidate siblings inline. This avoids re-evaluating</span>
+<span id="L1235"><span class="lineNum">    1235</span>              :       // side-effecting expressions like `.next` on header stacks.</span>
+<span id="L1236"><span class="lineNum">    1236</span> <span class="tlaGNC">           1 :       var unionHandled = false</span></span>
+<span id="L1237"><span class="lineNum">    1237</span> <span class="tlaGNC">           1 :       val header =</span></span>
+<span id="L1238"><span class="lineNum">    1238</span> <span class="tlaGNC">           1 :         if (arg.hasNameRef() &amp;&amp; env.lookup(arg.nameRef.name) == null &amp;&amp; arg.type.hasNamed()) {</span></span>
+<span id="L1239"><span class="lineNum">    1239</span> <span class="tlaUNC tlaBgUNC">           0 :           defaultValue(arg.type.named, types) as? HeaderVal</span></span>
+<span id="L1240"><span class="lineNum">    1240</span> <span class="tlaUNC">           0 :             ?: error(&quot;type not found for don't-care extract: ${arg.type.named}&quot;)</span></span>
+<span id="L1241"><span class="lineNum">    1241</span> <span class="tlaGNC tlaBgGNC">           1 :         } else if (isUnionFieldAccess(arg)) {</span></span>
+<span id="L1242"><span class="lineNum">    1242</span>              :           // Parent is a header union — resolve it once, invalidate siblings (P4 §8.20).</span>
+<span id="L1243"><span class="lineNum">    1243</span> <span class="tlaGNC">           1 :           val parent = evalExpr(arg.fieldAccess.expr, env) as StructVal</span></span>
+<span id="L1244"><span class="lineNum">    1244</span> <span class="tlaGNC">           1 :           val member = parent.fields[arg.fieldAccess.fieldName] as HeaderVal</span></span>
+<span id="L1245"><span class="lineNum">    1245</span> <span class="tlaGNC">           1 :           parent.invalidateUnionExcept(member)</span></span>
+<span id="L1246"><span class="lineNum">    1246</span> <span class="tlaGNC">           1 :           unionHandled = true</span></span>
+<span id="L1247"><span class="lineNum">    1247</span> <span class="tlaGNC">           1 :           member</span></span>
+<span id="L1248"><span class="lineNum">    1248</span>              :         } else {</span>
+<span id="L1249"><span class="lineNum">    1249</span> <span class="tlaGNC">           1 :           evalExpr(arg, env) as HeaderVal</span></span>
+<span id="L1250"><span class="lineNum">    1250</span>              :         }</span>
+<span id="L1251"><span class="lineNum">    1251</span> <span class="tlaGNC">           1 :       val headerDecl =</span></span>
+<span id="L1252"><span class="lineNum">    1252</span> <span class="tlaGNC">           1 :         (types[header.typeName] ?: error(&quot;type not found: ${header.typeName}&quot;)).header</span></span>
+<span id="L1253"><span class="lineNum">    1253</span>              : </span>
+<span id="L1254"><span class="lineNum">    1254</span>              :       // The 2-argument form b.extract(hdr, varbitBits) is used when the header contains a varbit</span>
+<span id="L1255"><span class="lineNum">    1255</span>              :       // field. The second argument gives the varbit field's runtime length in bits.</span>
+<span id="L1256"><span class="lineNum">    1256</span> <span class="tlaGNC">           1 :       val varbitBits: Int = if (call.argsCount &gt; 1) intValue(evalExpr(call.argsList[1], env)) else 0</span></span>
+<span id="L1257"><span class="lineNum">    1257</span>              : </span>
+<span id="L1258"><span class="lineNum">    1258</span>              :       // P4 spec §12.8.1: validate varbit extract constraints.</span>
+<span id="L1259"><span class="lineNum">    1259</span> <span class="tlaGNC">           1 :       if (varbitBits &gt; 0) {</span></span>
+<span id="L1260"><span class="lineNum">    1260</span> <span class="tlaGNC">           1 :         if (varbitBits % 8 != 0) {</span></span>
+<span id="L1261"><span class="lineNum">    1261</span> <span class="tlaGNC">           1 :           throw ParserErrorException(</span></span>
+<span id="L1262"><span class="lineNum">    1262</span> <span class="tlaGNC">           1 :             &quot;ParserInvalidArgument&quot;,</span></span>
+<span id="L1263"><span class="lineNum">    1263</span> <span class="tlaGNC">           1 :             &quot;varbit extract length $varbitBits is not a multiple of 8&quot;,</span></span>
+<span id="L1264"><span class="lineNum">    1264</span>              :           )</span>
+<span id="L1265"><span class="lineNum">    1265</span>              :         }</span>
+<span id="L1266"><span class="lineNum">    1266</span> <span class="tlaGNC">           1 :         val varbitField = headerDecl.fieldsList.find { it.type.hasVarbit() }</span></span>
+<span id="L1267"><span class="lineNum">    1267</span> <span class="tlaGNC">           1 :         if (varbitField != null &amp;&amp; varbitBits &gt; varbitField.type.varbit.maxWidth) {</span></span>
+<span id="L1268"><span class="lineNum">    1268</span> <span class="tlaGNC">           1 :           throw ParserErrorException(</span></span>
+<span id="L1269"><span class="lineNum">    1269</span> <span class="tlaGNC">           1 :             &quot;HeaderTooShort&quot;,</span></span>
+<span id="L1270"><span class="lineNum">    1270</span> <span class="tlaGNC">           1 :             &quot;varbit extract length $varbitBits exceeds max width &quot; +</span></span>
+<span id="L1271"><span class="lineNum">    1271</span> <span class="tlaGNC">           1 :               &quot;${varbitField.type.varbit.maxWidth}&quot;,</span></span>
+<span id="L1272"><span class="lineNum">    1272</span>              :           )</span>
+<span id="L1273"><span class="lineNum">    1273</span>              :         }</span>
+<span id="L1274"><span class="lineNum">    1274</span>              :       }</span>
+<span id="L1275"><span class="lineNum">    1275</span>              : </span>
+<span id="L1276"><span class="lineNum">    1276</span> <span class="tlaGNC">           1 :       val widths = headerDecl.fieldsList.map { fieldWireWidth(it.type, varbitBits) }</span></span>
+<span id="L1277"><span class="lineNum">    1277</span> <span class="tlaGNC">           1 :       val totalBits = widths.sum()</span></span>
+<span id="L1278"><span class="lineNum">    1278</span> <span class="tlaGNC">           1 :       val allBits = packet.extractBits(totalBits)</span></span>
+<span id="L1279"><span class="lineNum">    1279</span> <span class="tlaGNC">           1 :       val newFields = unpackFields(headerDecl.fieldsList, widths, allBits, totalBits)</span></span>
+<span id="L1280"><span class="lineNum">    1280</span> <span class="tlaGNC">           1 :       if (!unionHandled) invalidateUnionSiblings(call.argsList[0], header, env)</span></span>
+<span id="L1281"><span class="lineNum">    1281</span> <span class="tlaGNC">           1 :       header.setValid(newFields)</span></span>
+<span id="L1282"><span class="lineNum">    1282</span> <span class="tlaGNC">           1 :       return UnitVal</span></span>
+<span id="L1283"><span class="lineNum">    1283</span>              :     }</span>
+<span id="L1284"><span class="lineNum">    1284</span>              : </span>
+<span id="L1285"><span class="lineNum">    1285</span>              :     /** P4 spec §12.8.2: peek at packet bits and construct a value of type T without consuming. */</span>
+<span id="L1286"><span class="lineNum">    1286</span>              :     private fun execLookahead(returnType: Type): Value {</span>
+<span id="L1287"><span class="lineNum">    1287</span> <span class="tlaGNC">           1 :       if (returnType.hasBit()) {</span></span>
+<span id="L1288"><span class="lineNum">    1288</span> <span class="tlaGNC">           1 :         val width = returnType.bit.width</span></span>
+<span id="L1289"><span class="lineNum">    1289</span> <span class="tlaGNC">           1 :         return BitVal(BitVector(packet.peekBits(width), width))</span></span>
+<span id="L1290"><span class="lineNum">    1290</span>              :       }</span>
+<span id="L1291"><span class="lineNum">    1291</span>              : </span>
+<span id="L1292"><span class="lineNum">    1292</span> <span class="tlaGNC">           1 :       val typeName = returnType.named</span></span>
+<span id="L1293"><span class="lineNum">    1293</span> <span class="tlaGNC">           1 :       val typeDecl = types[typeName] ?: error(&quot;type not found for lookahead: $typeName&quot;)</span></span>
+<span id="L1294"><span class="lineNum">    1294</span> <span class="tlaGNC">           1 :       val fields =</span></span>
+<span id="L1295"><span class="lineNum">    1295</span> <span class="tlaGNC">           1 :         when (typeDecl.kindCase) {</span></span>
+<span id="L1296"><span class="lineNum">    1296</span> <span class="tlaGNC">           1 :           TypeDecl.KindCase.HEADER -&gt; typeDecl.header.fieldsList</span></span>
+<span id="L1297"><span class="lineNum">    1297</span> <span class="tlaGNC">           1 :           TypeDecl.KindCase.STRUCT -&gt; typeDecl.struct.fieldsList</span></span>
+<span id="L1298"><span class="lineNum">    1298</span>              :           TypeDecl.KindCase.HEADER_UNION,</span>
+<span id="L1299"><span class="lineNum">    1299</span>              :           TypeDecl.KindCase.ENUM,</span>
+<span id="L1300"><span class="lineNum">    1300</span>              :           TypeDecl.KindCase.KIND_NOT_SET,</span>
+<span id="L1301"><span class="lineNum">    1301</span> <span class="tlaUNC tlaBgUNC">           0 :           null -&gt; error(&quot;lookahead type must be a header or struct: $typeName&quot;)</span></span>
+<span id="L1302"><span class="lineNum">    1302</span>              :         }</span>
+<span id="L1303"><span class="lineNum">    1303</span> <span class="tlaGNC tlaBgGNC">           1 :       val widths = fields.map { fieldWireWidth(it.type) }</span></span>
+<span id="L1304"><span class="lineNum">    1304</span> <span class="tlaGNC">           1 :       val totalBits = widths.sum()</span></span>
+<span id="L1305"><span class="lineNum">    1305</span> <span class="tlaGNC">           1 :       val allBits = packet.peekBits(totalBits)</span></span>
+<span id="L1306"><span class="lineNum">    1306</span> <span class="tlaGNC">           1 :       val newFields = unpackFields(fields, widths, allBits, totalBits)</span></span>
+<span id="L1307"><span class="lineNum">    1307</span> <span class="tlaGNC">           1 :       return if (typeDecl.hasHeader()) {</span></span>
+<span id="L1308"><span class="lineNum">    1308</span> <span class="tlaGNC">           1 :         HeaderVal(typeName, newFields, valid = true)</span></span>
+<span id="L1309"><span class="lineNum">    1309</span>              :       } else {</span>
+<span id="L1310"><span class="lineNum">    1310</span> <span class="tlaGNC">           1 :         StructVal(typeName, newFields)</span></span>
+<span id="L1311"><span class="lineNum">    1311</span>              :       }</span>
+<span id="L1312"><span class="lineNum">    1312</span>              :     }</span>
+<span id="L1313"><span class="lineNum">    1313</span>              : </span>
+<span id="L1314"><span class="lineNum">    1314</span>              :     /**</span>
+<span id="L1315"><span class="lineNum">    1315</span>              :      * Unpacks a BigInteger of raw packet bits into named field values.</span>
+<span id="L1316"><span class="lineNum">    1316</span>              :      *</span>
+<span id="L1317"><span class="lineNum">    1317</span>              :      * Handles sub-byte fields (e.g. IPv4's bit&lt;4&gt; version and ihl) that share a byte by shift+mask</span>
+<span id="L1318"><span class="lineNum">    1318</span>              :      * from a single MSB-first BigInteger. Used by both extract and lookahead.</span>
+<span id="L1319"><span class="lineNum">    1319</span>              :      */</span>
+<span id="L1320"><span class="lineNum">    1320</span>              :     private fun unpackFields(</span>
+<span id="L1321"><span class="lineNum">    1321</span>              :       fields: List&lt;FieldDecl&gt;,</span>
+<span id="L1322"><span class="lineNum">    1322</span>              :       widths: List&lt;Int&gt;,</span>
+<span id="L1323"><span class="lineNum">    1323</span>              :       allBits: BigInteger,</span>
+<span id="L1324"><span class="lineNum">    1324</span>              :       totalBits: Int,</span>
+<span id="L1325"><span class="lineNum">    1325</span>              :     ): MutableMap&lt;String, Value&gt; {</span>
+<span id="L1326"><span class="lineNum">    1326</span> <span class="tlaGNC">           1 :       val result = mutableMapOf&lt;String, Value&gt;()</span></span>
+<span id="L1327"><span class="lineNum">    1327</span> <span class="tlaGNC">           1 :       var bitOffset = 0</span></span>
+<span id="L1328"><span class="lineNum">    1328</span> <span class="tlaGNC">           1 :       for ((field, width) in fields.zip(widths)) {</span></span>
+<span id="L1329"><span class="lineNum">    1329</span> <span class="tlaGNC">           1 :         if (width == 0) {</span></span>
+<span id="L1330"><span class="lineNum">    1330</span>              :           // Zero-width varbit fields still need a map entry so checksum StructExprs</span>
+<span id="L1331"><span class="lineNum">    1331</span>              :           // can reference them (e.g. hdr.ipv4.options when IHL=5).</span>
+<span id="L1332"><span class="lineNum">    1332</span> <span class="tlaGNC">           1 :           if (field.type.hasVarbit()) result[field.name] = BitVal(BitVector(BigInteger.ZERO, 0))</span></span>
+<span id="L1333"><span class="lineNum">    1333</span> <span class="tlaGNC">           1 :           continue</span></span>
+<span id="L1334"><span class="lineNum">    1334</span>              :         }</span>
+<span id="L1335"><span class="lineNum">    1335</span> <span class="tlaGNC">           1 :         val mask = BigInteger.ONE.shiftLeft(width) - BigInteger.ONE</span></span>
+<span id="L1336"><span class="lineNum">    1336</span> <span class="tlaGNC">           1 :         val raw = (allBits shr (totalBits - bitOffset - width)) and mask</span></span>
+<span id="L1337"><span class="lineNum">    1337</span> <span class="tlaGNC">           1 :         result[field.name] = bitsToValue(field.type, raw, width)</span></span>
+<span id="L1338"><span class="lineNum">    1338</span> <span class="tlaGNC">           1 :         bitOffset += width</span></span>
+<span id="L1339"><span class="lineNum">    1339</span>              :       }</span>
+<span id="L1340"><span class="lineNum">    1340</span> <span class="tlaGNC">           1 :       return result</span></span>
+<span id="L1341"><span class="lineNum">    1341</span>              :     }</span>
+<span id="L1342"><span class="lineNum">    1342</span>              : </span>
+<span id="L1343"><span class="lineNum">    1343</span>              :     /**</span>
+<span id="L1344"><span class="lineNum">    1344</span>              :      * Returns the on-wire bit-width of a header field type.</span>
+<span id="L1345"><span class="lineNum">    1345</span>              :      *</span>
+<span id="L1346"><span class="lineNum">    1346</span>              :      * P4 spec §8.9.2: bool in a header occupies exactly 1 bit on the wire. int&lt;N&gt; and bit&lt;N&gt; occupy</span>
+<span id="L1347"><span class="lineNum">    1347</span>              :      * N bits. varbit&lt;N&gt; occupies [varbitBits] bits (caller must supply the runtime value).</span>
+<span id="L1348"><span class="lineNum">    1348</span>              :      * Serializable enums are looked up by name and use their declared underlying width.</span>
+<span id="L1349"><span class="lineNum">    1349</span>              :      */</span>
+<span id="L1350"><span class="lineNum">    1350</span> <span class="tlaGNC">           1 :     private fun fieldWireWidth(type: Type, varbitBits: Int = 0): Int =</span></span>
+<span id="L1351"><span class="lineNum">    1351</span> <span class="tlaGNC">           1 :       when (type.kindCase) {</span></span>
+<span id="L1352"><span class="lineNum">    1352</span> <span class="tlaGNC">           1 :         TypeKind.BIT -&gt; type.bit.width</span></span>
+<span id="L1353"><span class="lineNum">    1353</span> <span class="tlaGNC">           1 :         TypeKind.SIGNED_INT -&gt; type.signedInt.width</span></span>
+<span id="L1354"><span class="lineNum">    1354</span> <span class="tlaGNC">           1 :         TypeKind.BOOLEAN -&gt; 1</span></span>
+<span id="L1355"><span class="lineNum">    1355</span> <span class="tlaGNC">           1 :         TypeKind.VARBIT -&gt; varbitBits</span></span>
+<span id="L1356"><span class="lineNum">    1356</span>              :         TypeKind.NAMED -&gt; {</span>
+<span id="L1357"><span class="lineNum">    1357</span> <span class="tlaGNC">           1 :           val decl = types[type.named]</span></span>
+<span id="L1358"><span class="lineNum">    1358</span> <span class="tlaGNC">           1 :           when (decl?.kindCase) {</span></span>
+<span id="L1359"><span class="lineNum">    1359</span> <span class="tlaGNC">           1 :             TypeDecl.KindCase.ENUM -&gt; decl.enum.width</span></span>
+<span id="L1360"><span class="lineNum">    1360</span>              :             TypeDecl.KindCase.HEADER,</span>
+<span id="L1361"><span class="lineNum">    1361</span>              :             TypeDecl.KindCase.STRUCT,</span>
+<span id="L1362"><span class="lineNum">    1362</span>              :             TypeDecl.KindCase.HEADER_UNION,</span>
+<span id="L1363"><span class="lineNum">    1363</span>              :             TypeDecl.KindCase.KIND_NOT_SET,</span>
+<span id="L1364"><span class="lineNum">    1364</span> <span class="tlaUNC tlaBgUNC">           0 :             null -&gt; 0</span></span>
+<span id="L1365"><span class="lineNum">    1365</span>              :           }</span>
+<span id="L1366"><span class="lineNum">    1366</span>              :         }</span>
+<span id="L1367"><span class="lineNum">    1367</span>              :         TypeKind.HEADER_STACK,</span>
+<span id="L1368"><span class="lineNum">    1368</span>              :         TypeKind.ERROR,</span>
+<span id="L1369"><span class="lineNum">    1369</span>              :         TypeKind.KIND_NOT_SET,</span>
+<span id="L1370"><span class="lineNum">    1370</span> <span class="tlaUNC">           0 :         null -&gt; 0</span></span>
+<span id="L1371"><span class="lineNum">    1371</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
+<span id="L1372"><span class="lineNum">    1372</span>              : </span>
+<span id="L1373"><span class="lineNum">    1373</span>              :     /**</span>
+<span id="L1374"><span class="lineNum">    1374</span>              :      * Converts raw extracted bits to the appropriate [Value] for a header field.</span>
+<span id="L1375"><span class="lineNum">    1375</span>              :      *</span>
+<span id="L1376"><span class="lineNum">    1376</span>              :      * bit&lt;N&gt; → [BitVal], bool → [BoolVal], int&lt;N&gt; → [IntVal], varbit / enum → [BitVal].</span>
+<span id="L1377"><span class="lineNum">    1377</span>              :      */</span>
+<span id="L1378"><span class="lineNum">    1378</span>              :     private fun bitsToValue(type: Type, raw: BigInteger, width: Int): Value =</span>
+<span id="L1379"><span class="lineNum">    1379</span> <span class="tlaGNC">           1 :       when (type.kindCase) {</span></span>
+<span id="L1380"><span class="lineNum">    1380</span> <span class="tlaGNC">           1 :         TypeKind.BOOLEAN -&gt; BoolVal(raw != BigInteger.ZERO)</span></span>
+<span id="L1381"><span class="lineNum">    1381</span> <span class="tlaGNC">           1 :         TypeKind.SIGNED_INT -&gt; IntVal(SignedBitVector.fromUnsignedBits(raw, width))</span></span>
+<span id="L1382"><span class="lineNum">    1382</span>              :         TypeKind.BIT,</span>
+<span id="L1383"><span class="lineNum">    1383</span>              :         TypeKind.VARBIT,</span>
+<span id="L1384"><span class="lineNum">    1384</span>              :         TypeKind.NAMED,</span>
+<span id="L1385"><span class="lineNum">    1385</span>              :         TypeKind.HEADER_STACK,</span>
+<span id="L1386"><span class="lineNum">    1386</span>              :         TypeKind.ERROR,</span>
+<span id="L1387"><span class="lineNum">    1387</span>              :         TypeKind.KIND_NOT_SET,</span>
+<span id="L1388"><span class="lineNum">    1388</span> <span class="tlaGNC">           1 :         null -&gt; BitVal(BitVector(raw, width))</span></span>
+<span id="L1389"><span class="lineNum">    1389</span> <span class="tlaGNC">           1 :       }</span></span>
+<span id="L1390"><span class="lineNum">    1390</span>              : </span>
+<span id="L1391"><span class="lineNum">    1391</span>              :     private fun execEmit(call: MethodCall, env: Environment): Value {</span>
+<span id="L1392"><span class="lineNum">    1392</span> <span class="tlaGNC">           1 :       emitValue(evalExpr(call.argsList[0], env))</span></span>
+<span id="L1393"><span class="lineNum">    1393</span> <span class="tlaGNC">           1 :       return UnitVal</span></span>
+<span id="L1394"><span class="lineNum">    1394</span>              :     }</span>
+<span id="L1395"><span class="lineNum">    1395</span>              : </span>
+<span id="L1396"><span class="lineNum">    1396</span>              :     /**</span>
+<span id="L1397"><span class="lineNum">    1397</span>              :      * Recursively emits a value to the packet output buffer.</span>
+<span id="L1398"><span class="lineNum">    1398</span>              :      * - [HeaderVal]: packs all fields into bytes (MSB-first) and appends if valid.</span>
+<span id="L1399"><span class="lineNum">    1399</span>              :      * - [StructVal]: iterates fields in declaration order (looking up the TypeDecl) and emits each.</span>
+<span id="L1400"><span class="lineNum">    1400</span>              :      * - Other types: no-op (non-emittable values such as BoolVal in metadata structs).</span>
+<span id="L1401"><span class="lineNum">    1401</span>              :      *</span>
+<span id="L1402"><span class="lineNum">    1402</span>              :      * This handles both `pkt.emit(hdr.ethernet)` (single header) and `pkt.emit(hdr)` where `hdr` is</span>
+<span id="L1403"><span class="lineNum">    1403</span>              :      * a struct containing multiple headers, as required by the P4 deparser model.</span>
+<span id="L1404"><span class="lineNum">    1404</span>              :      */</span>
+<span id="L1405"><span class="lineNum">    1405</span>              :     private fun emitValue(value: Value) {</span>
+<span id="L1406"><span class="lineNum">    1406</span> <span class="tlaGNC">           1 :       when (value) {</span></span>
+<span id="L1407"><span class="lineNum">    1407</span> <span class="tlaGNC">           1 :         is HeaderVal -&gt; emitHeader(value)</span></span>
+<span id="L1408"><span class="lineNum">    1408</span> <span class="tlaGNC">           1 :         is StructVal -&gt; {</span></span>
+<span id="L1409"><span class="lineNum">    1409</span>              :           // Emit in the declaration order from the TypeDecl; fall back to map order if unknown.</span>
+<span id="L1410"><span class="lineNum">    1410</span> <span class="tlaGNC">           1 :           val typeDecl = types[value.typeName]</span></span>
+<span id="L1411"><span class="lineNum">    1411</span> <span class="tlaGNC">           1 :           val fieldDecls =</span></span>
+<span id="L1412"><span class="lineNum">    1412</span> <span class="tlaGNC">           1 :             when (typeDecl?.kindCase) {</span></span>
+<span id="L1413"><span class="lineNum">    1413</span> <span class="tlaGNC">           1 :               TypeDecl.KindCase.STRUCT -&gt; typeDecl.struct.fieldsList</span></span>
+<span id="L1414"><span class="lineNum">    1414</span> <span class="tlaGNC">           1 :               TypeDecl.KindCase.HEADER_UNION -&gt; typeDecl.headerUnion.fieldsList</span></span>
+<span id="L1415"><span class="lineNum">    1415</span>              :               TypeDecl.KindCase.HEADER,</span>
+<span id="L1416"><span class="lineNum">    1416</span>              :               TypeDecl.KindCase.ENUM,</span>
+<span id="L1417"><span class="lineNum">    1417</span>              :               TypeDecl.KindCase.KIND_NOT_SET,</span>
+<span id="L1418"><span class="lineNum">    1418</span> <span class="tlaUNC tlaBgUNC">           0 :               null -&gt; null</span></span>
+<span id="L1419"><span class="lineNum">    1419</span>              :             }</span>
+<span id="L1420"><span class="lineNum">    1420</span> <span class="tlaGNC tlaBgGNC">           1 :           if (fieldDecls != null) {</span></span>
+<span id="L1421"><span class="lineNum">    1421</span> <span class="tlaGNC">           1 :             for (field in fieldDecls) {</span></span>
+<span id="L1422"><span class="lineNum">    1422</span> <span class="tlaGNC">           1 :               emitValue(value.fields[field.name] ?: continue)</span></span>
+<span id="L1423"><span class="lineNum">    1423</span>              :             }</span>
+<span id="L1424"><span class="lineNum">    1424</span>              :           } else {</span>
+<span id="L1425"><span class="lineNum">    1425</span> <span class="tlaUNC tlaBgUNC">           0 :             for (fieldVal in value.fields.values) emitValue(fieldVal)</span></span>
+<span id="L1426"><span class="lineNum">    1426</span>              :           }</span>
+<span id="L1427"><span class="lineNum">    1427</span>              :         }</span>
+<span id="L1428"><span class="lineNum">    1428</span> <span class="tlaGNC tlaBgGNC">           1 :         is HeaderStackVal -&gt; {</span></span>
+<span id="L1429"><span class="lineNum">    1429</span> <span class="tlaGNC">           1 :           for (header in value.headers) emitValue(header)</span></span>
+<span id="L1430"><span class="lineNum">    1430</span>              :         }</span>
+<span id="L1431"><span class="lineNum">    1431</span>              :         else -&gt; {} // BoolVal, BitVal outside a header, UnitVal — not emittable</span>
+<span id="L1432"><span class="lineNum">    1432</span>              :       }</span>
+<span id="L1433"><span class="lineNum">    1433</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L1434"><span class="lineNum">    1434</span>              : </span>
+<span id="L1435"><span class="lineNum">    1435</span>              :     /** Packs a valid header's fields into bytes (MSB-first) and appends to the output buffer. */</span>
+<span id="L1436"><span class="lineNum">    1436</span>              :     private fun emitHeader(header: HeaderVal) {</span>
+<span id="L1437"><span class="lineNum">    1437</span> <span class="tlaGNC">           1 :       if (!header.valid) return</span></span>
+<span id="L1438"><span class="lineNum">    1438</span> <span class="tlaGNC">           1 :       val headerDecl =</span></span>
+<span id="L1439"><span class="lineNum">    1439</span> <span class="tlaGNC">           1 :         (types[header.typeName] ?: error(&quot;type not found: ${header.typeName}&quot;)).header</span></span>
+<span id="L1440"><span class="lineNum">    1440</span>              :       // Compute total wire bits from field declarations; varbit fields use their stored BitVal</span>
+<span id="L1441"><span class="lineNum">    1441</span>              :       // width since we don't have the runtime length separately at emit time.</span>
+<span id="L1442"><span class="lineNum">    1442</span> <span class="tlaGNC">           1 :       val totalBits =</span></span>
+<span id="L1443"><span class="lineNum">    1443</span> <span class="tlaGNC">           1 :         headerDecl.fieldsList.sumOf { field -&gt;</span></span>
+<span id="L1444"><span class="lineNum">    1444</span> <span class="tlaGNC">           1 :           when (val v = header.fields[field.name]) {</span></span>
+<span id="L1445"><span class="lineNum">    1445</span> <span class="tlaGNC">           1 :             is BitVal -&gt; v.bits.width</span></span>
+<span id="L1446"><span class="lineNum">    1446</span> <span class="tlaGNC">           1 :             is BoolVal -&gt; 1</span></span>
+<span id="L1447"><span class="lineNum">    1447</span> <span class="tlaGNC">           1 :             is IntVal -&gt; v.bits.width</span></span>
+<span id="L1448"><span class="lineNum">    1448</span> <span class="tlaUNC tlaBgUNC">           0 :             else -&gt; 0</span></span>
+<span id="L1449"><span class="lineNum">    1449</span> <span class="tlaGNC tlaBgGNC">           1 :           }</span></span>
+<span id="L1450"><span class="lineNum">    1450</span>              :         }</span>
+<span id="L1451"><span class="lineNum">    1451</span> <span class="tlaGNC">           1 :       var packedBits = BigInteger.ZERO</span></span>
+<span id="L1452"><span class="lineNum">    1452</span> <span class="tlaGNC">           1 :       var bitOffset = 0</span></span>
+<span id="L1453"><span class="lineNum">    1453</span> <span class="tlaGNC">           1 :       for (field in headerDecl.fieldsList) {</span></span>
+<span id="L1454"><span class="lineNum">    1454</span> <span class="tlaGNC">           1 :         val fieldBits: BigInteger</span></span>
+<span id="L1455"><span class="lineNum">    1455</span> <span class="tlaGNC">           1 :         val width: Int</span></span>
+<span id="L1456"><span class="lineNum">    1456</span> <span class="tlaGNC">           1 :         when (val fieldVal = header.fields[field.name]) {</span></span>
+<span id="L1457"><span class="lineNum">    1457</span> <span class="tlaGNC">           1 :           is BitVal -&gt; {</span></span>
+<span id="L1458"><span class="lineNum">    1458</span> <span class="tlaGNC">           1 :             fieldBits = fieldVal.bits.value</span></span>
+<span id="L1459"><span class="lineNum">    1459</span> <span class="tlaGNC">           1 :             width = fieldVal.bits.width</span></span>
+<span id="L1460"><span class="lineNum">    1460</span>              :           }</span>
+<span id="L1461"><span class="lineNum">    1461</span> <span class="tlaGNC">           1 :           is BoolVal -&gt; {</span></span>
+<span id="L1462"><span class="lineNum">    1462</span>              :             // P4 spec §8.9.2: bool occupies 1 bit on the wire.</span>
+<span id="L1463"><span class="lineNum">    1463</span> <span class="tlaGNC">           1 :             fieldBits = if (fieldVal.value) BigInteger.ONE else BigInteger.ZERO</span></span>
+<span id="L1464"><span class="lineNum">    1464</span> <span class="tlaGNC">           1 :             width = 1</span></span>
+<span id="L1465"><span class="lineNum">    1465</span>              :           }</span>
+<span id="L1466"><span class="lineNum">    1466</span> <span class="tlaGNC">           1 :           is IntVal -&gt; {</span></span>
+<span id="L1467"><span class="lineNum">    1467</span> <span class="tlaGNC">           1 :             fieldBits = fieldVal.bits.toUnsigned().value</span></span>
+<span id="L1468"><span class="lineNum">    1468</span> <span class="tlaGNC">           1 :             width = fieldVal.bits.width</span></span>
+<span id="L1469"><span class="lineNum">    1469</span>              :           }</span>
+<span id="L1470"><span class="lineNum">    1470</span> <span class="tlaUNC tlaBgUNC">           0 :           else -&gt; continue // UnitVal (e.g. varbit placeholder) — skip</span></span>
+<span id="L1471"><span class="lineNum">    1471</span>              :         }</span>
+<span id="L1472"><span class="lineNum">    1472</span> <span class="tlaGNC tlaBgGNC">           1 :         if (totalBits &gt; 0 &amp;&amp; width &gt; 0) {</span></span>
+<span id="L1473"><span class="lineNum">    1473</span> <span class="tlaGNC">           1 :           val shift = totalBits - bitOffset - width</span></span>
+<span id="L1474"><span class="lineNum">    1474</span> <span class="tlaGNC">           1 :           packedBits = packedBits or fieldBits.shiftLeft(shift)</span></span>
+<span id="L1475"><span class="lineNum">    1475</span>              :         }</span>
+<span id="L1476"><span class="lineNum">    1476</span> <span class="tlaGNC">           1 :         bitOffset += width</span></span>
+<span id="L1477"><span class="lineNum">    1477</span>              :       }</span>
+<span id="L1478"><span class="lineNum">    1478</span> <span class="tlaGNC">           1 :       if (totalBits &gt; 0) {</span></span>
+<span id="L1479"><span class="lineNum">    1479</span> <span class="tlaGNC">           1 :         packet.emitBits(packedBits, totalBits)</span></span>
+<span id="L1480"><span class="lineNum">    1480</span> <span class="tlaGNC">           1 :         packetCtx?.addTraceEvent(</span></span>
+<span id="L1481"><span class="lineNum">    1481</span> <span class="tlaGNC">           1 :           TraceEvent.newBuilder()</span></span>
+<span id="L1482"><span class="lineNum">    1482</span> <span class="tlaGNC">           1 :             .setDeparserEmit(</span></span>
+<span id="L1483"><span class="lineNum">    1483</span> <span class="tlaGNC">           1 :               DeparserEmitEvent.newBuilder()</span></span>
+<span id="L1484"><span class="lineNum">    1484</span> <span class="tlaGNC">           1 :                 .setHeaderType(header.typeName)</span></span>
+<span id="L1485"><span class="lineNum">    1485</span> <span class="tlaGNC">           1 :                 .setByteLength((totalBits + 7) / 8)</span></span>
+<span id="L1486"><span class="lineNum">    1486</span>              :             )</span>
+<span id="L1487"><span class="lineNum">    1487</span> <span class="tlaGNC">           1 :             .build()</span></span>
+<span id="L1488"><span class="lineNum">    1488</span>              :         )</span>
+<span id="L1489"><span class="lineNum">    1489</span>              :       }</span>
+<span id="L1490"><span class="lineNum">    1490</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L1491"><span class="lineNum">    1491</span>              : </span>
 <span id="L1492"><span class="lineNum">    1492</span>              :     // -------------------------------------------------------------------------</span>
-<span id="L1493"><span class="lineNum">    1493</span>              : </span>
-<span id="L1494"><span class="lineNum">    1494</span>              :     private fun setLValue(lhs: Expr, value: Value, env: Environment) {</span>
-<span id="L1495"><span class="lineNum">    1495</span>              :       // P4 assignment is copy-by-value. Headers and structs carry mutable fields maps,</span>
-<span id="L1496"><span class="lineNum">    1496</span>              :       // so we copy them to prevent aliasing (e.g. `x = h.h; x.a = 2` must not modify `h.h.a`).</span>
-<span id="L1497"><span class="lineNum">    1497</span> <span class="tlaGNC">           1 :       val copy =</span></span>
-<span id="L1498"><span class="lineNum">    1498</span> <span class="tlaGNC">           1 :         when (value) {</span></span>
-<span id="L1499"><span class="lineNum">    1499</span> <span class="tlaGNC">           1 :           is HeaderVal -&gt; value.copy()</span></span>
-<span id="L1500"><span class="lineNum">    1500</span> <span class="tlaGNC">           1 :           is StructVal -&gt; value.copy()</span></span>
-<span id="L1501"><span class="lineNum">    1501</span> <span class="tlaGNC">           1 :           else -&gt; value</span></span>
-<span id="L1502"><span class="lineNum">    1502</span>              :         }</span>
-<span id="L1503"><span class="lineNum">    1503</span> <span class="tlaGNC">           1 :       when (lhs.kindCase) {</span></span>
-<span id="L1504"><span class="lineNum">    1504</span>              :         ExprKind.NAME_REF -&gt; {</span>
-<span id="L1505"><span class="lineNum">    1505</span> <span class="tlaGNC">           1 :           env.update(lhs.nameRef.name, copy)</span></span>
-<span id="L1506"><span class="lineNum">    1506</span>              :         }</span>
-<span id="L1507"><span class="lineNum">    1507</span>              :         ExprKind.FIELD_ACCESS -&gt; {</span>
-<span id="L1508"><span class="lineNum">    1508</span> <span class="tlaGNC">           1 :           val target = evalExpr(lhs.fieldAccess.expr, env)</span></span>
-<span id="L1509"><span class="lineNum">    1509</span> <span class="tlaGNC">           1 :           when (target) {</span></span>
-<span id="L1510"><span class="lineNum">    1510</span> <span class="tlaGNC">           1 :             is HeaderVal -&gt; target.fields[lhs.fieldAccess.fieldName] = copy</span></span>
-<span id="L1511"><span class="lineNum">    1511</span> <span class="tlaGNC">           1 :             is StructVal -&gt; target.fields[lhs.fieldAccess.fieldName] = copy</span></span>
-<span id="L1512"><span class="lineNum">    1512</span> <span class="tlaUNC tlaBgUNC">           0 :             else -&gt; error(&quot;field assignment on non-aggregate: $target${sourceContext()}&quot;)</span></span>
-<span id="L1513"><span class="lineNum">    1513</span>              :           }</span>
-<span id="L1514"><span class="lineNum">    1514</span>              :         }</span>
-<span id="L1515"><span class="lineNum">    1515</span>              :         // P4 spec §8.18: out-of-bounds writes are no-ops.</span>
-<span id="L1516"><span class="lineNum">    1516</span>              :         ExprKind.ARRAY_INDEX -&gt; {</span>
-<span id="L1517"><span class="lineNum">    1517</span> <span class="tlaGNC tlaBgGNC">           1 :           val stack = evalExpr(lhs.arrayIndex.expr, env) as HeaderStackVal</span></span>
-<span id="L1518"><span class="lineNum">    1518</span> <span class="tlaGNC">           1 :           val index = intValue(evalExpr(lhs.arrayIndex.index, env))</span></span>
-<span id="L1519"><span class="lineNum">    1519</span> <span class="tlaGNC">           1 :           if (index in 0 until stack.size) stack.headers[index] = copy</span></span>
-<span id="L1520"><span class="lineNum">    1520</span>              :         }</span>
-<span id="L1521"><span class="lineNum">    1521</span>              :         ExprKind.SLICE -&gt; {</span>
-<span id="L1522"><span class="lineNum">    1522</span>              :           // Slice assignment: update [hi:lo] bits of the target.</span>
-<span id="L1523"><span class="lineNum">    1523</span> <span class="tlaGNC">           1 :           val target = evalExpr(lhs.slice.expr, env) as BitVal</span></span>
-<span id="L1524"><span class="lineNum">    1524</span> <span class="tlaGNC">           1 :           val src = value as BitVal</span></span>
-<span id="L1525"><span class="lineNum">    1525</span> <span class="tlaGNC">           1 :           val hi = lhs.slice.hi</span></span>
-<span id="L1526"><span class="lineNum">    1526</span> <span class="tlaGNC">           1 :           val lo = lhs.slice.lo</span></span>
-<span id="L1527"><span class="lineNum">    1527</span> <span class="tlaGNC">           1 :           val mask = BitVector(BitVector.maskFor(hi - lo + 1).shiftLeft(lo), target.bits.width)</span></span>
-<span id="L1528"><span class="lineNum">    1528</span> <span class="tlaGNC">           1 :           val shifted = BitVector(src.bits.value.shiftLeft(lo), target.bits.width)</span></span>
-<span id="L1529"><span class="lineNum">    1529</span> <span class="tlaGNC">           1 :           val result = (target.bits and mask.inv()) or (shifted and mask)</span></span>
-<span id="L1530"><span class="lineNum">    1530</span> <span class="tlaGNC">           1 :           setLValue(lhs.slice.expr, BitVal(result), env)</span></span>
-<span id="L1531"><span class="lineNum">    1531</span>              :         }</span>
-<span id="L1532"><span class="lineNum">    1532</span>              :         ExprKind.LITERAL,</span>
-<span id="L1533"><span class="lineNum">    1533</span>              :         ExprKind.CONCAT,</span>
-<span id="L1534"><span class="lineNum">    1534</span>              :         ExprKind.CAST,</span>
-<span id="L1535"><span class="lineNum">    1535</span>              :         ExprKind.BINARY_OP,</span>
-<span id="L1536"><span class="lineNum">    1536</span>              :         ExprKind.UNARY_OP,</span>
-<span id="L1537"><span class="lineNum">    1537</span>              :         ExprKind.METHOD_CALL,</span>
-<span id="L1538"><span class="lineNum">    1538</span>              :         ExprKind.TABLE_APPLY,</span>
-<span id="L1539"><span class="lineNum">    1539</span>              :         ExprKind.MUX,</span>
-<span id="L1540"><span class="lineNum">    1540</span>              :         ExprKind.STRUCT_EXPR,</span>
-<span id="L1541"><span class="lineNum">    1541</span>              :         ExprKind.KIND_NOT_SET,</span>
-<span id="L1542"><span class="lineNum">    1542</span> <span class="tlaUNC tlaBgUNC">           0 :         null -&gt; error(&quot;unhandled lvalue kind: $lhs${sourceContext()}&quot;)</span></span>
-<span id="L1543"><span class="lineNum">    1543</span>              :       }</span>
-<span id="L1544"><span class="lineNum">    1544</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
-<span id="L1545"><span class="lineNum">    1545</span>              :   } // end Execution</span>
-<span id="L1546"><span class="lineNum">    1546</span>              : </span>
-<span id="L1547"><span class="lineNum">    1547</span>              :   companion object {</span>
-<span id="L1548"><span class="lineNum">    1548</span>              :     // P4 spec §8.18: header stack lastIndex/size are bit&lt;32&gt;.</span>
-<span id="L1549"><span class="lineNum">    1549</span>              :     private const val STACK_PROPERTY_BITS = 32</span>
-<span id="L1550"><span class="lineNum">    1550</span> <span class="tlaGNC">           1 :     private val BOOL_TRUE_BITS = BitVector.ofInt(1, 1)</span></span>
-<span id="L1551"><span class="lineNum">    1551</span> <span class="tlaGNC">           1 :     private val BOOL_FALSE_BITS = BitVector.ofInt(0, 1)</span></span>
-<span id="L1552"><span class="lineNum">    1552</span>              : </span>
-<span id="L1553"><span class="lineNum">    1553</span> <span class="tlaGNC">           1 :     @Suppress(&quot;MagicNumber&quot;) private val maxDecimalOnly = java.math.BigInteger.valueOf(9)</span></span>
-<span id="L1554"><span class="lineNum">    1554</span>              :   }</span>
-<span id="L1555"><span class="lineNum">    1555</span>              : }</span>
-<span id="L1556"><span class="lineNum">    1556</span>              : </span>
-<span id="L1557"><span class="lineNum">    1557</span>              : /** Creates a one-shot [Interpreter.Execution] — convenience for tests. */</span>
-<span id="L1558"><span class="lineNum">    1558</span> <span class="tlaGNC">           1 : fun interpreterExecution(</span></span>
-<span id="L1559"><span class="lineNum">    1559</span>              :   config: BehavioralConfig,</span>
-<span id="L1560"><span class="lineNum">    1560</span>              :   tableStore: TableStore,</span>
-<span id="L1561"><span class="lineNum">    1561</span> <span class="tlaGNC">           1 :   packetCtx: PacketContext? = null,</span></span>
-<span id="L1562"><span class="lineNum">    1562</span> <span class="tlaGNC">           1 :   selectorOverrides: Map&lt;String, Int&gt; = emptyMap(),</span></span>
-<span id="L1563"><span class="lineNum">    1563</span> <span class="tlaGNC">           1 :   externHandler: ExternHandler? = null,</span></span>
-<span id="L1564"><span class="lineNum">    1564</span>              : ): Interpreter.Execution =</span>
-<span id="L1565"><span class="lineNum">    1565</span> <span class="tlaGNC">           1 :   Interpreter(config).execution(tableStore, packetCtx, selectorOverrides, externHandler)</span></span>
-<span id="L1566"><span class="lineNum">    1566</span>              : </span>
-<span id="L1567"><span class="lineNum">    1567</span>              : /**</span>
-<span id="L1568"><span class="lineNum">    1568</span>              :  * Thrown by an `exit` statement; unwinds the call stack to the top of the current pipeline stage.</span>
-<span id="L1569"><span class="lineNum">    1569</span>              :  */</span>
-<span id="L1570"><span class="lineNum">    1570</span> <span class="tlaGNC">           1 : class ExitException : Exception()</span></span>
-<span id="L1571"><span class="lineNum">    1571</span>              : </span>
-<span id="L1572"><span class="lineNum">    1572</span>              : /** Thrown when assert() or assume() fails. The architecture catches this and drops the packet. */</span>
-<span id="L1573"><span class="lineNum">    1573</span> <span class="tlaGNC">           1 : class AssertionFailureException(message: String) : Exception(message)</span></span>
-<span id="L1574"><span class="lineNum">    1574</span>              : </span>
-<span id="L1575"><span class="lineNum">    1575</span>              : /** Thrown by a `return` statement inside an action or function. */</span>
-<span id="L1576"><span class="lineNum">    1576</span> <span class="tlaUNC tlaBgUNC">           0 : class ReturnException(val value: Value) : Exception()</span></span>
-<span id="L1577"><span class="lineNum">    1577</span>              : </span>
-<span id="L1578"><span class="lineNum">    1578</span>              : /**</span>
-<span id="L1579"><span class="lineNum">    1579</span>              :  * Thrown at non-deterministic choice points to signal the architecture to fork the trace tree. The</span>
-<span id="L1580"><span class="lineNum">    1580</span>              :  * architecture catches this and continues each branch from the fork point (fork-point resume)</span>
-<span id="L1581"><span class="lineNum">    1581</span>              :  * instead of replaying the pipeline.</span>
-<span id="L1582"><span class="lineNum">    1582</span>              :  */</span>
-<span id="L1583"><span class="lineNum">    1583</span> <span class="tlaGNC tlaBgGNC">           1 : sealed class ForkException(val eventsBeforeFork: List&lt;TraceEvent&gt;) : Exception()</span></span>
-<span id="L1584"><span class="lineNum">    1584</span>              : </span>
-<span id="L1585"><span class="lineNum">    1585</span>              : /**</span>
-<span id="L1586"><span class="lineNum">    1586</span>              :  * Fork at an action selector group hit — one branch per group member.</span>
-<span id="L1587"><span class="lineNum">    1587</span>              :  *</span>
-<span id="L1588"><span class="lineNum">    1588</span>              :  * Carries the full interpreter state at the fork point so each branch can continue from there</span>
-<span id="L1589"><span class="lineNum">    1589</span>              :  * (fork-point resume) instead of replaying the entire pipeline.</span>
-<span id="L1590"><span class="lineNum">    1590</span>              :  */</span>
-<span id="L1591"><span class="lineNum">    1591</span> <span class="tlaGNC">           1 : class ActionSelectorFork(</span></span>
-<span id="L1592"><span class="lineNum">    1592</span> <span class="tlaGNC">           1 :   val tableName: String,</span></span>
-<span id="L1593"><span class="lineNum">    1593</span> <span class="tlaGNC">           1 :   val members: List&lt;TableStore.MemberAction&gt;,</span></span>
-<span id="L1594"><span class="lineNum">    1594</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
-<span id="L1595"><span class="lineNum">    1595</span>              :   /** Deep copy of the environment at the fork point — each branch restores from this. */</span>
-<span id="L1596"><span class="lineNum">    1596</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
-<span id="L1597"><span class="lineNum">    1597</span>              :   /** Parser buffer position at the fork point. */</span>
-<span id="L1598"><span class="lineNum">    1598</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
-<span id="L1599"><span class="lineNum">    1599</span>              :   /** Source info at the fork point (the table apply statement), for trace events in branches. */</span>
-<span id="L1600"><span class="lineNum">    1600</span> <span class="tlaGNC">           1 :   val sourceInfo: fourward.SourceInfo? = null,</span></span>
-<span id="L1601"><span class="lineNum">    1601</span>              :   /**</span>
-<span id="L1602"><span class="lineNum">    1602</span>              :    * Continuation: remaining statements at each block nesting level (innermost first). Populated as</span>
-<span id="L1603"><span class="lineNum">    1603</span>              :    * the exception propagates through [Interpreter.Execution.execBlock].</span>
-<span id="L1604"><span class="lineNum">    1604</span>              :    */</span>
-<span id="L1605"><span class="lineNum">    1605</span> <span class="tlaGNC">           1 :   val remainingStmts: ArrayDeque&lt;List&lt;fourward.Stmt&gt;&gt; = ArrayDeque(),</span></span>
-<span id="L1606"><span class="lineNum">    1606</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
+<span id="L1493"><span class="lineNum">    1493</span>              :     // LValue assignment</span>
+<span id="L1494"><span class="lineNum">    1494</span>              :     // -------------------------------------------------------------------------</span>
+<span id="L1495"><span class="lineNum">    1495</span>              : </span>
+<span id="L1496"><span class="lineNum">    1496</span>              :     private fun setLValue(lhs: Expr, value: Value, env: Environment) {</span>
+<span id="L1497"><span class="lineNum">    1497</span>              :       // P4 assignment is copy-by-value. Headers and structs carry mutable fields maps,</span>
+<span id="L1498"><span class="lineNum">    1498</span>              :       // so we copy them to prevent aliasing (e.g. `x = h.h; x.a = 2` must not modify `h.h.a`).</span>
+<span id="L1499"><span class="lineNum">    1499</span> <span class="tlaGNC">           1 :       val copy =</span></span>
+<span id="L1500"><span class="lineNum">    1500</span> <span class="tlaGNC">           1 :         when (value) {</span></span>
+<span id="L1501"><span class="lineNum">    1501</span> <span class="tlaGNC">           1 :           is HeaderVal -&gt; value.copy()</span></span>
+<span id="L1502"><span class="lineNum">    1502</span> <span class="tlaGNC">           1 :           is StructVal -&gt; value.copy()</span></span>
+<span id="L1503"><span class="lineNum">    1503</span> <span class="tlaGNC">           1 :           else -&gt; value</span></span>
+<span id="L1504"><span class="lineNum">    1504</span>              :         }</span>
+<span id="L1505"><span class="lineNum">    1505</span> <span class="tlaGNC">           1 :       when (lhs.kindCase) {</span></span>
+<span id="L1506"><span class="lineNum">    1506</span>              :         ExprKind.NAME_REF -&gt; {</span>
+<span id="L1507"><span class="lineNum">    1507</span> <span class="tlaGNC">           1 :           env.update(lhs.nameRef.name, copy)</span></span>
+<span id="L1508"><span class="lineNum">    1508</span>              :         }</span>
+<span id="L1509"><span class="lineNum">    1509</span>              :         ExprKind.FIELD_ACCESS -&gt; {</span>
+<span id="L1510"><span class="lineNum">    1510</span> <span class="tlaGNC">           1 :           val target = evalExpr(lhs.fieldAccess.expr, env)</span></span>
+<span id="L1511"><span class="lineNum">    1511</span> <span class="tlaGNC">           1 :           when (target) {</span></span>
+<span id="L1512"><span class="lineNum">    1512</span> <span class="tlaGNC">           1 :             is HeaderVal -&gt; target.fields[lhs.fieldAccess.fieldName] = copy</span></span>
+<span id="L1513"><span class="lineNum">    1513</span> <span class="tlaGNC">           1 :             is StructVal -&gt; target.fields[lhs.fieldAccess.fieldName] = copy</span></span>
+<span id="L1514"><span class="lineNum">    1514</span> <span class="tlaUNC tlaBgUNC">           0 :             else -&gt; error(&quot;field assignment on non-aggregate: $target${sourceContext()}&quot;)</span></span>
+<span id="L1515"><span class="lineNum">    1515</span>              :           }</span>
+<span id="L1516"><span class="lineNum">    1516</span>              :         }</span>
+<span id="L1517"><span class="lineNum">    1517</span>              :         // P4 spec §8.18: out-of-bounds writes are no-ops.</span>
+<span id="L1518"><span class="lineNum">    1518</span>              :         ExprKind.ARRAY_INDEX -&gt; {</span>
+<span id="L1519"><span class="lineNum">    1519</span> <span class="tlaGNC tlaBgGNC">           1 :           val stack = evalExpr(lhs.arrayIndex.expr, env) as HeaderStackVal</span></span>
+<span id="L1520"><span class="lineNum">    1520</span> <span class="tlaGNC">           1 :           val index = intValue(evalExpr(lhs.arrayIndex.index, env))</span></span>
+<span id="L1521"><span class="lineNum">    1521</span> <span class="tlaGNC">           1 :           if (index in 0 until stack.size) stack.headers[index] = copy</span></span>
+<span id="L1522"><span class="lineNum">    1522</span>              :         }</span>
+<span id="L1523"><span class="lineNum">    1523</span>              :         ExprKind.SLICE -&gt; {</span>
+<span id="L1524"><span class="lineNum">    1524</span>              :           // Slice assignment: update [hi:lo] bits of the target.</span>
+<span id="L1525"><span class="lineNum">    1525</span> <span class="tlaGNC">           1 :           val target = evalExpr(lhs.slice.expr, env) as BitVal</span></span>
+<span id="L1526"><span class="lineNum">    1526</span> <span class="tlaGNC">           1 :           val src = value as BitVal</span></span>
+<span id="L1527"><span class="lineNum">    1527</span> <span class="tlaGNC">           1 :           val hi = lhs.slice.hi</span></span>
+<span id="L1528"><span class="lineNum">    1528</span> <span class="tlaGNC">           1 :           val lo = lhs.slice.lo</span></span>
+<span id="L1529"><span class="lineNum">    1529</span> <span class="tlaGNC">           1 :           val mask = BitVector(BitVector.maskFor(hi - lo + 1).shiftLeft(lo), target.bits.width)</span></span>
+<span id="L1530"><span class="lineNum">    1530</span> <span class="tlaGNC">           1 :           val shifted = BitVector(src.bits.value.shiftLeft(lo), target.bits.width)</span></span>
+<span id="L1531"><span class="lineNum">    1531</span> <span class="tlaGNC">           1 :           val result = (target.bits and mask.inv()) or (shifted and mask)</span></span>
+<span id="L1532"><span class="lineNum">    1532</span> <span class="tlaGNC">           1 :           setLValue(lhs.slice.expr, BitVal(result), env)</span></span>
+<span id="L1533"><span class="lineNum">    1533</span>              :         }</span>
+<span id="L1534"><span class="lineNum">    1534</span>              :         ExprKind.LITERAL,</span>
+<span id="L1535"><span class="lineNum">    1535</span>              :         ExprKind.CONCAT,</span>
+<span id="L1536"><span class="lineNum">    1536</span>              :         ExprKind.CAST,</span>
+<span id="L1537"><span class="lineNum">    1537</span>              :         ExprKind.BINARY_OP,</span>
+<span id="L1538"><span class="lineNum">    1538</span>              :         ExprKind.UNARY_OP,</span>
+<span id="L1539"><span class="lineNum">    1539</span>              :         ExprKind.METHOD_CALL,</span>
+<span id="L1540"><span class="lineNum">    1540</span>              :         ExprKind.TABLE_APPLY,</span>
+<span id="L1541"><span class="lineNum">    1541</span>              :         ExprKind.MUX,</span>
+<span id="L1542"><span class="lineNum">    1542</span>              :         ExprKind.STRUCT_EXPR,</span>
+<span id="L1543"><span class="lineNum">    1543</span>              :         ExprKind.KIND_NOT_SET,</span>
+<span id="L1544"><span class="lineNum">    1544</span> <span class="tlaUNC tlaBgUNC">           0 :         null -&gt; error(&quot;unhandled lvalue kind: $lhs${sourceContext()}&quot;)</span></span>
+<span id="L1545"><span class="lineNum">    1545</span>              :       }</span>
+<span id="L1546"><span class="lineNum">    1546</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
+<span id="L1547"><span class="lineNum">    1547</span>              :   } // end Execution</span>
+<span id="L1548"><span class="lineNum">    1548</span>              : </span>
+<span id="L1549"><span class="lineNum">    1549</span>              :   companion object {</span>
+<span id="L1550"><span class="lineNum">    1550</span>              :     // P4 spec §8.18: header stack lastIndex/size are bit&lt;32&gt;.</span>
+<span id="L1551"><span class="lineNum">    1551</span>              :     private const val STACK_PROPERTY_BITS = 32</span>
+<span id="L1552"><span class="lineNum">    1552</span> <span class="tlaGNC">           1 :     private val BOOL_TRUE_BITS = BitVector.ofInt(1, 1)</span></span>
+<span id="L1553"><span class="lineNum">    1553</span> <span class="tlaGNC">           1 :     private val BOOL_FALSE_BITS = BitVector.ofInt(0, 1)</span></span>
+<span id="L1554"><span class="lineNum">    1554</span>              : </span>
+<span id="L1555"><span class="lineNum">    1555</span> <span class="tlaGNC">           1 :     @Suppress(&quot;MagicNumber&quot;) private val maxDecimalOnly = java.math.BigInteger.valueOf(9)</span></span>
+<span id="L1556"><span class="lineNum">    1556</span>              :   }</span>
+<span id="L1557"><span class="lineNum">    1557</span>              : }</span>
+<span id="L1558"><span class="lineNum">    1558</span>              : </span>
+<span id="L1559"><span class="lineNum">    1559</span>              : /** Creates a one-shot [Interpreter.Execution] — convenience for tests. */</span>
+<span id="L1560"><span class="lineNum">    1560</span> <span class="tlaGNC">           1 : fun interpreterExecution(</span></span>
+<span id="L1561"><span class="lineNum">    1561</span>              :   config: BehavioralConfig,</span>
+<span id="L1562"><span class="lineNum">    1562</span>              :   tableStore: TableStore,</span>
+<span id="L1563"><span class="lineNum">    1563</span> <span class="tlaGNC">           1 :   packetCtx: PacketContext? = null,</span></span>
+<span id="L1564"><span class="lineNum">    1564</span> <span class="tlaGNC">           1 :   selectorOverrides: Map&lt;String, Int&gt; = emptyMap(),</span></span>
+<span id="L1565"><span class="lineNum">    1565</span> <span class="tlaGNC">           1 :   externHandler: ExternHandler? = null,</span></span>
+<span id="L1566"><span class="lineNum">    1566</span>              : ): Interpreter.Execution =</span>
+<span id="L1567"><span class="lineNum">    1567</span> <span class="tlaGNC">           1 :   Interpreter(config).execution(tableStore, packetCtx, selectorOverrides, externHandler)</span></span>
+<span id="L1568"><span class="lineNum">    1568</span>              : </span>
+<span id="L1569"><span class="lineNum">    1569</span>              : /**</span>
+<span id="L1570"><span class="lineNum">    1570</span>              :  * Thrown by an `exit` statement; unwinds the call stack to the top of the current pipeline stage.</span>
+<span id="L1571"><span class="lineNum">    1571</span>              :  */</span>
+<span id="L1572"><span class="lineNum">    1572</span> <span class="tlaGNC">           1 : class ExitException : Exception()</span></span>
+<span id="L1573"><span class="lineNum">    1573</span>              : </span>
+<span id="L1574"><span class="lineNum">    1574</span>              : /** Thrown when assert() or assume() fails. The architecture catches this and drops the packet. */</span>
+<span id="L1575"><span class="lineNum">    1575</span> <span class="tlaGNC">           1 : class AssertionFailureException(message: String) : Exception(message)</span></span>
+<span id="L1576"><span class="lineNum">    1576</span>              : </span>
+<span id="L1577"><span class="lineNum">    1577</span>              : /** Thrown by a `return` statement inside an action or function. */</span>
+<span id="L1578"><span class="lineNum">    1578</span> <span class="tlaUNC tlaBgUNC">           0 : class ReturnException(val value: Value) : Exception()</span></span>
+<span id="L1579"><span class="lineNum">    1579</span>              : </span>
+<span id="L1580"><span class="lineNum">    1580</span>              : /**</span>
+<span id="L1581"><span class="lineNum">    1581</span>              :  * Thrown at non-deterministic choice points to signal the architecture to fork the trace tree. The</span>
+<span id="L1582"><span class="lineNum">    1582</span>              :  * architecture catches this and continues each branch from the fork point (fork-point resume)</span>
+<span id="L1583"><span class="lineNum">    1583</span>              :  * instead of replaying the pipeline.</span>
+<span id="L1584"><span class="lineNum">    1584</span>              :  */</span>
+<span id="L1585"><span class="lineNum">    1585</span> <span class="tlaGNC tlaBgGNC">           1 : sealed class ForkException(val eventsBeforeFork: List&lt;TraceEvent&gt;) : Exception()</span></span>
+<span id="L1586"><span class="lineNum">    1586</span>              : </span>
+<span id="L1587"><span class="lineNum">    1587</span>              : /**</span>
+<span id="L1588"><span class="lineNum">    1588</span>              :  * Fork at an action selector group hit — one branch per group member.</span>
+<span id="L1589"><span class="lineNum">    1589</span>              :  *</span>
+<span id="L1590"><span class="lineNum">    1590</span>              :  * Carries the full interpreter state at the fork point so each branch can continue from there</span>
+<span id="L1591"><span class="lineNum">    1591</span>              :  * (fork-point resume) instead of replaying the entire pipeline.</span>
+<span id="L1592"><span class="lineNum">    1592</span>              :  */</span>
+<span id="L1593"><span class="lineNum">    1593</span> <span class="tlaGNC">           1 : class ActionSelectorFork(</span></span>
+<span id="L1594"><span class="lineNum">    1594</span> <span class="tlaGNC">           1 :   val tableName: String,</span></span>
+<span id="L1595"><span class="lineNum">    1595</span> <span class="tlaGNC">           1 :   val members: List&lt;TableStore.MemberAction&gt;,</span></span>
+<span id="L1596"><span class="lineNum">    1596</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
+<span id="L1597"><span class="lineNum">    1597</span>              :   /** Deep copy of the environment at the fork point — each branch restores from this. */</span>
+<span id="L1598"><span class="lineNum">    1598</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
+<span id="L1599"><span class="lineNum">    1599</span>              :   /** Parser buffer position at the fork point. */</span>
+<span id="L1600"><span class="lineNum">    1600</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
+<span id="L1601"><span class="lineNum">    1601</span>              :   /** Source info at the fork point (the table apply statement), for trace events in branches. */</span>
+<span id="L1602"><span class="lineNum">    1602</span> <span class="tlaGNC">           1 :   val sourceInfo: fourward.SourceInfo? = null,</span></span>
+<span id="L1603"><span class="lineNum">    1603</span>              :   /**</span>
+<span id="L1604"><span class="lineNum">    1604</span>              :    * Continuation: remaining statements at each block nesting level (innermost first). Populated as</span>
+<span id="L1605"><span class="lineNum">    1605</span>              :    * the exception propagates through [Interpreter.Execution.execBlock].</span>
+<span id="L1606"><span class="lineNum">    1606</span>              :    */</span>
+<span id="L1607"><span class="lineNum">    1607</span> <span class="tlaGNC">           1 :   val remainingStmts: ArrayDeque&lt;List&lt;fourward.Stmt&gt;&gt; = ArrayDeque(),</span></span>
+<span id="L1608"><span class="lineNum">    1608</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
         </pre>
               </td>
             </tr>

@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">92.0&nbsp;%</td>
-            <td class="headerCovTableEntry">112</td>
-            <td class="headerCovTableEntry">103</td>
+            <td class="headerCovTableEntryHi">92.2&nbsp;%</td>
+            <td class="headerCovTableEntry">115</td>
+            <td class="headerCovTableEntry">106</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-31 12:38:02</td>
+            <td class="headerValue">2026-05-31 12:45:18</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -293,49 +293,55 @@
 <span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :       tableStore.registerWrite(call.instanceName, index, eval.evalArg(1))</span></span>
 <span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :       UnitVal</span></span>
 <span id="L233"><span class="lineNum">     233</span>              :     }</span>
-<span id="L234"><span class="lineNum">     234</span> <span class="tlaGNC">           1 :     &quot;count&quot; -&gt; UnitVal</span></span>
-<span id="L235"><span class="lineNum">     235</span> <span class="tlaGNC">           1 :     &quot;get_hash&quot; -&gt; evalGetHash(call, eval, externInstances, hashAlgorithms)</span></span>
-<span id="L236"><span class="lineNum">     236</span> <span class="tlaGNC">           1 :     &quot;execute&quot; -&gt; EnumVal(&quot;GREEN&quot;)</span></span>
-<span id="L237"><span class="lineNum">     237</span>              :     &quot;clear&quot; -&gt; {</span>
-<span id="L238"><span class="lineNum">     238</span> <span class="tlaGNC">           1 :       checksumState[call.instanceName] = BigInteger.ZERO</span></span>
+<span id="L234"><span class="lineNum">     234</span>              :     &quot;count&quot; -&gt; {</span>
+<span id="L235"><span class="lineNum">     235</span> <span class="tlaGNC">           1 :       if (call.externType == &quot;Counter&quot;) {</span></span>
+<span id="L236"><span class="lineNum">     236</span> <span class="tlaGNC">           1 :         val index = (eval.evalArg(0) as BitVal).bits.value.toInt()</span></span>
+<span id="L237"><span class="lineNum">     237</span> <span class="tlaGNC">           1 :         tableStore.counterIncrement(call.instanceName, index, eval.ingressPacketLengthBytes())</span></span>
+<span id="L238"><span class="lineNum">     238</span>              :       }</span>
 <span id="L239"><span class="lineNum">     239</span> <span class="tlaGNC">           1 :       UnitVal</span></span>
 <span id="L240"><span class="lineNum">     240</span>              :     }</span>
-<span id="L241"><span class="lineNum">     241</span>              :     &quot;add&quot; -&gt; {</span>
-<span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :       val data = eval.evalArg(0).asStructVal()</span></span>
-<span id="L243"><span class="lineNum">     243</span> <span class="tlaGNC">           1 :       val sum = checksumState.getOrDefault(call.instanceName, BigInteger.ZERO)</span></span>
-<span id="L244"><span class="lineNum">     244</span> <span class="tlaGNC">           1 :       checksumState[call.instanceName] = onesComplementAdd(sum, sumWords(data))</span></span>
+<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :     &quot;get_hash&quot; -&gt; evalGetHash(call, eval, externInstances, hashAlgorithms)</span></span>
+<span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :     &quot;execute&quot; -&gt; EnumVal(&quot;GREEN&quot;)</span></span>
+<span id="L243"><span class="lineNum">     243</span>              :     &quot;clear&quot; -&gt; {</span>
+<span id="L244"><span class="lineNum">     244</span> <span class="tlaGNC">           1 :       checksumState[call.instanceName] = BigInteger.ZERO</span></span>
 <span id="L245"><span class="lineNum">     245</span> <span class="tlaGNC">           1 :       UnitVal</span></span>
 <span id="L246"><span class="lineNum">     246</span>              :     }</span>
-<span id="L247"><span class="lineNum">     247</span>              :     &quot;subtract&quot; -&gt; {</span>
-<span id="L248"><span class="lineNum">     248</span>              :       // RFC 1624: subtract by adding the ones' complement of the data's word sum.</span>
-<span id="L249"><span class="lineNum">     249</span> <span class="tlaGNC">           1 :       val data = eval.evalArg(0).asStructVal()</span></span>
-<span id="L250"><span class="lineNum">     250</span> <span class="tlaGNC">           1 :       val sum = checksumState.getOrDefault(call.instanceName, BigInteger.ZERO)</span></span>
-<span id="L251"><span class="lineNum">     251</span> <span class="tlaGNC">           1 :       val dataSumComplement = CSUM_MASK.subtract(sumWords(data))</span></span>
-<span id="L252"><span class="lineNum">     252</span> <span class="tlaGNC">           1 :       checksumState[call.instanceName] = onesComplementAdd(sum, dataSumComplement)</span></span>
-<span id="L253"><span class="lineNum">     253</span> <span class="tlaGNC">           1 :       UnitVal</span></span>
-<span id="L254"><span class="lineNum">     254</span>              :     }</span>
-<span id="L255"><span class="lineNum">     255</span>              :     &quot;get&quot; -&gt; {</span>
+<span id="L247"><span class="lineNum">     247</span>              :     &quot;add&quot; -&gt; {</span>
+<span id="L248"><span class="lineNum">     248</span> <span class="tlaGNC">           1 :       val data = eval.evalArg(0).asStructVal()</span></span>
+<span id="L249"><span class="lineNum">     249</span> <span class="tlaGNC">           1 :       val sum = checksumState.getOrDefault(call.instanceName, BigInteger.ZERO)</span></span>
+<span id="L250"><span class="lineNum">     250</span> <span class="tlaGNC">           1 :       checksumState[call.instanceName] = onesComplementAdd(sum, sumWords(data))</span></span>
+<span id="L251"><span class="lineNum">     251</span> <span class="tlaGNC">           1 :       UnitVal</span></span>
+<span id="L252"><span class="lineNum">     252</span>              :     }</span>
+<span id="L253"><span class="lineNum">     253</span>              :     &quot;subtract&quot; -&gt; {</span>
+<span id="L254"><span class="lineNum">     254</span>              :       // RFC 1624: subtract by adding the ones' complement of the data's word sum.</span>
+<span id="L255"><span class="lineNum">     255</span> <span class="tlaGNC">           1 :       val data = eval.evalArg(0).asStructVal()</span></span>
 <span id="L256"><span class="lineNum">     256</span> <span class="tlaGNC">           1 :       val sum = checksumState.getOrDefault(call.instanceName, BigInteger.ZERO)</span></span>
-<span id="L257"><span class="lineNum">     257</span> <span class="tlaGNC">           1 :       BitVal(BitVector(CSUM_MASK.subtract(sum), CSUM_WORD_BITS))</span></span>
-<span id="L258"><span class="lineNum">     258</span>              :     }</span>
-<span id="L259"><span class="lineNum">     259</span>              :     &quot;get_state&quot; -&gt; {</span>
-<span id="L260"><span class="lineNum">     260</span> <span class="tlaUNC tlaBgUNC">           0 :       val sum = checksumState.getOrDefault(call.instanceName, BigInteger.ZERO)</span></span>
-<span id="L261"><span class="lineNum">     261</span> <span class="tlaUNC">           0 :       BitVal(BitVector(sum, CSUM_WORD_BITS))</span></span>
-<span id="L262"><span class="lineNum">     262</span>              :     }</span>
-<span id="L263"><span class="lineNum">     263</span>              :     &quot;set_state&quot; -&gt; {</span>
-<span id="L264"><span class="lineNum">     264</span> <span class="tlaGNC tlaBgGNC">           1 :       checksumState[call.instanceName] = (eval.evalArg(0) as BitVal).bits.value</span></span>
-<span id="L265"><span class="lineNum">     265</span> <span class="tlaGNC">           1 :       UnitVal</span></span>
-<span id="L266"><span class="lineNum">     266</span>              :     }</span>
-<span id="L267"><span class="lineNum">     267</span> <span class="tlaGNC">           1 :     &quot;pack&quot; -&gt; UnitVal</span></span>
-<span id="L268"><span class="lineNum">     268</span>              :     // PNA's Checksum&lt;W&gt; extern uses `update` (same semantics as InternetChecksum `add`).</span>
-<span id="L269"><span class="lineNum">     269</span>              :     &quot;update&quot; -&gt; {</span>
-<span id="L270"><span class="lineNum">     270</span> <span class="tlaUNC tlaBgUNC">           0 :       val data = eval.evalArg(0).asStructVal()</span></span>
-<span id="L271"><span class="lineNum">     271</span> <span class="tlaUNC">           0 :       val sum = checksumState.getOrDefault(call.instanceName, BigInteger.ZERO)</span></span>
-<span id="L272"><span class="lineNum">     272</span> <span class="tlaUNC">           0 :       checksumState[call.instanceName] = onesComplementAdd(sum, sumWords(data))</span></span>
-<span id="L273"><span class="lineNum">     273</span> <span class="tlaUNC">           0 :       UnitVal</span></span>
-<span id="L274"><span class="lineNum">     274</span>              :     }</span>
-<span id="L275"><span class="lineNum">     275</span> <span class="tlaUNC">           0 :     else -&gt; null</span></span>
-<span id="L276"><span class="lineNum">     276</span> <span class="tlaGNC tlaBgGNC">           1 :   }</span></span>
+<span id="L257"><span class="lineNum">     257</span> <span class="tlaGNC">           1 :       val dataSumComplement = CSUM_MASK.subtract(sumWords(data))</span></span>
+<span id="L258"><span class="lineNum">     258</span> <span class="tlaGNC">           1 :       checksumState[call.instanceName] = onesComplementAdd(sum, dataSumComplement)</span></span>
+<span id="L259"><span class="lineNum">     259</span> <span class="tlaGNC">           1 :       UnitVal</span></span>
+<span id="L260"><span class="lineNum">     260</span>              :     }</span>
+<span id="L261"><span class="lineNum">     261</span>              :     &quot;get&quot; -&gt; {</span>
+<span id="L262"><span class="lineNum">     262</span> <span class="tlaGNC">           1 :       val sum = checksumState.getOrDefault(call.instanceName, BigInteger.ZERO)</span></span>
+<span id="L263"><span class="lineNum">     263</span> <span class="tlaGNC">           1 :       BitVal(BitVector(CSUM_MASK.subtract(sum), CSUM_WORD_BITS))</span></span>
+<span id="L264"><span class="lineNum">     264</span>              :     }</span>
+<span id="L265"><span class="lineNum">     265</span>              :     &quot;get_state&quot; -&gt; {</span>
+<span id="L266"><span class="lineNum">     266</span> <span class="tlaUNC tlaBgUNC">           0 :       val sum = checksumState.getOrDefault(call.instanceName, BigInteger.ZERO)</span></span>
+<span id="L267"><span class="lineNum">     267</span> <span class="tlaUNC">           0 :       BitVal(BitVector(sum, CSUM_WORD_BITS))</span></span>
+<span id="L268"><span class="lineNum">     268</span>              :     }</span>
+<span id="L269"><span class="lineNum">     269</span>              :     &quot;set_state&quot; -&gt; {</span>
+<span id="L270"><span class="lineNum">     270</span> <span class="tlaGNC tlaBgGNC">           1 :       checksumState[call.instanceName] = (eval.evalArg(0) as BitVal).bits.value</span></span>
+<span id="L271"><span class="lineNum">     271</span> <span class="tlaGNC">           1 :       UnitVal</span></span>
+<span id="L272"><span class="lineNum">     272</span>              :     }</span>
+<span id="L273"><span class="lineNum">     273</span> <span class="tlaGNC">           1 :     &quot;pack&quot; -&gt; UnitVal</span></span>
+<span id="L274"><span class="lineNum">     274</span>              :     // PNA's Checksum&lt;W&gt; extern uses `update` (same semantics as InternetChecksum `add`).</span>
+<span id="L275"><span class="lineNum">     275</span>              :     &quot;update&quot; -&gt; {</span>
+<span id="L276"><span class="lineNum">     276</span> <span class="tlaUNC tlaBgUNC">           0 :       val data = eval.evalArg(0).asStructVal()</span></span>
+<span id="L277"><span class="lineNum">     277</span> <span class="tlaUNC">           0 :       val sum = checksumState.getOrDefault(call.instanceName, BigInteger.ZERO)</span></span>
+<span id="L278"><span class="lineNum">     278</span> <span class="tlaUNC">           0 :       checksumState[call.instanceName] = onesComplementAdd(sum, sumWords(data))</span></span>
+<span id="L279"><span class="lineNum">     279</span> <span class="tlaUNC">           0 :       UnitVal</span></span>
+<span id="L280"><span class="lineNum">     280</span>              :     }</span>
+<span id="L281"><span class="lineNum">     281</span> <span class="tlaUNC">           0 :     else -&gt; null</span></span>
+<span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC tlaBgGNC">           1 :   }</span></span>
         </pre>
               </td>
             </tr>

@@ -31,17 +31,17 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryMed">75.0&nbsp;%</td>
-            <td class="headerCovTableEntry">4</td>
+            <td class="headerCovTableEntryLo">60.0&nbsp;%</td>
+            <td class="headerCovTableEntry">5</td>
             <td class="headerCovTableEntry">3</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-05-31 12:38:02</td>
+            <td class="headerValue">2026-05-31 12:45:18</td>
             <td></td>
             <td class="headerItem">Functions:</td>
-            <td class="headerCovTableEntryHi">90.0&nbsp;%</td>
-            <td class="headerCovTableEntry">10</td>
+            <td class="headerCovTableEntryMed">81.8&nbsp;%</td>
+            <td class="headerCovTableEntry">11</td>
             <td class="headerCovTableEntry">9</td>
           </tr>
                   <tr><td><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
@@ -131,39 +131,42 @@
 <span id="L69"><span class="lineNum">      69</span>              :   /** Peeks at remaining unparsed input bytes (for `_with_payload` checksum variants). */</span>
 <span id="L70"><span class="lineNum">      70</span>              :   fun peekRemainingInput(): ByteArray</span>
 <span id="L71"><span class="lineNum">      71</span>              : </span>
-<span id="L72"><span class="lineNum">      72</span>              :   /**</span>
-<span id="L73"><span class="lineNum">      73</span>              :    * Returns context from the most recent table miss, or null if no table miss has occurred.</span>
-<span id="L74"><span class="lineNum">      74</span>              :    *</span>
-<span id="L75"><span class="lineNum">      75</span>              :    * Used by PNA's `add_entry` extern to determine which table to insert into and what match key</span>
-<span id="L76"><span class="lineNum">      76</span>              :    * values to use. The interpreter records this whenever a table lookup results in a miss.</span>
-<span id="L77"><span class="lineNum">      77</span>              :    */</span>
-<span id="L78"><span class="lineNum">      78</span> <span class="tlaUNC tlaBgUNC">           0 :   fun lastTableMiss(): TableMissContext? = null</span></span>
-<span id="L79"><span class="lineNum">      79</span>              : }</span>
-<span id="L80"><span class="lineNum">      80</span>              : </span>
-<span id="L81"><span class="lineNum">      81</span>              : /**</span>
-<span id="L82"><span class="lineNum">      82</span>              :  * Records the table name and match key values from a table lookup that resulted in a miss.</span>
-<span id="L83"><span class="lineNum">      83</span>              :  *</span>
-<span id="L84"><span class="lineNum">      84</span>              :  * PNA's `add_entry` extern uses this to insert entries into the table that triggered the miss,</span>
-<span id="L85"><span class="lineNum">      85</span>              :  * using the same match key values that caused the miss.</span>
-<span id="L86"><span class="lineNum">      86</span>              :  */</span>
-<span id="L87"><span class="lineNum">      87</span> <span class="tlaGNC tlaBgGNC">           1 : data class TableMissContext(val tableName: String, val keyValues: List&lt;Pair&lt;String, Value&gt;&gt;)</span></span>
-<span id="L88"><span class="lineNum">      88</span>              : </span>
-<span id="L89"><span class="lineNum">      89</span>              : /**</span>
-<span id="L90"><span class="lineNum">      90</span>              :  * Architecture-provided handler for extern functions and extern object methods.</span>
-<span id="L91"><span class="lineNum">      91</span>              :  *</span>
-<span id="L92"><span class="lineNum">      92</span>              :  * The interpreter delegates all extern calls — free functions (e.g. `mark_to_drop`) and object</span>
-<span id="L93"><span class="lineNum">      93</span>              :  * methods (e.g. `register.read`) — to a single [handle] method. Each P4 architecture provides its</span>
-<span id="L94"><span class="lineNum">      94</span>              :  * own implementation covering its extern library.</span>
-<span id="L95"><span class="lineNum">      95</span>              :  */</span>
-<span id="L96"><span class="lineNum">      96</span>              : fun interface ExternHandler {</span>
-<span id="L97"><span class="lineNum">      97</span>              :   /**</span>
-<span id="L98"><span class="lineNum">      98</span>              :    * Executes the extern described by [call] using [eval] to access arguments.</span>
-<span id="L99"><span class="lineNum">      99</span>              :    *</span>
-<span id="L100"><span class="lineNum">     100</span>              :    * @return the call's result value ([UnitVal] for void externs).</span>
-<span id="L101"><span class="lineNum">     101</span>              :    * @throws IllegalStateException for unrecognised externs.</span>
-<span id="L102"><span class="lineNum">     102</span>              :    */</span>
-<span id="L103"><span class="lineNum">     103</span>              :   fun handle(call: ExternCall, eval: ExternEvaluator): Value</span>
-<span id="L104"><span class="lineNum">     104</span>              : }</span>
+<span id="L72"><span class="lineNum">      72</span>              :   /** Original ingress packet length in bytes for externs that count packet bytes. */</span>
+<span id="L73"><span class="lineNum">      73</span> <span class="tlaUNC tlaBgUNC">           0 :   fun ingressPacketLengthBytes(): Int = 0</span></span>
+<span id="L74"><span class="lineNum">      74</span>              : </span>
+<span id="L75"><span class="lineNum">      75</span>              :   /**</span>
+<span id="L76"><span class="lineNum">      76</span>              :    * Returns context from the most recent table miss, or null if no table miss has occurred.</span>
+<span id="L77"><span class="lineNum">      77</span>              :    *</span>
+<span id="L78"><span class="lineNum">      78</span>              :    * Used by PNA's `add_entry` extern to determine which table to insert into and what match key</span>
+<span id="L79"><span class="lineNum">      79</span>              :    * values to use. The interpreter records this whenever a table lookup results in a miss.</span>
+<span id="L80"><span class="lineNum">      80</span>              :    */</span>
+<span id="L81"><span class="lineNum">      81</span> <span class="tlaUNC">           0 :   fun lastTableMiss(): TableMissContext? = null</span></span>
+<span id="L82"><span class="lineNum">      82</span>              : }</span>
+<span id="L83"><span class="lineNum">      83</span>              : </span>
+<span id="L84"><span class="lineNum">      84</span>              : /**</span>
+<span id="L85"><span class="lineNum">      85</span>              :  * Records the table name and match key values from a table lookup that resulted in a miss.</span>
+<span id="L86"><span class="lineNum">      86</span>              :  *</span>
+<span id="L87"><span class="lineNum">      87</span>              :  * PNA's `add_entry` extern uses this to insert entries into the table that triggered the miss,</span>
+<span id="L88"><span class="lineNum">      88</span>              :  * using the same match key values that caused the miss.</span>
+<span id="L89"><span class="lineNum">      89</span>              :  */</span>
+<span id="L90"><span class="lineNum">      90</span> <span class="tlaGNC tlaBgGNC">           1 : data class TableMissContext(val tableName: String, val keyValues: List&lt;Pair&lt;String, Value&gt;&gt;)</span></span>
+<span id="L91"><span class="lineNum">      91</span>              : </span>
+<span id="L92"><span class="lineNum">      92</span>              : /**</span>
+<span id="L93"><span class="lineNum">      93</span>              :  * Architecture-provided handler for extern functions and extern object methods.</span>
+<span id="L94"><span class="lineNum">      94</span>              :  *</span>
+<span id="L95"><span class="lineNum">      95</span>              :  * The interpreter delegates all extern calls — free functions (e.g. `mark_to_drop`) and object</span>
+<span id="L96"><span class="lineNum">      96</span>              :  * methods (e.g. `register.read`) — to a single [handle] method. Each P4 architecture provides its</span>
+<span id="L97"><span class="lineNum">      97</span>              :  * own implementation covering its extern library.</span>
+<span id="L98"><span class="lineNum">      98</span>              :  */</span>
+<span id="L99"><span class="lineNum">      99</span>              : fun interface ExternHandler {</span>
+<span id="L100"><span class="lineNum">     100</span>              :   /**</span>
+<span id="L101"><span class="lineNum">     101</span>              :    * Executes the extern described by [call] using [eval] to access arguments.</span>
+<span id="L102"><span class="lineNum">     102</span>              :    *</span>
+<span id="L103"><span class="lineNum">     103</span>              :    * @return the call's result value ([UnitVal] for void externs).</span>
+<span id="L104"><span class="lineNum">     104</span>              :    * @throws IllegalStateException for unrecognised externs.</span>
+<span id="L105"><span class="lineNum">     105</span>              :    */</span>
+<span id="L106"><span class="lineNum">     106</span>              :   fun handle(call: ExternCall, eval: ExternEvaluator): Value</span>
+<span id="L107"><span class="lineNum">     107</span>              : }</span>
         </pre>
               </td>
             </tr>
