@@ -324,6 +324,7 @@ kt_jvm_test(
     deps = [
         ":interpreter_test_dsl",
         ":ir_java_proto",
+        ":p4info_java_proto",
         ":p4runtime_java_proto",
         ":simulator",
         ":simulator_java_proto",
