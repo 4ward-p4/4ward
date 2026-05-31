@@ -202,16 +202,15 @@ private fun directResourceInstanceNames(
   preamble: P4InfoOuterClass.Preamble,
   irInstanceNames: List<String>?,
 ): Set<String> = buildSet {
-  val p4infoNames = mutableSetOf<String>()
-  for (name in listOf(preamble.name, preamble.alias)) {
-    if (name.isEmpty()) continue
-    add(name)
-    p4infoNames.add(name)
-    add(name.replace('.', '_'))
-    p4infoNames.add(name.replace('.', '_'))
-    add(name.substringAfterLast('.'))
-    p4infoNames.add(name.substringAfterLast('.'))
+  val p4infoNames = buildSet {
+    for (name in listOf(preamble.name, preamble.alias)) {
+      if (name.isEmpty()) continue
+      add(name)
+      add(name.replace('.', '_'))
+      add(name.substringAfterLast('.'))
+    }
   }
+  addAll(p4infoNames)
   // Match IR instance names whose suffix (after a '_' word boundary) matches
   // a p4info-derived variant. This handles midend control-block qualification
   // like "ctrl_ctrl_counter" where the p4info alias is "ctrl_counter".
