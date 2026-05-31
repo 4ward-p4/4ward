@@ -1312,6 +1312,52 @@ class TableStoreTest {
     assertEquals("myAction", result.actionName)
   }
 
+  @Test
+  fun `loadMappings resolves dotted counter aliases to underscored extern names`() {
+    val counterId = 5
+    val p4info =
+      buildP4Info(
+        counters =
+          listOf(
+            P4InfoOuterClass.Counter.newBuilder()
+              .setPreamble(
+                P4InfoOuterClass.Preamble.newBuilder().setId(counterId).setAlias("inner.pktCounter")
+              )
+              .setSize(4)
+              .build()
+          )
+      )
+    val device =
+      fourward.DeviceConfig.newBuilder()
+        .setBehavioral(
+          fourward.BehavioralConfig.newBuilder()
+            .addControls(
+              fourward.ControlDecl.newBuilder()
+                .addExternInstances(
+                  fourward.ExternInstanceDecl.newBuilder()
+                    .setTypeName("Counter")
+                    .setName("inner_pktCounter")
+                )
+            )
+        )
+        .build()
+    val s = TableStore()
+    s.loadMappings(p4info = p4info, device = device)
+
+    s.counterIncrement("inner_pktCounter", index = 2, byteCount = 9)
+
+    val results =
+      s.readCounterEntries(
+        P4RuntimeOuterClass.CounterEntry.newBuilder()
+          .setCounterId(counterId)
+          .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(2))
+          .build()
+      )
+    assertEquals(1, results.size)
+    assertEquals(1, results[0].counterEntry.data.packetCount)
+    assertEquals(9, results[0].counterEntry.data.byteCount)
+  }
+
   // ---------------------------------------------------------------------------
   // Action profile write semantics
   // ---------------------------------------------------------------------------
@@ -2080,6 +2126,37 @@ class TableStoreTest {
     val s = storeWithCounter()
     val result = s.writeAndPublish(counterUpdate(Update.Type.MODIFY, counterId = 999))
     assertTrue("expected NotFound", result is WriteResult.NotFound)
+  }
+
+  @Test
+  fun `counterIncrement does not publish uncommitted control-plane writes`() {
+    val s = TableStore()
+    s.loadMappings(
+      p4info =
+        buildP4Info(
+          tables = listOf(p4infoTable(TABLE_ID, TABLE_NAME)),
+          actions = ACTION_LIST,
+          counters = listOf(buildCounterProto(COUNTER_ID, "myCounter", COUNTER_SIZE)),
+        )
+    )
+    val entry = exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 10)
+
+    assertEquals(WriteResult.Success, s.write(insertUpdate(entry)))
+    s.counterIncrement("myCounter", index = 0, byteCount = 7)
+
+    assertFalse(s.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8))).hit)
+    val counterFilter =
+      P4RuntimeOuterClass.CounterEntry.newBuilder()
+        .setCounterId(COUNTER_ID)
+        .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(0))
+        .build()
+    val counterData = s.readCounterEntries(counterFilter).single().counterEntry.data
+    assertEquals(1, counterData.packetCount)
+    assertEquals(7, counterData.byteCount)
+
+    s.publishSnapshot()
+
+    assertTrue(s.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8))).hit)
   }
 
   // ---------------------------------------------------------------------------

@@ -25,6 +25,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import p4.config.v1.P4InfoOuterClass
+import p4.v1.P4RuntimeOuterClass
 
 /**
  * Unit tests for [PNAArchitecture].
@@ -260,6 +262,25 @@ class PNAArchitectureTest {
   /** recirculate() — PNA free function with no arguments. */
   private fun recirculate(): Stmt = externCall("recirculate")
 
+  private fun counterInstance(name: String): ExternInstanceDecl =
+    ExternInstanceDecl.newBuilder()
+      .setTypeName("Counter")
+      .setName(name)
+      .addConstructorArgs(bit(8, 32))
+      .build()
+
+  private fun counterCount(instanceName: String, index: Long): Stmt =
+    methodCallStmt(instanceName, "count", bit(index, 32), targetType = namedType("Counter"))
+
+  private fun p4InfoWithCounter(name: String, size: Int): P4InfoOuterClass.P4Info =
+    P4InfoOuterClass.P4Info.newBuilder()
+      .addCounters(
+        P4InfoOuterClass.Counter.newBuilder()
+          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(1).setName(name))
+          .setSize(size.toLong())
+      )
+      .build()
+
   // ---------------------------------------------------------------------------
   // Tests
   // ---------------------------------------------------------------------------
@@ -361,6 +382,32 @@ class PNAArchitectureTest {
     val stored = tableStore.registerRead("my_reg", 0)
     assertTrue("register should contain written value", stored is BitVal)
     assertEquals(0xBEEF.toLong(), (stored as BitVal).bits.value.toLong())
+  }
+
+  @Test
+  fun `Counter count increments P4Runtime-readable packet and byte counts`() {
+    val config =
+      pnaConfig(
+        mainControlStmts = listOf(counterCount("pkt_counter", 3), sendToPort(1)),
+        mainControlExterns = listOf(counterInstance("pkt_counter")),
+      )
+    val tableStore = TableStore()
+    tableStore.loadMappings(p4info = p4InfoWithCounter("pkt_counter", 8))
+
+    PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01, 0x02, 0x03, 0x04), tableStore)
+    PNAArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte(), 0xBB.toByte()), tableStore)
+
+    val results =
+      tableStore.readCounterEntries(
+        P4RuntimeOuterClass.CounterEntry.newBuilder()
+          .setCounterId(1)
+          .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(3))
+          .build()
+      )
+
+    assertEquals(1, results.size)
+    assertEquals(2, results[0].counterEntry.data.packetCount)
+    assertEquals(6, results[0].counterEntry.data.byteCount)
   }
 
   @Test

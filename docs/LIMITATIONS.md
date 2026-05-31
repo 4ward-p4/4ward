@@ -29,7 +29,7 @@ guilt — just write it down so someone can find it later.
   MainDeparser) is implemented with support for `send_to_port`, `drop_packet`,
   `recirculate`, `mirror_packet`, `SelectByDirection`, registers, `Hash.get_hash`,
   `Meter.execute` (stub GREEN), `InternetChecksum`, `Digest.pack` (stub no-op),
-  counters (stub no-op), and `Random.read()`. Add-on-miss externs (`add_entry`,
+  counters (indirect + direct), and `Random.read()`. Add-on-miss externs (`add_entry`,
   `allocate_flow_id`, `set_entry_expire_time`, `restart_expire_timer`) are stubs.
   37 STF corpus tests, 31 compile-only tests, 33 p4testgen symbolic tests.
 ## Externs
