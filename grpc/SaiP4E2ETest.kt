@@ -1,10 +1,18 @@
 package fourward.grpc
 
 import com.google.protobuf.ByteString
+import fourward.DataplaneGrpcKt.DataplaneCoroutineStub
 import fourward.PipelineConfig
+import fourward.SubscribeResultsRequest
+import fourward.SubscribeResultsResponse
 import fourward.TranslationEntry
 import fourward.TypeTranslation
 import io.grpc.Status
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -596,6 +604,63 @@ class SaiP4E2ETest {
       assertNull("data-plane output should not become PacketIn", response)
     }
   }
+
+  @Test
+  fun `PacketOut with submit_to_ingress=0 bypasses ingress and exits on egress_port`() =
+    runBlocking {
+      // Install routing entries that forward to Ethernet1. If ingress is truly bypassed,
+      // the packet still exits on Ethernet1 (from the PacketOut header), but via a
+      // different code path: the routing chain sets egress_spec via table lookup, while
+      // bypass sets it directly from packet_out_header.egress_port.
+      //
+      // To distinguish: also install an ACL drop rule. If ingress runs, the ACL drops
+      // the packet. If ingress is bypassed, the packet exits on egress_port.
+      installRoutingChain()
+      installAclEntry(findAction("acl_drop"))
+
+      val stub = DataplaneCoroutineStub(harness.channel)
+      val results = Channel<SubscribeResultsResponse>(UNLIMITED)
+      val job = launch {
+        stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
+          results.send(it)
+        }
+      }
+      val first = withTimeout(5000) { results.receive() }
+      assertTrue("first message should be SubscriptionActive", first.hasActive())
+      val packetOut = buildCpuPacketOut(submitToIngress = false)
+
+      harness.openStream().use { session ->
+        session.arbitrate()
+        session.sendPacketOut(packetOut, timeoutMs = FourwardTestHarness.NO_RESPONSE_TIMEOUT_MS)
+      }
+
+      val msg = withTimeout(5000) { results.receive() }
+      assertTrue("should be a result", msg.hasResult())
+      val outputs = msg.result.possibleOutcomesList.single().packetsList
+      assertEquals(
+        "submit_to_ingress=0 should bypass ingress (ACL drop) and exit on egress_port",
+        1,
+        outputs.size,
+      )
+      assertEquals(
+        "should exit on the PacketOut's egress_port",
+        "Ethernet1",
+        outputs[0].p4RtEgressPort.toStringUtf8(),
+      )
+      val expectedPayload = packetOut.payload.toByteArray()
+      val actualPayload = outputs[0].payload.toByteArray()
+      assertEquals(
+        "PacketOut controller header bits must not leak into output payload",
+        expectedPayload.size,
+        actualPayload.size,
+      )
+      assertBytesEqual("dst_mac", UNICAST_MAC, actualPayload, 0)
+      assertBytesEqual("src_mac", SRC_MAC, actualPayload, MAC_LEN)
+      assertBytesEqual("src_ip", SRC_IP, actualPayload, SRC_IP_OFFSET)
+      assertBytesEqual("dst_ip", DST_IP, actualPayload, DST_IP_OFFSET)
+
+      job.cancel()
+    }
 
   @Test
   fun `PacketOut with invalid translated metadata returns StreamError and keeps stream open`() {
@@ -1924,7 +1989,13 @@ class SaiP4E2ETest {
             optionalMatch(aclTable, "is_ipv4", byteArrayOf(1)),
             ternaryMatch(aclTable, "dst_ip", DST_IP, byteArrayOf(-1, -1, -1, -1)),
           ),
-        params = listOf(bytesParam(action, "qos_queue", byteArrayOf(0))),
+        params =
+          when {
+            action.paramsList.isEmpty() -> emptyList()
+            action.paramsList.any { it.name == "qos_queue" } ->
+              listOf(bytesParam(action, "qos_queue", byteArrayOf(0)))
+            else -> error("unsupported ACL action params: ${action.paramsList.map { it.name }}")
+          },
         priority = 1,
       )
     )
