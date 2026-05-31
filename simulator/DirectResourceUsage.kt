@@ -33,31 +33,32 @@ internal fun validateInlineDirectResourceActions(
   val actions = selectedActionNames(entry.action, tableName, context)
   if (actions.isEmpty()) return null
 
-  context.counterActionsByTable[tableName]?.let { allowedActions ->
-    if (entry.hasCounterData()) {
+  fun checkResource(
+    hasData: Boolean,
+    actionsByTable: Map<String, Set<String>>,
+    dataField: String,
+    resourceKind: String,
+  ): WriteResult? {
+    if (!hasData) return null
+    actionsByTable[tableName]?.let { allowedActions ->
       actions
         .firstOrNull { it !in allowedActions }
         ?.let { action ->
           return WriteResult.InvalidArgument(
-            "TableEntry contained counter_data, but action '$action' for table '$tableName' " +
-              "does not execute the table's direct counter"
+            "TableEntry contained $dataField, but action '$action' for table '$tableName' " +
+              "does not execute the table's direct $resourceKind"
           )
         }
     }
+    return null
   }
-  context.meterActionsByTable[tableName]?.let { allowedActions ->
-    if (entry.hasMeterConfig()) {
-      actions
-        .firstOrNull { it !in allowedActions }
-        ?.let { action ->
-          return WriteResult.InvalidArgument(
-            "TableEntry contained meter_config, but action '$action' for table '$tableName' " +
-              "does not execute the table's direct meter"
-          )
-        }
-    }
-  }
-  return null
+
+  return checkResource(
+    entry.hasCounterData(),
+    context.counterActionsByTable,
+    "counter_data",
+    "counter",
+  ) ?: checkResource(entry.hasMeterConfig(), context.meterActionsByTable, "meter_config", "meter")
 }
 
 private fun selectedActionNames(
@@ -118,7 +119,7 @@ internal fun deriveDirectResourceActions(
     )
   }
 
-  return deriveExplicitDirectResourceActions(p4info, tableNameById, actions)
+  return deriveExplicitDirectResourceActions(behavioral, p4info, tableNameById, actions)
 }
 
 private fun deriveV1ModelDirectResourceActions(
@@ -150,43 +151,53 @@ private fun deriveV1ModelDirectResourceActions(
 }
 
 private fun deriveExplicitDirectResourceActions(
+  behavioral: BehavioralConfig,
   p4info: P4InfoOuterClass.P4Info,
   tableNameById: Map<Int, String>,
   actions: List<ActionDecl>,
 ): DirectResourceActions {
-  val counterTableByInstance =
-    p4info.directCountersList.flatMap { counter ->
-      val tableName = tableNameById[counter.directTableId] ?: return@flatMap emptyList()
-      directResourceInstanceNames(counter.preamble).map { it to tableName }
-    }
-  val meterTableByInstance =
-    p4info.directMetersList.flatMap { meter ->
-      val tableName = tableNameById[meter.directTableId] ?: return@flatMap emptyList()
-      directResourceInstanceNames(meter.preamble).map { it to tableName }
-    }
-  val counterActionsByTable =
-    counterTableByInstance.map { it.second }.associateWith { mutableSetOf<String>() }
-  val meterActionsByTable =
-    meterTableByInstance.map { it.second }.associateWith { mutableSetOf<String>() }
-  val counterTableByInstanceName = counterTableByInstance.toMap()
-  val meterTableByInstanceName = meterTableByInstance.toMap()
+  // IR extern instance names (post-midend) may differ from p4info preamble
+  // names due to control-block qualification. Collect all IR names by extern
+  // type so we can match them to p4info entries below.
+  val irInstancesByType =
+    behavioral.controlsList.flatMap { it.externInstancesList }.groupBy({ it.typeName }, { it.name })
 
-  for (action in actions) {
-    val names = action.p4RuntimeNames()
-    for (instance in action.directResourceCalls("direct_counter", "count")) {
-      counterTableByInstanceName[instance]?.let { tableName ->
-        counterActionsByTable.getValue(tableName).addAll(names)
+  fun deriveForResource(
+    p4infoEntries: List<Pair<P4InfoOuterClass.Preamble, Int>>,
+    externType: String,
+    method: String,
+  ): Map<String, Set<String>> {
+    val tableByInstance =
+      p4infoEntries.flatMap { (preamble, directTableId) ->
+        val tableName = tableNameById[directTableId] ?: return@flatMap emptyList()
+        directResourceInstanceNames(preamble, irInstancesByType[externType]).map { it to tableName }
+      }
+    val actionsByTable = tableByInstance.map { it.second }.associateWith { mutableSetOf<String>() }
+    val tableByInstanceName = tableByInstance.toMap()
+    for (action in actions) {
+      val names = action.p4RuntimeNames()
+      for (instance in action.directResourceCalls(externType, method)) {
+        tableByInstanceName[instance]?.let { tableName ->
+          actionsByTable.getValue(tableName).addAll(names)
+        }
       }
     }
-    for (instance in action.directResourceCalls("direct_meter", "read")) {
-      meterTableByInstanceName[instance]?.let { tableName ->
-        meterActionsByTable.getValue(tableName).addAll(names)
-      }
-    }
+    return actionsByTable.mapValues { it.value.toSet() }
   }
+
   return DirectResourceActions(
-    counterActionsByTable.mapValues { it.value.toSet() },
-    meterActionsByTable.mapValues { it.value.toSet() },
+    counterActionsByTable =
+      deriveForResource(
+        p4info.directCountersList.map { it.preamble to it.directTableId },
+        "direct_counter",
+        "count",
+      ),
+    meterActionsByTable =
+      deriveForResource(
+        p4info.directMetersList.map { it.preamble to it.directTableId },
+        "direct_meter",
+        "read",
+      ),
   )
 }
 
@@ -220,6 +231,7 @@ private fun directResourceInstanceNames(
       add(irName)
     }
   }
+}
 
 private fun ActionDecl.directResourceCalls(externType: String, method: String): Set<String> =
   buildSet {
