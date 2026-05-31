@@ -47,6 +47,12 @@ private data class InlineDirectResourceWriteContext(
   val writeState: TableStore.ForwardingSnapshot,
 )
 
+private data class ResolvedTableWrite(
+  val rawEntry: TableEntry,
+  val effectiveEntryForValidation: TableEntry?,
+  val storedEntry: TableEntry,
+)
+
 private fun applyInlineDirectResources(
   rawEntry: TableEntry,
   storedEntry: TableEntry,
@@ -68,6 +74,118 @@ private fun applyInlineDirectResources(
     if (rawEntry.hasMeterConfig()) {
       context.writeState.directMeterData[storedEntry] = rawEntry.meterConfig
     }
+  }
+}
+
+private fun defaultDirectResourceEntry(tableId: Int): TableEntry =
+  TableEntry.newBuilder().setTableId(tableId).setIsDefaultAction(true).build()
+
+private fun entryWithInitialDefaultActionForReset(
+  entry: TableEntry,
+  tableName: String,
+  initialDefaultActions: Map<String, DefaultAction>,
+  actionIdByName: Map<String, Int>,
+): TableEntry {
+  val default = initialDefaultActions[tableName] ?: DefaultAction("NoAction")
+  val actionId = actionIdByName[default.name] ?: return entry
+  return entry
+    .toBuilder()
+    .setAction(
+      P4RuntimeOuterClass.TableAction.newBuilder()
+        .setAction(
+          P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId).addAllParams(default.params)
+        )
+    )
+    .build()
+}
+
+private fun resolveTableWrite(
+  rawEntry: TableEntry,
+  updateType: Update.Type,
+  tableName: String,
+  existingEntry: TableEntry?,
+  initialDefaultActions: Map<String, DefaultAction>,
+  actionIdByName: Map<String, Int>,
+): ResolvedTableWrite {
+  val effectiveEntry =
+    if (
+      updateType == Update.Type.MODIFY &&
+        rawEntry.action.typeCase == P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET
+    ) {
+      if (rawEntry.isDefaultAction) {
+        entryWithInitialDefaultActionForReset(
+          rawEntry,
+          tableName,
+          initialDefaultActions,
+          actionIdByName,
+        )
+      } else {
+        existingEntry?.let { rawEntry.toBuilder().setAction(it.action).build() }
+      }
+    } else {
+      rawEntry
+    }
+
+  val storedEntry =
+    if (!rawEntry.hasCounterData() && !rawEntry.hasMeterConfig()) {
+      effectiveEntry ?: rawEntry
+    } else {
+      // TableEntry carries direct extern data on reads, but forwarding entries are keyed only by
+      // match/action data. Store direct counter and meter state in their dedicated maps.
+      (effectiveEntry ?: rawEntry).toBuilder().clearCounterData().clearMeterConfig().build()
+    }
+
+  return ResolvedTableWrite(rawEntry, effectiveEntry, storedEntry)
+}
+
+private fun defaultActionForEntry(
+  entry: TableEntry,
+  tableName: String,
+  initialDefaultActions: Map<String, DefaultAction>,
+  actionNameById: Map<Int, String>,
+): DefaultAction {
+  if (entry.action.typeCase != P4RuntimeOuterClass.TableAction.TypeCase.ACTION) {
+    return initialDefaultActions[tableName] ?: DefaultAction("NoAction")
+  }
+  val action = entry.action.action
+  return DefaultAction(
+    actionNameById[action.actionId] ?: error("unknown action ID ${action.actionId}"),
+    action.paramsList,
+  )
+}
+
+private fun validateInlineDirectResourceWrite(
+  write: ResolvedTableWrite,
+  updateType: Update.Type,
+  tableName: String,
+  directCounterTables: Set<String>,
+  directMeterTables: Set<String>,
+  context: DirectResourceActionValidationContext,
+): WriteResult? {
+  if (updateType == Update.Type.DELETE) return null
+  val rawEntry = write.rawEntry
+  if (rawEntry.hasCounterData() && tableName !in directCounterTables) {
+    return WriteResult.InvalidArgument(
+      "table '$tableName' has no direct counter, but TableEntry contained counter_data"
+    )
+  }
+  if (rawEntry.hasMeterConfig() && tableName !in directMeterTables) {
+    return WriteResult.InvalidArgument(
+      "table '$tableName' has no direct meter, but TableEntry contained meter_config"
+    )
+  }
+  if (
+    (rawEntry.hasCounterData() || rawEntry.hasMeterConfig()) &&
+      write.effectiveEntryForValidation?.action?.typeCase ==
+        P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET
+  ) {
+    return WriteResult.InvalidArgument(
+      "TableEntry contained direct resource data, but the selected action for table " +
+        "'$tableName' does not execute a direct resource"
+    )
+  }
+  return write.effectiveEntryForValidation?.let {
+    validateInlineDirectResourceActions(it, tableName, context)
   }
 }
 
@@ -369,6 +487,7 @@ class TableStore : TableDataReader {
   private var directCounterActionsByTable: Map<String, Set<String>> = emptyMap()
   private var directMeterActionsByTable: Map<String, Set<String>> = emptyMap()
   private var tableActionOverrides: Map<String, Map<String, String>> = emptyMap()
+  private var initialDefaultActions: Map<String, DefaultAction> = emptyMap()
 
   // For unit tests: makes lookup() return hit=true with this action rather than searching entries.
   private val forcedHits: MutableMap<String, String> = mutableMapOf()
@@ -603,6 +722,7 @@ class TableStore : TableDataReader {
         setDefaultAction(tableName, actionName, params)
       }
     }
+    initialDefaultActions = writeState.defaultActions.toMap()
 
     // Install static table entries declared with `const entries` in the P4 source.
     for (update in device.staticEntries.updatesList) {
@@ -1137,6 +1257,10 @@ class TableStore : TableDataReader {
         )
     if (tableName !in knownTables)
       return WriteResult.InvalidArgument("table '$tableName' has no $entityName")
+    if (tableEntry.isDefaultAction) {
+      update(defaultDirectResourceEntry(tableEntry.tableId))
+      return WriteResult.Success
+    }
     val entries =
       writeState.tables[tableName]
         ?: return WriteResult.NotFound("no entries in table '$tableName'")
@@ -1163,6 +1287,19 @@ class TableStore : TableDataReader {
   ): List<P4RuntimeOuterClass.Entity> {
     val tableEntry = filter.tableEntry
     val tableNames = resolveTableNames(tableEntry.tableId, directCounterTables)
+    if (tableEntry.isDefaultAction) {
+      return tableNames.mapNotNull { tableName ->
+        val tableId = tableIdByName[tableName] ?: return@mapNotNull null
+        val entry = defaultDirectResourceEntry(tableId)
+        val data =
+          getDirectCounterData(entry) ?: P4RuntimeOuterClass.CounterData.getDefaultInstance()
+        P4RuntimeOuterClass.Entity.newBuilder()
+          .setDirectCounterEntry(
+            P4RuntimeOuterClass.DirectCounterEntry.newBuilder().setTableEntry(entry).setData(data)
+          )
+          .build()
+      }
+    }
     val matchFilter = if (tableEntry.matchCount > 0) tableEntry else null
     return tableNames.flatMap { tableName ->
       filteredEntries(tableName, matchFilter).map { entry ->
@@ -1195,6 +1332,15 @@ class TableStore : TableDataReader {
   ): List<P4RuntimeOuterClass.Entity> {
     val tableEntry = filter.tableEntry
     val tableNames = resolveTableNames(tableEntry.tableId, directMeterTables)
+    if (tableEntry.isDefaultAction) {
+      return tableNames.mapNotNull { tableName ->
+        val tableId = tableIdByName[tableName] ?: return@mapNotNull null
+        val entry = defaultDirectResourceEntry(tableId)
+        val builder = P4RuntimeOuterClass.DirectMeterEntry.newBuilder().setTableEntry(entry)
+        snapshot.directMeterData[entry]?.let { builder.setConfig(it) }
+        P4RuntimeOuterClass.Entity.newBuilder().setDirectMeterEntry(builder).build()
+      }
+    }
     val matchFilter = if (tableEntry.matchCount > 0) tableEntry else null
     return tableNames.flatMap { tableName ->
       filteredEntries(tableName, matchFilter).map { entry ->
@@ -1312,19 +1458,24 @@ class TableStore : TableDataReader {
               "'${it.value}' (${it.key})"
             })})"
         )
-    if (rawEntry.hasCounterData() && tableName !in directCounterTables) {
-      return WriteResult.InvalidArgument(
-        "table '$tableName' has no direct counter, but TableEntry contained counter_data"
-      )
-    }
-    if (rawEntry.hasMeterConfig() && tableName !in directMeterTables) {
-      return WriteResult.InvalidArgument(
-        "table '$tableName' has no direct meter, but TableEntry contained meter_config"
-      )
-    }
-    validateInlineDirectResourceActions(
+    val entries = writeState.tables.getOrPut(tableName) { mutableListOf() }
+    val existingIndex = entries.indexOfFirst { it.sameKey(rawEntry) }
+    val resolvedWrite =
+      resolveTableWrite(
         rawEntry,
+        update.type,
         tableName,
+        entries.getOrNull(existingIndex),
+        initialDefaultActions,
+        actionIdByName,
+      )
+
+    validateInlineDirectResourceWrite(
+        resolvedWrite,
+        update.type,
+        tableName,
+        directCounterTables,
+        directMeterTables,
         DirectResourceActionValidationContext(
           actionNameById,
           tableActionOverrides,
@@ -1337,14 +1488,7 @@ class TableStore : TableDataReader {
       ?.let {
         return it
       }
-    val entry =
-      if (!rawEntry.hasCounterData() && !rawEntry.hasMeterConfig()) {
-        rawEntry
-      } else {
-        // TableEntry carries direct extern data on reads, but forwarding entries are keyed only by
-        // match/action data. Store direct counter and meter state in their dedicated maps.
-        rawEntry.toBuilder().clearCounterData().clearMeterConfig().build()
-      }
+    val entry = resolvedWrite.storedEntry
     val directResourceContext =
       InlineDirectResourceWriteContext(
         directCounterTables,
@@ -1356,15 +1500,23 @@ class TableStore : TableDataReader {
     // P4Runtime spec §9.1: default entries are stored separately and only support MODIFY.
     // The WriteValidator already rejects INSERT/DELETE for defaults.
     if (entry.isDefaultAction) {
-      val actionName = resolveActionName(entry.action.action.actionId)
       writeState.defaultActions[tableName] =
-        DefaultAction(actionName, entry.action.action.paramsList)
+        defaultActionForEntry(entry, tableName, initialDefaultActions, actionNameById)
       writeState.modifiedDefaults.add(tableName)
+      val defaultResourceEntry = defaultDirectResourceEntry(entry.tableId)
+      if (rawEntry.action.typeCase == P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET) {
+        directCounterData.remove(defaultResourceEntry)
+        writeState.directMeterData.remove(defaultResourceEntry)
+      }
+      applyInlineDirectResources(
+        rawEntry,
+        defaultResourceEntry,
+        defaultResourceEntry,
+        tableName,
+        directResourceContext,
+      )
       return WriteResult.Success
     }
-
-    val entries = writeState.tables.getOrPut(tableName) { mutableListOf() }
-    val existingIndex = entries.indexOfFirst { it.sameKey(entry) }
 
     // P4Runtime spec §9.1: INSERT requires the entry not to exist, MODIFY and DELETE
     // require it to exist.

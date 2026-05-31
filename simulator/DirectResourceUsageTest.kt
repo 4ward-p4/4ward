@@ -148,6 +148,102 @@ class DirectResourceUsageTest {
     assertTrue(store.getTableEntries(TABLE_NAME).isEmpty())
   }
 
+  @Test
+  fun `MODIFY with unset action validates counter data against existing action`() {
+    val store = TableStore()
+    store.loadMappings(p4info = p4infoWithDirectCounter(), device = deviceWithDirectCounterAction())
+    assertEquals(WriteResult.Success, store.writeAndPublish(insertUpdate(exactEntry(ACTION_20_ID))))
+    val modify = withCounterData(exactEntryBuilder().build())
+
+    val result = store.writeAndPublish(modifyUpdate(modify))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+  }
+
+  @Test
+  fun `DELETE ignores counter data on table without direct counter`() {
+    val store = TableStore()
+    store.loadMappings(
+      p4info = p4infoWithoutDirectResources(),
+      device = deviceWithDirectCounterAction(),
+    )
+    assertEquals(WriteResult.Success, store.writeAndPublish(insertUpdate(exactEntry(ACTION_20_ID))))
+    val delete = withCounterData(exactEntryBuilder().build())
+
+    val result = store.writeAndPublish(deleteUpdate(delete))
+
+    assertEquals(WriteResult.Success, result)
+    assertTrue(store.getTableEntries(TABLE_NAME).isEmpty())
+  }
+
+  @Test
+  fun `default entry direct counter data is stored and readable`() {
+    val store = TableStore()
+    store.loadMappings(p4info = p4infoWithDirectCounter(), device = deviceWithDirectCounterAction())
+    val defaultEntry = withCounterData(defaultEntry(actionId = ACTION_10_ID))
+
+    val result = store.writeAndPublish(modifyUpdate(defaultEntry))
+
+    assertEquals(WriteResult.Success, result)
+    val readBack =
+      store.readDirectCounterEntries(
+        P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+          .setTableEntry(TableEntry.newBuilder().setTableId(TABLE_ID).setIsDefaultAction(true))
+          .build()
+      )
+    assertEquals(1, readBack.size)
+    assertEquals(42, readBack[0].directCounterEntry.data.packetCount)
+  }
+
+  @Test
+  fun `default entry direct meter config is stored and readable`() {
+    val store = TableStore()
+    store.loadMappings(p4info = p4infoWithDirectMeter(), device = deviceWithDirectMeterAction())
+    val defaultEntry = withMeterConfig(defaultEntry(actionId = ACTION_10_ID))
+
+    val result = store.writeAndPublish(modifyUpdate(defaultEntry))
+
+    assertEquals(WriteResult.Success, result)
+    val readBack =
+      store.readDirectMeterEntries(
+        P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+          .setTableEntry(TableEntry.newBuilder().setTableId(TABLE_ID).setIsDefaultAction(true))
+          .build()
+      )
+    assertEquals(1, readBack.size)
+    assertEquals(1000, readBack[0].directMeterEntry.config.cir)
+  }
+
+  @Test
+  fun `resetting default entry resets direct counter data`() {
+    val store = TableStore()
+    store.loadMappings(p4info = p4infoWithDirectCounter(), device = deviceWithDirectCounterAction())
+    val defaultEntry = withCounterData(defaultEntry(actionId = ACTION_10_ID))
+    assertEquals(WriteResult.Success, store.writeAndPublish(modifyUpdate(defaultEntry)))
+
+    val result = store.writeAndPublish(modifyUpdate(defaultEntry()))
+
+    assertEquals(WriteResult.Success, result)
+    val readBack =
+      store.readDirectCounterEntries(
+        P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+          .setTableEntry(TableEntry.newBuilder().setTableId(TABLE_ID).setIsDefaultAction(true))
+          .build()
+      )
+    assertEquals(0, readBack[0].directCounterEntry.data.packetCount)
+  }
+
+  @Test
+  fun `default entry with unset action rejects counter data when initial default is NoAction`() {
+    val store = TableStore()
+    store.loadMappings(p4info = p4infoWithDirectCounter(), device = deviceWithDirectCounterAction())
+    val defaultEntry = withCounterData(defaultEntry())
+
+    val result = store.writeAndPublish(modifyUpdate(defaultEntry))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+  }
+
   private fun TableStore.writeAndPublish(update: Update): WriteResult =
     write(update).also { publishSnapshot() }
 
@@ -182,6 +278,16 @@ class DirectResourceUsageTest {
       )
       .build()
 
+  private fun defaultEntry(actionId: Int? = null): TableEntry {
+    val builder = TableEntry.newBuilder().setTableId(TABLE_ID).setIsDefaultAction(true)
+    if (actionId != null) {
+      builder.setAction(
+        TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId))
+      )
+    }
+    return builder.build()
+  }
+
   private fun exactEntryBuilder(): TableEntry.Builder =
     TableEntry.newBuilder()
       .setTableId(TABLE_ID)
@@ -203,11 +309,14 @@ class DirectResourceUsageTest {
       .setMeterConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(1000))
       .build()
 
-  private fun insertUpdate(entry: TableEntry): Update =
-    Update.newBuilder()
-      .setType(Update.Type.INSERT)
-      .setEntity(Entity.newBuilder().setTableEntry(entry))
-      .build()
+  private fun insertUpdate(entry: TableEntry): Update = update(Update.Type.INSERT, entry)
+
+  private fun modifyUpdate(entry: TableEntry): Update = update(Update.Type.MODIFY, entry)
+
+  private fun deleteUpdate(entry: TableEntry): Update = update(Update.Type.DELETE, entry)
+
+  private fun update(type: Update.Type, entry: TableEntry): Update =
+    Update.newBuilder().setType(type).setEntity(Entity.newBuilder().setTableEntry(entry)).build()
 
   private fun writeMember(store: TableStore, memberId: Int, actionId: Int) {
     store.writeAndPublish(
@@ -275,6 +384,20 @@ class DirectResourceUsageTest {
       )
       .build()
 
+  private fun deviceWithDirectMeterAction(): DeviceConfig =
+    DeviceConfig.newBuilder()
+      .setBehavioral(
+        BehavioralConfig.newBuilder()
+          .addTables(TableBehavior.newBuilder().setName(TABLE_NAME))
+          .addActions(
+            ActionDecl.newBuilder()
+              .setName("action10")
+              .addBody(directResourceCall("dm", "direct_meter", "read"))
+          )
+          .addActions(ActionDecl.newBuilder().setName("action20"))
+      )
+      .build()
+
   private fun directResourceCall(instance: String, externType: String, method: String): Stmt =
     Stmt.newBuilder()
       .setMethodCall(
@@ -298,7 +421,12 @@ class DirectResourceUsageTest {
     baseP4InfoBuilder()
       .addDirectCounters(
         P4InfoOuterClass.DirectCounter.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(DIRECT_COUNTER_ID))
+          .setPreamble(
+            P4InfoOuterClass.Preamble.newBuilder()
+              .setId(DIRECT_COUNTER_ID)
+              .setName("dc")
+              .setAlias("dc")
+          )
           .setDirectTableId(TABLE_ID)
       )
       .build()
@@ -320,6 +448,8 @@ class DirectResourceUsageTest {
           .setDirectTableId(TABLE_ID)
       )
       .build()
+
+  private fun p4infoWithoutDirectResources(): P4InfoOuterClass.P4Info = baseP4InfoBuilder().build()
 
   private fun p4infoWithActionProfileDirectCounter(
     withSelector: Boolean = false
@@ -346,7 +476,12 @@ class DirectResourceUsageTest {
     baseP4InfoBuilder()
       .addDirectMeters(
         P4InfoOuterClass.DirectMeter.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(DIRECT_METER_ID))
+          .setPreamble(
+            P4InfoOuterClass.Preamble.newBuilder()
+              .setId(DIRECT_METER_ID)
+              .setName("dm")
+              .setAlias("dm")
+          )
           .setDirectTableId(TABLE_ID)
       )
       .build()

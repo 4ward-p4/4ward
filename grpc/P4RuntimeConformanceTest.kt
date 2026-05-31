@@ -1581,6 +1581,70 @@ class P4RuntimeConformanceTest {
     )
   }
 
+  /** P4Runtime spec §9.1: default table entry reads include inline direct counter data. */
+  @Test
+  fun `71a - default table entry read includes direct counter data`() {
+    val config = loadConfigWithDirectCounter()
+    harness.loadPipeline(config)
+    val tableId = config.p4Info.tablesList.first().preamble.id
+    val dropActionId =
+      config.p4Info.actionsList.first { it.preamble.name.contains("drop") }.preamble.id
+    val defaultEntry = FourwardTestHarness.buildDefaultActionEntity(tableId, dropActionId)
+    val defaultWithCounter =
+      defaultEntry
+        .toBuilder()
+        .setTableEntry(
+          defaultEntry.tableEntry
+            .toBuilder()
+            .setCounterData(
+              P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(42).setByteCount(1000)
+            )
+        )
+        .build()
+
+    harness.modifyEntry(defaultWithCounter)
+
+    val results = harness.readDefaultEntries(tableId)
+    assertEquals(1, results.size)
+    assertTrue("should have counter_data", results[0].tableEntry.hasCounterData())
+    assertEquals(42, results[0].tableEntry.counterData.packetCount)
+    assertEquals(1000, results[0].tableEntry.counterData.byteCount)
+  }
+
+  /** P4Runtime spec §9.1: default table entry reads include inline direct meter config. */
+  @Test
+  fun `71b - default table entry read includes direct meter config`() {
+    val config = loadConfigWithDirectMeter()
+    harness.loadPipeline(config)
+    val tableId = config.p4Info.tablesList.first().preamble.id
+    val dropActionId =
+      config.p4Info.actionsList.first { it.preamble.name.contains("drop") }.preamble.id
+    val defaultEntry = FourwardTestHarness.buildDefaultActionEntity(tableId, dropActionId)
+    val defaultWithMeter =
+      defaultEntry
+        .toBuilder()
+        .setTableEntry(
+          defaultEntry.tableEntry
+            .toBuilder()
+            .setMeterConfig(
+              P4RuntimeOuterClass.MeterConfig.newBuilder()
+                .setCir(1000)
+                .setCburst(500)
+                .setPir(2000)
+                .setPburst(1000)
+            )
+        )
+        .build()
+
+    harness.modifyEntry(defaultWithMeter)
+
+    val results = harness.readDefaultEntries(tableId)
+    assertEquals(1, results.size)
+    assertTrue("should have meter_config", results[0].tableEntry.hasMeterConfig())
+    assertEquals(1000, results[0].tableEntry.meterConfig.cir)
+    assertEquals(2000, results[0].tableEntry.meterConfig.pir)
+  }
+
   // =========================================================================
   // Arbitration: demotion, promotion, zero election_id (scenarios 72-74)
   // =========================================================================

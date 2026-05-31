@@ -1924,25 +1924,25 @@ class TableStoreTest {
   }
 
   @Test
-  fun `delete rejects counter data for table without direct counter`() {
+  fun `delete ignores counter data for table without direct counter`() {
     val entry = exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10)
     store.writeAndPublish(insertUpdate(entry))
 
     val result = store.writeAndPublish(deleteUpdate(withCounterData(entry)))
 
-    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
-    assertEquals(1, store.getTableEntries(TABLE_NAME).size)
+    assertEquals(WriteResult.Success, result)
+    assertTrue(store.getTableEntries(TABLE_NAME).isEmpty())
   }
 
   @Test
-  fun `delete rejects meter config for table without direct meter`() {
+  fun `delete ignores meter config for table without direct meter`() {
     val entry = exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10)
     store.writeAndPublish(insertUpdate(entry))
 
     val result = store.writeAndPublish(deleteUpdate(withMeterConfig(entry)))
 
-    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
-    assertEquals(1, store.getTableEntries(TABLE_NAME).size)
+    assertEquals(WriteResult.Success, result)
+    assertTrue(store.getTableEntries(TABLE_NAME).isEmpty())
   }
 
   @Test

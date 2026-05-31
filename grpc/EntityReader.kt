@@ -41,7 +41,19 @@ private constructor(
       // false (default) → non-default entries only. true → default entry only.
       if (filter.isDefaultAction) {
         if (!hasMatchFilter && tables.isDefaultModified(tableName)) {
-          buildDefaultEntryEntity(tableName, tableId, tables)?.let { result.add(it) }
+          buildDefaultEntry(tableName, tableId, tables)?.let {
+            result.add(
+              buildTableEntryEntity(
+                it,
+                tables.hasDirectCounter(tableName),
+                tables.hasDirectMeter(tableName),
+                tables,
+                // TableStore keys default direct-resource state by the default-entry selector,
+                // not by the resolved default action returned in the TableEntry read response.
+                directResourceEntry = defaultDirectResourceEntry(tableId),
+              )
+            )
+          }
         }
       } else {
         val hasDirectCounter = tables.hasDirectCounter(tableName)
@@ -63,6 +75,7 @@ private constructor(
     hasDirectCounter: Boolean,
     hasDirectMeter: Boolean,
     tables: TableDataReader,
+    directResourceEntry: TableEntry = entry,
   ): Entity {
     if (!hasDirectCounter && !hasDirectMeter) {
       return Entity.newBuilder().setTableEntry(entry).build()
@@ -72,32 +85,33 @@ private constructor(
     val builder = entry.toBuilder()
     if (hasDirectCounter) {
       builder.counterData =
-        tables.getDirectCounterData(entry) ?: P4RuntimeOuterClass.CounterData.getDefaultInstance()
+        tables.getDirectCounterData(directResourceEntry)
+          ?: P4RuntimeOuterClass.CounterData.getDefaultInstance()
     }
     if (hasDirectMeter) {
-      tables.getDirectMeterData(entry)?.let { builder.meterConfig = it }
+      tables.getDirectMeterData(directResourceEntry)?.let { builder.meterConfig = it }
     }
     return Entity.newBuilder().setTableEntry(builder).build()
   }
 
-  /** Builds the default entry [Entity] for a table, or null if no default action is resolvable. */
-  private fun buildDefaultEntryEntity(
+  private fun defaultDirectResourceEntry(tableId: Int): TableEntry =
+    TableEntry.newBuilder().setTableId(tableId).setIsDefaultAction(true).build()
+
+  /** Builds the default [TableEntry] for a table, or null if no default action is resolvable. */
+  private fun buildDefaultEntry(
     tableName: String,
     tableId: Int,
     tables: TableDataReader,
-  ): Entity? {
+  ): TableEntry? {
     val default = tables.getDefaultAction(tableName)
     val actionId = default?.let { actionIdByName[it.name] } ?: noActionId
     if (actionId == 0) return null
     val actionBuilder = P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId)
     default?.params?.forEach { actionBuilder.addParams(it) }
-    return Entity.newBuilder()
-      .setTableEntry(
-        TableEntry.newBuilder()
-          .setTableId(tableId)
-          .setIsDefaultAction(true)
-          .setAction(P4RuntimeOuterClass.TableAction.newBuilder().setAction(actionBuilder))
-      )
+    return TableEntry.newBuilder()
+      .setTableId(tableId)
+      .setIsDefaultAction(true)
+      .setAction(P4RuntimeOuterClass.TableAction.newBuilder().setAction(actionBuilder))
       .build()
   }
 
