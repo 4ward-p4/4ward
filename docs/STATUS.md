@@ -6,6 +6,106 @@
 > Reverse-chronological log. Add new entries at the top (below this header).
 > See [ROADMAP.md](ROADMAP.md) for the big picture.
 
+## 2026-06-01
+
+|                | Delta     | Total     |
+|----------------|-----------|-----------|
+| PRs merged     | 29        | 652       |
+| Kotlin prod    | +1.1k     | 17.1k     |
+| Kotlin test    | +2.9k     | 35.6k     |
+| C++ prod       | +0.3k     | 4.8k      |
+| C++ test       | +0.4k     | 1.4k      |
+| Proto          | +0        | 1.2k      |
+| Web frontend   | +0.1k     | 5.3k      |
+| **Total**      | **+4.8k** | **65.4k** |
+
+**4ward is becoming a production-faithful P4Runtime target: it now
+speaks the protocol's error model, tolerates real controller transport
+behavior, makes the C++ embedding API debuggable when subprocess startup
+fails, validates direct resources against P4Info semantics, and keeps
+tightening byte-level and BMv2 parity across the simulator and
+playground.**
+
+### C++ embedding and dataplane reliability
+
+The C++ embedding API now owns the 4ward subprocess's stdout/stderr as a
+first-class diagnostic stream. `FourwardServer` captures both pipes into
+thread-safe in-memory buffers exposed through `Stdout()` and `Stderr()`,
+while optionally teeing the same output to the parent process with clear
+`[4ward stdout]` / `[4ward stderr]` prefixes. Tests can inspect server
+logs programmatically without scraping console output.
+
+That same capture path makes startup failures much easier to debug. When
+4ward fails before it is ready to serve traffic, the error status includes
+whatever stdout/stderr the Kotlin subprocess produced, so configuration
+errors, classpath problems, and early crashes show the actual server log
+instead of a generic startup failure.
+
+Dataplane result delivery now survives backpressure instead of losing
+outputs. Unmapped egress ports no longer crash dual-encoding, and result
+enrichment in `DataplaneService` was deduplicated.
+
+### P4Runtime compliance
+
+Write and Read batch failures now report structured per-item errors
+instead of collapsing into one opaque status. Atomic failures preserve
+the real triggering code and mark rolled-back or skipped updates as
+`ABORTED`.
+
+StreamChannel failures are now in-band. Unsupported `DIGEST_ACK` and
+bad PacketOut translation, metadata packing, ingress extraction, or
+processing produce `StreamError` responses without killing the stream.
+PacketOut byte accounting was tightened so semantic packet bytes and
+padding are treated explicitly.
+
+### Production gRPC compatibility
+
+4ward now uses gRPC defaults that work with real SDN controllers: 10MB
+metadata, unlimited inbound messages, permissive keepalive without
+active calls, and zero keepalive permit time. These avoid HTTP/2 resets
+for large P4Runtime batch errors, `RESOURCE_EXHAUSTED` on bulk Reads or
+large pipeline configs, and Netty keepalive strike disconnects.
+
+All four knobs are configurable through `FourwardServerOptions`, and
+the Kotlin server plus C++ client channel use the same settings. Invalid
+CLI values now fail loudly.
+
+### Direct resources
+
+Direct counters and meters can now be written through P4Runtime
+TableEntry payloads, and the implementation is much stricter about when
+those payloads are legal. Validation now accounts for selected actions,
+action profiles, direct-resource instance names from P4Info versus IR,
+and default direct extern cases.
+
+Meter rate behavior is documented as out of scope rather than silently
+pretending to simulate timing semantics.
+
+### Differential testing and parity
+
+The BMv2 differential suite gained PRE multicast coverage and a pinned
+ValueSetEntry oracle gap. PNA counters are now observable. v1model
+`truncate()` is implemented and preserves the shortest requested length
+across repeated calls, matching BMv2.
+
+The docs now describe the BMv2 P4Runtime diff suite as an active
+independent oracle, and the compatibility dashboard gives the current
+support state a single home.
+
+### Web playground
+
+The playground now encodes RANGE matches explicitly, rejects unsupported
+match types loudly, renders range matches in installed entries and
+traces, supports default action edits, and bounds compilation time so
+web requests do not hang indefinitely.
+
+### Maintenance
+
+Dependency override rationale moved next to the overrides in
+`MODULE.bazel`, detekt output is surfaced on lint failures, and docs
+were updated for current P4Runtime validation, current-packet PNA
+mirrors, PacketBits byte ownership, and remaining limitations.
+
 ## 2026-05-22
 
 |                | Delta      | Total     |
