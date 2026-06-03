@@ -128,8 +128,9 @@ struct FourwardServerOptions {
   // appears in the test log. Disable to capture without console noise.
   bool tee = true;
 
-  // Maximum time to wait for Start() to complete.
-  absl::Duration startup_timeout = absl::Seconds(5);
+  // Maximum time to wait for Start() to complete. JVM cold starts can
+  // exceed 5s under CI load, so the default is generous.
+  absl::Duration startup_timeout = absl::Seconds(15);
 };
 
 class FourwardServer {

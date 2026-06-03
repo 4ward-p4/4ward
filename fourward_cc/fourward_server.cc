@@ -26,6 +26,7 @@
 #include "fourward_cc/output_capture.h"
 
 #include "absl/cleanup/cleanup.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -114,8 +115,9 @@ absl::StatusOr<int> ReadPortFile(const std::string& path) {
 // The child's exit is checked on each poll so we don't hang forever if the
 // server crashed before writing the file.
 absl::Status WaitForPortFile(const std::string& path, pid_t child_pid,
-                             absl::Time deadline) {
+                             absl::Duration timeout) {
   constexpr absl::Duration kPoll = absl::Milliseconds(25);
+  absl::Time deadline = absl::Now() + timeout;
   while (absl::Now() < deadline) {
     struct stat st;
     if (::stat(path.c_str(), &st) == 0 && st.st_size > 0) {
@@ -133,8 +135,9 @@ absl::Status WaitForPortFile(const std::string& path, pid_t child_pid,
 
     absl::SleepFor(kPoll);
   }
-  return absl::DeadlineExceededError(absl::StrCat(
-      "server did not publish its port to ", path, " before the timeout"));
+  return absl::DeadlineExceededError(absl::StrFormat(
+      "server did not publish its port to %s within %s", path,
+      absl::FormatDuration(timeout)));
 }
 
 // Reaps `pid` with a bounded wait; returns true if the process is gone.
@@ -356,8 +359,10 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
                                         "[4ward stderr] ");
   stderr_pipe[0] = -1;  // Ownership transferred to OutputCapture.
 
-  absl::Time deadline = absl::Now() + options.startup_timeout;
-  if (absl::Status s = WaitForPortFile(port_file, pid, deadline); !s.ok()) {
+  absl::Time start_time = absl::Now();
+  if (absl::Status s =
+          WaitForPortFile(port_file, pid, options.startup_timeout);
+      !s.ok()) {
     // Kill the child and drain the reader threads so the enriched status
     // contains all server output, not just what was consumed so far.
     KillAndReap(pid);
@@ -367,6 +372,13 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
     return EnrichWithCapturedOutput(s, stdout_capture, stderr_capture);
   }
   absl::StatusOr<int> port = ReadPortFile(port_file);
+  absl::Duration elapsed = absl::Now() - start_time;
+  if (elapsed > options.startup_timeout / 2) {
+    LOG(WARNING) << "FourwardServer startup took "
+                 << absl::FormatDuration(elapsed) << ", more than half the "
+                 << absl::FormatDuration(options.startup_timeout)
+                 << " timeout — may flake under heavier load";
+  }
   if (!port.ok()) {
     KillAndReap(pid);
     pid = -1;
