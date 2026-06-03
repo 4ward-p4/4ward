@@ -115,8 +115,9 @@ absl::StatusOr<int> ReadPortFile(const std::string& path) {
 // The child's exit is checked on each poll so we don't hang forever if the
 // server crashed before writing the file.
 absl::Status WaitForPortFile(const std::string& path, pid_t child_pid,
-                             absl::Time deadline) {
+                             absl::Duration timeout) {
   constexpr absl::Duration kPoll = absl::Milliseconds(25);
+  absl::Time deadline = absl::Now() + timeout;
   while (absl::Now() < deadline) {
     struct stat st;
     if (::stat(path.c_str(), &st) == 0 && st.st_size > 0) {
@@ -134,8 +135,9 @@ absl::Status WaitForPortFile(const std::string& path, pid_t child_pid,
 
     absl::SleepFor(kPoll);
   }
-  return absl::DeadlineExceededError(absl::StrCat(
-      "server did not publish its port to ", path, " before the timeout"));
+  return absl::DeadlineExceededError(absl::StrFormat(
+      "server did not publish its port to %s within %s", path,
+      absl::FormatDuration(timeout)));
 }
 
 // Reaps `pid` with a bounded wait; returns true if the process is gone.
@@ -358,8 +360,9 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
   stderr_pipe[0] = -1;  // Ownership transferred to OutputCapture.
 
   absl::Time start_time = absl::Now();
-  absl::Time deadline = start_time + options.startup_timeout;
-  if (absl::Status s = WaitForPortFile(port_file, pid, deadline); !s.ok()) {
+  if (absl::Status s =
+          WaitForPortFile(port_file, pid, options.startup_timeout);
+      !s.ok()) {
     // Kill the child and drain the reader threads so the enriched status
     // contains all server output, not just what was consumed so far.
     KillAndReap(pid);
@@ -369,8 +372,13 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
     return EnrichWithCapturedOutput(s, stdout_capture, stderr_capture);
   }
   absl::StatusOr<int> port = ReadPortFile(port_file);
-  VLOG(1) << "FourwardServer started in "
-          << absl::FormatDuration(absl::Now() - start_time);
+  absl::Duration elapsed = absl::Now() - start_time;
+  VLOG(1) << "FourwardServer started in " << absl::FormatDuration(elapsed);
+  if (elapsed > options.startup_timeout / 2) {
+    LOG(WARNING) << "FourwardServer startup took "
+                 << absl::FormatDuration(elapsed) << " (timeout is "
+                 << absl::FormatDuration(options.startup_timeout) << ")";
+  }
   if (!port.ok()) {
     KillAndReap(pid);
     pid = -1;
