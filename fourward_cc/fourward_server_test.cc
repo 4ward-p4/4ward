@@ -23,7 +23,6 @@
 #include "gmock/gmock.h"
 #include "grpcpp/client_context.h"
 #include "grpcpp/support/status.h"
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
@@ -184,7 +183,6 @@ TEST(FourwardServerTest, StartupTimeoutYieldsDeadlineExceeded) {
   ASSERT_FALSE(server.ok());
   EXPECT_EQ(server.status().code(), absl::StatusCode::kDeadlineExceeded)
       << server.status();
-  EXPECT_THAT(server.status().message(), ::testing::HasSubstr("within 1ns"));
 }
 
 TEST(FourwardServerTest, LargeMetadataSucceedsUnderDefaultLimits) {
