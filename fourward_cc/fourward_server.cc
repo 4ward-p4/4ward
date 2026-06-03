@@ -26,6 +26,7 @@
 #include "fourward_cc/output_capture.h"
 
 #include "absl/cleanup/cleanup.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -356,7 +357,8 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
                                         "[4ward stderr] ");
   stderr_pipe[0] = -1;  // Ownership transferred to OutputCapture.
 
-  absl::Time deadline = absl::Now() + options.startup_timeout;
+  absl::Time start_time = absl::Now();
+  absl::Time deadline = start_time + options.startup_timeout;
   if (absl::Status s = WaitForPortFile(port_file, pid, deadline); !s.ok()) {
     // Kill the child and drain the reader threads so the enriched status
     // contains all server output, not just what was consumed so far.
@@ -367,6 +369,8 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
     return EnrichWithCapturedOutput(s, stdout_capture, stderr_capture);
   }
   absl::StatusOr<int> port = ReadPortFile(port_file);
+  VLOG(1) << "FourwardServer started in "
+          << absl::FormatDuration(absl::Now() - start_time);
   if (!port.ok()) {
     KillAndReap(pid);
     pid = -1;
