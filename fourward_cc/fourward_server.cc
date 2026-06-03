@@ -373,11 +373,11 @@ absl::StatusOr<FourwardServer> FourwardServer::Start(
   }
   absl::StatusOr<int> port = ReadPortFile(port_file);
   absl::Duration elapsed = absl::Now() - start_time;
-  VLOG(1) << "FourwardServer started in " << absl::FormatDuration(elapsed);
   if (elapsed > options.startup_timeout / 2) {
     LOG(WARNING) << "FourwardServer startup took "
-                 << absl::FormatDuration(elapsed) << " (timeout is "
-                 << absl::FormatDuration(options.startup_timeout) << ")";
+                 << absl::FormatDuration(elapsed) << ", more than half the "
+                 << absl::FormatDuration(options.startup_timeout)
+                 << " timeout — may flake under heavier load";
   }
   if (!port.ok()) {
     KillAndReap(pid);
