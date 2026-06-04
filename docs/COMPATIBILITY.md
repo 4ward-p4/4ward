@@ -35,7 +35,7 @@ Legend:
 | Meters | Stub | Stub | Stub | Stubbed by design: configs round-trip, but meter externs always return GREEN and rate behavior is out of scope. |
 | Checksums | Supported | Supported | Supported | v1model checksum externs and PSA/PNA `InternetChecksum` are implemented. |
 | Hash externs | Supported | Supported | Supported | PSA/PNA support documented hash forms and algorithms. |
-| Random externs | Unsupported | Supported | Supported | v1model free-function `random()` is not implemented. |
+| Random externs | Supported | Supported | Supported | v1model `random()` and PSA/PNA `Random.read()` are implemented. |
 | Digest externs | Unsupported | Stub | Stub | PSA/PNA `Digest.pack` is a no-op; v1model `digest()` is not implemented. |
 | v1model `truncate()` | Supported | N/A | N/A | Caps the emitted packet length after deparser; repeated calls keep the shortest requested length. |
 | PNA add-on-miss externs | N/A | N/A | Stub | `add_entry`, `allocate_flow_id`, and timer externs are simplified stubs. |
