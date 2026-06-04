@@ -111,6 +111,11 @@ class FourwardServer(
 }
 
 fun main(args: Array<String>) {
+  // Netty's MacAddressUtil logs a WARNING to stderr when it can't find a usable
+  // hardware address (common in sandboxed test environments). Providing a fixed
+  // machine ID suppresses the lookup entirely.
+  System.setProperty("io.netty.machineId", "00:00:00:00:00:00:00:00")
+
   val port = requireFlag(args, "--port", String::toIntOrNull) ?: FourwardServer.DEFAULT_PORT
   val deviceId =
     requireFlag(args, "--device-id", String::toLongOrNull) ?: P4RuntimeService.DEFAULT_DEVICE_ID
