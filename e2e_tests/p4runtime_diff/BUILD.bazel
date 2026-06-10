@@ -233,6 +233,12 @@ cc_library(
         "@p4lang_pi//:pi",
         "@p4lang_pi//:pip4info",
     ],
+    # alwayslink: @p4lang_pi//:pi calls _pi_* backend symbols implemented here.
+    # The linker processes libbmpi.a before pi.a (dependency order), so by the
+    # time pi.a's undefined _pi_* references appear, libbmpi.a has already been
+    # "sealed". alwayslink forces all libbmpi objects into the link unconditionally,
+    # breaking the static-archive ordering cycle.
+    alwayslink = True,
 )
 
 # ---------------------------------------------------------------------------

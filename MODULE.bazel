@@ -190,6 +190,18 @@ python.toolchain(python_version = "3.12")
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
+    # WORKAROUND: This machine uses the Google Airlock corporate PyPI mirror
+    # (/etc/pip.conf → artifact-foundry-prod), which requires auth credentials
+    # that the Bazel sandbox cannot access. Forcing public PyPI avoids the
+    # 401 → interactive password prompt → EOF crash.
+    #
+    # Exit criterion: drop these args if Bazel sandbox gains access to corp
+    # credentials, or if a requirements_lock with pre-resolved wheel URLs is
+    # used instead.
+    extra_pip_args = [
+        "--index-url",
+        "https://pypi.org/simple/",
+    ],
     hub_name = "pip",
     python_version = "3.12",
     requirements_lock = "//:requirements.txt",

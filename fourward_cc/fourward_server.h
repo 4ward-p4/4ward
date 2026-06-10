@@ -74,8 +74,12 @@ struct PortOverride {
 struct CpuPort {
   enum class Kind { kAuto, kDisabled, kOverride };
 
-  static CpuPort Auto() { return {Kind::kAuto, {}}; }
-  static CpuPort Disabled() { return {Kind::kDisabled, {}}; }
+  static CpuPort Auto() {
+    return {Kind::kAuto, {}};
+  }
+  static CpuPort Disabled() {
+    return {Kind::kDisabled, {}};
+  }
   static CpuPort Override(int port) {
     return {Kind::kOverride, PortOverride::Dataplane(port)};
   }

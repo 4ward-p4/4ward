@@ -59,10 +59,10 @@ struct Tag {
 class PacketWriter {
  public:
   ~PacketWriter();
-  PacketWriter(PacketWriter &&);
-  PacketWriter &operator=(PacketWriter &&);
-  PacketWriter(const PacketWriter &) = delete;
-  PacketWriter &operator=(const PacketWriter &) = delete;
+  PacketWriter(PacketWriter&&);
+  PacketWriter& operator=(PacketWriter&&);
+  PacketWriter(const PacketWriter&) = delete;
+  PacketWriter& operator=(const PacketWriter&) = delete;
 
   absl::Status Inject(DataplanePort ingress_port, std::string_view payload,
                       Tag tag = {});
@@ -86,10 +86,10 @@ class PacketWriter {
 class ResultStream {
  public:
   ~ResultStream();
-  ResultStream(ResultStream &&);
-  ResultStream &operator=(ResultStream &&);
-  ResultStream(const ResultStream &) = delete;
-  ResultStream &operator=(const ResultStream &) = delete;
+  ResultStream(ResultStream&&);
+  ResultStream& operator=(ResultStream&&);
+  ResultStream(const ResultStream&) = delete;
+  ResultStream& operator=(const ResultStream&) = delete;
 
   // Blocks up to `timeout` for the next result. Returns
   // DeadlineExceededError on timeout, CancelledError when the stream ends.
@@ -111,16 +111,16 @@ class ResultStream {
 // Thread-safe: each method uses its own ClientContext.
 class DataplaneClient {
  public:
-  explicit DataplaneClient(const FourwardServer &server,
+  explicit DataplaneClient(const FourwardServer& server,
                            absl::Duration default_timeout = absl::Seconds(10));
   explicit DataplaneClient(std::unique_ptr<Dataplane::Stub> stub,
                            absl::Duration default_timeout = absl::Seconds(10));
 
   ~DataplaneClient();
-  DataplaneClient(DataplaneClient &&);
-  DataplaneClient &operator=(DataplaneClient &&);
-  DataplaneClient(const DataplaneClient &) = delete;
-  DataplaneClient &operator=(const DataplaneClient &) = delete;
+  DataplaneClient(DataplaneClient&&);
+  DataplaneClient& operator=(DataplaneClient&&);
+  DataplaneClient(const DataplaneClient&) = delete;
+  DataplaneClient& operator=(const DataplaneClient&) = delete;
 
   absl::StatusOr<InjectPacketResponse> InjectPacket(DataplanePort ingress_port,
                                                     std::string_view payload,
