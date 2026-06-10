@@ -78,6 +78,12 @@ events {
     multicast_group_id: 1
     group_found: true
     replica_count: 2
+    replicas {
+      port: "1"
+    }
+    replicas {
+      port: "2"
+    }
   }
 }
 fork_outcome {

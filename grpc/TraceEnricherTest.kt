@@ -88,6 +88,60 @@ class TraceEnricherTest {
   }
 
   @Test
+  fun `enriches clone session lookup replicas`() {
+    val translator = portTranslator()
+    translator.p4rtToDataplane(PORT_TYPE, "Ethernet3")
+    translator.p4rtToDataplane(PORT_TYPE, "Ethernet4")
+
+    val event =
+      TraceEvent.newBuilder()
+        .setCloneSessionLookup(
+          CloneSessionLookupEvent.newBuilder()
+            .setSessionId(1)
+            .setSessionFound(true)
+            .addReplicas(fourward.IrReplica.newBuilder().setPort("0").setInstance(1))
+            .addReplicas(fourward.IrReplica.newBuilder().setPort("1").setInstance(2))
+        )
+        .build()
+    val trace = TraceTree.newBuilder().addEvents(event).build()
+    val enriched = TraceEnricher.enrich(trace, translator)
+
+    val csl = enriched.getEvents(0).cloneSessionLookup
+    assertEquals(2, csl.replicasCount)
+    assertEquals("Ethernet3", csl.getReplicas(0).port)
+    assertEquals(1, csl.getReplicas(0).instance)
+    assertEquals("Ethernet4", csl.getReplicas(1).port)
+    assertEquals(2, csl.getReplicas(1).instance)
+  }
+
+  @Test
+  fun `enriches multicast group lookup replicas`() {
+    val translator = portTranslator()
+    translator.p4rtToDataplane(PORT_TYPE, "Ethernet3")
+    translator.p4rtToDataplane(PORT_TYPE, "Ethernet4")
+
+    val event =
+      TraceEvent.newBuilder()
+        .setMulticastGroupLookup(
+          fourward.MulticastGroupLookupEvent.newBuilder()
+            .setMulticastGroupId(1)
+            .setGroupFound(true)
+            .addReplicas(fourward.IrReplica.newBuilder().setPort("0").setInstance(1))
+            .addReplicas(fourward.IrReplica.newBuilder().setPort("1").setInstance(2))
+        )
+        .build()
+    val trace = TraceTree.newBuilder().addEvents(event).build()
+    val enriched = TraceEnricher.enrich(trace, translator)
+
+    val mgl = enriched.getEvents(0).multicastGroupLookup
+    assertEquals(2, mgl.replicasCount)
+    assertEquals("Ethernet3", mgl.getReplicas(0).port)
+    assertEquals(1, mgl.getReplicas(0).instance)
+    assertEquals("Ethernet4", mgl.getReplicas(1).port)
+    assertEquals(2, mgl.getReplicas(1).instance)
+  }
+
+  @Test
   fun `skips clone session lookup when session not found`() {
     val translator = portTranslator()
     translator.p4rtToDataplane(PORT_TYPE, "Ethernet0")

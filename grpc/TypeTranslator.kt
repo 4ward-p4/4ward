@@ -98,6 +98,14 @@ class PortTranslator internal constructor(private val table: TranslationTable) {
       is P4rtValue.Bitstring -> p4rtValue.value
       null -> null
     }
+
+  /** Translates a dataplane port number to a P4Runtime port string representation. */
+  fun dataplaneToP4rtString(dataplanePort: Int): String? =
+    when (val p4rtValue = table.reverseLookupOrNull(encodeMinWidth(dataplanePort))) {
+      is P4rtValue.Str -> p4rtValue.value
+      is P4rtValue.Bitstring -> p4rtValue.value.toUnsignedInt().toString()
+      null -> null
+    }
 }
 
 /**

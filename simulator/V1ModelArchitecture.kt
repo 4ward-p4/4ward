@@ -15,6 +15,7 @@ import fourward.StructDecl
 import fourward.TraceEvent
 import fourward.TraceTree
 import java.math.BigInteger
+import p4.v1.P4RuntimeOuterClass
 
 /**
  * v1model pipeline implementation.
@@ -838,7 +839,7 @@ class V1ModelArchitecture(
     if (mcastGrp != 0) {
       val group = ctx.tableStore.getMulticastGroup(mcastGrp)
       if (group != null) {
-        s.packetCtx.addTraceEvent(multicastGroupLookupEvent(mcastGrp, group.replicasCount))
+        s.packetCtx.addTraceEvent(multicastGroupLookupEvent(mcastGrp, group.replicasList))
         val replicas = group.replicasList.map { r -> Replica(r.instance, replicaPort(r)) }
         throw MulticastFork(
           replicas,
@@ -936,7 +937,7 @@ class V1ModelArchitecture(
       val replicas = session.replicasList.map { Replica(it.instance, replicaPort(it)) }
       val first = replicas.first()
       s.packetCtx.addTraceEvent(
-        cloneSessionLookupEvent(sessionId, first.port, first.rid, replicas.size)
+        cloneSessionLookupEvent(sessionId, first.port, first.rid, session.replicasList)
       )
       return CloneSessionResult(replicas, session.packetLengthBytes)
     }
@@ -948,18 +949,27 @@ class V1ModelArchitecture(
     sessionId: Int,
     egressPort: Int,
     egressRid: Int,
-    replicaCount: Int,
-  ): TraceEvent =
-    TraceEvent.newBuilder()
+    replicas: List<P4RuntimeOuterClass.Replica>,
+  ): TraceEvent {
+    val irReplicas =
+      replicas.map { r ->
+        fourward.IrReplica.newBuilder()
+          .setPort(replicaPort(r).toString())
+          .setInstance(r.instance)
+          .build()
+      }
+    return TraceEvent.newBuilder()
       .setCloneSessionLookup(
         CloneSessionLookupEvent.newBuilder()
           .setSessionId(sessionId)
           .setSessionFound(true)
           .setDataplaneEgressPort(egressPort)
           .setEgressRid(egressRid)
-          .setReplicaCount(replicaCount)
+          .setReplicaCount(replicas.size)
+          .addAllReplicas(irReplicas)
       )
       .build()
+  }
 
   private fun cloneSessionMissEvent(sessionId: Int): TraceEvent =
     TraceEvent.newBuilder()

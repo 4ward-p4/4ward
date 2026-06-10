@@ -91,11 +91,57 @@ object TraceEnricher {
     if (event.hasCloneSessionLookup() && pt != null) {
       val csl = event.cloneSessionLookup
       if (!csl.sessionFound) return null
-      // Enriches the first replica's port only; per-replica details are in fork branch labels.
-      val p4rtPort = pt.dataplaneToP4rt(csl.dataplaneEgressPort) ?: return null
+      val builder = csl.toBuilder()
+      val p4rtPort = pt.dataplaneToP4rt(csl.dataplaneEgressPort)
+      if (p4rtPort != null) {
+        builder.setP4RtEgressPort(p4rtPort)
+      }
+      var replicasChanged = false
+      val enrichedReplicas =
+        csl.replicasList.map { replica ->
+          val dpPort = replica.port.toIntOrNull()
+          if (dpPort != null) {
+            val p4rtStr = pt.dataplaneToP4rtString(dpPort)
+            if (p4rtStr != null && p4rtStr != replica.port) {
+              replicasChanged = true
+              replica.toBuilder().setPort(p4rtStr).build()
+            } else {
+              replica
+            }
+          } else {
+            replica
+          }
+        }
+      if (p4rtPort == null && !replicasChanged) return null
+      if (replicasChanged) {
+        builder.clearReplicas().addAllReplicas(enrichedReplicas)
+      }
+      return event.toBuilder().setCloneSessionLookup(builder).build()
+    }
+
+    if (event.hasMulticastGroupLookup() && pt != null) {
+      val mgl = event.multicastGroupLookup
+      if (!mgl.groupFound) return null
+      var replicasChanged = false
+      val enrichedReplicas =
+        mgl.replicasList.map { replica ->
+          val dpPort = replica.port.toIntOrNull()
+          if (dpPort != null) {
+            val p4rtStr = pt.dataplaneToP4rtString(dpPort)
+            if (p4rtStr != null && p4rtStr != replica.port) {
+              replicasChanged = true
+              replica.toBuilder().setPort(p4rtStr).build()
+            } else {
+              replica
+            }
+          } else {
+            replica
+          }
+        }
+      if (!replicasChanged) return null
       return event
         .toBuilder()
-        .setCloneSessionLookup(csl.toBuilder().setP4RtEgressPort(p4rtPort))
+        .setMulticastGroupLookup(mgl.toBuilder().clearReplicas().addAllReplicas(enrichedReplicas))
         .build()
     }
 

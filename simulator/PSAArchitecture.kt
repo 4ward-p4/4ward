@@ -303,7 +303,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       return buildDropTrace(listOf(multicastGroupMissEvent(multicastGroup)))
     }
 
-    val lookupEvent = multicastGroupLookupEvent(multicastGroup, group.replicasCount)
+    val lookupEvent = multicastGroupLookupEvent(multicastGroup, group.replicasList)
     val branches =
       group.replicasList.map { replica ->
         val port = replicaPort(replica)

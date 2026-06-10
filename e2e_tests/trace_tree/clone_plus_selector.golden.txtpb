@@ -142,6 +142,9 @@ fork_outcome {
           session_found: true
           dataplane_egress_port: 1
           replica_count: 1
+          replicas {
+            port: "1"
+          }
         }
       }
       fork_outcome {
@@ -322,6 +325,9 @@ fork_outcome {
           session_found: true
           dataplane_egress_port: 1
           replica_count: 1
+          replicas {
+            port: "1"
+          }
         }
       }
       fork_outcome {

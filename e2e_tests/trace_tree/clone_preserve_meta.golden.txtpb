@@ -114,6 +114,9 @@ events {
     session_found: true
     dataplane_egress_port: 2
     replica_count: 1
+    replicas {
+      port: "2"
+    }
   }
 }
 fork_outcome {

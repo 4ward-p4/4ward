@@ -84,15 +84,27 @@ internal fun stageEvent(
     .build()
 
 /** Creates a [TraceEvent] recording a successful multicast group lookup. */
-internal fun multicastGroupLookupEvent(groupId: Int, replicaCount: Int): TraceEvent =
-  TraceEvent.newBuilder()
+internal fun multicastGroupLookupEvent(
+  groupId: Int,
+  replicas: List<p4.v1.P4RuntimeOuterClass.Replica>,
+): TraceEvent {
+  val irReplicas =
+    replicas.map { r ->
+      fourward.IrReplica.newBuilder()
+        .setPort(replicaPort(r).toString())
+        .setInstance(r.instance)
+        .build()
+    }
+  return TraceEvent.newBuilder()
     .setMulticastGroupLookup(
       MulticastGroupLookupEvent.newBuilder()
         .setMulticastGroupId(groupId)
         .setGroupFound(true)
-        .setReplicaCount(replicaCount)
+        .setReplicaCount(replicas.size)
+        .addAllReplicas(irReplicas)
     )
     .build()
+}
 
 /** Creates a [TraceEvent] recording a failed multicast group lookup. */
 internal fun multicastGroupMissEvent(groupId: Int): TraceEvent =

@@ -90,6 +90,9 @@ events {
     session_found: true
     dataplane_egress_port: 3
     replica_count: 1
+    replicas {
+      port: "3"
+    }
   }
 }
 fork_outcome {
