@@ -78,24 +78,27 @@ TEST_F(DataplaneClientTest, InjectPacketP4RuntimePortRespectsDefaultTimeout) {
       << resp.status();
 }
 
-TEST_F(DataplaneClientTest, InjectPacketsWriterFinishesCleanly) {
+TEST_F(DataplaneClientTest, InjectPacketsExplicitTimeoutBoundsTheStream) {
   DataplaneClient client(*server_);
+
+  PacketWriter writer = client.InjectPackets(absl::Nanoseconds(1));
+  absl::Status inject = writer.Inject(DataplanePort{0}, "a");
+  // Either the inject or the finish surfaces the deadline error.
+  absl::StatusOr<int> finish = writer.Finish();
+  EXPECT_TRUE(!inject.ok() || !finish.ok())
+      << "inject: " << inject << ", finish: " << finish.status();
+}
+
+TEST_F(DataplaneClientTest, InjectPacketsIsExemptFromDefaultTimeout) {
+  // Even with an absurdly short default_timeout, a streaming injection must
+  // complete: the stream carries no deadline unless one is passed explicitly
+  // (#760).
+  DataplaneClient client(*server_, absl::Nanoseconds(1));
 
   PacketWriter writer = client.InjectPackets();
   absl::StatusOr<int> count = writer.Finish();
   ASSERT_TRUE(count.ok()) << count.status();
   EXPECT_EQ(*count, 0);
-}
-
-TEST_F(DataplaneClientTest, InjectPacketsRespectsDefaultTimeout) {
-  DataplaneClient client(*server_, absl::Nanoseconds(1));
-
-  PacketWriter writer = client.InjectPackets();
-  absl::Status inject = writer.Inject(DataplanePort{0}, "a");
-  // Either the inject or finish will surface the deadline error.
-  absl::StatusOr<int> finish = writer.Finish();
-  EXPECT_TRUE(!inject.ok() || !finish.ok())
-      << "inject: " << inject << ", finish: " << finish.status();
 }
 
 TEST_F(DataplaneClientTest, MoveConstructionPreservesStub) {

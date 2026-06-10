@@ -170,9 +170,14 @@ class PacketWriter::Impl {
   absl::Status finished_status_;
 };
 
-PacketWriter DataplaneClient::InjectPackets() {
+PacketWriter DataplaneClient::InjectPackets(
+    std::optional<absl::Duration> total_timeout) {
+  // No deadline unless the caller opted in — see the header for the
+  // rationale (#760).
   auto context = std::make_unique<grpc::ClientContext>();
-  context->set_deadline(AbsoluteDeadline(default_timeout_));
+  if (total_timeout.has_value()) {
+    context->set_deadline(AbsoluteDeadline(*total_timeout));
+  }
   return PacketWriter(
       PacketWriter::Impl::Create(stub_.get(), std::move(context)));
 }

@@ -53,7 +53,9 @@ struct Tag {
 };
 
 // RAII handle for a client-streaming InjectPackets RPC. Destructor calls
-// Finish() if not already called.
+// Finish() if not already called — so like Finish(), it blocks until the
+// server has processed every injected packet, unless a `total_timeout` was
+// passed to InjectPackets().
 //
 // Not thread-safe: callers must serialize Inject/Finish calls.
 class PacketWriter {
@@ -69,7 +71,8 @@ class PacketWriter {
   absl::Status Inject(P4RuntimePort ingress_port, std::string_view payload,
                       Tag tag = {});
 
-  // Signals end-of-stream and returns the number of packets injected.
+  // Signals end-of-stream, blocks until the server has processed every
+  // injected packet, and returns the number of packets injected.
   absl::StatusOr<int> Finish();
 
  private:
@@ -131,7 +134,14 @@ class DataplaneClient {
 
   // Returns a writer for streaming packet injection. Results are delivered
   // via SubscribeResults, not inline.
-  PacketWriter InjectPackets();
+  //
+  // By default the stream has no deadline (see PacketWriter); it is
+  // deliberately exempt from `default_timeout`, which cannot know the burst
+  // size (#760). Callers who can bound their burst may pass `total_timeout`
+  // to bound the entire stream — every Inject(), server-side processing,
+  // and Finish().
+  PacketWriter InjectPackets(
+      std::optional<absl::Duration> total_timeout = std::nullopt);
 
   // Blocks until the server confirms the subscription is active. The
   // ResultStream is then long-lived; cancel via destruction.
