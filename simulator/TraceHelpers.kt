@@ -15,8 +15,9 @@ import fourward.TraceTree
 
 /**
  * Whether a fork's branches all happen (parallel) or only one happens (alternative).
- * - **Parallel** (clone, multicast, resubmit, recirculate): all branches execute simultaneously.
- *   Output packets are the union of all branch outputs.
+ * - **Parallel** (clone, multicast, resubmit, recirculate): all branches occur in a single real
+ *   execution. Output packets are the union of all branch outputs. Resubmit/recirculate forks have
+ *   a single branch — the packet's re-entry into the pipeline is the sole continuation.
  * - **Alternative** (action selector): exactly one branch executes at runtime. Each branch is a
  *   "possible world" — a distinct possible outcome set.
  */

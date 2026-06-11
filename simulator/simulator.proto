@@ -47,9 +47,10 @@ message OutputPacket {
 // Execution trace tree
 //
 // A complete record of every decision the simulator made while processing a
-// packet.  Events within a node are ordered chronologically.  At
-// non-deterministic choice points the tree forks: each branch represents one
-// possible outcome and contains its own subtree of events.
+// packet.  Events within a node are ordered chronologically.  The tree forks
+// where one pipeline pass spawns others (clone, multicast, resubmit,
+// recirculate) and at non-deterministic choice points (action selector);
+// each branch contains its own subtree of events.
 //
 // Every node terminates: either forking (fork_outcome) or reaching a final
 // packet fate (packet_outcome).  A zero-fork tree has a single
@@ -67,14 +68,20 @@ message TraceTree {
   }
 }
 
-// A non-deterministic choice point where execution forks into multiple
-// possible paths.
+// A pipeline-pass boundary: the point where one pipeline pass ends and
+// spawns labeled continuations, each a subtree of further execution.
 //
-// Forks come in two flavors (see ForkMode):
+// What matters about a fork is not simultaneity but how branch outcomes
+// combine (see ForkMode):
 //
 //  • **Parallel** (clone, multicast, resubmit, recirculate) — all branches
-//    execute simultaneously in a single real execution.  The packet outputs
-//    are the union of all branch outputs.
+//    occur in a single real execution.  The packet outputs are the union of
+//    all branch outputs.  Resubmit and recirculate are the single-branch
+//    case: the packet's re-entry into the pipeline is the sole continuation.
+//    A one-branch fork is deliberate, not a degenerate encoding — it marks
+//    where the new pass begins (fresh instance_type, preserved metadata) and
+//    keeps one uniform shape for re-entry whether it occurs alone or
+//    alongside clones (e.g. PNA mirror + recirculate).
 //
 //  • **Alternative** (action selector) — exactly one branch executes at
 //    runtime (determined by a hash function).  Each branch represents one
