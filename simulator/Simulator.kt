@@ -9,8 +9,8 @@ import java.util.concurrent.atomic.AtomicReference
  * Result of processing a single packet through the pipeline.
  *
  * [possibleOutcomes] captures both kinds of nondeterminism in the trace tree:
- * - **Parallel forks** (clone, multicast, resubmit, recirculate): all branches execute
- *   simultaneously, so their outputs are combined within each possible outcome.
+ * - **Parallel forks** (clone, multicast, resubmit, recirculate): all branches occur in a single
+ *   real execution, so their outputs are combined within each possible outcome.
  * - **Alternative forks** (action selector): exactly one branch executes at runtime, so each branch
  *   produces a separate possible outcome.
  *

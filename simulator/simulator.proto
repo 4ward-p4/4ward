@@ -68,20 +68,19 @@ message TraceTree {
   }
 }
 
-// A pipeline-pass boundary: the point where one pipeline pass ends and
-// spawns labeled continuations, each a subtree of further execution.
+// A point where execution splits into labeled subtrees — either because one
+// pipeline pass spawns others (clone, multicast, resubmit, recirculate) or
+// because a non-deterministic choice is explored (action selector).
 //
-// What matters about a fork is not simultaneity but how branch outcomes
-// combine (see ForkMode):
+// Forks come in two flavors (see ForkMode):
 //
 //  • **Parallel** (clone, multicast, resubmit, recirculate) — all branches
 //    occur in a single real execution.  The packet outputs are the union of
-//    all branch outputs.  Resubmit and recirculate are the single-branch
-//    case: the packet's re-entry into the pipeline is the sole continuation.
-//    A one-branch fork is deliberate, not a degenerate encoding — it marks
-//    where the new pass begins (fresh instance_type, preserved metadata) and
-//    keeps one uniform shape for re-entry whether it occurs alone or
-//    alongside clones (e.g. PNA mirror + recirculate).
+//    all branch outputs.  Resubmit and recirculate are single-branch forks:
+//    the packet's re-entry into the pipeline is the sole continuation.  The
+//    fork node marks where the new pass begins, and gives re-entry the same
+//    shape whether it occurs alone or alongside clones (e.g. PNA mirror +
+//    recirculate).
 //
 //  • **Alternative** (action selector) — exactly one branch executes at
 //    runtime (determined by a hash function).  Each branch represents one
@@ -109,8 +108,8 @@ enum ForkReason {
   ACTION_SELECTOR = 1;  // Alternative: one member is selected by hash.
   CLONE = 2;            // Parallel: original + clone(s) all execute.
   MULTICAST = 3;        // Parallel: one replica per multicast group member.
-  RESUBMIT = 4;         // Parallel: packet re-enters the pipeline.
-  RECIRCULATE = 5;      // Parallel: deparsed packet loops back.
+  RESUBMIT = 4;     // Parallel, single branch: packet re-enters the pipeline.
+  RECIRCULATE = 5;  // Parallel, single branch: deparsed packet loops back.
 }
 
 // The terminal fate of a packet: either output on a port or dropped.

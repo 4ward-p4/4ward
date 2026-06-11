@@ -217,10 +217,11 @@ happens with this specific hash seed?"
 ### Parallel vs alternative forks
 
 Not all forks are created equal. The simulator distinguishes two kinds of
-nondeterminism (see `ForkMode` and `forkModeOf` in `TraceHelpers.kt`):
+nondeterminism (see the `Fork` message in `simulator.proto` and `ForkMode` in
+`TraceHelpers.kt`):
 
 - **Parallel forks** (clone, multicast, resubmit, recirculate) — all branches
-  execute simultaneously in a single real execution. The output packets are the
+  occur in a single real execution. The output packets are the
   union of all branch outputs.
 - **Alternative forks** (action selector) — exactly one branch executes at
   runtime (determined by a hash function). Each branch represents one *possible

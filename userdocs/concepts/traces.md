@@ -73,15 +73,18 @@ packet_outcome {
 
 ## Forks
 
-When execution reaches a non-deterministic choice point, the trace forks.
-Each branch gets its own subtree with the remaining pipeline events.
+The trace forks where the packet is replicated or re-enters the pipeline
+(clone, multicast, resubmit, recirculate) and at non-deterministic choice
+points (action selector). Each branch gets its own subtree with the
+remaining pipeline events.
 
 There are two kinds of forks, and the distinction is important for
 understanding what the output packets mean:
 
 - **Parallel forks** (clone, multicast, resubmit, recirculate) — all branches
-  happen simultaneously in a single real execution. A clone creates both the
-  original *and* the clone; multicast creates all replicas at once.
+  happen in a single real execution. A clone creates both the original *and*
+  the clone; multicast creates all replicas at once; a resubmitted or
+  recirculated packet has a single branch: its re-entry into the pipeline.
 - **Alternative forks** (action selector) — exactly one branch happens at
   runtime, determined by a hash function. Each branch represents one *possible
   world* — a forwarding outcome that *could* happen, depending on the hash.
