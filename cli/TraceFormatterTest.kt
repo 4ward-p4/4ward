@@ -105,10 +105,7 @@ class TraceFormatterTest {
   fun dropWithMarkToDrop() {
     val tree =
       TraceTree.newBuilder()
-        .addEvents(
-          TraceEvent.newBuilder()
-            .setMarkToDrop(MarkToDropEvent.newBuilder().setReason(DropReason.MARK_TO_DROP))
-        )
+        .addEvents(TraceEvent.newBuilder().setMarkToDrop(MarkToDropEvent.getDefaultInstance()))
         .setPacketOutcome(
           PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.MARK_TO_DROP))
         )

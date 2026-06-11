@@ -31,6 +31,7 @@ import fourward.TypeDecl
 import fourward.VarDecl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import p4.config.v1.P4InfoOuterClass
@@ -1367,8 +1368,10 @@ class V1ModelArchitectureTest {
   }
 
   @Test
-  fun `parser exit emits EXIT event before drop`() {
-    // Parser with an exit statement — triggers ExitException in the parser.
+  fun `exit in parser is rejected as invalid IR`() {
+    // P4₁₆ allows exit statements only in actions and controls, and p4c
+    // rejects them in parsers — so this IR can only be hand-written. The
+    // simulator must fail loudly rather than guess a packet fate.
     val exitParser =
       ParserDecl.newBuilder()
         .setName("MyParser")
@@ -1382,20 +1385,11 @@ class V1ModelArchitectureTest {
         .build()
 
     val config = v1modelConfig(parser = exitParser)
-    val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
-
-    // Should be a drop.
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.MARK_TO_DROP, result.trace.packetOutcome.drop.reason)
-
-    // Parser EXIT event must be present even though the parser exited early.
-    val events = stageEvents(result.trace)
-    val stages = events.drop(1).map { it.pipelineStage }
-    assertEquals(
-      listOf(StageKind.PARSER to Direction.ENTER, StageKind.PARSER to Direction.EXIT),
-      stages.map { it.stageKind to it.direction },
-    )
+    val e =
+      assertThrows(IllegalStateException::class.java) {
+        V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+      }
+    assertTrue("unexpected message: ${e.message}", e.message!!.contains("exit statement in parser"))
   }
 
   // ---------------------------------------------------------------------------

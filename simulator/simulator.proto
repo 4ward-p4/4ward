@@ -216,7 +216,8 @@ message ExternCallEvent {
 // Fired when mark_to_drop() is called. Records the call site, not the packet
 // fate — the actual drop is represented by Drop in PacketOutcome.
 message MarkToDropEvent {
-  DropReason reason = 1;
+  reserved 1;  // was `DropReason reason`, redundant: always MARK_TO_DROP
+  reserved "reason";
 }
 
 // Fired when the P4 program calls clone().
@@ -300,10 +301,17 @@ message AssignmentEvent {
 }
 
 enum DropReason {
+  // Was PARSER_REJECT (2) and PIPELINE_EXECUTION_LIMIT_REACHED (3) — never
+  // produced. Parser errors don't drop in v1model (the packet proceeds to
+  // ingress with standard_metadata.parser_error set), and exceeding the
+  // pipeline depth limit fails the request loudly instead of reporting a
+  // quiet drop.
+  reserved 2, 3;
+  reserved "PARSER_REJECT", "PIPELINE_EXECUTION_LIMIT_REACHED";
+
   DROP_REASON_UNSPECIFIED = 0;
-  MARK_TO_DROP = 1;   // explicit mark_to_drop()
-  PARSER_REJECT = 2;  // parser transitioned to reject state
-  PIPELINE_EXECUTION_LIMIT_REACHED =
-      3;                  // too many fork branches (exponential blowup guard)
+  // The egress spec points at the drop port — set by mark_to_drop() or by
+  // direct assignment.
+  MARK_TO_DROP = 1;
   ASSERTION_FAILURE = 4;  // assert() or assume() failed
 }

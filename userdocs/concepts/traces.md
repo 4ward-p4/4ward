@@ -193,10 +193,8 @@ Every trace path terminates with a **PacketOutcome**:
 
 - **Output** — packet transmitted: `dataplane_egress_port` + `payload`.
 - **Drop** — packet dropped, with a reason:
-    - `MARK_TO_DROP` — explicit `mark_to_drop()` call.
-    - `PARSER_REJECT` — parser transitioned to the reject state.
-    - `PIPELINE_EXECUTION_LIMIT_REACHED` — too many fork branches
-      (exponential blowup guard).
+    - `MARK_TO_DROP` — the egress spec points at the drop port, set by
+      `mark_to_drop()` or by direct assignment.
     - `ASSERTION_FAILURE` — `assert()` or `assume()` failed.
 
 ## P4RT enrichment

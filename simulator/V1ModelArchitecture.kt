@@ -664,9 +664,8 @@ class V1ModelArchitecture(
     // --- Init + Parser ---
     val s = initPipelineState(ctx, decisions)
     s.packetCtx.addTraceEvent(packetIngressEvent(ctx.ingressPort))
-    val parserExitDrop = runParser(s)
+    runParser(s)
     s.postParserEnv = s.env.deepCopy()
-    if (parserExitDrop) return buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
 
     // An assert()/assume() failure anywhere in the pipeline drops the packet.
     try {
@@ -755,21 +754,20 @@ class V1ModelArchitecture(
   private fun readEgressPort(s: PipelineState): Int =
     (s.standardMetadata.fields["egress_port"] as? BitVal)?.bits?.value?.toInt() ?: 0
 
-  /** Runs the parser stage, returning true if the parser called exit (drop). */
-  private fun runParser(s: PipelineState): Boolean {
-    if (s.parserStage == null) return false
+  /**
+   * Runs the parser stage. A parser error does not drop the packet: it continues to ingress with
+   * standard_metadata.parser_error set (BMv2 semantics).
+   */
+  private fun runParser(s: PipelineState) {
+    if (s.parserStage == null) return
     s.packetCtx.addTraceEvent(stageEvent(s.parserStage, PipelineStageEvent.Direction.ENTER))
-    var exitDrop = false
     try {
       s.interpreter.runParser(s.parserStage.blockName, s.env)
-    } catch (_: ExitException) {
-      exitDrop = true
     } catch (e: ParserErrorException) {
       s.standardMetadata.fields["parser_error"] = ErrorVal(e.errorName)
     } finally {
       s.packetCtx.addTraceEvent(stageEvent(s.parserStage, PipelineStageEvent.Direction.EXIT))
     }
-    return exitDrop
   }
 
   /** Runs a list of control stages, emitting enter/exit events for each. */
@@ -1046,10 +1044,7 @@ class V1ModelArchitecture(
       // mark_to_drop(standard_metadata): sets egress_spec to the drop port.
       "mark_to_drop" -> {
         eval.addTraceEvent(
-          eval
-            .traceEventBuilder()
-            .setMarkToDrop(MarkToDropEvent.newBuilder().setReason(DropReason.MARK_TO_DROP))
-            .build()
+          eval.traceEventBuilder().setMarkToDrop(MarkToDropEvent.getDefaultInstance()).build()
         )
         val smeta = eval.evalArg(0) as StructVal
         smeta.fields["egress_spec"] = BitVal(dropPort, smeta.bitWidth("egress_spec"))

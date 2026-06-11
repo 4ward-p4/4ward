@@ -309,8 +309,6 @@ function formatForkReason(reason) {
 function formatDropReason(reason) {
   switch (reason) {
     case 'MARK_TO_DROP': return 'mark_to_drop';
-    case 'PARSER_REJECT': return 'parser reject';
-    case 'PIPELINE_EXECUTION_LIMIT_REACHED': return 'execution limit';
     default: return reason || 'unknown';
   }
 }

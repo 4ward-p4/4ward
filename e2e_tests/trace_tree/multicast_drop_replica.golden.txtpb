@@ -192,7 +192,6 @@ fork_outcome {
       }
       events {
         mark_to_drop {
-          reason: MARK_TO_DROP
         }
         source_info {
           file: "e2e_tests/trace_tree/multicast_drop_replica.p4"

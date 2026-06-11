@@ -83,7 +83,6 @@ events {
 }
 events {
   mark_to_drop {
-    reason: MARK_TO_DROP
   }
   source_info {
     file: "e2e_tests/trace_tree/action_selector_miss.p4"

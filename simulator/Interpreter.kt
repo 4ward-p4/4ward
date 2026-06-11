@@ -144,7 +144,14 @@ class Interpreter internal constructor(config: BehavioralConfig) {
 
     fun runParser(parserName: String, env: Environment) {
       val parser = parsers[parserName] ?: error("unknown parser: $parserName")
-      withLocalScope(parser.localVarsList, env) { runParserState(parser, "start", env) }
+      try {
+        withLocalScope(parser.localVarsList, env) { runParserState(parser, "start", env) }
+      } catch (_: ExitException) {
+        // P4₁₆ allows exit statements only in actions and controls; p4c rejects
+        // them in parsers, so this IR is invalid. Fail loudly rather than guess
+        // a packet fate.
+        error("exit statement in parser $parserName — invalid IR")
+      }
     }
 
     private fun runParserState(parser: ParserDecl, startState: String, env: Environment) {

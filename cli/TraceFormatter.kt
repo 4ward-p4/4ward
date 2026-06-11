@@ -107,10 +107,9 @@ object TraceFormatter {
   private fun DropReason.humanName(): String =
     when (this) {
       DropReason.MARK_TO_DROP -> "mark_to_drop"
-      DropReason.PARSER_REJECT -> "parser reject"
-      DropReason.PIPELINE_EXECUTION_LIMIT_REACHED -> "execution limit"
       DropReason.ASSERTION_FAILURE -> "assertion failure"
-      else -> "unknown"
+      DropReason.DROP_REASON_UNSPECIFIED,
+      DropReason.UNRECOGNIZED -> "unknown"
     }
 
   private fun fourward.ForkReason.humanName(): String =
