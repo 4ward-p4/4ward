@@ -194,17 +194,17 @@ One packet goes in, two come out
 ```protobuf
 events { parser_transition { from_state: "start"  to_state: "accept" } }
 events { clone { session_id: 100 } }
-fork_outcome {
-  reason: CLONE
-  branches {
-    label: "original"
+continuations {
+  continuations {
+    kind: ORIGINAL
     subtree {
       events { table_lookup { action_name: "tag_original" } }
       packet_outcome { output { egress_port: 2 } }
     }
   }
-  branches {
-    label: "clone"
+  continuations {
+    kind: CLONE
+    dataplane_egress_port: 3
     subtree {
       events { table_lookup { action_name: "tag_clone" } }
       packet_outcome { output { egress_port: 3 } }

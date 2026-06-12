@@ -44,9 +44,14 @@ private fun collectEntities(
     collectFromEvent(event, snapshot, tableStore, staticEntries, out)
   }
   when (trace.outcomeCase) {
-    TraceTree.OutcomeCase.FORK_OUTCOME -> {
-      for (branch in trace.forkOutcome.branchesList) {
-        collectEntities(branch.subtree, snapshot, tableStore, staticEntries, out)
+    TraceTree.OutcomeCase.CONTINUATIONS -> {
+      for (continuation in trace.continuations.continuationsList) {
+        collectEntities(continuation.subtree, snapshot, tableStore, staticEntries, out)
+      }
+    }
+    TraceTree.OutcomeCase.CHOICE -> {
+      for (alternative in trace.choice.alternativesList) {
+        collectEntities(alternative.subtree, snapshot, tableStore, staticEntries, out)
       }
     }
     TraceTree.OutcomeCase.PACKET_OUTCOME,

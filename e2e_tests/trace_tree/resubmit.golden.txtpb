@@ -90,10 +90,9 @@ events {
     dataplane_port: 0
   }
 }
-fork_outcome {
-  reason: RESUBMIT
-  branches {
-    label: "resubmit"
+continuations {
+  continuations {
+    kind: RESUBMIT
     subtree {
       events {
         packet_ingress {

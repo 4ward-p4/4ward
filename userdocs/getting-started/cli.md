@@ -113,6 +113,6 @@ programs, split the work:
   CI-verified so it's always up to date.
 - **STF format** — full syntax for [table entries, match types, and
   clone/multicast setup](../reference/stf.md).
-- **Trace trees** — understand the [event types and fork
+- **Trace trees** — understand the [event types and branching
   semantics](../concepts/traces.md) behind the trace output.
 - **Reference** — complete [CLI reference](../reference/cli.md) with all flags.

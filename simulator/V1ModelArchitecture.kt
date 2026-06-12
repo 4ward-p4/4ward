@@ -1,11 +1,11 @@
 package fourward.simulator
 
+import fourward.Alternative
 import fourward.BehavioralConfig
 import fourward.CloneEvent
 import fourward.CloneSessionLookupEvent
+import fourward.ContinuationKind
 import fourward.DropReason
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.LogMessageEvent
 import fourward.MarkToDropEvent
 import fourward.PipelineStage
@@ -176,13 +176,11 @@ class V1ModelArchitecture(
         fork.members.map(buildBranch)
       }
 
-    val branches =
+    val alternatives =
       fork.members.zip(traces).map { (member, trace) ->
-        ForkBranch.newBuilder().setLabel("member_${member.memberId}").setSubtree(trace).build()
+        Alternative.newBuilder().setMemberId(member.memberId).setSubtree(trace).build()
       }
-    return PipelineResult(
-      buildForkTree(fork.eventsBeforeFork, ForkReason.ACTION_SELECTOR, branches)
-    )
+    return PipelineResult(buildChoiceTree(fork.eventsBeforeFork, alternatives))
   }
 
   // -------------------------------------------------------------------------
@@ -338,14 +336,16 @@ class V1ModelArchitecture(
       } else {
         fork.replicas.map(buildBranch)
       }
-    val branches =
+    val continuations =
       fork.replicas.zip(results).map { (replica, trace) ->
-        ForkBranch.newBuilder()
-          .setLabel("replica_${replica.rid}_port_${replica.port}")
-          .setSubtree(trace)
-          .build()
+        continuation(
+          ContinuationKind.MULTICAST_REPLICA,
+          trace,
+          dataplaneEgressPort = replica.port,
+          instance = replica.rid,
+        )
       }
-    return PipelineResult(buildForkTree(fork.eventsBeforeFork, ForkReason.MULTICAST, branches))
+    return PipelineResult(buildContinuationsTree(fork.eventsBeforeFork, continuations))
   }
 
   /**
@@ -467,26 +467,26 @@ class V1ModelArchitecture(
     }
   }
 
-  /** Assembles the "original" branch + clone branches into a CLONE fork result. */
+  /** Assembles the original continuation + clone continuations into one AND-node result. */
   private fun assembleCloneFork(
     eventsBeforeFork: List<TraceEvent>,
     original: TraceTree,
     replicas: List<Replica>,
     clones: List<TraceTree>,
   ): PipelineResult {
-    val branches =
+    val continuations =
       buildList(replicas.size + 1) {
-        add(ForkBranch.newBuilder().setLabel("original").setSubtree(original).build())
+        add(continuation(ContinuationKind.ORIGINAL, original))
         replicas.zip(clones).mapTo(this) { (replica, trace) ->
-          ForkBranch.newBuilder()
-            .setLabel(
-              if (replicas.size == 1) "clone" else "clone_${replica.rid}_port_${replica.port}"
-            )
-            .setSubtree(trace)
-            .build()
+          continuation(
+            ContinuationKind.CLONE,
+            trace,
+            dataplaneEgressPort = replica.port,
+            instance = replica.rid,
+          )
         }
       }
-    return PipelineResult(buildForkTree(eventsBeforeFork, ForkReason.CLONE, branches))
+    return PipelineResult(buildContinuationsTree(eventsBeforeFork, continuations))
   }
 
   /** Resubmit: restarts the pipeline with preserved metadata. */
@@ -501,12 +501,8 @@ class V1ModelArchitecture(
         instanceTypeOverride = RESUBMIT_INSTANCE_TYPE,
         preservedMetadata = fork.preservedMetadata,
       )
-    val branch =
-      ForkBranch.newBuilder()
-        .setLabel("resubmit")
-        .setSubtree(buildTraceTree(ctx, decisions).trace)
-        .build()
-    return PipelineResult(buildForkTree(fork.eventsBeforeFork, ForkReason.RESUBMIT, listOf(branch)))
+    val resubmitted = continuation(ContinuationKind.RESUBMIT, buildTraceTree(ctx, decisions).trace)
+    return PipelineResult(buildContinuationsTree(fork.eventsBeforeFork, listOf(resubmitted)))
   }
 
   /** Recirculate: restarts the pipeline with deparsed bytes. */
@@ -521,16 +517,12 @@ class V1ModelArchitecture(
         instanceTypeOverride = RECIRC_INSTANCE_TYPE,
         preservedMetadata = fork.preservedMetadata,
       )
-    val branch =
-      ForkBranch.newBuilder()
-        .setLabel("recirculate")
-        .setSubtree(
-          buildTraceTree(ctx.copy(packet = PacketBits.ofBytes(fork.deparsedBytes)), decisions).trace
-        )
-        .build()
-    return PipelineResult(
-      buildForkTree(fork.eventsBeforeFork, ForkReason.RECIRCULATE, listOf(branch))
-    )
+    val recirculated =
+      continuation(
+        ContinuationKind.RECIRCULATE,
+        buildTraceTree(ctx.copy(packet = PacketBits.ofBytes(fork.deparsedBytes)), decisions).trace,
+      )
+    return PipelineResult(buildContinuationsTree(fork.eventsBeforeFork, listOf(recirculated)))
   }
 
   /**

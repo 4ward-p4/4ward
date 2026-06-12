@@ -68,7 +68,7 @@ numbers).
 
 The default **visual view** shows an interactive trace tree with events
 grouped by pipeline stage. Table hits include matched entry details, and
-forks display their branches.
+branching trees display their subtrees.
 
 Use the **← →** arrow keys to step through events. Each step highlights:
 

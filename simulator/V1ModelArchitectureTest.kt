@@ -6,13 +6,13 @@ import fourward.BehavioralConfig
 import fourward.BinaryOp
 import fourward.BinaryOperator
 import fourward.BlockStmt
+import fourward.ContinuationKind
 import fourward.ControlDecl
 import fourward.DropReason
 import fourward.ExitStmt
 import fourward.Expr
 import fourward.FieldAccess
 import fourward.FieldDecl
-import fourward.ForkReason
 import fourward.IfStmt
 import fourward.Literal
 import fourward.ParamDecl
@@ -432,7 +432,7 @@ class V1ModelArchitectureTest {
   }
 
   @Test
-  fun `multicast fork produces output packets for each replica`() {
+  fun `multicast produces output packets for each replica`() {
     val config = v1modelConfig(assignField("sm", "mcast_grp", 1, 16))
     val tableStore = TableStore()
     writeMulticastGroup(tableStore, groupId = 1, replicas = listOf(0 to 2, 0 to 3))
@@ -696,20 +696,24 @@ class V1ModelArchitectureTest {
   }
 
   @Test
-  fun `multicast fork trace tree has fork node`() {
+  fun `multicast trace tree has continuations node with one replica each`() {
     val config = v1modelConfig(assignField("sm", "mcast_grp", 1, 16))
     val tableStore = TableStore()
     writeMulticastGroup(tableStore, groupId = 1, replicas = listOf(0 to 2, 0 to 3))
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.MULTICAST, result.trace.forkOutcome.reason)
-    assertEquals(2, result.trace.forkOutcome.branchesCount)
+    assertTrue(result.trace.hasContinuations())
+    val continuations = result.trace.continuations.continuationsList
+    assertEquals(2, continuations.size)
+    assertEquals(ContinuationKind.MULTICAST_REPLICA, continuations[0].kind)
+    assertEquals(2, continuations[0].dataplaneEgressPort)
+    assertEquals(ContinuationKind.MULTICAST_REPLICA, continuations[1].kind)
+    assertEquals(3, continuations[1].dataplaneEgressPort)
   }
 
   @Test
-  fun `I2E clone forks into original and clone branch`() {
+  fun `I2E clone continues as original and clone`() {
     // Ingress calls clone(I2E, session=1), sets egress_spec=2 for the original.
     val config =
       v1modelConfig(
@@ -722,18 +726,22 @@ class V1ModelArchitectureTest {
     val payload = byteArrayOf(0xAA.toByte())
     val result = V1ModelArchitecture(config).processPacket(0u, payload, tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(2, branches.size)
-    assertEquals("original", branches[0].label)
-    assertEquals("clone", branches[1].label)
+    assertTrue(result.trace.hasContinuations())
+    val continuations = result.trace.continuations.continuationsList
+    assertEquals(2, continuations.size)
+    assertEquals(ContinuationKind.ORIGINAL, continuations[0].kind)
+    assertFalse(continuations[0].hasDataplaneEgressPort())
+    assertFalse(continuations[0].hasInstance())
+    assertEquals(ContinuationKind.CLONE, continuations[1].kind)
+    assertEquals(7, continuations[1].dataplaneEgressPort)
+    assertTrue(continuations[1].hasInstance())
+    assertEquals(0, continuations[1].instance)
 
     val outputs = result.possibleOutcomes.single()
     assertEquals(2, outputs.size)
-    // Original branch uses egress_spec set by ingress.
+    // The original uses egress_spec set by ingress.
     assertEquals(2, outputs[0].dataplaneEgressPort)
-    // Clone branch uses the clone session's egress port.
+    // The clone uses the clone session's egress port.
     assertEquals(7, outputs[1].dataplaneEgressPort)
   }
 
@@ -760,7 +768,7 @@ class V1ModelArchitectureTest {
   fun `I2E clone sets egress_rid from clone session replica instance`() {
     // Egress copies egress_rid into a user metadata field, then uses it to
     // decide whether to drop. Verifies the replica's instance field flows
-    // through to standard_metadata.egress_rid in the clone branch.
+    // through to standard_metadata.egress_rid in the clone's pipeline pass.
     val config =
       v1modelConfig(
         ingressStmts =
@@ -770,7 +778,7 @@ class V1ModelArchitectureTest {
           ),
         egressStmts =
           listOf(
-            // In the clone branch, drop if egress_rid == 0 (the default / unfixed value).
+            // In the clone's pass, drop if egress_rid == 0 (the default / unfixed value).
             ifFieldEquals(
               "sm",
               "instance_type",
@@ -833,7 +841,7 @@ class V1ModelArchitectureTest {
   }
 
   @Test
-  fun `E2E clone forks into original and clone branch`() {
+  fun `E2E clone continues as original and clone`() {
     // Egress calls clone(E2E, session=1); ingress sets egress_spec=3 for routing.
     val config =
       v1modelConfig(
@@ -846,12 +854,16 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(2, branches.size)
-    assertEquals("original", branches[0].label)
-    assertEquals("clone", branches[1].label)
+    assertTrue(result.trace.hasContinuations())
+    val continuations = result.trace.continuations.continuationsList
+    assertEquals(2, continuations.size)
+    assertEquals(ContinuationKind.ORIGINAL, continuations[0].kind)
+    assertFalse(continuations[0].hasDataplaneEgressPort())
+    assertFalse(continuations[0].hasInstance())
+    assertEquals(ContinuationKind.CLONE, continuations[1].kind)
+    assertEquals(8, continuations[1].dataplaneEgressPort)
+    assertTrue(continuations[1].hasInstance())
+    assertEquals(0, continuations[1].instance)
 
     val outputs = result.possibleOutcomes.single()
     assertEquals(2, outputs.size)
@@ -910,13 +922,16 @@ class V1ModelArchitectureTest {
     val result =
       V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte()), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(3, branches.size)
-    assertEquals("original", branches[0].label)
-    assertEquals("clone_10_port_7", branches[1].label)
-    assertEquals("clone_20_port_8", branches[2].label)
+    assertTrue(result.trace.hasContinuations())
+    val continuations = result.trace.continuations.continuationsList
+    assertEquals(3, continuations.size)
+    assertEquals(ContinuationKind.ORIGINAL, continuations[0].kind)
+    assertEquals(ContinuationKind.CLONE, continuations[1].kind)
+    assertEquals(7, continuations[1].dataplaneEgressPort)
+    assertEquals(10, continuations[1].instance)
+    assertEquals(ContinuationKind.CLONE, continuations[2].kind)
+    assertEquals(8, continuations[2].dataplaneEgressPort)
+    assertEquals(20, continuations[2].instance)
 
     val outputs = result.possibleOutcomes.single()
     assertEquals(3, outputs.size)
@@ -947,11 +962,12 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(3, branches.size)
-    assertEquals("original", branches[0].label)
+    assertTrue(result.trace.hasContinuations())
+    val continuations = result.trace.continuations.continuationsList
+    assertEquals(3, continuations.size)
+    assertEquals(ContinuationKind.ORIGINAL, continuations[0].kind)
+    assertEquals(ContinuationKind.CLONE, continuations[1].kind)
+    assertEquals(ContinuationKind.CLONE, continuations[2].kind)
 
     val outputs = result.possibleOutcomes.single()
     assertEquals(3, outputs.size)
@@ -993,7 +1009,7 @@ class V1ModelArchitectureTest {
   }
 
   @Test
-  fun `multi-replica clone preserves metadata on all clone branches`() {
+  fun `multi-replica clone preserves metadata on all clones`() {
     val config =
       v1modelConfig(
         ingressStmts =
@@ -1068,9 +1084,9 @@ class V1ModelArchitectureTest {
   }
 
   @Test
-  fun `resubmit forks and re-enters ingress`() {
+  fun `resubmit continues into a new ingress pass`() {
     // Ingress calls resubmit() only on the first pass (instance_type == 0).
-    // The resubmit branch gets instance_type=6 (RESUBMIT), so it won't re-trigger.
+    // The resubmitted pass gets instance_type=6 (RESUBMIT), so it won't re-trigger.
     val config =
       v1modelConfig(
         ifFieldEquals("sm", "instance_type", 0, 32, externCall("resubmit", intArg(0, 8)))
@@ -1078,17 +1094,16 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.RESUBMIT, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(1, branches.size)
-    assertEquals("resubmit", branches[0].label)
+    assertTrue(result.trace.hasContinuations())
+    val continuations = result.trace.continuations.continuationsList
+    assertEquals(1, continuations.size)
+    assertEquals(ContinuationKind.RESUBMIT, continuations[0].kind)
   }
 
   @Test
-  fun `recirculate forks after deparser`() {
+  fun `recirculate continues after deparser`() {
     // Egress calls recirculate() only on the first pass (instance_type == 0).
-    // The recirculated branch gets instance_type=4, so it won't re-trigger.
+    // The recirculated pass gets instance_type=4, so it won't re-trigger.
     val config =
       v1modelConfig(
         ingressStmts =
@@ -1101,17 +1116,16 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.RECIRCULATE, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(1, branches.size)
-    assertEquals("recirculate", branches[0].label)
+    assertTrue(result.trace.hasContinuations())
+    val continuations = result.trace.continuations.continuationsList
+    assertEquals(1, continuations.size)
+    assertEquals(ContinuationKind.RECIRCULATE, continuations[0].kind)
   }
 
   @Test
   fun `I2E clone with missing session is silently ignored`() {
     // Clone session 99 is never installed — BMv2 silently ignores the clone.
-    // No fork appears; the packet outputs normally.
+    // No continuations node appears; the packet outputs normally.
     val config =
       v1modelConfig(
         externCall("clone", enumArg("I2E"), intArg(99, 32)),
@@ -1120,7 +1134,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
 
-    assertFalse(result.trace.hasForkOutcome())
+    assertFalse(result.trace.hasContinuations())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
     assertEquals(2, outputs[0].dataplaneEgressPort)
@@ -1138,7 +1152,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
 
-    assertFalse(result.trace.hasForkOutcome())
+    assertFalse(result.trace.hasContinuations())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
     assertEquals(3, outputs[0].dataplaneEgressPort)
@@ -1158,7 +1172,7 @@ class V1ModelArchitectureTest {
       byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte(), 0xEE.toByte())
     val result = V1ModelArchitecture(config).processPacket(0u, payload, tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
+    assertTrue(result.trace.hasContinuations())
     val outputs = result.possibleOutcomes.single()
     assertEquals(2, outputs.size)
     assertEquals(5, outputs[0].payload.size())
@@ -1180,7 +1194,7 @@ class V1ModelArchitectureTest {
     val payload = byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte())
     val result = V1ModelArchitecture(config).processPacket(0u, payload, tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
+    assertTrue(result.trace.hasContinuations())
     val outputs = result.possibleOutcomes.single()
     assertEquals(2, outputs.size)
     assertEquals(4, outputs[0].payload.size())
@@ -1235,7 +1249,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
 
-    // No fork — falls through to unicast path.
+    // No continuations node — falls through to unicast path.
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
     assertEquals(5, outputs[0].dataplaneEgressPort)
@@ -1270,14 +1284,14 @@ class V1ModelArchitectureTest {
   @Test
   fun `I2E clone survives ingress mark_to_drop on original`() {
     // Ingress calls clone(I2E) then mark_to_drop(). The original should be dropped
-    // (egress_spec == drop port), but the clone branch should still forward.
+    // (egress_spec == drop port), but the clone should still forward.
     val config = v1modelConfig(externCall("clone", enumArg("I2E"), intArg(1, 32)), markToDrop)
     val tableStore = TableStore()
     writeCloneSession(tableStore, sessionId = 1, egressPort = 7)
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
+    assertTrue(result.trace.hasContinuations())
     val outputs = result.possibleOutcomes.single()
     // Original is dropped (mark_to_drop set egress_spec to drop port).
     // Clone survives on port 7.
@@ -1311,7 +1325,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
+    assertTrue(result.trace.hasContinuations())
     val outputs = result.possibleOutcomes.single()
     // Original is dropped (egress mark_to_drop). Clone survives on port 8.
     assertEquals(1, outputs.size)
@@ -1505,7 +1519,7 @@ class V1ModelArchitectureTest {
   @Test
   fun `clone_preserving_field_list preserves annotated metadata`() {
     // Ingress: set meta.preserved = 0xABCD, then clone with field_list 1.
-    // Egress (clone branch only): if meta.preserved == 0 → drop.
+    // Egress (clone only): if meta.preserved == 0 → drop.
     // With preservation working, meta.preserved is 0xABCD on the clone, so no drop → 2 outputs.
     // Without preservation, meta.preserved would be 0 (default), so clone drops → 1 output.
     val config =
@@ -1518,7 +1532,7 @@ class V1ModelArchitectureTest {
           ),
         egressStmts =
           listOf(
-            // On clone branch (instance_type == 1): drop if metadata was reset.
+            // On the clone (instance_type == 1): drop if metadata was reset.
             ifFieldEquals(
               "sm",
               "instance_type",
@@ -1534,8 +1548,11 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
+    assertTrue(result.trace.hasContinuations())
+    assertEquals(
+      listOf(ContinuationKind.ORIGINAL, ContinuationKind.CLONE),
+      result.trace.continuations.continuationsList.map { it.kind },
+    )
     val outputs = result.possibleOutcomes.single()
     // Both original and clone produce output (metadata was preserved, so no drop).
     assertEquals(2, outputs.size)
@@ -1580,8 +1597,11 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
+    assertTrue(result.trace.hasContinuations())
+    assertEquals(
+      listOf(ContinuationKind.ORIGINAL, ContinuationKind.CLONE),
+      result.trace.continuations.continuationsList.map { it.kind },
+    )
     val outputs = result.possibleOutcomes.single()
     assertEquals(2, outputs.size)
     assertEquals(3, outputs[0].dataplaneEgressPort)
@@ -1668,10 +1688,13 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.RESUBMIT, result.trace.forkOutcome.reason)
+    assertTrue(result.trace.hasContinuations())
+    assertEquals(
+      listOf(ContinuationKind.RESUBMIT),
+      result.trace.continuations.continuationsList.map { it.kind },
+    )
     val outputs = result.possibleOutcomes.single()
-    // Resubmit branch outputs (metadata was preserved, so no drop).
+    // The resubmitted pass outputs (metadata was preserved, so no drop).
     assertEquals(1, outputs.size)
     assertEquals(1, outputs[0].dataplaneEgressPort)
   }
@@ -1721,10 +1744,13 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.RECIRCULATE, result.trace.forkOutcome.reason)
+    assertTrue(result.trace.hasContinuations())
+    assertEquals(
+      listOf(ContinuationKind.RECIRCULATE),
+      result.trace.continuations.continuationsList.map { it.kind },
+    )
     val outputs = result.possibleOutcomes.single()
-    // Recirculate branch outputs (metadata was preserved, so no drop).
+    // The recirculated pass outputs (metadata was preserved, so no drop).
     assertEquals(1, outputs.size)
     assertEquals(1, outputs[0].dataplaneEgressPort)
   }
@@ -1732,7 +1758,7 @@ class V1ModelArchitectureTest {
   @Test
   fun `clone_preserving_field_list does not preserve non-annotated fields`() {
     // Same setup, but check that not_preserved (no @field_list annotation) resets to 0.
-    // Egress (clone branch): if meta.not_preserved == 0 → set egress_spec to 42 (distinctive).
+    // Egress (clone): if meta.not_preserved == 0 → set egress_spec to 42 (distinctive).
     // If not_preserved was correctly reset, the clone outputs on port 42.
     val config =
       v1modelConfig(
@@ -1744,7 +1770,7 @@ class V1ModelArchitectureTest {
           ),
         egressStmts =
           listOf(
-            // On clone branch: drop if not_preserved was NOT reset (still has ingress value).
+            // On the clone: drop if not_preserved was NOT reset (still has ingress value).
             ifFieldEquals(
               "sm",
               "instance_type",
@@ -1766,7 +1792,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
+    assertTrue(result.trace.hasContinuations())
     val outputs = result.possibleOutcomes.single()
     // Clone should NOT drop: not_preserved was reset to 0, so 0x1234 check is false.
     assertEquals(2, outputs.size)

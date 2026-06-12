@@ -47,63 +47,89 @@ message OutputPacket {
 // Execution trace tree
 //
 // A complete record of every decision the simulator made while processing a
-// packet.  Events within a node are ordered chronologically.  At
-// non-deterministic choice points the tree forks: each branch represents one
-// possible outcome and contains its own subtree of events.
+// packet.  Events within a node are ordered chronologically.
 //
-// Every node terminates: either forking (fork_outcome) or reaching a final
-// packet fate (packet_outcome).  A zero-fork tree has a single
-// packet_outcome at the root.
+// The tree is an AND/OR tree over pipeline passes:
+//
+//  • A **Continuations** node (AND) says execution continued in ALL of the
+//    listed ways within a single real execution: copies (clone, mirror,
+//    multicast replica) and/or re-entries (resubmit, recirculate).  A single
+//    continuation is common and meaningful — a recirculated packet simply
+//    continues as one new pipeline pass.
+//
+//  • A **Choice** node (OR) is a non-deterministic decision the simulator
+//    explores exhaustively: exactly one alternative happens in a real
+//    execution.  Each alternative is a distinct possible world.
+//
+// A trace therefore denotes a *set* of possible executions.  Choice nodes
+// are the compression points: they share the common event prefix instead of
+// enumerating the (exponential) product of all selector decisions.
+//
+// Every node terminates: with continuations, a choice, or a final packet
+// fate.  Shared prefix events (e.g. the parser trace before a selector
+// choice) live in the parent node; per-branch events live in the subtrees.
 // =============================================================================
 
 // Recursive trace structure: a sequence of events followed by an outcome.
-// Shared prefix events (e.g. the parser trace before a selector fork) live in
-// the parent node; per-branch events live in the fork's subtrees.
 message TraceTree {
   repeated TraceEvent events = 1;
+
+  // Field 2 was `Fork fork_outcome` in the pre-Continuations/Choice schema;
+  // reserved so stale serialized traces can't be misread.
+  reserved 2;
+  reserved "fork_outcome";
+
   oneof outcome {
-    Fork fork_outcome = 2;
     PacketOutcome packet_outcome = 3;
+    Continuations continuations = 4;
+    Choice choice = 5;
   }
 }
 
-// A non-deterministic choice point where execution forks into multiple
-// possible paths.
-//
-// Forks come in two flavors (see ForkMode):
-//
-//  • **Parallel** (clone, multicast, resubmit, recirculate) — all branches
-//    execute simultaneously in a single real execution.  The packet outputs
-//    are the union of all branch outputs.
-//
-//  • **Alternative** (action selector) — exactly one branch executes at
-//    runtime (determined by a hash function).  Each branch represents one
-//    *possible world*; the trace tree explores all of them.
-//
-// This distinction matters when collecting output packets from the tree:
-// parallel branches are combined (union), while alternative branches are
-// kept separate (each is a distinct possible outcome set).
-message Fork {
-  ForkReason reason = 1;
-  repeated ForkBranch branches = 2;
+// AND-node: this pipeline pass ended, and execution continued in all of the
+// listed ways — within one real execution.  The packet outputs of this node
+// are the union of the continuations' outputs.
+message Continuations {
+  repeated Continuation continuations = 1;
 }
 
-// One branch of a fork.  The label describes this particular outcome (e.g. the
-// action selector member name or "clone"/"original").
-message ForkBranch {
-  string label = 1;
+// One way execution continued: the original packet's own processing, a copy
+// of it, or a re-entry into the pipeline.
+message Continuation {
+  ContinuationKind kind = 1;
   TraceTree subtree = 2;
+
+  // For copy kinds (CLONE, MIRROR, MULTICAST_REPLICA): the replica's egress
+  // port and instance id (PSA/PNA `instance`, v1model `rid`) as configured
+  // in the clone/mirror session or multicast group.
+  optional uint32 dataplane_egress_port = 3;
+  optional uint32 instance = 4;
 }
 
-// Whether a fork's branches all happen or only one happens is determined by
-// the ForkReason.  See ForkMode in the simulator Kotlin code.
-enum ForkReason {
-  FORK_REASON_UNSPECIFIED = 0;
-  ACTION_SELECTOR = 1;  // Alternative: one member is selected by hash.
-  CLONE = 2;            // Parallel: original + clone(s) all execute.
-  MULTICAST = 3;        // Parallel: one replica per multicast group member.
-  RESUBMIT = 4;         // Parallel: packet re-enters the pipeline.
-  RECIRCULATE = 5;      // Parallel: deparsed packet loops back.
+enum ContinuationKind {
+  CONTINUATION_KIND_UNSPECIFIED = 0;
+  ORIGINAL = 1;           // the packet's own processing continues
+  CLONE = 2;              // v1model/PSA clone-session copy
+  MIRROR = 3;             // PNA mirror-session copy
+  MULTICAST_REPLICA = 4;  // one copy per multicast group member
+  RESUBMIT = 5;           // original bytes re-enter ingress
+  RECIRCULATE = 6;        // deparsed bytes re-enter the pipeline
+}
+
+// OR-node: a non-deterministic decision point.  Exactly one alternative
+// happens in a real execution; the simulator explores all of them.  The only
+// source of choice today is an action selector — which group member the
+// (unmodeled) hash picks.
+message Choice {
+  repeated Alternative alternatives = 1;
+}
+
+// One possible world: the trace as it unfolds if the selector picks this
+// member.
+message Alternative {
+  // P4Runtime action-profile member id the selector resolved to.
+  uint32 member_id = 1;
+  TraceTree subtree = 2;
 }
 
 // The terminal fate of a packet: either output on a port or dropped.
@@ -304,6 +330,6 @@ enum DropReason {
   MARK_TO_DROP = 1;   // explicit mark_to_drop()
   PARSER_REJECT = 2;  // parser transitioned to reject state
   PIPELINE_EXECUTION_LIMIT_REACHED =
-      3;                  // too many fork branches (exponential blowup guard)
+      3;  // trace tree grew too large (exponential blowup guard)
   ASSERTION_FAILURE = 4;  // assert() or assume() failed
 }

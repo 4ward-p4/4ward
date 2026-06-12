@@ -92,10 +92,9 @@ events {
     replica_count: 1
   }
 }
-fork_outcome {
-  reason: CLONE
-  branches {
-    label: "original"
+continuations {
+  continuations {
+    kind: ORIGINAL
     subtree {
       events {
         multicast_group_lookup {
@@ -104,10 +103,9 @@ fork_outcome {
           replica_count: 2
         }
       }
-      fork_outcome {
-        reason: MULTICAST
-        branches {
-          label: "replica_0_port_1"
+      continuations {
+        continuations {
+          kind: MULTICAST_REPLICA
           subtree {
             events {
               pipeline_stage {
@@ -168,9 +166,11 @@ fork_outcome {
               }
             }
           }
+          dataplane_egress_port: 1
+          instance: 0
         }
-        branches {
-          label: "replica_0_port_2"
+        continuations {
+          kind: MULTICAST_REPLICA
           subtree {
             events {
               pipeline_stage {
@@ -231,12 +231,14 @@ fork_outcome {
               }
             }
           }
+          dataplane_egress_port: 2
+          instance: 0
         }
       }
     }
   }
-  branches {
-    label: "clone"
+  continuations {
+    kind: CLONE
     subtree {
       events {
         pipeline_stage {
@@ -297,5 +299,7 @@ fork_outcome {
         }
       }
     }
+    dataplane_egress_port: 3
+    instance: 0
   }
 }

@@ -8,15 +8,14 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * Result of processing a single packet through the pipeline.
  *
- * [possibleOutcomes] captures both kinds of nondeterminism in the trace tree:
- * - **Parallel forks** (clone, multicast, resubmit, recirculate): all branches execute
- *   simultaneously, so their outputs are combined within each possible outcome.
- * - **Alternative forks** (action selector): exactly one branch executes at runtime, so each branch
+ * [possibleOutcomes] captures both kinds of branching in the trace tree:
+ * - **Continuations** (clone, multicast, resubmit, recirculate): all happen within one real
+ *   execution, so their outputs are combined within each possible outcome.
+ * - **Choices** (action selector): exactly one alternative happens at runtime, so each alternative
  *   produces a separate possible outcome.
  *
- * Programs with no alternative forks have exactly one possible outcome. Programs with action
- * selectors have one possible outcome per alternative (Cartesian product when nested inside
- * parallel forks).
+ * Programs with no choices have exactly one possible outcome. Programs with action selectors have
+ * one possible outcome per alternative (Cartesian product when nested inside continuations).
  *
  * Decouples the simulator from the gRPC wire format ([fourward.InjectPacketResponse]). Each RPC
  * method builds its own wire proto from this data class.
@@ -140,8 +139,8 @@ class Simulator : TableDataReader {
     val result = captured.result
 
     // Output packets are extracted from trace tree leaves — the tree is the single source
-    // of truth for packet outcomes. Parallel forks (clone, multicast) combine outputs within
-    // each world; alternative forks (action selector) produce separate possible worlds.
+    // of truth for packet outcomes. Continuations (clone, multicast) combine outputs within
+    // each world; choices (action selector) produce separate possible worlds.
     val trace = result.trace
     return ProcessPacketResult(
       trace = trace,
@@ -272,40 +271,39 @@ class Simulator : TableDataReader {
 }
 
 /**
- * Collects all possible outcome sets from a trace tree, respecting fork semantics.
- * - **Parallel forks** (clone, multicast, resubmit, recirculate): outputs from all branches are
- *   combined within each possible world (Cartesian product of branch outcomes).
- * - **Alternative forks** (action selector): each branch is a separate possible world; outcomes are
- *   concatenated (union of branch outcomes).
+ * Collects all possible outcome sets from a trace tree.
+ * - **Continuations (AND):** all happen within one execution, so outputs are combined within each
+ *   possible world (Cartesian product across continuations).
+ * - **Choice (OR):** each alternative is a separate possible world; their worlds are concatenated.
  * - **Leaf (output):** one possible world with one packet.
  * - **Leaf (drop):** one possible world with no packets.
  *
  * Returns a non-empty list. Each inner list is one complete set of output packets that could result
  * from a single real execution.
  */
-fun collectPossibleOutcomes(tree: TraceTree): List<List<OutputPacket>> {
+fun collectPossibleOutcomes(tree: TraceTree): List<List<OutputPacket>> =
   when (tree.outcomeCase) {
     TraceTree.OutcomeCase.PACKET_OUTCOME ->
-      return if (tree.packetOutcome.hasOutput()) {
+      if (tree.packetOutcome.hasOutput()) {
         listOf(listOf(tree.packetOutcome.output))
       } else {
         listOf(emptyList())
       }
     TraceTree.OutcomeCase.OUTCOME_NOT_SET,
-    null -> return listOf(emptyList())
-    TraceTree.OutcomeCase.FORK_OUTCOME -> {} // fall through to fork handling below
+    null -> listOf(emptyList())
+    TraceTree.OutcomeCase.CHOICE ->
+      tree.choice.alternativesList
+        .flatMap { collectPossibleOutcomes(it.subtree) }
+        .ifEmpty { listOf(emptyList()) }
+    TraceTree.OutcomeCase.CONTINUATIONS -> {
+      val perContinuation =
+        tree.continuations.continuationsList.map { collectPossibleOutcomes(it.subtree) }
+      if (perContinuation.isEmpty()) listOf(emptyList())
+      // Cartesian product: for each combination of one world per continuation, concatenate
+      // the packets.
+      else
+        perContinuation.reduce { acc, next ->
+          acc.flatMap { world -> next.map { branchWorld -> world + branchWorld } }
+        }
+    }
   }
-  val fork = tree.forkOutcome
-  val branchOutcomes = fork.branchesList.map { collectPossibleOutcomes(it.subtree) }
-  if (branchOutcomes.isEmpty()) return listOf(emptyList())
-  return when (forkModeOf(fork.reason)) {
-    // Alternative: each branch adds its worlds to the result.
-    ForkMode.ALTERNATIVE -> branchOutcomes.flatten()
-    // Parallel: Cartesian product across branches — for each combination of one world per
-    // branch, concatenate the packets.
-    ForkMode.PARALLEL ->
-      branchOutcomes.reduce { acc, next ->
-        acc.flatMap { world -> next.map { branchWorld -> world + branchWorld } }
-      }
-  }
-}

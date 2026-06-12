@@ -2,12 +2,14 @@ package fourward.cli
 
 import com.google.protobuf.ByteString
 import fourward.ActionExecutionEvent
+import fourward.Alternative
 import fourward.AssertionEvent
+import fourward.Choice
+import fourward.Continuation
+import fourward.ContinuationKind
+import fourward.Continuations
 import fourward.Drop
 import fourward.DropReason
-import fourward.Fork
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.LogMessageEvent
 import fourward.MarkToDropEvent
 import fourward.OutputPacket
@@ -126,7 +128,7 @@ class TraceFormatterTest {
   }
 
   @Test
-  fun forkTree() {
+  fun cloneContinuations() {
     val tree =
       TraceTree.newBuilder()
         .addEvents(
@@ -135,12 +137,11 @@ class TraceFormatterTest {
               ParserTransitionEvent.newBuilder().setFromState("start").setToState("accept")
             )
         )
-        .setForkOutcome(
-          Fork.newBuilder()
-            .setReason(ForkReason.CLONE)
-            .addBranches(
-              ForkBranch.newBuilder()
-                .setLabel("original")
+        .setContinuations(
+          Continuations.newBuilder()
+            .addContinuations(
+              Continuation.newBuilder()
+                .setKind(ContinuationKind.ORIGINAL)
                 .setSubtree(
                   TraceTree.newBuilder()
                     .setPacketOutcome(
@@ -153,9 +154,11 @@ class TraceFormatterTest {
                     )
                 )
             )
-            .addBranches(
-              ForkBranch.newBuilder()
-                .setLabel("clone")
+            .addContinuations(
+              Continuation.newBuilder()
+                .setKind(ContinuationKind.CLONE)
+                .setDataplaneEgressPort(2)
+                .setInstance(1)
                 .setSubtree(
                   TraceTree.newBuilder()
                     .setPacketOutcome(
@@ -175,10 +178,70 @@ class TraceFormatterTest {
     assertEquals(
       """
       |parse: start -> accept
-      |fork (clone)
-      |  branch: original
+      |continues as:
+      |  original:
       |    output port 1, 0 bytes
-      |  branch: clone
+      |  clone port 2 instance 1:
+      |    output port 2, 0 bytes
+      |"""
+        .trimMargin(),
+      output,
+    )
+  }
+
+  @Test
+  fun choiceTree() {
+    val tree =
+      TraceTree.newBuilder()
+        .addEvents(
+          TraceEvent.newBuilder()
+            .setParserTransition(
+              ParserTransitionEvent.newBuilder().setFromState("start").setToState("accept")
+            )
+        )
+        .setChoice(
+          Choice.newBuilder()
+            .addAlternatives(
+              Alternative.newBuilder()
+                .setMemberId(7)
+                .setSubtree(
+                  TraceTree.newBuilder()
+                    .setPacketOutcome(
+                      PacketOutcome.newBuilder()
+                        .setOutput(
+                          OutputPacket.newBuilder()
+                            .setDataplaneEgressPort(1)
+                            .setPayload(ByteString.EMPTY)
+                        )
+                    )
+                )
+            )
+            .addAlternatives(
+              Alternative.newBuilder()
+                .setMemberId(8)
+                .setSubtree(
+                  TraceTree.newBuilder()
+                    .setPacketOutcome(
+                      PacketOutcome.newBuilder()
+                        .setOutput(
+                          OutputPacket.newBuilder()
+                            .setDataplaneEgressPort(2)
+                            .setPayload(ByteString.EMPTY)
+                        )
+                    )
+                )
+            )
+        )
+        .build()
+
+    val output = TraceFormatter.format(tree)
+    assertEquals(
+      """
+      |parse: start -> accept
+      |one of (action selector):
+      |  member 7:
+      |    output port 1, 0 bytes
+      |  member 8:
       |    output port 2, 0 bytes
       |"""
         .trimMargin(),

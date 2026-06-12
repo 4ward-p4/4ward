@@ -178,11 +178,11 @@ internal fun runControlStage(
  *
  * On the first encounter with an action selector group hit, the [Interpreter] throws
  * [ActionSelectorFork] with the list of group members and the trace events accumulated before the
- * fork. This method builds a fork [TraceTree] with one branch per member, re-executing via
- * [reExecute] with the forced member selection added to [currentSelectors].
+ * fork point. This method builds a [fourward.Choice] [TraceTree] with one alternative per member,
+ * re-executing via [reExecute] with the forced member selection added to [currentSelectors].
  *
  * The re-execution produces identical events up to the fork point (deterministic replay), so the
- * prefix is safely stripped from each branch's trace.
+ * prefix is safely stripped from each alternative's trace.
  */
 internal fun handleActionSelectorFork(
   fork: ActionSelectorFork,
@@ -190,19 +190,20 @@ internal fun handleActionSelectorFork(
   reExecute: (Map<String, Int>) -> TraceTree,
 ): TraceTree {
   val prefixLength = fork.eventsBeforeFork.size
-  val branches =
+  val alternatives =
     fork.members.map { member ->
       val newSelectors = currentSelectors + (fork.tableName to member.memberId)
       val subtree = reExecute(newSelectors)
-      val stripped = TraceTree.newBuilder().addAllEvents(subtree.eventsList.drop(prefixLength))
-      if (subtree.hasPacketOutcome()) stripped.setPacketOutcome(subtree.packetOutcome)
-      if (subtree.hasForkOutcome()) stripped.setForkOutcome(subtree.forkOutcome)
-      fourward.ForkBranch.newBuilder()
-        .setLabel("member_${member.memberId}")
+      val stripped =
+        TraceTree.newBuilder()
+          .addAllEvents(subtree.eventsList.drop(prefixLength))
+          .copyOutcome(subtree)
+      fourward.Alternative.newBuilder()
+        .setMemberId(member.memberId)
         .setSubtree(stripped.build())
         .build()
     }
-  return buildForkTree(fork.eventsBeforeFork, fourward.ForkReason.ACTION_SELECTOR, branches)
+  return buildChoiceTree(fork.eventsBeforeFork, alternatives)
 }
 
 /**

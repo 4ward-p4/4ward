@@ -22,21 +22,28 @@ function collectEmitEvents(trace, targetPayload) {
     return { emits, match: trace.packet_outcome.output.payload === targetPayload };
   }
 
-  // No fork — this is either a drop or has no outcome.
-  if (!trace.fork_outcome?.branches?.length) {
+  // Continuations and choice alternatives are walked the same way here: we
+  // only need the path leading to the matching output packet.
+  const subtrees = [
+    ...(trace.continuations?.continuations || []),
+    ...(trace.choice?.alternatives || []),
+  ].map((branch) => branch.subtree);
+
+  // No subtrees — this is either a drop or has no outcome.
+  if (subtrees.length === 0) {
     return { emits, match: false };
   }
 
-  // Walk fork branches. If targetPayload is provided, look for matching branch.
-  for (const branch of trace.fork_outcome.branches) {
-    const sub = collectEmitEvents(branch.subtree, targetPayload);
+  // If targetPayload is provided, look for the matching subtree.
+  for (const subtree of subtrees) {
+    const sub = collectEmitEvents(subtree, targetPayload);
     if (sub.match) {
       return { emits: [...emits, ...sub.emits], match: true };
     }
   }
 
-  // No match found — fall back to first branch.
-  const fallback = collectEmitEvents(trace.fork_outcome.branches[0].subtree, null);
+  // No match found — fall back to the first subtree.
+  const fallback = collectEmitEvents(subtrees[0], null);
   return { emits: [...emits, ...fallback.emits], match: false };
 }
 
@@ -47,7 +54,7 @@ function collectEmitEvents(trace, targetPayload) {
  *
  * @param {Uint8Array} payload - output packet bytes
  * @param {object} trace - trace tree node (must have `events` array)
- * @param {string} [targetPayload] - base64 payload to match a specific fork branch
+ * @param {string} [targetPayload] - base64 payload to match a specific subtree
  */
 export function dissectPacket(payload, trace, targetPayload) {
   if (!payload || !trace || !state.headerTypes) return null;

@@ -1,12 +1,14 @@
 package fourward.simulator
 
 import com.google.protobuf.ByteString
+import fourward.Alternative
+import fourward.Choice
 import fourward.CloneSessionLookupEvent
+import fourward.Continuation
+import fourward.ContinuationKind
+import fourward.Continuations
 import fourward.Drop
 import fourward.DropReason
-import fourward.Fork
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.PacketOutcome
 import fourward.TableLookupEvent
 import fourward.TraceEvent
@@ -234,27 +236,65 @@ class ReproducerExtractorTest {
   }
 
   @Test
-  fun `fork branches are traversed recursively`() {
+  fun `continuations are traversed recursively`() {
     val entry1 = tableEntry(tableId = 1, matchValue = byteArrayOf(0x01), actionId = 10)
     val entry2 = tableEntry(tableId = 2, matchValue = byteArrayOf(0x02), actionId = 20)
 
     val trace =
       TraceTree.newBuilder()
-        .setForkOutcome(
-          Fork.newBuilder()
-            .setReason(ForkReason.CLONE)
-            .addBranches(
-              ForkBranch.newBuilder()
-                .setLabel("original")
+        .setContinuations(
+          Continuations.newBuilder()
+            .addContinuations(
+              Continuation.newBuilder()
+                .setKind(ContinuationKind.ORIGINAL)
                 .setSubtree(
                   TraceTree.newBuilder()
                     .addEvents(tableLookupHit(entry1))
                     .setPacketOutcome(dropOutcome())
                 )
             )
-            .addBranches(
-              ForkBranch.newBuilder()
-                .setLabel("clone")
+            .addContinuations(
+              Continuation.newBuilder()
+                .setKind(ContinuationKind.CLONE)
+                .setDataplaneEgressPort(7)
+                .setInstance(1)
+                .setSubtree(
+                  TraceTree.newBuilder()
+                    .addEvents(tableLookupHit(entry2))
+                    .setPacketOutcome(dropOutcome())
+                )
+            )
+        )
+        .build()
+
+    val entities = extract(trace, emptyTableStore())
+
+    assertEquals(2, entities.size)
+    assertEquals(entry1, entities[0].tableEntry)
+    assertEquals(entry2, entities[1].tableEntry)
+  }
+
+  @Test
+  fun `choice alternatives are traversed recursively`() {
+    val entry1 = tableEntry(tableId = 1, matchValue = byteArrayOf(0x01), actionId = 10)
+    val entry2 = tableEntry(tableId = 2, matchValue = byteArrayOf(0x02), actionId = 20)
+
+    val trace =
+      TraceTree.newBuilder()
+        .setChoice(
+          Choice.newBuilder()
+            .addAlternatives(
+              Alternative.newBuilder()
+                .setMemberId(1)
+                .setSubtree(
+                  TraceTree.newBuilder()
+                    .addEvents(tableLookupHit(entry1))
+                    .setPacketOutcome(dropOutcome())
+                )
+            )
+            .addAlternatives(
+              Alternative.newBuilder()
+                .setMemberId(2)
                 .setSubtree(
                   TraceTree.newBuilder()
                     .addEvents(tableLookupHit(entry2))

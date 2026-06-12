@@ -148,8 +148,8 @@ where `InputPacket`, `OutputPacket`, and the trace tree types live.
 A Kotlin/JVM library that walks the proto IR and actually *runs* your P4
 program. Callers instantiate `Simulator` directly and use its typed API
 (`loadPipeline`, `processPacket`, `writeEntry`, `readEntries`). Packet
-processing is fully parallelized: fork branches within a single packet run
-concurrently, and `InjectPackets` sends many packets through the pipeline at
+processing is fully parallelized: trace tree branches within a single packet
+run concurrently, and `InjectPackets` sends many packets through the pipeline at
 once.
 
 ```
@@ -187,12 +187,13 @@ its own implementation.
 
 The interpreter (`Interpreter.kt`) is designed to be a pure IR tree-walker —
 evaluating expressions, walking control flow, performing table lookups, and
-managing variable scopes. Architecture-specific extern dispatch, fork
-semantics, and pipeline orchestration belong in the architecture layer.
+managing variable scopes. Architecture-specific extern dispatch, trace tree
+branching, and pipeline orchestration belong in the architecture layer.
 
 **Current status:** v1model, PSA, and PNA are all implemented. The interpreter is
 a pure IR tree-walker with no architecture-specific code — extern dispatch,
-fork semantics, and pipeline orchestration all live in the architecture layer
+trace tree branching, and pipeline orchestration all live in the architecture
+layer
 (`V1ModelArchitecture.kt`, `PSAArchitecture.kt`, `PNAArchitecture.kt`). See
 [ROADMAP.md](ROADMAP.md) Track 6 for the multi-architecture plan.
 
@@ -203,37 +204,46 @@ See [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 ## Trace trees
 
 4ward's output format is a **trace tree** (`TraceTree` in `simulator.proto`) —
-a recursive structure where each node contains a sequence of events and an
-optional fork. At non-deterministic choice points (action selectors, clone,
-multicast), execution forks into branches, one per possible outcome. A program
-with no non-determinism produces a zero-fork tree that is structurally
-equivalent to a flat trace — there is no separate "flat trace" format.
+a recursive structure where each node contains a sequence of events followed
+by an outcome: a final packet fate, a set of *continuations*, or a *choice*.
+A program that never multiplies, re-enters, or branches produces a single-node
+tree that is structurally equivalent to a flat trace — there is no separate
+"flat trace" format.
 
 The key insight: even when choices like action selector hashing are technically
 deterministic, it's often more useful to reason about them as
 non-deterministic — "what *could* happen to my packet?" rather than "what
 happens with this specific hash seed?"
 
-### Parallel vs alternative forks
+### Continuations vs choices
 
-Not all forks are created equal. The simulator distinguishes two kinds of
-nondeterminism (see `ForkMode` and `forkModeOf` in `TraceHelpers.kt`):
+The tree is an AND/OR tree, and the two node types mean very different things:
 
-- **Parallel forks** (clone, multicast, resubmit, recirculate) — all branches
-  execute simultaneously in a single real execution. The output packets are the
-  union of all branch outputs.
-- **Alternative forks** (action selector) — exactly one branch executes at
-  runtime (determined by a hash function). Each branch represents one *possible
-  world*; the trace tree explores all of them.
+- **Continuations** (AND — clone, multicast, resubmit, recirculate) — execution
+  continued in all of the listed ways within a single real execution. The
+  output packets are the union of the continuations' outputs. A single
+  continuation is common and meaningful: a recirculated packet simply
+  continues as one new pipeline pass.
+- **Choice** (OR — action selector) — exactly one alternative executes at
+  runtime (determined by a hash function). Each alternative represents one
+  *possible world*; the trace tree explores all of them.
+
+Each continuation carries a typed kind (`ORIGINAL`, `CLONE`, `MIRROR`,
+`MULTICAST_REPLICA`, `RESUBMIT`, `RECIRCULATE`) plus the replica's egress port
+and instance id where applicable; each choice alternative carries the selected
+member id. Because the node type itself encodes the AND/OR semantics, every
+consumer that walks the tree is forced by the exhaustive `when` over the
+outcome oneof to handle the two cases — there is no runtime mode lookup to
+forget.
 
 This distinction matters when collecting output packets from the tree:
 `collectPossibleOutcomes()` in `Simulator.kt` returns a `List<List<OutputPacket>>`
 where each inner list is one possible set of outputs from a single real execution.
-Parallel branches are combined (union), while alternative branches produce separate
-possible worlds (Cartesian product when nested inside parallel forks).
+Continuations are combined (union), while choice alternatives produce separate
+possible worlds (Cartesian product when nested inside continuations).
 
-**Status:** Complete. The simulator produces full trace trees with forking at
-all non-deterministic choice points: action selectors, clone (I2E/E2E),
+**Status:** Complete. The simulator produces full trace trees with branching at
+all multiplication and choice points: action selectors, clone (I2E/E2E),
 multicast replication, resubmit, and recirculate.
 
 **Why this matters:**

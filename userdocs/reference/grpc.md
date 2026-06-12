@@ -86,9 +86,9 @@ message PacketSet {
 ```
 
 The `possible_outcomes` field captures the distinction between
-[parallel and alternative forks](../concepts/traces.md#forks).
+[continuations and choices](../concepts/traces.md#continuations-and-choices).
 Each `PacketSet` is one possible set of output packets from a single real
-execution. Programs with only parallel forks (clone, multicast) have exactly
+execution. Programs with only continuations (clone, multicast) have exactly
 one entry. Programs with action selectors have one entry per alternative.
 
 ### `InjectPackets`
@@ -111,7 +111,7 @@ message InjectPacketsResponse {}  // empty — results via SubscribeResults
 4. Collect results from the subscription (exactly one per injected
    packet).
 
-Packets process concurrently across available cores, with trace tree fork
+Packets process concurrently across available cores, with trace tree
 branches (WCMP groups, multicast, clones) also parallelized within each
 packet.
 
@@ -209,13 +209,13 @@ cores, 128 MB L3) running OpenJDK 21.
 wait for the result, repeat. "Batch" uses the `InjectPackets` streaming
 RPC to send 1,000 packets concurrently. The "16 cores" columns show the
 effect of parallelism: even sequential calls benefit from multi-core
-because fork branches (WCMP members, clones) within a single packet are
+because trace tree branches (WCMP members, clones) within a single packet are
 processed in parallel. Batch mode adds a second level of parallelism by
 processing multiple packets at once.
 
 The three workloads exercise increasingly complex trace trees. **L3
 forwarding** is a straight-line pipeline (VRF, LPM, nexthop, MAC
-rewrite) with no forks. **WCMP ×16** adds a 16-member action selector,
+rewrite) with no branching. **WCMP ×16** adds a 16-member action selector,
 producing 16 trace tree branches per packet. **WCMP ×16 + mirror** adds
 an ingress clone on top, doubling to 32 branches.
 

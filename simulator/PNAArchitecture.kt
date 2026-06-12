@@ -1,11 +1,10 @@
 package fourward.simulator
 
 import fourward.BehavioralConfig
+import fourward.Continuation
+import fourward.ContinuationKind
 import fourward.DropReason
 import fourward.ExternInstanceDecl
-import fourward.Fork
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.PipelineStage
 import fourward.TraceTree
 import fourward.TypeDecl
@@ -200,11 +199,11 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     runControlStage(interpreter, ctx, env, pipeline.mainDeparser)
     val deparsedBytes = ctx.deparsedPayload()
 
-    val mirrorBranches = buildMirrorBranches(pipeline, deparsedBytes, forwardingState)
+    val mirrors = buildMirrors(pipeline, deparsedBytes, forwardingState)
 
     if (forwardingState.dropped && !forwardingState.recirculate) {
-      // Dropped with mirror: emit only mirror branches.
-      return buildForkTree(ctx.getEvents(), ForkReason.CLONE, mirrorBranches)
+      // Dropped with mirror: only the mirror copies continue.
+      return buildContinuationsTree(ctx.getEvents(), mirrors)
     }
 
     if (forwardingState.recirculate) {
@@ -217,23 +216,20 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
           passNumber = passNumber + 1,
           depth = depth + 1,
         )
-      val recircBranch =
-        ForkBranch.newBuilder().setLabel("recirculate").setSubtree(recircTree).build()
       // Mirror is independent of recirculation — emit both if requested.
-      val branches = mirrorBranches + recircBranch
-      val reason = if (mirrorBranches.isNotEmpty()) ForkReason.CLONE else ForkReason.RECIRCULATE
-      return TraceTree.newBuilder()
-        .addAllEvents(ctx.getEvents())
-        .setForkOutcome(Fork.newBuilder().setReason(reason).addAllBranches(branches))
-        .build()
+      return buildContinuationsTree(
+        ctx.getEvents(),
+        mirrors + continuation(ContinuationKind.RECIRCULATE, recircTree),
+      )
     }
 
     val originalTree = buildOutputTrace(ctx.getEvents(), forwardingState.destPort, deparsedBytes)
 
-    if (mirrorBranches.isNotEmpty()) {
-      val originalBranch =
-        ForkBranch.newBuilder().setLabel("original").setSubtree(originalTree).build()
-      return buildForkTree(emptyList(), ForkReason.CLONE, listOf(originalBranch) + mirrorBranches)
+    if (mirrors.isNotEmpty()) {
+      return buildContinuationsTree(
+        emptyList(),
+        listOf(continuation(ContinuationKind.ORIGINAL, originalTree)) + mirrors,
+      )
     }
 
     return originalTree
@@ -406,28 +402,33 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
       )
 
   // ---------------------------------------------------------------------------
-  // Mirror branch construction
+  // Mirror continuation construction
   // ---------------------------------------------------------------------------
 
   /**
-   * Builds mirror branches if `mirror_packet()` was called during main control.
+   * Builds mirror continuations if `mirror_packet()` was called during main control.
    *
    * PNA mirrors the deparsed packet (post-modification), matching DPDK SoftNIC behavior. Each
    * replica in the clone session outputs the deparsed bytes on the replica's egress port. Unlike
    * PSA clones (which run through a separate egress pipeline), PNA mirror replicas emit directly
    * because PNA has no separate egress stage for mirrored packets to traverse.
    */
-  private fun buildMirrorBranches(
+  private fun buildMirrors(
     pipeline: PipelineConfig,
     deparsedBytes: ByteArray,
     forwardingState: ForwardingState,
-  ): List<ForkBranch> {
+  ): List<Continuation> {
     val sessionId = forwardingState.mirrorSessionId ?: return emptyList()
     val session = pipeline.tableStore.getCloneSession(sessionId) ?: return emptyList()
     return session.replicasList.map { replica ->
       val port = replicaPort(replica)
       val subtree = buildOutputTrace(emptyList(), port, deparsedBytes)
-      ForkBranch.newBuilder().setLabel("mirror_port_$port").setSubtree(subtree).build()
+      continuation(
+        ContinuationKind.MIRROR,
+        subtree,
+        dataplaneEgressPort = port,
+        instance = replica.instance,
+      )
     }
   }
 

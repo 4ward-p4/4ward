@@ -91,7 +91,8 @@ class PnaArchitecture : Architecture {
   ): PipelineResult {
     // Run pipeline stages in order.
     // Handle architecture-specific externs.
-    // Produce trace tree with forks for non-deterministic operations.
+    // Produce trace tree with continuations/choices for packet
+    // multiplication and non-deterministic operations.
   }
 }
 ```
@@ -136,9 +137,9 @@ architecture = when (archName) {
 
 ### Key patterns
 
-- **Forks at boundaries** — clone/resubmit/recirculate decisions are deferred
-  to pipeline boundaries, not executed inline. The extern sets a flag; the
-  boundary logic checks it and forks.
+- **Branch at boundaries** — clone/resubmit/recirculate decisions are
+  deferred to pipeline boundaries, not executed inline. The extern sets a
+  flag; the boundary logic checks it and emits the continuations.
 - **Drop port from port width** — `(1L shl portBits) - 1`. Never hardcoded.
 - **Never fail silently** — unknown externs should `error()`, not fall through.
 - **Trace everything** — log architecture-specific decisions (drops, clones,

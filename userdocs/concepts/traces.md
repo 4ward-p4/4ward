@@ -8,9 +8,10 @@ Every packet 4ward processes produces a **trace tree**
 ([`TraceTree`](https://github.com/smolkaj/4ward/blob/main/simulator/simulator.proto)
 in `simulator.proto`) — a complete record of every decision the simulator
 made. Most packets take a single path through the
-pipeline and produce a linear trace. At non-deterministic choice points (action
-selectors, clone, multicast), the trace **forks** into branches, one per
-possible outcome.
+pipeline and produce a linear trace. When a packet multiplies (clone,
+multicast) or re-enters the pipeline (resubmit, recirculate), the trace
+**continues** as several subtrees; at non-deterministic choice points (action
+selectors), it branches into one subtree per possible outcome.
 
 No other P4 tool gives you this. [BMv2](https://github.com/p4lang/behavioral-model) picks one path. Hardware picks one path.
 4ward shows you *all* paths in a single pass.
@@ -24,12 +25,16 @@ TraceTree
 ├── events[]          — chronologically ordered
 └── outcome
     ├── PacketOutcome — terminal: output on a port, or drop
-    └── Fork          — non-terminal: branches into subtrees
+    ├── Continuations — non-terminal: ALL subtrees happen (clone, multicast,
+    │                   resubmit, recirculate)
+    └── Choice        — non-terminal: exactly ONE subtree happens
+                        (action selector)
 ```
 
-Events at the parent level are **shared** across all branches. Per-branch
-events live in the fork's subtrees. A program with no non-determinism produces
-a zero-fork tree — structurally equivalent to a flat trace.
+Events at the parent level are **shared** across all subtrees. Per-subtree
+events live below the branching point. A program that never multiplies,
+re-enters, or branches produces a single-node tree — structurally equivalent
+to a flat trace.
 
 ## A simple trace
 
@@ -71,37 +76,38 @@ packet_outcome {
 }
 ```
 
-## Forks
+## Continuations and choices
 
-When execution reaches a non-deterministic choice point, the trace forks.
-Each branch gets its own subtree with the remaining pipeline events.
+A trace tree branches for two very different reasons, and the distinction is
+important for understanding what the output packets mean:
 
-There are two kinds of forks, and the distinction is important for
-understanding what the output packets mean:
+- **Continuations** (clone, multicast, resubmit, recirculate) — execution
+  continued in *all* of the listed ways within a single real execution. A
+  clone creates both the original *and* the clone; multicast creates all
+  replicas at once; a recirculated packet continues as one new pipeline pass.
+  Each continuation is typed: `ORIGINAL`, `CLONE`, `MIRROR`,
+  `MULTICAST_REPLICA`, `RESUBMIT`, or `RECIRCULATE`, with the replica's egress
+  port and instance id where applicable.
+- **Choices** (action selector) — exactly *one* alternative happens at
+  runtime, determined by a hash function. Each alternative represents one
+  *possible world* — a forwarding outcome that *could* happen, depending on
+  the hash. 4ward explores all of them in a single pass.
 
-- **Parallel forks** (clone, multicast, resubmit, recirculate) — all branches
-  happen simultaneously in a single real execution. A clone creates both the
-  original *and* the clone; multicast creates all replicas at once.
-- **Alternative forks** (action selector) — exactly one branch happens at
-  runtime, determined by a hash function. Each branch represents one *possible
-  world* — a forwarding outcome that *could* happen, depending on the hash.
-
-For parallel forks, the output packets are the combined outputs from all
-branches. For alternative forks, each branch produces its own independent set
-of outputs — a "possible outcome." The `possible_outcomes` field in the gRPC
+For continuations, the output packets are the combined outputs from all
+subtrees. For choices, each alternative produces its own independent set of
+outputs — a "possible outcome." The `possible_outcomes` field in the gRPC
 response (and `possibleOutcomes` in the Kotlin API) gives you the full picture:
 each entry is one set of output packets that could result from a single real
 execution.
 
-Programs with only parallel forks have exactly one possible outcome. Programs
-with action selectors have one possible outcome per member — and when
-alternative forks are nested inside parallel forks (e.g., a clone where both
-original and clone hit an action selector), the outcomes multiply
-(Cartesian product).
+Programs with no action selectors have exactly one possible outcome. Programs
+with action selectors have one possible outcome per member — and when choices
+are nested inside continuations (e.g., a clone where both original and clone
+hit an action selector), the outcomes multiply (Cartesian product).
 
 ### Clone
 
-A clone creates two branches — the **original** packet continues on its
+A clone creates two continuations — the **original** packet continues on its
 normal path, and the **clone** goes to the clone session's egress port:
 
 ```
@@ -111,60 +117,62 @@ packet_ingress (port 0)
 ├─ action forward(port=2)
 ├─ clone session 1
 ├─ clone_session_lookup: session 1 → port 3
-└─ fork (clone)
-   ├─ branch: original
+└─ continues as:
+   ├─ original:
    │  ├─ egress pipeline...
    │  └─ output port 2
-   └─ branch: clone
+   └─ clone port 3:
       ├─ egress pipeline...
       └─ output port 3
 ```
 
 ### Multicast
 
-Multicast creates one branch per replica in the multicast group:
+Multicast creates one continuation per replica in the multicast group:
 
 ```
 ├─ table routing: hit → multicast_forward
 ├─ action multicast_forward(group=1)
-└─ fork (multicast)
-   ├─ branch: replica_0_port_1
+└─ continues as:
+   ├─ replica port 1 instance 0:
    │  └─ output port 1
-   ├─ branch: replica_0_port_2
+   ├─ replica port 2 instance 0:
    │  └─ output port 2
-   └─ branch: replica_0_port_3
+   └─ replica port 3 instance 0:
       └─ output port 3
 ```
 
 ### Action selector
 
-An action selector with multiple members forks into one branch per member —
-showing every possible forwarding decision. This is an **alternative fork**:
-real hardware picks exactly one member (via hashing), but 4ward shows all
+An action selector with multiple members produces a **choice** with one
+alternative per member — showing every possible forwarding decision. Real
+hardware picks exactly one member (via hashing), but 4ward shows all
 possibilities so you can verify that every path is correct.
 
 ```
 ├─ table ecmp: hit → set_port
-└─ fork (action selector)       ← alternative: one of these happens
-   ├─ branch: member_0
+└─ one of (action selector):    ← exactly one of these happens
+   ├─ member 0:
    │  ├─ action set_port(port=1)
    │  └─ output port 1
-   ├─ branch: member_1
+   ├─ member 1:
    │  ├─ action set_port(port=2)
    │  └─ output port 2
-   └─ branch: member_2
+   └─ member 2:
       ├─ action set_port(port=3)
       └─ output port 3
 ```
 
 This trace has three **possible outcomes**: `{port 1}`, `{port 2}`, or
-`{port 3}`. Compare this with a clone fork, which has one possible outcome
-containing *all* branch outputs.
+`{port 3}`. Compare this with the clone above, which has one possible outcome
+containing *all* its outputs.
 
 ### Resubmit and recirculate
 
-Both create a fork where one branch is the resubmitted/recirculated packet
-re-entering the pipeline. The branch label is `resubmit` or `recirculate`.
+Both end the current pipeline pass with a single continuation — the
+resubmitted/recirculated packet re-entering the pipeline as a new pass, with
+kind `RESUBMIT` or `RECIRCULATE`. A single continuation is the common case
+here: nothing is copied, the packet simply continues.
 
 ## Event catalog
 
@@ -195,7 +203,7 @@ Every trace path terminates with a **PacketOutcome**:
 - **Drop** — packet dropped, with a reason:
     - `MARK_TO_DROP` — explicit `mark_to_drop()` call.
     - `PARSER_REJECT` — parser transitioned to the reject state.
-    - `PIPELINE_EXECUTION_LIMIT_REACHED` — too many fork branches
+    - `PIPELINE_EXECUTION_LIMIT_REACHED` — the trace tree grew too large
       (exponential blowup guard).
     - `ASSERTION_FAILURE` — `assert()` or `assume()` failed.
 

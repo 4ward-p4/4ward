@@ -46,15 +46,27 @@ object TraceEnricher {
     }
 
     when (tree.outcomeCase) {
-      TraceTree.OutcomeCase.FORK_OUTCOME -> {
-        val fork = tree.forkOutcome
-        for (i in 0 until fork.branchesCount) {
-          val branch = fork.getBranches(i)
-          val enrichedSubtree = enrichTree(branch.subtree, pt, translator)
-          if (enrichedSubtree !== branch.subtree) {
+      TraceTree.OutcomeCase.CONTINUATIONS -> {
+        val continuations = tree.continuations
+        for (i in 0 until continuations.continuationsCount) {
+          val cont = continuations.getContinuations(i)
+          val enrichedSubtree = enrichTree(cont.subtree, pt, translator)
+          if (enrichedSubtree !== cont.subtree) {
             lazyBuilder()
-              .forkOutcomeBuilder
-              .setBranches(i, branch.toBuilder().setSubtree(enrichedSubtree))
+              .continuationsBuilder
+              .setContinuations(i, cont.toBuilder().setSubtree(enrichedSubtree))
+          }
+        }
+      }
+      TraceTree.OutcomeCase.CHOICE -> {
+        val choice = tree.choice
+        for (i in 0 until choice.alternativesCount) {
+          val alternative = choice.getAlternatives(i)
+          val enrichedSubtree = enrichTree(alternative.subtree, pt, translator)
+          if (enrichedSubtree !== alternative.subtree) {
+            lazyBuilder()
+              .choiceBuilder
+              .setAlternatives(i, alternative.toBuilder().setSubtree(enrichedSubtree))
           }
         }
       }
@@ -91,7 +103,7 @@ object TraceEnricher {
     if (event.hasCloneSessionLookup() && pt != null) {
       val csl = event.cloneSessionLookup
       if (!csl.sessionFound) return null
-      // Enriches the first replica's port only; per-replica details are in fork branch labels.
+      // Enriches the first replica's port only; per-replica details are on the Continuations.
       val p4rtPort = pt.dataplaneToP4rt(csl.dataplaneEgressPort) ?: return null
       return event
         .toBuilder()

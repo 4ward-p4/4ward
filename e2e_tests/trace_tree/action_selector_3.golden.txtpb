@@ -82,10 +82,8 @@ events {
     value: "281474976710655 (0xffffffffffff)"
   }
 }
-fork_outcome {
-  reason: ACTION_SELECTOR
-  branches {
-    label: "member_0"
+choice {
+  alternatives {
     subtree {
       events {
         action_execution {
@@ -185,8 +183,8 @@ fork_outcome {
       }
     }
   }
-  branches {
-    label: "member_1"
+  alternatives {
+    member_id: 1
     subtree {
       events {
         action_execution {
@@ -286,8 +284,8 @@ fork_outcome {
       }
     }
   }
-  branches {
-    label: "member_2"
+  alternatives {
+    member_id: 2
     subtree {
       events {
         action_execution {

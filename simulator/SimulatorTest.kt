@@ -378,7 +378,7 @@ class SimulatorTest {
   }
 }
 
-/** Unit tests for [collectPossibleOutcomes] — the parallel vs alternative fork semantics. */
+/** Unit tests for [collectPossibleOutcomes] — Continuations (AND) vs Choice (OR) semantics. */
 class CollectPossibleOutcomesTest {
 
   private fun output(port: Int): fourward.TraceTree =
@@ -401,25 +401,31 @@ class CollectPossibleOutcomesTest {
       )
       .build()
 
-  private fun fork(
-    reason: fourward.ForkReason,
-    vararg branches: Pair<String, fourward.TraceTree>,
+  private fun continuations(
+    vararg branches: Pair<fourward.ContinuationKind, fourward.TraceTree>
   ): fourward.TraceTree =
     fourward.TraceTree.newBuilder()
-      .setForkOutcome(
-        fourward.Fork.newBuilder()
-          .setReason(reason)
-          .addAllBranches(
+      .setContinuations(
+        fourward.Continuations.newBuilder()
+          .addAllContinuations(
             branches.map {
-              fourward.ForkBranch.newBuilder().setLabel(it.first).setSubtree(it.second).build()
+              fourward.Continuation.newBuilder().setKind(it.first).setSubtree(it.second).build()
             }
           )
       )
       .build()
 
-  private fun alternativeFork(
-    vararg branches: Pair<String, fourward.TraceTree>
-  ): fourward.TraceTree = fork(fourward.ForkReason.ACTION_SELECTOR, *branches)
+  private fun choice(vararg alternatives: Pair<Int, fourward.TraceTree>): fourward.TraceTree =
+    fourward.TraceTree.newBuilder()
+      .setChoice(
+        fourward.Choice.newBuilder()
+          .addAllAlternatives(
+            alternatives.map {
+              fourward.Alternative.newBuilder().setMemberId(it.first).setSubtree(it.second).build()
+            }
+          )
+      )
+      .build()
 
   @Test
   fun `linear trace produces one world with one output`() {
@@ -435,8 +441,12 @@ class CollectPossibleOutcomesTest {
   }
 
   @Test
-  fun `parallel fork combines outputs within each world`() {
-    val tree = fork(fourward.ForkReason.CLONE, "original" to output(1), "clone" to output(2))
+  fun `continuations combine outputs within one world`() {
+    val tree =
+      continuations(
+        fourward.ContinuationKind.ORIGINAL to output(1),
+        fourward.ContinuationKind.CLONE to output(2),
+      )
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals("one world", 1, outcomes.size)
     assertEquals("two outputs", 2, outcomes[0].size)
@@ -445,9 +455,8 @@ class CollectPossibleOutcomesTest {
   }
 
   @Test
-  fun `alternative fork produces one world per branch`() {
-    val tree =
-      alternativeFork("member_0" to output(1), "member_1" to output(2), "member_2" to output(3))
+  fun `choice produces one world per alternative`() {
+    val tree = choice(0 to output(1), 1 to output(2), 2 to output(3))
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals("three worlds", 3, outcomes.size)
     assertEquals(1, outcomes[0].single().dataplaneEgressPort)
@@ -456,13 +465,12 @@ class CollectPossibleOutcomesTest {
   }
 
   @Test
-  fun `alternative inside parallel produces Cartesian product`() {
-    // Clone (parallel) with 2 branches, each containing a 2-member selector (alternative).
+  fun `choice inside continuations produces Cartesian product`() {
+    // A clone (AND) with 2 continuations, each containing a 2-member selector choice (OR).
     val tree =
-      fork(
-        fourward.ForkReason.CLONE,
-        "original" to alternativeFork("m0" to output(1), "m1" to output(2)),
-        "clone" to alternativeFork("m0" to output(3), "m1" to output(4)),
+      continuations(
+        fourward.ContinuationKind.ORIGINAL to choice(0 to output(1), 1 to output(2)),
+        fourward.ContinuationKind.CLONE to choice(0 to output(3), 1 to output(4)),
       )
     val outcomes = collectPossibleOutcomes(tree)
     // 2 × 2 = 4 possible worlds, each with 2 outputs (one from original, one from clone).
@@ -474,8 +482,8 @@ class CollectPossibleOutcomesTest {
   }
 
   @Test
-  fun `alternative with drop produces world with empty output`() {
-    val tree = alternativeFork("m0" to output(1), "m1" to drop())
+  fun `choice with drop produces world with empty output`() {
+    val tree = choice(0 to output(1), 1 to drop())
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals(2, outcomes.size)
     assertEquals(1, outcomes[0].size)
@@ -483,9 +491,13 @@ class CollectPossibleOutcomesTest {
   }
 
   @Test
-  fun `multicast fork is parallel`() {
+  fun `multicast replicas are combined into one world`() {
     val tree =
-      fork(fourward.ForkReason.MULTICAST, "r0" to output(1), "r1" to output(2), "r2" to output(3))
+      continuations(
+        fourward.ContinuationKind.MULTICAST_REPLICA to output(1),
+        fourward.ContinuationKind.MULTICAST_REPLICA to output(2),
+        fourward.ContinuationKind.MULTICAST_REPLICA to output(3),
+      )
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals("one world", 1, outcomes.size)
     assertEquals("three outputs", 3, outcomes[0].size)

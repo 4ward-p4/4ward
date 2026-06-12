@@ -80,10 +80,9 @@ events {
     replica_count: 2
   }
 }
-fork_outcome {
-  reason: MULTICAST
-  branches {
-    label: "replica_0_port_1"
+continuations {
+  continuations {
+    kind: MULTICAST_REPLICA
     subtree {
       events {
         pipeline_stage {
@@ -122,10 +121,8 @@ fork_outcome {
           value: "281474976710655 (0xffffffffffff)"
         }
       }
-      fork_outcome {
-        reason: ACTION_SELECTOR
-        branches {
-          label: "member_0"
+      choice {
+        alternatives {
           subtree {
             events {
               action_execution {
@@ -199,8 +196,8 @@ fork_outcome {
             }
           }
         }
-        branches {
-          label: "member_1"
+        alternatives {
+          member_id: 1
           subtree {
             events {
               action_execution {
@@ -276,9 +273,11 @@ fork_outcome {
         }
       }
     }
+    dataplane_egress_port: 1
+    instance: 0
   }
-  branches {
-    label: "replica_0_port_2"
+  continuations {
+    kind: MULTICAST_REPLICA
     subtree {
       events {
         pipeline_stage {
@@ -317,10 +316,8 @@ fork_outcome {
           value: "281474976710655 (0xffffffffffff)"
         }
       }
-      fork_outcome {
-        reason: ACTION_SELECTOR
-        branches {
-          label: "member_0"
+      choice {
+        alternatives {
           subtree {
             events {
               action_execution {
@@ -394,8 +391,8 @@ fork_outcome {
             }
           }
         }
-        branches {
-          label: "member_1"
+        alternatives {
+          member_id: 1
           subtree {
             events {
               action_execution {
@@ -471,5 +468,7 @@ fork_outcome {
         }
       }
     }
+    dataplane_egress_port: 2
+    instance: 0
   }
 }

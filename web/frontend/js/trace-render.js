@@ -75,8 +75,10 @@ export function renderTraceNode(node, isRoot) {
   // Outcome
   if (node.packet_outcome) {
     html += renderPacketOutcome(node.packet_outcome, node);
-  } else if (node.fork_outcome) {
-    html += renderFork(node.fork_outcome);
+  } else if (node.continuations) {
+    html += renderContinuations(node.continuations);
+  } else if (node.choice) {
+    html += renderChoice(node.choice);
   }
 
   html += '</div>';
@@ -292,18 +294,32 @@ function renderPacketOutcome(outcome, traceNode) {
   return '';
 }
 
-function renderFork(fork) {
-  const reason = formatForkReason(fork.reason);
-  let html = `<div class="trace-fork-label">\u2442 fork (${reason})</div>`;
-  for (const branch of fork.branches || []) {
-    html += `<div class="trace-branch-label">branch: ${branch.label}</div>`;
-    html += renderTraceNode(branch.subtree, false);
+// All continuations happen within one real execution (AND-node).
+function renderContinuations(continuations) {
+  let html = `<div class="trace-fork-label">\u2442 continues as</div>`;
+  for (const c of continuations.continuations || []) {
+    html += `<div class="trace-branch-label">${formatContinuation(c)}</div>`;
+    html += renderTraceNode(c.subtree, false);
   }
   return html;
 }
 
-function formatForkReason(reason) {
-  return (reason || 'fork').toLowerCase().replace(/_/g, ' ');
+// Exactly one alternative happens; the simulator explores all of them (OR-node).
+function renderChoice(choice) {
+  let html = `<div class="trace-fork-label">\u2442 one of (action selector)</div>`;
+  for (const alt of choice.alternatives || []) {
+    html += `<div class="trace-branch-label">member ${alt.member_id}</div>`;
+    html += renderTraceNode(alt.subtree, false);
+  }
+  return html;
+}
+
+function formatContinuation(c) {
+  const kind = (c.kind || 'unknown').toLowerCase().replace(/_/g, ' ');
+  let label = kind;
+  if (c.dataplane_egress_port !== undefined) label += ` port ${c.dataplane_egress_port}`;
+  if (c.instance !== undefined) label += ` instance ${c.instance}`;
+  return label;
 }
 
 function formatDropReason(reason) {

@@ -67,7 +67,7 @@ present). Both can be overridden via `--drop-port` and `--cpu-port` flags.
     for a thorough writeup.
 
 Multiple calls use last-writer-wins semantics. All of these produce
-[trace tree forks](traces.md#forks).
+[trace tree branching](traces.md#continuations-and-choices).
 
 **Checksums:**
 

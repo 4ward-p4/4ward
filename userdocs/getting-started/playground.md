@@ -95,7 +95,7 @@ entry. The trace shows `port_table: miss → drop` and the packet is dropped.
 
 ## What's next
 
-- **Trace trees** — understand the [event types and fork
+- **Trace trees** — understand the [event types and branching
   semantics](../concepts/traces.md) behind the trace visualization.
 - **CLI** — run the same tests [from the terminal](cli.md) with STF files.
 - **Reference** — full [playground feature reference](../reference/playground.md).

@@ -14,12 +14,18 @@ object TraceFormatter {
       appendEvent(event, indent)
     }
     when (tree.outcomeCase) {
-      TraceTree.OutcomeCase.FORK_OUTCOME -> {
-        val fork = tree.forkOutcome
-        appendLine("${pad(indent)}fork (${fork.reason.humanName()})")
-        for (branch in fork.branchesList) {
-          appendLine("${pad(indent + 1)}branch: ${branch.label}")
-          appendTree(branch.subtree, indent + 2)
+      TraceTree.OutcomeCase.CONTINUATIONS -> {
+        appendLine("${pad(indent)}continues as:")
+        for (continuation in tree.continuations.continuationsList) {
+          appendLine("${pad(indent + 1)}${continuation.humanName()}:")
+          appendTree(continuation.subtree, indent + 2)
+        }
+      }
+      TraceTree.OutcomeCase.CHOICE -> {
+        appendLine("${pad(indent)}one of (action selector):")
+        for (alternative in tree.choice.alternativesList) {
+          appendLine("${pad(indent + 1)}member ${alternative.memberId}:")
+          appendTree(alternative.subtree, indent + 2)
         }
       }
       TraceTree.OutcomeCase.PACKET_OUTCOME -> {
@@ -113,6 +119,21 @@ object TraceFormatter {
       else -> "unknown"
     }
 
-  private fun fourward.ForkReason.humanName(): String =
-    name.removePrefix("ACTION_").lowercase().replace('_', ' ')
+  /** e.g. "original", "recirculate", "clone port 5 instance 2", "replica port 6". */
+  private fun fourward.Continuation.humanName(): String = buildString {
+    append(
+      when (kind) {
+        fourward.ContinuationKind.ORIGINAL -> "original"
+        fourward.ContinuationKind.CLONE -> "clone"
+        fourward.ContinuationKind.MIRROR -> "mirror"
+        fourward.ContinuationKind.MULTICAST_REPLICA -> "replica"
+        fourward.ContinuationKind.RESUBMIT -> "resubmit"
+        fourward.ContinuationKind.RECIRCULATE -> "recirculate"
+        fourward.ContinuationKind.CONTINUATION_KIND_UNSPECIFIED,
+        fourward.ContinuationKind.UNRECOGNIZED -> "unknown"
+      }
+    )
+    if (hasDataplaneEgressPort()) append(" port $dataplaneEgressPort")
+    if (hasInstance()) append(" instance $instance")
+  }
 }

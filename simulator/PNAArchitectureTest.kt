@@ -3,12 +3,12 @@ package fourward.simulator
 import com.google.protobuf.ByteString
 import fourward.Architecture
 import fourward.BehavioralConfig
+import fourward.ContinuationKind
 import fourward.ControlDecl
 import fourward.DropReason
 import fourward.EnumDecl
 import fourward.ExternInstanceDecl
 import fourward.FieldDecl
-import fourward.ForkReason
 import fourward.HeaderDecl
 import fourward.ParamDecl
 import fourward.ParserDecl
@@ -442,7 +442,7 @@ class PNAArchitectureTest {
     externCall("mirror_packet", bit(slotId, 8), bit(sessionId, 16))
 
   @Test
-  fun `mirror_packet creates fork with original and mirror branches`() {
+  fun `mirror_packet creates original and mirror outputs`() {
     val config = pnaConfig(mainControlStmts = listOf(sendToPort(2), mirrorPacket(0, 100)))
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5))
@@ -510,17 +510,21 @@ class PNAArchitectureTest {
   }
 
   @Test
-  fun `mirror_packet trace has CLONE fork reason`() {
+  fun `mirror_packet trace has ORIGINAL and MIRROR continuations`() {
     val config = pnaConfig(mainControlStmts = listOf(sendToPort(2), mirrorPacket(0, 100)))
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5))
 
     val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    assertEquals("original", result.trace.forkOutcome.branchesList[0].label)
-    assertEquals("mirror_port_5", result.trace.forkOutcome.branchesList[1].label)
+    assertTrue(result.trace.hasContinuations())
+    val continuations = result.trace.continuations.continuationsList
+    assertEquals(ContinuationKind.ORIGINAL, continuations[0].kind)
+    assertEquals(ContinuationKind.MIRROR, continuations[1].kind)
+    assertEquals(5, continuations[1].dataplaneEgressPort)
+    // instance defaults to 0 when unset, so check presence before value.
+    assertTrue(continuations[1].hasInstance())
+    assertEquals(0, continuations[1].instance)
   }
 
   @Test
@@ -554,7 +558,7 @@ class PNAArchitectureTest {
   fun `mirror_packet with recirculate emits both`() {
     // Mirror is independent of recirculate — both should take effect.
     // Every pass calls recirculate(), so this hits MAX_RECIRCULATIONS, but the first
-    // fork should contain both mirror and recirculate branches.
+    // Continuations node should contain both mirror and recirculate continuations.
     val config =
       pnaConfig(mainControlStmts = listOf(sendToPort(2), mirrorPacket(0, 100), recirculate()))
     val store = TableStore()

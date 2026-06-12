@@ -20,7 +20,7 @@ import org.junit.runners.Parameterized.Parameters
  * the trace tree.
  *
  * The possible outcomes should be consistent with the trace tree's leaf outcomes, whether the trace
- * forks (multicast, clone, action selectors) or not.
+ * branches (multicast, clone, action selectors) or not.
  */
 @RunWith(Parameterized::class)
 class TraceTreeConsistencyTest(private val testName: String) {
@@ -72,7 +72,7 @@ class TraceTreeConsistencyTest(private val testName: String) {
         .filter { it.hasOutput() }
         .map { it.output.dataplaneEgressPort to it.output.payload }
 
-    // For trees without nested alternative-inside-parallel forks, these match exactly.
+    // For trees without a choice nested inside continuations, these match exactly.
     // For trees with such nesting, possibleOutcomes may have duplicates from the Cartesian
     // product, so we compare as sets.
     assertEquals(
@@ -87,8 +87,10 @@ class TraceTreeConsistencyTest(private val testName: String) {
   private fun collectLeafOutcomes(tree: TraceTree): List<PacketOutcome> =
     when (tree.outcomeCase) {
       TraceTree.OutcomeCase.PACKET_OUTCOME -> listOf(tree.packetOutcome)
-      TraceTree.OutcomeCase.FORK_OUTCOME ->
-        tree.forkOutcome.branchesList.flatMap { collectLeafOutcomes(it.subtree) }
+      TraceTree.OutcomeCase.CONTINUATIONS ->
+        tree.continuations.continuationsList.flatMap { collectLeafOutcomes(it.subtree) }
+      TraceTree.OutcomeCase.CHOICE ->
+        tree.choice.alternativesList.flatMap { collectLeafOutcomes(it.subtree) }
       TraceTree.OutcomeCase.OUTCOME_NOT_SET,
       null -> emptyList()
     }

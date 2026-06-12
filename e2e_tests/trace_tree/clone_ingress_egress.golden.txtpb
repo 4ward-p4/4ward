@@ -92,10 +92,9 @@ events {
     replica_count: 1
   }
 }
-fork_outcome {
-  reason: CLONE
-  branches {
-    label: "original"
+continuations {
+  continuations {
+    kind: ORIGINAL
     subtree {
       events {
         pipeline_stage {
@@ -157,8 +156,8 @@ fork_outcome {
       }
     }
   }
-  branches {
-    label: "clone"
+  continuations {
+    kind: CLONE
     subtree {
       events {
         pipeline_stage {
@@ -219,5 +218,7 @@ fork_outcome {
         }
       }
     }
+    dataplane_egress_port: 1
+    instance: 0
   }
 }

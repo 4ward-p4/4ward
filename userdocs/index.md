@@ -13,7 +13,7 @@ description: "4ward is a glass-box P4 simulator that traces every decision your 
 4ward is a spec-compliant [P4₁₆](https://p4.org/wp-content/uploads/sites/53/p4-spec/docs/P4-16-v1.2.4.html) reference simulator that produces **trace
 trees**: a complete record of every parser transition, table lookup, action
 execution, and branch decision a packet encounters. At non-deterministic
-choice points (action selectors, clone, multicast), the trace forks — showing
+choice points (action selectors, clone, multicast), the trace branches — showing
 all possible outcomes in a single pass.
 
 !!! tip "Prefer to get your hands dirty?"
@@ -41,7 +41,7 @@ all possible outcomes in a single pass.
 ## Key features
 
 - **Trace trees** record every parser transition, table lookup, action, and
-  branch — and fork at non-deterministic choice points to show all possible
+  branch — and split at non-deterministic choice points to show all possible
   outcomes. [Learn more](concepts/traces.md).
 - **v1model, PSA, and PNA** are fully implemented, with support for
   architecture modifications like translated port types.

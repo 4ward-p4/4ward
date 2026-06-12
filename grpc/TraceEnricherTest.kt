@@ -1,12 +1,14 @@
 package fourward.grpc
 
 import com.google.protobuf.ByteString
+import fourward.Alternative
+import fourward.Choice
 import fourward.CloneSessionLookupEvent
+import fourward.Continuation
+import fourward.ContinuationKind
+import fourward.Continuations
 import fourward.Drop
 import fourward.DropReason
-import fourward.Fork
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.OutputPacket
 import fourward.PacketIngressEvent
 import fourward.PacketOutcome
@@ -195,23 +197,23 @@ class TraceEnricherTest {
   }
 
   // ===========================================================================
-  // Fork propagation
+  // Subtree recursion
   // ===========================================================================
 
   @Test
-  fun `enrichment propagates through fork branches`() {
+  fun `enrichment propagates through continuations`() {
     val translator = portTranslator()
     translator.p4rtToDataplane(PORT_TYPE, "Ethernet0")
     translator.p4rtToDataplane(PORT_TYPE, "Ethernet1")
 
-    val branch1 =
+    val replica0 =
       TraceTree.newBuilder()
         .setPacketOutcome(
           PacketOutcome.newBuilder()
             .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(0).setPayload(EMPTY))
         )
         .build()
-    val branch2 =
+    val replica1 =
       TraceTree.newBuilder()
         .setPacketOutcome(
           PacketOutcome.newBuilder()
@@ -221,20 +223,70 @@ class TraceEnricherTest {
 
     val trace =
       TraceTree.newBuilder()
-        .setForkOutcome(
-          Fork.newBuilder()
-            .setReason(ForkReason.MULTICAST)
-            .addBranches(ForkBranch.newBuilder().setLabel("replica_0").setSubtree(branch1))
-            .addBranches(ForkBranch.newBuilder().setLabel("replica_1").setSubtree(branch2))
+        .setContinuations(
+          Continuations.newBuilder()
+            .addContinuations(
+              Continuation.newBuilder()
+                .setKind(ContinuationKind.MULTICAST_REPLICA)
+                .setDataplaneEgressPort(0)
+                .setInstance(1)
+                .setSubtree(replica0)
+            )
+            .addContinuations(
+              Continuation.newBuilder()
+                .setKind(ContinuationKind.MULTICAST_REPLICA)
+                .setDataplaneEgressPort(1)
+                .setInstance(2)
+                .setSubtree(replica1)
+            )
         )
         .build()
 
     val enriched = TraceEnricher.enrich(trace, translator)
 
-    val out0 = enriched.forkOutcome.getBranches(0).subtree.packetOutcome.output
+    val out0 = enriched.continuations.getContinuations(0).subtree.packetOutcome.output
     assertEquals(ByteString.copyFromUtf8("Ethernet0"), out0.p4RtEgressPort)
 
-    val out1 = enriched.forkOutcome.getBranches(1).subtree.packetOutcome.output
+    val out1 = enriched.continuations.getContinuations(1).subtree.packetOutcome.output
+    assertEquals(ByteString.copyFromUtf8("Ethernet1"), out1.p4RtEgressPort)
+  }
+
+  @Test
+  fun `enrichment propagates through choice alternatives`() {
+    val translator = portTranslator()
+    translator.p4rtToDataplane(PORT_TYPE, "Ethernet0")
+    translator.p4rtToDataplane(PORT_TYPE, "Ethernet1")
+
+    val world0 =
+      TraceTree.newBuilder()
+        .setPacketOutcome(
+          PacketOutcome.newBuilder()
+            .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(0).setPayload(EMPTY))
+        )
+        .build()
+    val world1 =
+      TraceTree.newBuilder()
+        .setPacketOutcome(
+          PacketOutcome.newBuilder()
+            .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(EMPTY))
+        )
+        .build()
+
+    val trace =
+      TraceTree.newBuilder()
+        .setChoice(
+          Choice.newBuilder()
+            .addAlternatives(Alternative.newBuilder().setMemberId(7).setSubtree(world0))
+            .addAlternatives(Alternative.newBuilder().setMemberId(8).setSubtree(world1))
+        )
+        .build()
+
+    val enriched = TraceEnricher.enrich(trace, translator)
+
+    val out0 = enriched.choice.getAlternatives(0).subtree.packetOutcome.output
+    assertEquals(ByteString.copyFromUtf8("Ethernet0"), out0.p4RtEgressPort)
+
+    val out1 = enriched.choice.getAlternatives(1).subtree.packetOutcome.output
     assertEquals(ByteString.copyFromUtf8("Ethernet1"), out1.p4RtEgressPort)
   }
 

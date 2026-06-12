@@ -93,10 +93,8 @@ events {
     value: "281474976710655 (0xffffffffffff)"
   }
 }
-fork_outcome {
-  reason: ACTION_SELECTOR
-  branches {
-    label: "member_0"
+choice {
+  alternatives {
     subtree {
       events {
         action_execution {
@@ -144,10 +142,9 @@ fork_outcome {
           replica_count: 1
         }
       }
-      fork_outcome {
-        reason: CLONE
-        branches {
-          label: "original"
+      continuations {
+        continuations {
+          kind: ORIGINAL
           subtree {
             events {
               pipeline_stage {
@@ -209,8 +206,8 @@ fork_outcome {
             }
           }
         }
-        branches {
-          label: "clone"
+        continuations {
+          kind: CLONE
           subtree {
             events {
               pipeline_stage {
@@ -271,12 +268,14 @@ fork_outcome {
               }
             }
           }
+          dataplane_egress_port: 1
+          instance: 0
         }
       }
     }
   }
-  branches {
-    label: "member_1"
+  alternatives {
+    member_id: 1
     subtree {
       events {
         action_execution {
@@ -324,10 +323,9 @@ fork_outcome {
           replica_count: 1
         }
       }
-      fork_outcome {
-        reason: CLONE
-        branches {
-          label: "original"
+      continuations {
+        continuations {
+          kind: ORIGINAL
           subtree {
             events {
               pipeline_stage {
@@ -389,8 +387,8 @@ fork_outcome {
             }
           }
         }
-        branches {
-          label: "clone"
+        continuations {
+          kind: CLONE
           subtree {
             events {
               pipeline_stage {
@@ -451,6 +449,8 @@ fork_outcome {
               }
             }
           }
+          dataplane_egress_port: 1
+          instance: 0
         }
       }
     }

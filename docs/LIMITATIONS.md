@@ -20,7 +20,7 @@ guilt — just write it down so someone can find it later.
   bare fields, 1-arg and 3-arg forms), `Meter.execute` (stub GREEN),
   `Random.read()`, `InternetChecksum` (clear/add/subtract/get/get_state/set_state),
   `Digest.pack` (stub no-op), counters (indirect + direct), action profiles,
-  action selectors (including fork-based trace trees for group hits), parser
+  action selectors (including choice-based trace trees for group hits), parser
   `value_set`, header stacks, and top-level assignments. 73 additional PSA
   programs (BMv2 + DPDK targets) are verified to compile. TNA is not
   implemented.
@@ -83,14 +83,15 @@ guilt — just write it down so someone can find it later.
   wall-clock time to expire idle entries. These are explicitly out of scope.
 ## Simulator
 
-- **Fork-point resume is v1model only.** When the trace tree forks (action
-  selectors, clone, multicast), v1model continues each branch from the fork
+- **Fork-point resume is v1model only.** When the trace tree branches (action
+  selectors, clone, multicast), v1model continues each subtree from the fork
   point instead of replaying the pipeline. PSA and PNA still use the
   replay-based approach (`handleActionSelectorFork` in `ArchitectureHelpers.kt`).
   Other v1model-specific optimizations (Long-backed `BitVector`, `CompactFieldMap`,
   proto builder pooling) benefit all architectures.
 - **Multicast: basic replication only.** Multicast group replication works
-  for the trace tree (forking per replica). PRE entries are installed via
+  for the trace tree (one continuation per replica). PRE entries are installed
+  via
   P4Runtime `PacketReplicationEngineEntry`.
 
 ## Web playground
@@ -106,10 +107,10 @@ guilt — just write it down so someone can find it later.
 - **Read API only returns table entries.** `GET /api/read` hard-codes a
   `TableEntry` filter. Clone sessions, counters, and other entity types
   cannot be read back through the REST API.
-- **Forking programs: output packets panel flattens possible worlds.** For
+- **Branching programs: output packets panel flattens possible worlds.** For
   programs with action selectors, the web playground's output panel shows
-  outputs from *all* possible worlds. The trace tab shows the full fork
-  structure. See [Trace Trees: Forks](../userdocs/concepts/traces.md#forks).
+  outputs from *all* possible worlds. The trace tab shows the full tree
+  structure. See [Trace Trees: Continuations and choices](../userdocs/concepts/traces.md#continuations-and-choices).
 - **No `StreamChannel`.** The web UI uses REST APIs, not the P4Runtime
   bidirectional stream. This means no PacketIO (`packet_in`/`packet_out`),
   no digest notifications, and no arbitration updates. Packets are injected

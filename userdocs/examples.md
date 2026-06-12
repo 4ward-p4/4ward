@@ -90,7 +90,7 @@ apply {
 The egress pipeline uses `instance_type` to distinguish originals from clones
 and tags cloned packets with a distinctive source MAC.
 
-**What to look for in the trace:** the trace tree **forks** at the clone
+**What to look for in the trace:** the trace tree **splits** at the clone
 point — one branch for the original packet (exits on the routed port) and
 one for the clone (exits on the mirror port with rewritten source MAC).
 
@@ -98,7 +98,7 @@ one for the clone (exits on the mirror port with rewritten source MAC).
 
 - Parser state transitions (`select` on `etherType`)
 - LPM table matching
-- Packet cloning and trace tree forking
+- Packet cloning and trace tree continuations
 - Egress branching on `instance_type`
 
 ## sai_middleblock

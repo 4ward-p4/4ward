@@ -80,10 +80,9 @@ events {
     replica_count: 3
   }
 }
-fork_outcome {
-  reason: MULTICAST
-  branches {
-    label: "replica_0_port_1"
+continuations {
+  continuations {
+    kind: MULTICAST_REPLICA
     subtree {
       events {
         pipeline_stage {
@@ -144,9 +143,11 @@ fork_outcome {
         }
       }
     }
+    dataplane_egress_port: 1
+    instance: 0
   }
-  branches {
-    label: "replica_0_port_2"
+  continuations {
+    kind: MULTICAST_REPLICA
     subtree {
       events {
         pipeline_stage {
@@ -207,9 +208,11 @@ fork_outcome {
         }
       }
     }
+    dataplane_egress_port: 2
+    instance: 0
   }
-  branches {
-    label: "replica_0_port_3"
+  continuations {
+    kind: MULTICAST_REPLICA
     subtree {
       events {
         pipeline_stage {
@@ -270,5 +273,7 @@ fork_outcome {
         }
       }
     }
+    dataplane_egress_port: 3
+    instance: 0
   }
 }

@@ -142,10 +142,9 @@ events {
     direction: EXIT
   }
 }
-fork_outcome {
-  reason: RECIRCULATE
-  branches {
-    label: "recirculate"
+continuations {
+  continuations {
+    kind: RECIRCULATE
     subtree {
       events {
         packet_ingress {
