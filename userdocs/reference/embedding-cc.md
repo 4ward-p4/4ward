@@ -85,7 +85,7 @@ absl::Status RunAgainstFourward() {
 
 Options cover `device_id`, the listening `port` (unset by default — the
 kernel picks an ephemeral port), `drop_port`, `cpu_port`, and
-`startup_timeout`. See [`fourward_server.h`](https://github.com/smolkaj/4ward/blob/main/fourward_cc/fourward_server.h)
+`startup_timeout`. See [`fourward_server.h`]({{ repo }}/blob/main/fourward_cc/fourward_server.h)
 for the full API.
 
 ## Startup contract
@@ -103,7 +103,7 @@ languages.
 
 ## Related
 
-- [`fourward_cc/`](https://github.com/smolkaj/4ward/tree/main/fourward_cc)
+- [`fourward_cc/`]({{ repo }}/tree/main/fourward_cc)
   — source of the wrapper.
 - [gRPC API reference](grpc.md) — server flags, RPC surface, and proto
   definitions.

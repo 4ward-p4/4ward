@@ -10,7 +10,7 @@ from the terminal.
 ## Setup
 
 ```sh
-git clone https://github.com/smolkaj/4ward.git && cd 4ward
+git clone {{ repo }}.git && cd 4ward
 ```
 
 An alias makes the examples below easier to type:
@@ -109,7 +109,7 @@ programs, split the work:
 
 ## What's next
 
-- **Tutorial** — the full [hands-on walkthrough](https://github.com/smolkaj/4ward/blob/main/examples/tutorial.t),
+- **Tutorial** — the full [hands-on walkthrough]({{ repo }}/blob/main/examples/tutorial.t),
   CI-verified so it's always up to date.
 - **STF format** — full syntax for [table entries, match types, and
   clone/multicast setup](../reference/stf.md).

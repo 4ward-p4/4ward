@@ -13,8 +13,10 @@ plugins:
   - search
   - glightbox
   - meta
+  - macros
 
 extra:
+  repo: https://github.com/smolkaj/4ward
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/smolkaj/4ward

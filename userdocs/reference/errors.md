@@ -73,5 +73,5 @@ INTERNAL: undefined variable: x (at my_program.p4:42:3)
 
 ## All error messages
 
-See [`grpc/golden_errors/`](https://github.com/smolkaj/4ward/tree/main/grpc/golden_errors)
+See [`grpc/golden_errors/`]({{ repo }}/tree/main/grpc/golden_errors)
 for the complete list of golden-tested error messages.
