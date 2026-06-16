@@ -267,11 +267,7 @@ private constructor(
       behavioral: BehavioralConfig,
       cpuPortOverride: Int? = null,
     ): PacketHeaderCodec? =
-      createWithCpuPort(
-        p4info,
-        behavioral,
-        cpuPortOverride?.toLong()?.let(DataplanePort::fromUnsignedLong),
-      )
+      createWithCpuPort(p4info, behavioral, cpuPortOverride?.let(DataplanePort::fromProto))
 
     fun createWithCpuPort(
       p4info: P4Info,
