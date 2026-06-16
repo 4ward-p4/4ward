@@ -1166,6 +1166,9 @@ class V1ModelArchitecture(
         eval.writeOutArg(0, BitVal(BitVector(randomInInclusiveRange(lo, hi), resultWidth)))
         UnitVal
       }
+      // digest(receiver, data): accepted as a no-op. Digest delivery is intentionally out of
+      // scope because the simulator has no control-plane digest queue or stream-delivery model.
+      "digest" -> UnitVal
       // log_msg(msg) / log_msg(msg, data): debug output with {} placeholders.
       // Defined in v1model.p4 — emits a trace event with the interpolated message.
       "log_msg" -> {

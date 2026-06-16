@@ -696,6 +696,20 @@ class V1ModelArchitectureTest {
   }
 
   @Test
+  fun `digest is accepted as no-op stub`() {
+    val config =
+      v1modelConfig(
+        externCall("digest", bit(0, 32), bit(0xBEEFL, 16)),
+        assignField("sm", "egress_spec", 5, V1ModelArchitecture.DEFAULT_PORT_BITS),
+      )
+    val result = V1ModelArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(1, outputs.size)
+    assertEquals(5, outputs[0].dataplaneEgressPort)
+  }
+
+  @Test
   fun `multicast fork trace tree has fork node`() {
     val config = v1modelConfig(assignField("sm", "mcast_grp", 1, 16))
     val tableStore = TableStore()
