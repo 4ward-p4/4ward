@@ -216,7 +216,7 @@ message ExternCallEvent {
 // Fired when mark_to_drop() is called. Records the call site, not the packet
 // fate — the actual drop is represented by Drop in PacketOutcome.
 message MarkToDropEvent {
-  reserved 1;  // was `DropReason reason`, redundant: always MARK_TO_DROP
+  reserved 1;  // was `DropReason reason`, redundant: always EGRESS_DROP
   reserved "reason";
 }
 
@@ -312,6 +312,6 @@ enum DropReason {
   DROP_REASON_UNSPECIFIED = 0;
   // The egress spec points at the drop port — set by mark_to_drop() or by
   // direct assignment.
-  MARK_TO_DROP = 1;
+  EGRESS_DROP = 1;
   ASSERTION_FAILURE = 4;  // assert() or assume() failed
 }

@@ -44,7 +44,7 @@ fun forkModeOf(reason: ForkReason): ForkMode =
 /** Builds a [TraceTree] representing a dropped packet with the given trace events and reason. */
 internal fun buildDropTrace(
   events: List<TraceEvent>,
-  reason: DropReason = DropReason.MARK_TO_DROP,
+  reason: DropReason = DropReason.EGRESS_DROP,
 ): TraceTree {
   val outcome = PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(reason)).build()
   return TraceTree.newBuilder().addAllEvents(events).setPacketOutcome(outcome).build()

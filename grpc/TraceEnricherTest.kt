@@ -246,7 +246,7 @@ class TraceEnricherTest {
     val trace =
       TraceTree.newBuilder()
         .setPacketOutcome(
-          PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.MARK_TO_DROP))
+          PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.EGRESS_DROP))
         )
         .build()
 

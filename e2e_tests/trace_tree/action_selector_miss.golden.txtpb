@@ -101,6 +101,6 @@ events {
 }
 packet_outcome {
   drop {
-    reason: MARK_TO_DROP
+    reason: EGRESS_DROP
   }
 }

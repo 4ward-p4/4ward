@@ -107,7 +107,7 @@ class TraceFormatterTest {
       TraceTree.newBuilder()
         .addEvents(TraceEvent.newBuilder().setMarkToDrop(MarkToDropEvent.getDefaultInstance()))
         .setPacketOutcome(
-          PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.MARK_TO_DROP))
+          PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.EGRESS_DROP))
         )
         .build()
 
@@ -115,7 +115,7 @@ class TraceFormatterTest {
     assertEquals(
       """
       |mark_to_drop()
-      |drop (reason: mark_to_drop)
+      |drop (reason: egress drop)
       |"""
         .trimMargin(),
       output,

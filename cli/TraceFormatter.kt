@@ -106,7 +106,7 @@ object TraceFormatter {
 
   private fun DropReason.humanName(): String =
     when (this) {
-      DropReason.MARK_TO_DROP -> "mark_to_drop"
+      DropReason.EGRESS_DROP -> "egress drop"
       DropReason.ASSERTION_FAILURE -> "assertion failure"
       DropReason.DROP_REASON_UNSPECIFIED,
       DropReason.UNRECOGNIZED -> "unknown"

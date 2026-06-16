@@ -397,7 +397,7 @@ class CollectPossibleOutcomesTest {
     fourward.TraceTree.newBuilder()
       .setPacketOutcome(
         fourward.PacketOutcome.newBuilder()
-          .setDrop(fourward.Drop.newBuilder().setReason(fourward.DropReason.MARK_TO_DROP))
+          .setDrop(fourward.Drop.newBuilder().setReason(fourward.DropReason.EGRESS_DROP))
       )
       .build()
 

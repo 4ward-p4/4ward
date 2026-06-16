@@ -350,7 +350,7 @@ class PSAArchitectureTest {
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.MARK_TO_DROP, result.trace.packetOutcome.drop.reason)
+    assertEquals(DropReason.EGRESS_DROP, result.trace.packetOutcome.drop.reason)
   }
 
   @Test
@@ -493,7 +493,7 @@ class PSAArchitectureTest {
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.MARK_TO_DROP, result.trace.packetOutcome.drop.reason)
+    assertEquals(DropReason.EGRESS_DROP, result.trace.packetOutcome.drop.reason)
   }
 
   // ---------------------------------------------------------------------------
@@ -1114,7 +1114,7 @@ class PSAArchitectureTest {
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.MARK_TO_DROP, result.trace.packetOutcome.drop.reason)
+    assertEquals(DropReason.EGRESS_DROP, result.trace.packetOutcome.drop.reason)
   }
 
   @Test

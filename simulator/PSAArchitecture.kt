@@ -222,7 +222,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val output: StructVal?,
     val deparsedBytes: ByteArray,
     val dropped: Boolean,
-    val dropReason: DropReason = DropReason.MARK_TO_DROP,
+    val dropReason: DropReason = DropReason.EGRESS_DROP,
   )
 
   private fun runIngressPipeline(
@@ -343,7 +343,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val dropped: Boolean,
     val deparsedBytes: ByteArray,
     val output: StructVal?,
-    val dropReason: DropReason = DropReason.MARK_TO_DROP,
+    val dropReason: DropReason = DropReason.EGRESS_DROP,
   )
 
   /**

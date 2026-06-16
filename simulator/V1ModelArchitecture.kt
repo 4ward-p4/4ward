@@ -306,7 +306,7 @@ class V1ModelArchitecture(
       if (selectorFork.duringIngress) {
         ingressEgressBoundary(ctx, s)
         if (egressPortIsDropPort(s)) {
-          return buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+          return buildDropTrace(s.packetCtx.getEvents(), DropReason.EGRESS_DROP)
         }
         return runEgressAndDeparser(ctx, s)
       }
@@ -363,7 +363,7 @@ class V1ModelArchitecture(
         pipelineTail = { c, s ->
           ingressEgressBoundary(c, s)
           if (egressPortIsDropPort(s))
-            buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+            buildDropTrace(s.packetCtx.getEvents(), DropReason.EGRESS_DROP)
           else runEgressAndDeparser(c, s)
         },
       )
@@ -403,7 +403,7 @@ class V1ModelArchitecture(
         configure = { s -> s.pendingOps.egressCloneSessionId = null },
         pipelineTail = { _, s ->
           if (egressSpecIsDropPort(s))
-            buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+            buildDropTrace(s.packetCtx.getEvents(), DropReason.EGRESS_DROP)
           else runDeparser(s)
         },
       )
@@ -424,7 +424,7 @@ class V1ModelArchitecture(
         resetEgressSpec(s)
         runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
         if (egressSpecIsDropPort(s))
-          buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+          buildDropTrace(s.packetCtx.getEvents(), DropReason.EGRESS_DROP)
         else runDeparser(s)
       },
     )
@@ -680,7 +680,7 @@ class V1ModelArchitecture(
       // --- Ingress→egress boundary (traffic manager) ---
       ingressEgressBoundary(ctx, s)
       if (egressPortIsDropPort(s)) {
-        return buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+        return buildDropTrace(s.packetCtx.getEvents(), DropReason.EGRESS_DROP)
       }
 
       // --- Egress + deparser ---
@@ -701,7 +701,7 @@ class V1ModelArchitecture(
     postEgressBoundary(ctx, s)
 
     if (egressSpecIsDropPort(s)) {
-      return buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+      return buildDropTrace(s.packetCtx.getEvents(), DropReason.EGRESS_DROP)
     }
 
     return runDeparser(s)
@@ -715,7 +715,7 @@ class V1ModelArchitecture(
     postEgressBoundary(ctx, s)
 
     if (egressSpecIsDropPort(s)) {
-      return buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+      return buildDropTrace(s.packetCtx.getEvents(), DropReason.EGRESS_DROP)
     }
 
     return runDeparser(s)

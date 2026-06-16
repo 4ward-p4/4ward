@@ -69,7 +69,7 @@ class ReproducerExtractorTest {
       .build()
 
   private fun dropOutcome(): PacketOutcome =
-    PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.MARK_TO_DROP)).build()
+    PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.EGRESS_DROP)).build()
 
   private fun emptyTableStore(): TableStore = TableStore()
 
