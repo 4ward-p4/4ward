@@ -196,12 +196,12 @@ class V1ModelArchitecture(
    */
   private fun createBranchState(
     ctx: PipelineContext,
-    bytesConsumed: Int,
+    bitsConsumed: Int,
     snapshotEnv: Environment,
     snapshotPendingOps: V1ModelPendingOps? = null,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): PipelineState {
-    val packetCtx = PacketContext(ctx.packet, bytesConsumed)
+    val packetCtx = PacketContext(ctx.packet, bitsConsumed)
     val env = snapshotEnv.deepCopy()
     val pendingOps = snapshotPendingOps?.copy() ?: V1ModelPendingOps()
     val standardMetadata = resolveStandardMetadata(ctx, env)
@@ -221,13 +221,13 @@ class V1ModelArchitecture(
    */
   private inline fun runBranch(
     ctx: PipelineContext,
-    bytesConsumed: Int,
+    bitsConsumed: Int,
     snapshotEnv: Environment,
     snapshotPendingOps: V1ModelPendingOps? = null,
     configure: (PipelineState) -> Unit = {},
     pipelineTail: (PipelineContext, PipelineState) -> TraceTree,
   ): TraceTree {
-    val s = createBranchState(ctx, bytesConsumed, snapshotEnv, snapshotPendingOps)
+    val s = createBranchState(ctx, bitsConsumed, snapshotEnv, snapshotPendingOps)
     configure(s)
     return try {
       pipelineTail(ctx, s)
@@ -278,7 +278,7 @@ class V1ModelArchitecture(
     member: TableStore.MemberAction,
   ): TraceTree {
     val fork = selectorFork.fork
-    val s = createBranchState(ctx, fork.bytesConsumed, fork.forkPointEnv, selectorFork.pendingOps)
+    val s = createBranchState(ctx, fork.bitsConsumed, fork.forkPointEnv, selectorFork.pendingOps)
     s.postParserEnv = selectorFork.postParserEnv
 
     try {
@@ -321,7 +321,7 @@ class V1ModelArchitecture(
     val buildBranch = { replica: Replica ->
       runBranch(
         ctx,
-        fork.bytesConsumed,
+        fork.bitsConsumed,
         fork.forkPointEnv,
         fork.forkPointPendingOps,
         configure = { s ->
@@ -356,7 +356,7 @@ class V1ModelArchitecture(
     val original =
       runBranch(
         ctx,
-        fork.bytesConsumed,
+        fork.bitsConsumed,
         fork.forkPointEnv,
         fork.forkPointPendingOps,
         configure = { s -> s.pendingOps.cloneSessionId = null },
@@ -375,7 +375,7 @@ class V1ModelArchitecture(
       buildCloneBranches(
         cloneCtx,
         fork.replicas,
-        fork.bytesConsumed,
+        fork.bitsConsumed,
         fork.postParserEnv,
         snapshotPendingOps = null,
         CLONE_I2E_INSTANCE_TYPE,
@@ -397,7 +397,7 @@ class V1ModelArchitecture(
     val original =
       runBranch(
         ctx,
-        fork.bytesConsumed,
+        fork.bitsConsumed,
         fork.forkPointEnv,
         fork.forkPointPendingOps,
         configure = { s -> s.pendingOps.egressCloneSessionId = null },
@@ -415,7 +415,7 @@ class V1ModelArchitecture(
       buildCloneBranches(
         cloneCtx,
         fork.replicas,
-        fork.bytesConsumed,
+        fork.bitsConsumed,
         fork.forkPointEnv,
         fork.forkPointPendingOps,
         CLONE_E2E_INSTANCE_TYPE,
@@ -435,7 +435,7 @@ class V1ModelArchitecture(
   private fun buildCloneBranches(
     ctx: PipelineContext,
     replicas: List<Replica>,
-    bytesConsumed: Int,
+    bitsConsumed: Int,
     snapshotEnv: Environment,
     snapshotPendingOps: V1ModelPendingOps?,
     instanceType: Long,
@@ -445,7 +445,7 @@ class V1ModelArchitecture(
     val buildBranch = { replica: Replica ->
       runBranch(
         ctx,
-        bytesConsumed,
+        bitsConsumed,
         snapshotEnv,
         snapshotPendingOps,
         configure = { s ->
@@ -821,7 +821,7 @@ class V1ModelArchitecture(
           s.packetCtx.getEvents(),
           snapshotPreservedMetadata(s, s.pendingOps.cloneFieldListId),
           s.env.deepCopy(),
-          s.packetCtx.bytesConsumed,
+          s.packetCtx.bitsConsumed,
           s.pendingOps.copy(),
           s.postParserEnv ?: error("no post-parser env for I2E clone"),
           session.truncateBytes,
@@ -844,7 +844,7 @@ class V1ModelArchitecture(
           replicas,
           s.packetCtx.getEvents(),
           s.env.deepCopy(),
-          s.packetCtx.bytesConsumed,
+          s.packetCtx.bitsConsumed,
           s.pendingOps.copy(),
         )
       }
@@ -870,7 +870,7 @@ class V1ModelArchitecture(
           s.packetCtx.getEvents(),
           snapshotPreservedMetadata(s, s.pendingOps.egressCloneFieldListId),
           s.env.deepCopy(),
-          s.packetCtx.bytesConsumed,
+          s.packetCtx.bitsConsumed,
           s.pendingOps.copy(),
           session.truncateBytes,
         )
@@ -1360,8 +1360,8 @@ internal class CloneFork(
   val preservedMetadata: Map<String, Value>? = null,
   /** Deep copy of the post-ingress environment (for the "original" branch). */
   val forkPointEnv: Environment,
-  /** Parser buffer position at the fork point. */
-  val bytesConsumed: Int,
+  /** Exact parser bit position at the fork point (not rounded to bytes). */
+  val bitsConsumed: Int,
   /** Pending operations at the fork point. */
   val forkPointPendingOps: V1ModelPendingOps,
   /** Post-parser env (for clone branches — BMv2: clone gets pre-ingress state). */
@@ -1381,8 +1381,8 @@ internal class EgressCloneFork(
   val preservedMetadata: Map<String, Value>? = null,
   /** Deep copy of the post-egress environment (for both branches). */
   val forkPointEnv: Environment,
-  /** Parser buffer position at the fork point. */
-  val bytesConsumed: Int,
+  /** Exact parser bit position at the fork point (not rounded to bytes). */
+  val bitsConsumed: Int,
   /** Pending operations at the fork point. */
   val forkPointPendingOps: V1ModelPendingOps,
   /** Clone session packet_length_bytes: 0 = no truncation, >0 = truncate to this many bytes. */
@@ -1395,8 +1395,8 @@ internal class MulticastFork(
   eventsBeforeFork: List<TraceEvent>,
   /** Deep copy of the environment at the fork point (post-ingress). */
   val forkPointEnv: Environment,
-  /** Parser buffer position at the fork point. */
-  val bytesConsumed: Int,
+  /** Exact parser bit position at the fork point (not rounded to bytes). */
+  val bitsConsumed: Int,
   /** Pending operations at the fork point. */
   val forkPointPendingOps: V1ModelPendingOps,
 ) : ForkException(eventsBeforeFork)

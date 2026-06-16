@@ -80,12 +80,12 @@ class Environment {
  * Holds the input packet buffer, the output (emit) buffer, and the execution trace. Created once
  * per packet in the architecture's [processPacket] and threaded through the interpreter.
  */
-class PacketContext(packet: PacketBits, initialOffset: Int = 0) {
+class PacketContext(packet: PacketBits, initialBitOffset: Int = 0) {
 
   constructor(
     payload: ByteArray,
-    initialOffset: Int = 0,
-  ) : this(PacketBits.ofBytes(payload), initialOffset)
+    initialBitOffset: Int = 0,
+  ) : this(PacketBits.ofBytes(payload), initialBitOffset)
 
   /** Original ingress packet length in bytes (for direct counter byte counts). */
   val payloadSize: Int = packet.packetByteLength
@@ -96,11 +96,11 @@ class PacketContext(packet: PacketBits, initialOffset: Int = 0) {
 
   /** Remaining bytes in the input packet, consumed by parser extract(). */
   private val buffer: ParserCursor =
-    ParserCursor(packet.backingBytesForParser(), initialOffset, packet.validBitLength)
+    ParserCursor(packet.backingBytesForParser(), initialBitOffset, packet.validBitLength)
 
-  /** Number of bytes consumed from the input buffer so far (parser extract position). */
-  val bytesConsumed: Int
-    get() = buffer.bytesConsumed
+  /** Exact number of bits consumed from the input buffer so far (parser extract position). */
+  val bitsConsumed: Int
+    get() = buffer.bitsConsumed
 
   /** Bit-level output buffer, written by deparser emit(). */
   private val outputBits = BitAccumulator()
@@ -178,23 +178,23 @@ open class ParserErrorException(val errorName: String, message: String) : Except
 @Suppress("MagicNumber")
 private class ParserCursor(
   private val data: ByteArray,
-  initialByteOffset: Int = 0,
+  initialBitOffset: Int = 0,
   private val validBitLength: Int = data.size * Byte.SIZE_BITS,
 ) {
   init {
     require(validBitLength in 0..data.size * Byte.SIZE_BITS) {
       "validBitLength must be between 0 and ${data.size * Byte.SIZE_BITS}, got $validBitLength"
     }
-    require(initialByteOffset * Byte.SIZE_BITS <= validBitLength) {
-      "initialByteOffset $initialByteOffset is past validBitLength $validBitLength"
+    require(initialBitOffset <= validBitLength) {
+      "initialBitOffset $initialBitOffset is past validBitLength $validBitLength"
     }
   }
 
-  private var bitOffset: Int = initialByteOffset * 8
+  private var bitOffset: Int = initialBitOffset
 
-  /** Number of whole bytes consumed from the start of the buffer. */
-  val bytesConsumed: Int
-    get() = (bitOffset + 7) / 8
+  /** Exact number of bits consumed from the start of the buffer. */
+  val bitsConsumed: Int
+    get() = bitOffset
 
   fun hasRemaining(): Boolean = bitOffset < validBitLength
 
