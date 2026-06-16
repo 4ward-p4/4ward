@@ -9,11 +9,11 @@ works with the [CLI](getting-started/cli.md) and the
 [web playground](getting-started/playground.md).
 
 For a guided walkthrough using these examples, see the
-[tutorial]({{ repo }}/blob/main/examples/tutorial.t).
+[tutorial]({{ config.repo_url }}/blob/main/examples/tutorial.t).
 
 ## passthrough
 
-**Source:** [`examples/passthrough.p4`]({{ repo }}/blob/main/examples/passthrough.p4)
+**Source:** [`examples/passthrough.p4`]({{ config.repo_url }}/blob/main/examples/passthrough.p4)
 
 The simplest possible v1model program. Parses an Ethernet header, hardcodes
 every packet to port 1, emits it unchanged. No tables, no actions.
@@ -41,7 +41,7 @@ parser, ingress (no events), and output on port 1.
 
 ## basic_table
 
-**Source:** [`examples/basic_table.p4`]({{ repo }}/blob/main/examples/basic_table.p4)
+**Source:** [`examples/basic_table.p4`]({{ config.repo_url }}/blob/main/examples/basic_table.p4)
 
 An exact-match table keyed on `etherType`. Matching packets are forwarded to
 a specified port; non-matching packets are dropped.

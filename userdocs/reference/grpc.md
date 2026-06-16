@@ -50,7 +50,7 @@ become primary for a role. The highest `election_id` wins.
 
 ## Dataplane service
 
-Defined in [`dataplane.proto`]({{ repo }}/blob/main/grpc/dataplane.proto).
+Defined in [`dataplane.proto`]({{ config.repo_url }}/blob/main/grpc/dataplane.proto).
 For packet injection and result observation — not part of the P4Runtime spec.
 
 ### `InjectPacket`
@@ -239,7 +239,7 @@ BMv2 hashes to one action selector member, while 4ward explores all 16
 to build the complete trace tree — that's the whole point.
 
 For full details on the benchmark methodology, build flags, and caveats,
-see [PERFORMANCE.md]({{ repo }}/blob/main/docs/PERFORMANCE.md).
+see [PERFORMANCE.md]({{ config.repo_url }}/blob/main/docs/PERFORMANCE.md).
 
 ## Error codes
 

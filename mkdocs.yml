@@ -16,8 +16,6 @@ plugins:
   - macros
 
 extra:
-  repo: https://github.com/smolkaj/4ward
-  repo_raw: https://raw.githubusercontent.com/smolkaj/4ward
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/smolkaj/4ward
