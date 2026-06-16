@@ -3,9 +3,12 @@ package fourward.simulator
 import com.google.protobuf.ByteString
 import fourward.Architecture
 import fourward.BehavioralConfig
+import fourward.BinaryOp
+import fourward.BinaryOperator
 import fourward.ControlDecl
 import fourward.DropReason
 import fourward.EnumDecl
+import fourward.Expr
 import fourward.ExternInstanceDecl
 import fourward.FieldDecl
 import fourward.ForkReason
@@ -40,6 +43,8 @@ class PNAArchitectureTest {
   // ---------------------------------------------------------------------------
   // Helpers: minimal PNA config construction
   // ---------------------------------------------------------------------------
+
+  private fun port(value: Long): DataplanePort = DataplanePort.fromUnsignedLong(value)
 
   private fun field(name: String, width: Int): FieldDecl =
     FieldDecl.newBuilder().setName(name).setType(bitType(width)).build()
@@ -262,6 +267,13 @@ class PNAArchitectureTest {
   /** recirculate() — PNA free function with no arguments. */
   private fun recirculate(): Stmt = externCall("recirculate")
 
+  /** Binary EQ expression with boolean result type. */
+  private fun eq(left: Expr, right: Expr): Expr =
+    Expr.newBuilder()
+      .setBinaryOp(BinaryOp.newBuilder().setOp(BinaryOperator.EQ).setLeft(left).setRight(right))
+      .setType(Type.newBuilder().setBoolean(true))
+      .build()
+
   private fun counterInstance(name: String): ExternInstanceDecl =
     ExternInstanceDecl.newBuilder()
       .setTypeName("Counter")
@@ -288,7 +300,7 @@ class PNAArchitectureTest {
   @Test
   fun `PNA drops by default without send_to_port`() {
     val config = pnaConfig()
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
@@ -298,7 +310,7 @@ class PNAArchitectureTest {
   fun `send_to_port forwards packet`() {
     val config = pnaConfig(mainControlStmts = listOf(sendToPort(5)))
     val payload = byteArrayOf(0xAA.toByte(), 0xBB.toByte())
-    val result = PNAArchitecture(config).processPacket(0u, payload, TableStore())
+    val result = PNAArchitecture(config).processPacket(port(0), payload, TableStore())
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(1, outputs.size)
@@ -310,7 +322,7 @@ class PNAArchitectureTest {
   fun `drop_packet explicitly drops`() {
     // send_to_port then drop_packet — last writer wins, packet drops.
     val config = pnaConfig(mainControlStmts = listOf(sendToPort(5), dropPacket()))
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
@@ -320,7 +332,7 @@ class PNAArchitectureTest {
   fun `send_to_port overrides drop_packet`() {
     // drop_packet then send_to_port — last writer wins, packet forwards.
     val config = pnaConfig(mainControlStmts = listOf(dropPacket(), sendToPort(5)))
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(1, outputs.size)
@@ -328,9 +340,31 @@ class PNAArchitectureTest {
   }
 
   @Test
+  fun `uint32 ingress port with high bit set reaches PNA metadata unsigned`() {
+    val highBitPort = 0xFFFF_FFFEL
+    val isHighBitInputPort =
+      eq(fieldAccess(nameRef("istd"), "input_port", bitType(32)), bit(highBitPort, 32))
+    val config =
+      pnaConfig(
+        mainControlStmts =
+          listOf(ifStmt(condition = isHighBitInputPort, thenStmts = listOf(sendToPort(9))))
+      )
+    val result =
+      PNAArchitecture(config).processPacket(port(highBitPort), byteArrayOf(0x01), TableStore())
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(1, outputs.size)
+    assertEquals(9, outputs[0].dataplaneEgressPort)
+    assertEquals(
+      DataplanePort.fromUnsignedLong(highBitPort).protoValue,
+      result.trace.eventsList.first { it.hasPacketIngress() }.packetIngress.dataplaneIngressPort,
+    )
+  }
+
+  @Test
   fun `trace has enter-exit pairs for all 4 PNA stages`() {
     val config = pnaConfig(mainControlStmts = listOf(sendToPort(1)))
-    val result = PNAArchitecture(config).processPacket(7u, byteArrayOf(0x01), TableStore())
+    val result = PNAArchitecture(config).processPacket(port(7), byteArrayOf(0x01), TableStore())
     val events = result.trace.eventsList.filter { it.hasPacketIngress() || it.hasPipelineStage() }
 
     // First event: packet ingress.
@@ -372,7 +406,7 @@ class PNAArchitectureTest {
           )
       )
     val tableStore = TableStore()
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
     // Packet should forward (register write doesn't affect drop).
     val outputs = result.possibleOutcomes.single()
@@ -394,8 +428,9 @@ class PNAArchitectureTest {
     val tableStore = TableStore()
     tableStore.loadMappings(p4info = p4InfoWithCounter("pkt_counter", 8))
 
-    PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01, 0x02, 0x03, 0x04), tableStore)
-    PNAArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte(), 0xBB.toByte()), tableStore)
+    PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01, 0x02, 0x03, 0x04), tableStore)
+    PNAArchitecture(config)
+      .processPacket(port(0), byteArrayOf(0xAA.toByte(), 0xBB.toByte()), tableStore)
 
     val results =
       tableStore.readCounterEntries(
@@ -416,7 +451,7 @@ class PNAArchitectureTest {
     // This should hit the MAX_RECIRCULATIONS guard.
     val config = pnaConfig(mainControlStmts = listOf(recirculate()))
     try {
-      PNAArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte()), TableStore())
+      PNAArchitecture(config).processPacket(port(0), byteArrayOf(0xAA.toByte()), TableStore())
       fail("expected recirculation depth exceeded")
     } catch (e: IllegalStateException) {
       assertTrue(e.message!!.contains("recirculation depth exceeded"))
@@ -426,7 +461,7 @@ class PNAArchitectureTest {
   @Test
   fun `assertion failure drops packet`() {
     val config = pnaConfig(mainControlStmts = listOf(externCall("assert", boolLit(false))))
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
@@ -447,7 +482,7 @@ class PNAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5))
 
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte()), store)
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0xAA.toByte()), store)
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(2, outputs.size)
@@ -462,7 +497,7 @@ class PNAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 7))
 
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0xBB.toByte()), store)
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0xBB.toByte()), store)
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(1, outputs.size)
@@ -500,7 +535,7 @@ class PNAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5))
 
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x11), store)
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x11), store)
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(2, outputs.size)
@@ -515,7 +550,7 @@ class PNAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5))
 
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
     assertTrue(result.trace.hasForkOutcome())
     assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
@@ -526,7 +561,7 @@ class PNAArchitectureTest {
   @Test
   fun `mirror_packet with unknown session silently ignores mirror`() {
     val config = pnaConfig(mainControlStmts = listOf(sendToPort(2), mirrorPacket(0, 999)))
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(1, outputs.size)
@@ -539,7 +574,7 @@ class PNAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5, 1 to 6, 2 to 7))
 
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
     val outputs = result.possibleOutcomes.single()
 
     // Original + 3 mirror replicas = 4 outputs.
@@ -561,7 +596,7 @@ class PNAArchitectureTest {
     writeCloneSession(store, 100, listOf(0 to 5))
 
     try {
-      PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+      PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
       fail("expected recirculation depth exceeded")
     } catch (e: IllegalStateException) {
       assertTrue(e.message!!.contains("recirculation depth exceeded"))
@@ -576,7 +611,7 @@ class PNAArchitectureTest {
   fun `drop_packet in pre_control is rejected`() {
     val config = pnaConfig(preControlStmts = listOf(dropPacket()))
     try {
-      PNAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+      PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
       fail("expected drop_packet to be rejected in pre_control")
     } catch (e: IllegalArgumentException) {
       assertTrue(e.message!!.contains("main_control"))

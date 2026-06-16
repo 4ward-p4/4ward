@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString
 import fourward.simulator.toUnsignedBigInteger
 import io.grpc.Status
 import io.grpc.StatusException
+import java.nio.ByteBuffer
 import p4.v1.P4RuntimeOuterClass
 
 /**
@@ -72,6 +73,12 @@ fun canonicalize(value: ByteString): ByteString {
   var first = 0
   while (first < value.size() - 1 && value.byteAt(first).toInt() == 0) first++
   return if (first == 0) value else value.substring(first)
+}
+
+/** Encodes a proto `uint32` value in fixed-width big-endian form. */
+fun uint32Bytes(value: Long): ByteString {
+  require(value in 0..UInt.MAX_VALUE.toLong()) { "uint32 value out of range: $value" }
+  return ByteString.copyFrom(ByteBuffer.allocate(Int.SIZE_BYTES).putInt(value.toInt()).array())
 }
 
 /**

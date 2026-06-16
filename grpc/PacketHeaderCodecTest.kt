@@ -14,6 +14,7 @@ import fourward.StructDecl
 import fourward.Type
 import fourward.TypeDecl
 import fourward.simulator.BitAccumulator
+import fourward.simulator.DataplanePort
 import java.math.BigInteger
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -54,7 +55,7 @@ class PacketHeaderCodecTest {
     // packet_in: 9-bit ingress_port + 9-bit target_egress_port = 18 bits = 3 bytes
     assertEquals(3, codec.packetInHeaderBytes)
     // CPU port = 2^9 - 2 = 510
-    assertEquals(510, codec.cpuPort)
+    assertEquals(510, codec.cpuPort.protoValue)
   }
 
   @Test
@@ -965,7 +966,7 @@ class PacketHeaderCodecTest {
     val (p4info, behavioral) = buildSaiLikeConfig()
     val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 42)
     assertNotNull(codec)
-    assertEquals(42, codec!!.cpuPort)
+    assertEquals(42, codec!!.cpuPort.protoValue)
   }
 
   @Test
@@ -974,7 +975,7 @@ class PacketHeaderCodecTest {
     val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = null)
     assertNotNull(codec)
     // Default: 2^9 - 2 = 510
-    assertEquals(510, codec!!.cpuPort)
+    assertEquals(510, codec!!.cpuPort.protoValue)
   }
 
   @Test
@@ -1007,7 +1008,7 @@ class PacketHeaderCodecTest {
 
     val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = null)
 
-    assertEquals(510, codec!!.cpuPort)
+    assertEquals(510, codec!!.cpuPort.protoValue)
   }
 
   @Test
@@ -1017,7 +1018,8 @@ class PacketHeaderCodecTest {
 
     val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = null)
 
-    assertEquals(0xFFFF_FFFEu.toInt(), codec!!.cpuPort)
+    assertEquals(0xFFFF_FFFEu.toInt(), codec!!.cpuPort.protoValue)
+    assertEquals(0xFFFF_FFFEL, codec.cpuPort.unsignedLong)
   }
 
   @Test
@@ -1047,8 +1049,22 @@ class PacketHeaderCodecTest {
 
   @Test
   fun `fromFlag integer returns Override with Dataplane port`() {
-    assertEquals(CpuPortConfig.Override(PortOverride.Dataplane(510)), CpuPortConfig.fromFlag("510"))
-    assertEquals(CpuPortConfig.Override(PortOverride.Dataplane(0)), CpuPortConfig.fromFlag("0"))
+    assertEquals(
+      CpuPortConfig.Override(PortOverride.Dataplane(DataplanePort.fromUnsignedLong(510))),
+      CpuPortConfig.fromFlag("510"),
+    )
+    assertEquals(
+      CpuPortConfig.Override(PortOverride.Dataplane(DataplanePort.fromUnsignedLong(0))),
+      CpuPortConfig.fromFlag("0"),
+    )
+  }
+
+  @Test
+  fun `fromFlag hex integer returns Override with Dataplane port`() {
+    assertEquals(
+      CpuPortConfig.Override(PortOverride.Dataplane(DataplanePort.fromUnsignedLong(0xFFFF_FFFEL))),
+      CpuPortConfig.fromFlag("0xffff_fffe"),
+    )
   }
 
   @Test

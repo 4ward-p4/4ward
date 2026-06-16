@@ -10,6 +10,7 @@ import com.google.protobuf.ByteString
 import fourward.BehavioralConfig
 import fourward.Type
 import fourward.simulator.BitAccumulator
+import fourward.simulator.DataplanePort
 import java.math.BigInteger
 import p4.config.v1.P4InfoOuterClass.P4Info
 import p4.v1.P4RuntimeOuterClass.PacketIn
@@ -20,13 +21,14 @@ import p4.v1.P4RuntimeOuterClass.PacketMetadata
  * resolved at pipeline load time.
  */
 sealed interface PortOverride {
-  data class Dataplane(val port: Int) : PortOverride
+  data class Dataplane(val port: DataplanePort) : PortOverride
 
   data class P4rt(val name: String) : PortOverride
 
   companion object {
     /** Parses a CLI flag value: integer → [Dataplane], anything else → [P4rt]. */
-    fun fromFlag(value: String): PortOverride = value.toIntOrNull()?.let(::Dataplane) ?: P4rt(value)
+    fun fromFlag(value: String): PortOverride =
+      DataplanePort.fromUnsignedLiteralOrNull(value)?.let(::Dataplane) ?: P4rt(value)
   }
 }
 
@@ -69,7 +71,7 @@ private constructor(
   private val packetOutFields: List<FieldDef>,
   private val packetInFields: List<FieldDef>,
   /** The CPU port for PacketOut packets (v1model convention: 2^portBits - 2). */
-  val cpuPort: Int,
+  val cpuPort: DataplanePort,
 ) {
   data class FieldDef(val id: Int?, val name: String, val bitWidth: Int)
 
@@ -96,6 +98,10 @@ private constructor(
   @Suppress("MagicNumber")
   fun stripPacketInHeader(payload: ByteString): ByteString {
     if (packetInHeaderBits == 0) return payload
+    require(payload.size() * Byte.SIZE_BITS >= packetInHeaderBits) {
+      "deparsed payload (${payload.size()} bytes) is shorter than the " +
+        "$packetInHeaderBits-bit packet_in controller header"
+    }
     if (packetInHeaderBits % 8 == 0) return payload.substring(packetInHeaderBytes)
     val bytes = payload.toByteArray()
     // The deparsed byte array contains: headerBits + payloadBits + trailingPadBits,
@@ -260,6 +266,17 @@ private constructor(
       p4info: P4Info,
       behavioral: BehavioralConfig,
       cpuPortOverride: Int? = null,
+    ): PacketHeaderCodec? =
+      createWithCpuPort(
+        p4info,
+        behavioral,
+        cpuPortOverride?.toLong()?.let(DataplanePort::fromUnsignedLong),
+      )
+
+    fun createWithCpuPort(
+      p4info: P4Info,
+      behavioral: BehavioralConfig,
+      cpuPortOverride: DataplanePort? = null,
     ): PacketHeaderCodec? {
       val packetOutMeta =
         p4info.controllerPacketMetadataList.find { it.preamble.name == "packet_out" } ?: return null
@@ -334,11 +351,13 @@ private constructor(
       return bitWidth(ingressPort.type)
     }
 
-    private fun deriveAutoCpuPort(portBits: Int): Int {
+    private fun deriveAutoCpuPort(portBits: Int): DataplanePort {
       require(portBits in 1..Int.SIZE_BITS) {
         "automatic CPU port derivation requires a 1..32-bit dataplane port, got $portBits bits"
       }
-      return BigInteger.ONE.shiftLeft(portBits).subtract(BigInteger.TWO).toInt()
+      return DataplanePort.fromUnsignedLong(
+        BigInteger.ONE.shiftLeft(portBits).subtract(BigInteger.TWO).toLong()
+      )
     }
 
     private fun bitWidth(type: Type): Int =

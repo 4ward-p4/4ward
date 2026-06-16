@@ -3,6 +3,7 @@ package fourward.grpc
 import com.google.protobuf.ByteString
 import fourward.TranslationEntry
 import fourward.TypeTranslation
+import fourward.simulator.DataplanePort
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
@@ -76,14 +77,14 @@ private enum class Direction {
  */
 class PortTranslator internal constructor(private val table: TranslationTable) {
   /** Translates a P4Runtime port ID to a dataplane port number. */
-  fun p4rtToDataplane(p4rtPort: ByteString): Int {
+  fun p4rtToDataplane(p4rtPort: ByteString): DataplanePort {
     val dp =
       if (table.isStringType) {
         table.lookupOrAllocateString(p4rtPort.toStringUtf8())
       } else {
         table.lookupOrAllocateBitstring(p4rtPort)
       }
-    return dp.toUnsignedInt()
+    return DataplanePort.fromProto(dp.toUnsignedInt())
   }
 
   /**
@@ -93,12 +94,14 @@ class PortTranslator internal constructor(private val table: TranslationTable) {
    * Only works for `sdn_string` port types (e.g. SAI P4). `sdn_bitwidth` types are not supported
    * because the caller provides a string name, not a bitstring.
    */
-  fun resolveExplicit(p4rtName: String): Int? =
-    table.lookupStringExplicit(p4rtName)?.toUnsignedInt()
+  fun resolveExplicit(p4rtName: String): DataplanePort? =
+    table.lookupStringExplicit(p4rtName)?.toUnsignedInt()?.let(DataplanePort::fromProto)
 
   /** Translates a dataplane port number to a P4Runtime port ID, or null if no mapping exists. */
-  fun dataplaneToP4rt(dataplanePort: Int): ByteString? =
-    when (val p4rtValue = table.reverseLookupOrNull(encodeMinWidth(dataplanePort))) {
+  fun dataplaneToP4rt(dataplanePort: DataplanePort): ByteString? =
+    when (
+      val p4rtValue = table.reverseLookupOrNull(encodeMinWidth(dataplanePort.unsignedBigInteger))
+    ) {
       is P4rtValue.Str -> ByteString.copyFromUtf8(p4rtValue.value)
       is P4rtValue.Bitstring -> p4rtValue.value
       null -> null
@@ -276,8 +279,11 @@ private constructor(
       if (replica.port.isEmpty) return replica
       val newPort: ByteString =
         when (direction) {
-          Direction.TO_DATAPLANE -> encodeMinWidth(pt.p4rtToDataplane(replica.port))
-          Direction.TO_P4RT -> pt.dataplaneToP4rt(replica.port.toUnsignedInt()) ?: return replica
+          Direction.TO_DATAPLANE ->
+            encodeMinWidth(pt.p4rtToDataplane(replica.port).unsignedBigInteger)
+          Direction.TO_P4RT ->
+            pt.dataplaneToP4rt(DataplanePort.fromProto(replica.port.toUnsignedInt()))
+              ?: return replica
         }
       return replica.toBuilder().setPort(newPort).build()
     }
@@ -815,20 +821,21 @@ internal class TranslationTable(
     )
 
   private fun putReverse(dataplaneValue: ByteString, p4rtValue: P4rtValue) {
-    reverse[encodeMinWidth(dataplaneValue.toUnsignedInt())] = p4rtValue
+    reverse[canonicalize(dataplaneValue)] = p4rtValue
   }
 
   /** Reverse-translates a data-plane value to its P4Runtime representation. */
   @Synchronized
   fun reverseLookup(dataplaneValue: ByteString): P4rtValue =
-    reverse[dataplaneValue]
+    reverse[canonicalize(dataplaneValue)]
       ?: throw TranslationException(
         "no reverse mapping for data-plane value 0x${dataplaneValue.toHex()}"
       )
 
   /** Like [reverseLookup] but returns null instead of throwing. */
   @Synchronized
-  fun reverseLookupOrNull(dataplaneValue: ByteString): P4rtValue? = reverse[dataplaneValue]
+  fun reverseLookupOrNull(dataplaneValue: ByteString): P4rtValue? =
+    reverse[canonicalize(dataplaneValue)]
 
   @Synchronized fun lookupStringExplicit(p4rtStr: String): ByteString? = stringForward[p4rtStr]
 
@@ -863,8 +870,8 @@ internal class TranslationTable(
       for (entry in proto.entriesList) {
         val dp = entry.dataplaneValue
         // Normalize to minimum-width so reverse lookups (which use
-        // encodeMinWidth) match regardless of the config's byte width.
-        val dpNorm = encodeMinWidth(dp.toUnsignedInt())
+        // canonical bytes) match regardless of the config's byte width.
+        val dpNorm = canonicalize(dp)
         table.reservedValues.add(dp.toUnsignedInt())
         table.putReverse(
           dpNorm,

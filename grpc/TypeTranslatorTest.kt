@@ -3,6 +3,7 @@ package fourward.grpc
 import com.google.protobuf.ByteString
 import fourward.TranslationEntry
 import fourward.TypeTranslation
+import fourward.simulator.DataplanePort
 import java.math.BigInteger
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -124,6 +125,42 @@ class TypeTranslatorTest {
 
     val result = translator.dataplaneToP4rt("port_name_t", dpBytes(0))
     assertEquals(P4rtValue.Str("Ethernet0"), result)
+  }
+
+  @Test
+  fun `explicit string mapping accepts uint32 dataplane values with high bit set`() {
+    val translator =
+      buildTranslator(
+        translation {
+          typeName = "port_name_t"
+          addEntries(stringEntry("CpuPort", uint32Bytes(0xFFFF_FFFEL).toByteArray()))
+        }
+      )
+
+    val result = translator.dataplaneToP4rt("port_name_t", uint32Bytes(0xFFFF_FFFEL).toByteArray())
+
+    assertEquals(P4rtValue.Str("CpuPort"), result)
+  }
+
+  @Test
+  fun `port translator reverse translates uint32 dataplane ports with high bit set`() {
+    val p4info = P4InfoOuterClass.P4Info.newBuilder().setTypeInfo(stringTypeInfo()).build()
+    val translator =
+      TypeTranslator.create(
+        p4info,
+        listOf(
+          translation {
+            typeName = "port_name_t"
+            addEntries(stringEntry("CpuPort", uint32Bytes(0xFFFF_FFFEL).toByteArray()))
+          }
+        ),
+        portTypeName = "port_name_t",
+      )
+
+    assertEquals(
+      ByteString.copyFromUtf8("CpuPort"),
+      translator.portTranslator?.dataplaneToP4rt(DataplanePort.fromProto(0xFFFF_FFFEu.toInt())),
+    )
   }
 
   // ===========================================================================

@@ -62,9 +62,11 @@ internal fun buildOutputTrace(events: List<TraceEvent>, port: Int, payload: Byte
 }
 
 /** Creates a [TraceEvent] recording the packet's ingress port. */
-internal fun packetIngressEvent(ingressPort: UInt): TraceEvent =
+internal fun packetIngressEvent(ingressPort: DataplanePort): TraceEvent =
   TraceEvent.newBuilder()
-    .setPacketIngress(PacketIngressEvent.newBuilder().setDataplaneIngressPort(ingressPort.toInt()))
+    .setPacketIngress(
+      PacketIngressEvent.newBuilder().setDataplaneIngressPort(ingressPort.protoValue)
+    )
     .build()
 
 /** Creates a [TraceEvent] marking the entry/exit of a pipeline stage. */

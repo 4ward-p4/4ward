@@ -8,6 +8,7 @@ import com.google.rpc.Code
 import fourward.DeviceConfig
 import fourward.OutputPacket
 import fourward.PipelineConfig
+import fourward.simulator.DataplanePort
 import fourward.simulator.PacketBits
 import fourward.simulator.Simulator
 import fourward.simulator.WriteResult
@@ -91,7 +92,7 @@ class P4RuntimeService(
     val referenceValidator: ReferenceValidator?,
     val constraintValidator: ConstraintValidator?,
     val packetHeaderCodec: PacketHeaderCodec?,
-    val resolvedDropPort: Int?,
+    val resolvedDropPort: DataplanePort?,
     val entityReader: EntityReader,
     val roleMap: RoleMap,
   )
@@ -258,7 +259,7 @@ class P4RuntimeService(
           is CpuPortConfig.Auto ->
             PacketHeaderCodec.create(fwdConfig.p4Info, deviceConfig.behavioral)
           is CpuPortConfig.Override ->
-            PacketHeaderCodec.create(
+            PacketHeaderCodec.createWithCpuPort(
               fwdConfig.p4Info,
               deviceConfig.behavioral,
               resolvePortOverride(
@@ -762,7 +763,7 @@ class P4RuntimeService(
     val translator = state.typeTranslator?.takeIf { it.hasTranslations }
     val cpuPort = codec.cpuPort
     return outputPackets
-      .filter { it.dataplaneEgressPort == cpuPort }
+      .filter { DataplanePort.fromProto(it.dataplaneEgressPort) == cpuPort }
       .map { outputPacket ->
         // Decode the @controller_header("packet_in") that the deparser emitted at the front of the
         // payload: metadata is parsed from the header bits, never reconstructed from port state.
@@ -774,9 +775,11 @@ class P4RuntimeService(
   }
 
   /** Extracts ingress port from PacketOut metadata, defaulting to port 0. */
-  private fun extractIngressPort(metadata: List<p4.v1.P4RuntimeOuterClass.PacketMetadata>): Int {
+  private fun extractIngressPort(
+    metadata: List<p4.v1.P4RuntimeOuterClass.PacketMetadata>
+  ): DataplanePort {
     val portMeta = metadata.find { it.metadataId == INGRESS_PORT_METADATA_ID }
-    return portMeta?.value?.toUnsignedInt() ?: 0
+    return DataplanePort.fromProto(portMeta?.value?.toUnsignedInt() ?: 0)
   }
 
   // ---------------------------------------------------------------------------
@@ -1152,7 +1155,7 @@ class P4RuntimeService(
     portOverride: PortOverride?,
     portTranslator: PortTranslator?,
     flagName: String,
-  ): Int? =
+  ): DataplanePort? =
     when (portOverride) {
       null -> null
       is PortOverride.Dataplane -> portOverride.port

@@ -70,9 +70,8 @@ class V1ModelArchitecture(
    * Override for the drop port. When null (default), derived from `standard_metadata` port width:
    * `2^N - 1` (511 for 9-bit ports). Applied in [PipelineState] and in the `mark_to_drop` extern.
    */
-  private val dropPortOverride: Int? = null,
+  private val dropPortOverride: DataplanePort? = null,
 ) : Architecture {
-
   // Pipeline-invariant state derived from [config], built once per loaded pipeline. Immutable
   // after publication, so safe to read concurrently from any number of [processPacket] threads
   // without synchronization.
@@ -80,7 +79,7 @@ class V1ModelArchitecture(
 
   /** Invariant inputs to the pipeline, shared across fork re-executions. */
   private data class PipelineContext(
-    val ingressPort: UInt,
+    val ingressPort: DataplanePort,
     val packet: PacketBits,
     val config: BehavioralConfig,
     val tableStore: TableStore,
@@ -118,7 +117,7 @@ class V1ModelArchitecture(
   }
 
   override fun processPacket(
-    ingressPort: UInt,
+    ingressPort: DataplanePort,
     packet: PacketBits,
     tableStore: TableStore,
   ): PipelineResult {
@@ -568,7 +567,7 @@ class V1ModelArchitecture(
     check("packet_length" in standardMetadata.fields) {
       "$standardMetaTypeName has no packet_length"
     }
-    standardMetadata.setBitField("ingress_port", ctx.ingressPort.toLong())
+    standardMetadata.setBitField("ingress_port", ctx.ingressPort.unsignedLong)
     standardMetadata.setBitField("packet_length", ctx.packet.packetByteLength.toLong())
     standardMetadata.fields["parser_error"] = ErrorVal.NO_ERROR
     setTimestampField(
@@ -621,7 +620,7 @@ class V1ModelArchitecture(
     existingPendingOps: V1ModelPendingOps? = null,
   ): PipelineState {
     val portBits = standardMetadata.bitWidth("ingress_port")
-    val dropPort = dropPortOverride?.toLong() ?: ((1L shl portBits) - 1)
+    val dropPort = dropPortOverride?.unsignedLong ?: ((1L shl portBits) - 1)
 
     val pendingOps = existingPendingOps ?: V1ModelPendingOps()
     val interpreter =
@@ -675,7 +674,7 @@ class V1ModelArchitecture(
         s,
         s.ingressControls,
         duringIngress = true,
-        dataplanePort = ctx.ingressPort.toInt(),
+        dataplanePort = ctx.ingressPort.protoValue,
       )
 
       // --- Ingress→egress boundary (traffic manager) ---

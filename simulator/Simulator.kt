@@ -79,6 +79,10 @@ class Simulator : TableDataReader {
    * @throws IllegalArgumentException if the architecture is unsupported.
    */
   fun loadPipeline(config: PipelineConfig, dropPortOverride: Int? = null) {
+    loadPipeline(config, dropPortOverride?.let(DataplanePort::fromProto))
+  }
+
+  fun loadPipeline(config: PipelineConfig, dropPortOverride: DataplanePort?) {
     val tableStore = TableStore()
     tableStore.loadMappings(config.p4Info, config.device)
     val behavioral = config.device.behavioral
@@ -102,6 +106,10 @@ class Simulator : TableDataReader {
    * **Concurrency:** same as [loadPipeline] — single-writer.
    */
   fun loadPipelinePreservingEntries(config: PipelineConfig, dropPortOverride: Int? = null) {
+    loadPipelinePreservingEntries(config, dropPortOverride?.let(DataplanePort::fromProto))
+  }
+
+  fun loadPipelinePreservingEntries(config: PipelineConfig, dropPortOverride: DataplanePort?) {
     val old = loaded()
     val oldSnapshot = old.tableStore.snapshot()
     val oldAliasByName = old.tableStore.tableAliasByName
@@ -121,9 +129,16 @@ class Simulator : TableDataReader {
    * @throws IllegalStateException if no pipeline is loaded.
    */
   fun processPacket(ingressPort: Int, payload: ByteArray): ProcessPacketResult =
+    processPacket(DataplanePort.fromProto(ingressPort), PacketBits.ofBytes(payload))
+
+  fun processPacket(ingressPort: DataplanePort, payload: ByteArray): ProcessPacketResult =
     processPacket(ingressPort, PacketBits.ofBytes(payload))
 
   fun processPacket(ingressPort: Int, packet: PacketBits): ProcessPacketResult {
+    return processPacket(DataplanePort.fromProto(ingressPort), packet)
+  }
+
+  fun processPacket(ingressPort: DataplanePort, packet: PacketBits): ProcessPacketResult {
     val loaded = loaded()
     // Pin the forwarding snapshot before processing so the reproducer's entity extraction
     // uses the exact same state the packet saw — no race with concurrent publishSnapshot().
@@ -132,7 +147,7 @@ class Simulator : TableDataReader {
     val captured =
       loaded.tableStore.captureRegisterSeeds {
         loaded.architecture.processPacket(
-          ingressPort = ingressPort.toUInt(),
+          ingressPort = ingressPort,
           packet = packet,
           tableStore = loaded.tableStore,
         )

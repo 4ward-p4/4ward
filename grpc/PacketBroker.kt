@@ -4,6 +4,7 @@ import fourward.OutputPacket
 import fourward.PrePacketHookInvocation
 import fourward.PrePacketHookResponse
 import fourward.TraceTree
+import fourward.simulator.DataplanePort
 import fourward.simulator.PacketBits
 import fourward.simulator.ProcessPacketResult
 import java.util.concurrent.atomic.AtomicReference
@@ -32,7 +33,7 @@ import p4.v1.P4RuntimeOuterClass
  *   acquired when a pre-packet hook is registered (to apply hook updates atomically).
  */
 class PacketBroker(
-  private val simulatorFn: (ingressPort: Int, packet: PacketBits) -> ProcessPacketResult,
+  private val simulatorFn: (ingressPort: DataplanePort, packet: PacketBits) -> ProcessPacketResult,
   private val writeMutex: Mutex,
 ) {
 
@@ -97,7 +98,7 @@ class PacketBroker(
 
   /** Delivered to each [subscribe] subscriber for every processed packet. */
   class SubscriptionResult(
-    val ingressPort: Int,
+    val ingressPort: DataplanePort,
     val packet: PacketBits,
     val possibleOutcomes: List<List<OutputPacket>>,
     val trace: TraceTree,
@@ -123,7 +124,7 @@ class PacketBroker(
   }
 
   suspend fun processPacket(
-    ingressPort: Int,
+    ingressPort: DataplanePort,
     payload: ByteArray,
     tag: Long = 0,
   ): ProcessPacketResult = processPacket(ingressPort, PacketBits.ofBytes(payload), tag)
@@ -135,7 +136,7 @@ class PacketBroker(
    * its updates atomically).
    */
   suspend fun processPacket(
-    ingressPort: Int,
+    ingressPort: DataplanePort,
     packet: PacketBits,
     tag: Long = 0,
   ): ProcessPacketResult {
@@ -151,7 +152,7 @@ class PacketBroker(
    * Used by [DataplaneService.injectPackets] to stream packets without buffering the entire batch.
    */
   suspend fun <T> withHookOnce(
-    block: suspend (processor: suspend (Int, ByteArray, Long) -> Unit) -> T
+    block: suspend (processor: suspend (DataplanePort, ByteArray, Long) -> Unit) -> T
   ): T {
     fireHookUnderMutex()
     return block { port, payload, tag ->
@@ -174,7 +175,7 @@ class PacketBroker(
   }
 
   private suspend fun dispatchToSubscribers(
-    ingressPort: Int,
+    ingressPort: DataplanePort,
     packet: PacketBits,
     result: ProcessPacketResult,
     tag: Long = 0,

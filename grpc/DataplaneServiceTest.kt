@@ -1,19 +1,36 @@
 package fourward.grpc
 
 import com.google.protobuf.ByteString
+import fourward.BehavioralConfig
+import fourward.BitType
 import fourward.DataplaneGrpcKt.DataplaneCoroutineStub
+import fourward.DeviceConfig
+import fourward.FieldDecl
+import fourward.HeaderDecl
 import fourward.InjectPacketRequest
+import fourward.OutputPacket
+import fourward.PipelineConfig
 import fourward.PrePacketHookInvocation
 import fourward.PrePacketHookResponse
+import fourward.StructDecl
 import fourward.SubscribeResultsRequest
 import fourward.SubscribeResultsResponse
+import fourward.TraceTree
+import fourward.TranslationEntry
+import fourward.Type
+import fourward.TypeDecl
+import fourward.TypeTranslation
 import fourward.e2e.compileInlineP4
 import fourward.grpc.FourwardTestHarness.Companion.assertGrpcError
 import fourward.grpc.FourwardTestHarness.Companion.buildEthernetFrame
 import fourward.grpc.FourwardTestHarness.Companion.buildExactEntry
 import fourward.grpc.FourwardTestHarness.Companion.buildMulticastGroup
 import fourward.grpc.FourwardTestHarness.Companion.loadConfig
+import fourward.simulator.DataplanePort
+import fourward.simulator.ProcessPacketResult
+import fourward.simulator.TableStore
 import io.grpc.Status
+import io.grpc.StatusException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +44,7 @@ import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -34,6 +52,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
+import p4.config.v1.P4InfoOuterClass.ControllerPacketMetadata
+import p4.config.v1.P4InfoOuterClass.P4Info
+import p4.config.v1.P4InfoOuterClass.Preamble
 import p4.config.v1.P4Types
 
 class DataplaneServiceTest {
@@ -607,6 +628,155 @@ class DataplaneServiceTest {
     job.cancel()
   }
 
+  @Test
+  @Suppress("MagicNumber")
+  fun `SubscribeResults reverse translates uint32 CPU port with high bit set`() = runBlocking {
+    val cpuPort = DataplanePort.fromUnsignedLong(0xFFFF_FFFEL)
+    val p4info = packetIoP4InfoWithTranslatedPort()
+    val behavioral = packetIoBehavioralWithPortBits(32)
+    val typeTranslator =
+      TypeTranslator.create(
+        p4info,
+        listOf(
+          TypeTranslation.newBuilder()
+            .setTypeName("port_name_t")
+            .addEntries(
+              TranslationEntry.newBuilder()
+                .setSdnStr("CpuPort")
+                .setDataplaneValue(uint32Bytes(0xFFFF_FFFEL))
+            )
+            .build()
+        ),
+        portTypeName = "port_name_t",
+      )
+    val packetHeaderCodec = PacketHeaderCodec.createWithCpuPort(p4info, behavioral, cpuPort)
+    val output =
+      OutputPacket.newBuilder()
+        .setDataplaneEgressPort(cpuPort.protoValue)
+        .setPayload(ByteString.copyFrom(byteArrayOf(0x01, 0x02)))
+        .build()
+    val tableStore = TableStore()
+    val broker =
+      PacketBroker(
+        { _, _ ->
+          ProcessPacketResult(
+            trace = TraceTree.getDefaultInstance(),
+            possibleOutcomes = listOf(listOf(output)),
+            forwardingSnapshot = tableStore.snapshot,
+          )
+        },
+        Mutex(),
+      )
+    val service =
+      DataplaneService(broker) {
+        DataplaneService.PipelineSnapshot(
+          config =
+            PipelineConfig.newBuilder()
+              .setP4Info(p4info)
+              .setDevice(DeviceConfig.newBuilder().setBehavioral(behavioral))
+              .build(),
+          tableStore = tableStore,
+          typeTranslator = typeTranslator,
+          packetHeaderCodec = packetHeaderCodec,
+        )
+      }
+    val results = Channel<SubscribeResultsResponse>(UNLIMITED)
+    val job = launch {
+      service.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
+        results.send(it)
+      }
+    }
+
+    assertTrue(
+      "subscription should become active",
+      withTimeout(5000) { results.receive() }.hasActive(),
+    )
+
+    broker.processPacket(DataplanePort.fromProto(0), byteArrayOf())
+
+    val msg = withTimeout(5000) { results.receive() }
+    assertTrue("should be a result", msg.hasResult())
+    val packet = msg.result.possibleOutcomesList.single().getPackets(0)
+    assertEquals(0xFFFF_FFFEu.toInt(), packet.dataplaneEgressPort)
+    assertEquals(ByteString.copyFromUtf8("CpuPort"), packet.p4RtEgressPort)
+    assertTrue("should decode PacketIn for high-bit CPU port", packet.hasPacketIn())
+
+    job.cancel()
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `SubscribeResults reports enrichment failures as INTERNAL`() = runBlocking {
+    val cpuPort = DataplanePort.fromUnsignedLong(7)
+    val p4info = packetIoP4InfoWithTranslatedPort(packetInBits = 16)
+    val behavioral = packetIoBehavioralWithPortBits(portBits = 9, packetInBits = 16)
+    val packetHeaderCodec = PacketHeaderCodec.createWithCpuPort(p4info, behavioral, cpuPort)
+    val output =
+      OutputPacket.newBuilder()
+        .setDataplaneEgressPort(cpuPort.protoValue)
+        .setPayload(ByteString.EMPTY)
+        .build()
+    val tableStore = TableStore()
+    val broker =
+      PacketBroker(
+        { _, _ ->
+          ProcessPacketResult(
+            trace = TraceTree.getDefaultInstance(),
+            possibleOutcomes = listOf(listOf(output)),
+            forwardingSnapshot = tableStore.snapshot,
+          )
+        },
+        Mutex(),
+      )
+    val service =
+      DataplaneService(broker) {
+        DataplaneService.PipelineSnapshot(
+          config =
+            PipelineConfig.newBuilder()
+              .setP4Info(p4info)
+              .setDevice(DeviceConfig.newBuilder().setBehavioral(behavioral))
+              .build(),
+          tableStore = tableStore,
+          typeTranslator = null,
+          packetHeaderCodec = packetHeaderCodec,
+        )
+      }
+    val results = Channel<SubscribeResultsResponse>(UNLIMITED)
+    val collector = async {
+      try {
+        service.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
+          results.send(it)
+        }
+        null
+      } catch (e: StatusException) {
+        e
+      }
+    }
+
+    assertTrue(
+      "subscription should become active",
+      withTimeout(5000) { results.receive() }.hasActive(),
+    )
+
+    broker.processPacket(DataplanePort.fromProto(0), byteArrayOf())
+
+    val failure = withTimeout(5000) { collector.await() }!!
+    assertEquals(Status.Code.INTERNAL, failure.status.code)
+    val description = failure.status.description!!
+    assertTrue(
+      "status description should identify SubscribeResults enrichment",
+      description.contains("SubscribeResults failed while enriching a packet result"),
+    )
+    assertTrue(
+      "status description should point at PacketIn controller-header metadata",
+      description.contains("check PacketIn @controller_header metadata"),
+    )
+    assertTrue(
+      "status description should include the packet-header decoding cause",
+      description.contains("deparsed payload (0 bytes) is shorter"),
+    )
+  }
+
   // =========================================================================
   // PacketIn enrichment
   // =========================================================================
@@ -888,4 +1058,85 @@ class DataplaneServiceTest {
     assertTrue("first message should be SubscriptionActive", first.hasActive())
     return job to results
   }
+
+  private fun packetIoP4InfoWithTranslatedPort(packetInBits: Int? = null): P4Info =
+    P4Info.newBuilder()
+      .addControllerPacketMetadata(
+        ControllerPacketMetadata.newBuilder()
+          .setPreamble(Preamble.newBuilder().setName("packet_out"))
+          .addMetadata(
+            ControllerPacketMetadata.Metadata.newBuilder()
+              .setId(1)
+              .setName("egress_port")
+              .setBitwidth(32)
+          )
+      )
+      .apply {
+        if (packetInBits != null) {
+          addControllerPacketMetadata(
+            ControllerPacketMetadata.newBuilder()
+              .setPreamble(Preamble.newBuilder().setName("packet_in"))
+              .addMetadata(
+                ControllerPacketMetadata.Metadata.newBuilder()
+                  .setId(1)
+                  .setName("ingress_port")
+                  .setBitwidth(packetInBits)
+              )
+          )
+        }
+      }
+      .setTypeInfo(
+        P4Types.P4TypeInfo.newBuilder()
+          .putNewTypes(
+            "port_name_t",
+            P4Types.P4NewTypeSpec.newBuilder()
+              .setTranslatedType(
+                P4Types.P4NewTypeTranslation.newBuilder()
+                  .setUri("")
+                  .setSdnString(P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance())
+              )
+              .build(),
+          )
+      )
+      .build()
+
+  private fun packetIoBehavioralWithPortBits(
+    portBits: Int,
+    packetInBits: Int? = null,
+  ): BehavioralConfig =
+    BehavioralConfig.newBuilder()
+      .addTypes(
+        TypeDecl.newBuilder()
+          .setName("packet_out_header_t")
+          .setHeader(
+            HeaderDecl.newBuilder()
+              .setControllerHeader("packet_out")
+              .addFields(bitField("egress_port", 32))
+          )
+      )
+      .apply {
+        if (packetInBits != null) {
+          addTypes(
+            TypeDecl.newBuilder()
+              .setName("packet_in_header_t")
+              .setHeader(
+                HeaderDecl.newBuilder()
+                  .setControllerHeader("packet_in")
+                  .addFields(bitField("ingress_port", packetInBits))
+              )
+          )
+        }
+      }
+      .addTypes(
+        TypeDecl.newBuilder()
+          .setName("standard_metadata_t")
+          .setStruct(StructDecl.newBuilder().addFields(bitField("ingress_port", portBits)))
+      )
+      .build()
+
+  private fun bitField(name: String, width: Int): FieldDecl =
+    FieldDecl.newBuilder().setName(name).setType(bitType(width)).build()
+
+  private fun bitType(width: Int): Type =
+    Type.newBuilder().setBit(BitType.newBuilder().setWidth(width)).build()
 }

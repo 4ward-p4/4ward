@@ -17,6 +17,7 @@ import fourward.SubscribeResultsRequest
 import fourward.SubscribeResultsResponse
 import fourward.SubscriptionActive
 import fourward.TraceTree
+import fourward.simulator.DataplanePort
 import fourward.simulator.RegisterSeedDependency
 import fourward.simulator.TableStore
 import fourward.simulator.extractReproducerEntities
@@ -173,12 +174,27 @@ class DataplaneService(
             @Suppress("TooGenericExceptionCaught") // Any translation/encoding failure should
             e: Exception // terminate this subscription stream, not crash the packet sender.
           ) {
-            close(e)
+            close(subscribeResultsFailure(e))
           }
         }
 
       awaitClose { handle.unsubscribe() }
     }
+
+  private fun subscribeResultsFailure(e: Exception): StatusException {
+    if (e is StatusException) return e
+    val detail = buildString {
+      append(
+        "SubscribeResults failed while enriching a packet result; check PacketIn " +
+          "@controller_header metadata and emitted CPU-port payload"
+      )
+      e.message?.let {
+        append(": ")
+        append(it)
+      }
+    }
+    return Status.INTERNAL.withDescription(detail).withCause(e).asException()
+  }
 
   override fun registerPrePacketHook(
     requests: Flow<PrePacketHookResponse>
@@ -227,15 +243,19 @@ class DataplaneService(
     }
   }
 
-  private fun resolveIngressPort(request: InjectPacketRequest, translator: TypeTranslator?): Int =
+  private fun resolveIngressPort(
+    request: InjectPacketRequest,
+    translator: TypeTranslator?,
+  ): DataplanePort =
     when (request.ingressPortCase) {
-      InjectPacketRequest.IngressPortCase.DATAPLANE_INGRESS_PORT -> request.dataplaneIngressPort
+      InjectPacketRequest.IngressPortCase.DATAPLANE_INGRESS_PORT ->
+        DataplanePort.fromProto(request.dataplaneIngressPort)
       InjectPacketRequest.IngressPortCase.P4RT_INGRESS_PORT ->
         (translator?.portTranslator
             ?: throw missingPortTranslation(request.p4RtIngressPort, translator))
           .p4rtToDataplane(request.p4RtIngressPort)
       InjectPacketRequest.IngressPortCase.INGRESSPORT_NOT_SET,
-      null -> 0
+      null -> DataplanePort.fromProto(0)
     }
 }
 
@@ -261,7 +281,7 @@ private fun missingPortTranslation(
 }
 
 private fun enrichResult(
-  ingressPort: Int,
+  ingressPort: DataplanePort,
   payload: ByteArray,
   tag: Long,
   possibleOutcomes: List<List<OutputPacket>>,
@@ -274,7 +294,7 @@ private fun enrichResult(
   return ProcessPacketResultProto.newBuilder()
     .setInputPacket(
       InputPacket.newBuilder()
-        .setDataplaneIngressPort(ingressPort)
+        .setDataplaneIngressPort(ingressPort.protoValue)
         .apply { pt?.dataplaneToP4rt(ingressPort)?.let { setP4RtIngressPort(it) } }
         .setPayload(ByteString.copyFrom(payload))
         .setTag(tag)
@@ -303,6 +323,7 @@ private fun OutputPacket.toDualEncoded(
 ): OutputPacket {
   val rawPayload = payload
   val pt = translator?.portTranslator
+  val egressPort = DataplanePort.fromProto(dataplaneEgressPort)
   return OutputPacket.newBuilder()
     .setDataplaneEgressPort(dataplaneEgressPort)
     .setPayload(rawPayload)
@@ -310,8 +331,8 @@ private fun OutputPacket.toDualEncoded(
       // Egress ports may come from P4 pipeline logic (e.g. the CPU port, hardcoded
       // by the architecture) that was never forward-allocated via a P4Runtime Write,
       // so a missing reverse mapping is expected — same as for ingress ports above.
-      pt?.dataplaneToP4rt(dataplaneEgressPort)?.let { setP4RtEgressPort(it) }
-      if (codec != null && dataplaneEgressPort == codec.cpuPort) {
+      pt?.dataplaneToP4rt(egressPort)?.let { setP4RtEgressPort(it) }
+      if (codec != null && egressPort == codec.cpuPort) {
         val rawPacketIn = codec.decodePacketIn(rawPayload)
         setPacketIn(translator?.translatePacketIn(rawPacketIn) ?: rawPacketIn)
       }

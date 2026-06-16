@@ -50,6 +50,8 @@ class PSAArchitectureTest {
   // Helpers: minimal PSA config construction
   // ---------------------------------------------------------------------------
 
+  private fun port(value: Long): DataplanePort = DataplanePort.fromUnsignedLong(value)
+
   private fun field(name: String, width: Int): FieldDecl =
     FieldDecl.newBuilder().setName(name).setType(bitType(width)).build()
 
@@ -346,7 +348,7 @@ class PSAArchitectureTest {
   @Test
   fun `PSA drops by default without send_to_port`() {
     val config = psaConfig()
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
@@ -357,7 +359,7 @@ class PSAArchitectureTest {
   fun `send_to_port forwards packet`() {
     val config = psaConfig(ingressStmts = listOf(sendToPort(5)))
     val payload = byteArrayOf(0xAA.toByte(), 0xBB.toByte())
-    val result = PSAArchitecture(config).processPacket(0u, payload, TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), payload, TableStore())
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(1, outputs.size)
@@ -366,9 +368,30 @@ class PSAArchitectureTest {
   }
 
   @Test
+  fun `uint32 ingress port with high bit set reaches PSA metadata unsigned`() {
+    val highBitPort = 0xFFFF_FFFEL
+    val isHighBitIngressPort = eq(fieldAccess("istd", "ingress_port"), bit(highBitPort, 32))
+    val config =
+      psaConfig(
+        ingressStmts =
+          listOf(ifStmt(condition = isHighBitIngressPort, thenStmts = listOf(sendToPort(9))))
+      )
+    val result =
+      PSAArchitecture(config).processPacket(port(highBitPort), byteArrayOf(0x01), TableStore())
+    val outputs = result.possibleOutcomes.single()
+
+    assertEquals(1, outputs.size)
+    assertEquals(9, outputs[0].dataplaneEgressPort)
+    assertEquals(
+      DataplanePort.fromUnsignedLong(highBitPort).protoValue,
+      result.trace.eventsList.first { it.hasPacketIngress() }.packetIngress.dataplaneIngressPort,
+    )
+  }
+
+  @Test
   fun `trace has enter-exit pairs for all 6 PSA stages`() {
     val config = psaConfig(ingressStmts = listOf(sendToPort(1)))
-    val result = PSAArchitecture(config).processPacket(7u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(7), byteArrayOf(0x01), TableStore())
     val events = result.trace.eventsList.filter { it.hasPacketIngress() || it.hasPipelineStage() }
 
     // First event: packet ingress.
@@ -416,7 +439,7 @@ class PSAArchitectureTest {
           )
       )
     val tableStore = TableStore()
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
     // Packet should forward (register write doesn't affect drop).
     val outputs = result.possibleOutcomes.single()
@@ -443,7 +466,7 @@ class PSAArchitectureTest {
             sendToPort(1),
           )
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     // Should not crash — the read returns a default zero value.
     val outputs = result.possibleOutcomes.single()
@@ -457,7 +480,7 @@ class PSAArchitectureTest {
     writeMulticastGroup(tableStore, groupId = 1, replicas = listOf(0 to 5, 1 to 6, 2 to 7))
 
     val payload = byteArrayOf(0xAA.toByte(), 0xBB.toByte())
-    val result = PSAArchitecture(config).processPacket(0u, payload, tableStore)
+    val result = PSAArchitecture(config).processPacket(port(0), payload, tableStore)
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(3, outputs.size)
@@ -476,7 +499,7 @@ class PSAArchitectureTest {
     val tableStore = TableStore()
     writeMulticastGroup(tableStore, groupId = 1, replicas = listOf(0 to 2, 1 to 3))
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), tableStore)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
     assertTrue(result.trace.hasForkOutcome())
     assertEquals(ForkReason.MULTICAST, result.trace.forkOutcome.reason)
@@ -489,7 +512,7 @@ class PSAArchitectureTest {
   fun `multicast with unknown group drops packet`() {
     // multicast(group=99) but no group 99 is configured — should drop.
     val config = psaConfig(ingressStmts = listOf(multicast(99)))
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
@@ -579,7 +602,7 @@ class PSAArchitectureTest {
         ingressStmts = listOf(hashGetHash1Arg("h_0", 0x456, 12), sendToPort(1)),
         ingressExterns = listOf(hashInstance("h_0", "CRC16")),
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
   }
@@ -593,8 +616,8 @@ class PSAArchitectureTest {
         ingressExterns = listOf(hashInstance("h_0", "CRC16")),
       )
     // Run twice — should get the same result (deterministic hash).
-    val result1 = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
-    val result2 = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result1 = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
+    val result2 = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val out1 = result1.possibleOutcomes.single()
     val out2 = result2.possibleOutcomes.single()
     assertEquals(out1[0].payload, out2[0].payload)
@@ -695,7 +718,7 @@ class PSAArchitectureTest {
         ingressStmts = listOf(hashGetHash1ArgBareBit("h_0", 0xAABBCCDD, 32), sendToPort(1)),
         ingressExterns = listOf(hashInstance("h_0", "CRC16")),
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
   }
@@ -710,7 +733,7 @@ class PSAArchitectureTest {
         ingressStmts = listOf(hashGetHash1ArgBareBit("h_0", 0xAABBCCDD, 32), sendToPort(1)),
         ingressExterns = listOf(hashInstance("h_0", "IDENTITY")),
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
   }
@@ -723,7 +746,7 @@ class PSAArchitectureTest {
         ingressStmts = listOf(hashGetHash3Arg("h_0", 0, 0x456, 12, 1000, 16), sendToPort(1)),
         ingressExterns = listOf(hashInstance("h_0", "CRC16")),
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
   }
@@ -737,7 +760,7 @@ class PSAArchitectureTest {
         ingressStmts = listOf(randomRead("rng_0", 16), sendToPort(1)),
         ingressExterns = listOf(randomInstance("rng_0", 0, 100)),
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
   }
@@ -751,7 +774,7 @@ class PSAArchitectureTest {
         ingressStmts = listOf(digestPack("digest_0", 0xBEEF, 16), sendToPort(1)),
         ingressExterns = listOf(digestInstance("digest_0")),
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
   }
@@ -764,7 +787,7 @@ class PSAArchitectureTest {
         ingressStmts = listOf(meterExecute("meter0", 1), sendToPort(1)),
         ingressExterns = listOf(meterInstance("meter0")),
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
   }
@@ -832,7 +855,7 @@ class PSAArchitectureTest {
           ),
         ingressExterns = listOf(checksumInstance("ck_0")),
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
   }
@@ -896,7 +919,7 @@ class PSAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5))
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte()), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0xAA.toByte()), store)
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(2, outputs.size)
@@ -914,7 +937,7 @@ class PSAArchitectureTest {
     // The first 10 bits are packet data; the final 14 bits are transport padding.
     val packet = PacketBits.ofPaddedBytes(byteArrayOf(0xAB.toByte(), 0xC0.toByte(), 0x00), 10)
 
-    val result = PSAArchitecture(config).processPacket(0u, packet, store)
+    val result = PSAArchitecture(config).processPacket(port(0), packet, store)
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(2, outputs.size)
@@ -930,7 +953,7 @@ class PSAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 7))
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0xBB.toByte()), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0xBB.toByte()), store)
     val outputs = result.possibleOutcomes.single()
 
     // Original dropped, clone emitted.
@@ -944,7 +967,7 @@ class PSAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5))
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
     assertTrue(result.trace.hasForkOutcome())
     assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
@@ -958,7 +981,7 @@ class PSAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5, 1 to 6, 2 to 7))
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
     val outputs = result.possibleOutcomes.single()
 
     // Original + 3 clones = 4 outputs.
@@ -975,7 +998,7 @@ class PSAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 200, listOf(0 to 8))
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0xCC.toByte()), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0xCC.toByte()), store)
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(2, outputs.size)
@@ -997,7 +1020,7 @@ class PSAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 200, listOf(0 to 9))
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0xDD.toByte()), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0xDD.toByte()), store)
 
     // Clone fork exists even though original drops — E2E clone is processed independently.
     assertTrue(result.trace.hasForkOutcome())
@@ -1011,7 +1034,7 @@ class PSAArchitectureTest {
   @Test
   fun `E2E clone with unknown session silently drops clone`() {
     val config = psaConfig(ingressStmts = listOf(sendToPort(2)), egressStmts = cloneStmts(999))
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
 
     // No clone session 999 → clone silently ignored, original output normally.
@@ -1025,7 +1048,7 @@ class PSAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 200, listOf(0 to 8))
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
     // E2E clone fork is in the egress subtree, flattened into the top-level trace since
     // there's no I2E clone.
@@ -1039,7 +1062,7 @@ class PSAArchitectureTest {
   @Test
   fun `I2E clone with unknown session silently drops clone`() {
     val config = psaConfig(ingressStmts = cloneStmts(999) + listOf(sendToPort(2)))
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
 
     // No clone session 999 → clone silently ignored, original output normally.
@@ -1054,7 +1077,7 @@ class PSAArchitectureTest {
     // PSA_PORT_RECIRCULATE = 32w0xfffffffa (psa.p4).
     val config = psaConfig(ingressStmts = listOf(sendToPort(0xFFFFFFFAL)))
     try {
-      PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+      PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
       fail("expected recirculation depth exception")
     } catch (e: IllegalStateException) {
       assertTrue(e.message!!.contains("PSA recirculation depth exceeded"))
@@ -1094,7 +1117,8 @@ class PSAArchitectureTest {
             )
           )
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte()), TableStore())
+    val result =
+      PSAArchitecture(config).processPacket(port(0), byteArrayOf(0xAA.toByte()), TableStore())
     val outputs = result.possibleOutcomes.single()
 
     // Packet recirculates once, then forwards on port 5.
@@ -1110,7 +1134,7 @@ class PSAArchitectureTest {
   fun `egress drop without clone produces drop trace`() {
     // Egress drops the original packet, no clone — pure egress drop path.
     val config = psaConfig(ingressStmts = listOf(sendToPort(2)), egressStmts = listOf(egressDrop()))
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
@@ -1122,7 +1146,7 @@ class PSAArchitectureTest {
     // send_to_port sets drop=false, then ingress_drop sets drop=true — last writer wins.
     val config =
       psaConfig(ingressStmts = listOf(sendToPort(2), externCall("ingress_drop", nameRef("ostd"))))
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
@@ -1133,7 +1157,7 @@ class PSAArchitectureTest {
     // Set clone=true but leave clone_session_id at default (0). No session 0 exists.
     val config =
       psaConfig(ingressStmts = listOf(assignField("ostd", "clone", boolLit(true)), sendToPort(2)))
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
 
     // No clone session 0 → clone silently ignored, original output normally.
@@ -1164,7 +1188,8 @@ class PSAArchitectureTest {
             )
           )
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte()), TableStore())
+    val result =
+      PSAArchitecture(config).processPacket(port(0), byteArrayOf(0xAA.toByte()), TableStore())
     val outputs = result.possibleOutcomes.single()
 
     assertEquals(1, outputs.size)
@@ -1190,7 +1215,8 @@ class PSAArchitectureTest {
             )
           )
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0xBB.toByte()), TableStore())
+    val result =
+      PSAArchitecture(config).processPacket(port(0), byteArrayOf(0xBB.toByte()), TableStore())
     val outputs = result.possibleOutcomes.single()
 
     // Resubmitted packet exits on port 1 with original bytes.
@@ -1203,7 +1229,7 @@ class PSAArchitectureTest {
     // PSA spec §6.2: drop has highest priority. resubmit=true with drop=true → dropped.
     val config =
       psaConfig(ingressStmts = listOf(resubmitStmt())) // drop=true by default, resubmit=true
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasPacketOutcome())
     assertTrue(result.trace.packetOutcome.hasDrop())
@@ -1227,7 +1253,7 @@ class PSAArchitectureTest {
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 9))
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
     val outputs = result.possibleOutcomes.single()
 
     // Resubmit wins: packet loops back, then exits on port 5. No clone on port 9.
@@ -1241,7 +1267,7 @@ class PSAArchitectureTest {
     // Unconditional resubmit causes infinite loop — simulator must enforce depth limit.
     val config = psaConfig(ingressStmts = listOf(resubmitStmt(), sendToPort(1)))
     try {
-      PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+      PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
       fail("expected recirculation depth exception")
     } catch (e: IllegalStateException) {
       assertTrue(e.message!!.contains("PSA recirculation depth exceeded"))
@@ -1455,7 +1481,7 @@ class PSAArchitectureTest {
     writeActionProfileGroup(store, groupId = 1, memberIds = listOf(0, 1))
     writeGroupTableEntry(store, keyValue = 0x0A, groupId = 1)
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
     // Should produce an ACTION_SELECTOR fork with 2 member branches.
     assertTrue("expected fork outcome", result.trace.hasForkOutcome())
@@ -1477,7 +1503,7 @@ class PSAArchitectureTest {
     val config = psaConfigWithTable(postTableStmts = emptyList())
     val store = storeWithActionProfile()
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
     // No fork — table miss falls through to default action, packet dropped by PSA default.
     assertTrue("expected drop (no fork)", result.trace.hasPacketOutcome())
@@ -1492,7 +1518,7 @@ class PSAArchitectureTest {
     writeActionProfileGroup(store, groupId = 1, memberIds = listOf(0))
     writeGroupTableEntry(store, keyValue = 0x0A, groupId = 1)
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
     assertTrue("expected fork outcome", result.trace.hasForkOutcome())
     assertEquals(ForkReason.ACTION_SELECTOR, result.trace.forkOutcome.reason)
@@ -1516,7 +1542,7 @@ class PSAArchitectureTest {
     writeActionProfileGroup(store, groupId = 1, memberIds = listOf(0, 1))
     writeGroupTableEntry(store, keyValue = 0x0A, groupId = 1)
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
     // Egress fork: ACTION_SELECTOR with 2 member branches.
     assertTrue("expected fork outcome", result.trace.hasForkOutcome())
@@ -1543,7 +1569,7 @@ class PSAArchitectureTest {
     writeGroupTableEntry(store, keyValue = 0x0A, groupId = 1)
     writeCloneSession(store, 100, listOf(0 to 5))
 
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), store)
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
     // Top-level fork is CLONE (I2E clone) — parallel.
     assertTrue("expected clone fork", result.trace.hasForkOutcome())
@@ -1584,7 +1610,7 @@ class PSAArchitectureTest {
           ),
         ingressExterns = listOf(checksumInstance("ck_0")),
       )
-    val result = PSAArchitecture(config).processPacket(0u, byteArrayOf(0x01), TableStore())
+    val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
   }
