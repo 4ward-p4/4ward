@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-16 10:35:31</td>
+            <td class="headerValue">2026-06-16 20:05:26</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryMed">85.9&nbsp;%</td>
@@ -131,7 +131,7 @@
 <span id="L69"><span class="lineNum">      69</span>              :   )</span>
 <span id="L70"><span class="lineNum">      70</span>              : </span>
 <span id="L71"><span class="lineNum">      71</span>              :   override fun processPacket(</span>
-<span id="L72"><span class="lineNum">      72</span>              :     ingressPort: UInt,</span>
+<span id="L72"><span class="lineNum">      72</span>              :     ingressPort: DataplanePort,</span>
 <span id="L73"><span class="lineNum">      73</span>              :     packet: PacketBits,</span>
 <span id="L74"><span class="lineNum">      74</span>              :     tableStore: TableStore,</span>
 <span id="L75"><span class="lineNum">      75</span>              :   ): PipelineResult {</span>
@@ -165,7 +165,7 @@
 <span id="L103"><span class="lineNum">     103</span> <span class="tlaGNC">           1 :   private fun processPacketRecursive(</span></span>
 <span id="L104"><span class="lineNum">     104</span>              :     pipeline: PipelineConfig,</span>
 <span id="L105"><span class="lineNum">     105</span>              :     packet: PacketBits,</span>
-<span id="L106"><span class="lineNum">     106</span>              :     ingressPort: UInt,</span>
+<span id="L106"><span class="lineNum">     106</span>              :     ingressPort: DataplanePort,</span>
 <span id="L107"><span class="lineNum">     107</span>              :     packetPath: String,</span>
 <span id="L108"><span class="lineNum">     108</span>              :     depth: Int,</span>
 <span id="L109"><span class="lineNum">     109</span> <span class="tlaGNC">           1 :     selectorMembers: Map&lt;String, Int&gt; = emptyMap(),</span></span>
@@ -290,7 +290,7 @@
 <span id="L228"><span class="lineNum">     228</span> <span class="tlaUNC tlaBgUNC">           0 :   private fun runIngressPipeline(</span></span>
 <span id="L229"><span class="lineNum">     229</span>              :     pipeline: PipelineConfig,</span>
 <span id="L230"><span class="lineNum">     230</span>              :     packet: PacketBits,</span>
-<span id="L231"><span class="lineNum">     231</span>              :     ingressPort: UInt,</span>
+<span id="L231"><span class="lineNum">     231</span>              :     ingressPort: DataplanePort,</span>
 <span id="L232"><span class="lineNum">     232</span>              :     packetPath: String,</span>
 <span id="L233"><span class="lineNum">     233</span> <span class="tlaUNC">           0 :     selectorMembers: Map&lt;String, Int&gt; = emptyMap(),</span></span>
 <span id="L234"><span class="lineNum">     234</span>              :   ): IngressResult {</span>
@@ -464,7 +464,7 @@
 <span id="L402"><span class="lineNum">     402</span> <span class="tlaGNC">           1 :           processPacketRecursive(</span></span>
 <span id="L403"><span class="lineNum">     403</span> <span class="tlaGNC">           1 :             state.pipeline,</span></span>
 <span id="L404"><span class="lineNum">     404</span> <span class="tlaGNC">           1 :             PacketBits.ofBytes(core.deparsedBytes),</span></span>
-<span id="L405"><span class="lineNum">     405</span> <span class="tlaGNC">           1 :             PSA_PORT_RECIRCULATE_UINT,</span></span>
+<span id="L405"><span class="lineNum">     405</span> <span class="tlaGNC">           1 :             PSA_PORT_RECIRCULATE,</span></span>
 <span id="L406"><span class="lineNum">     406</span> <span class="tlaGNC">           1 :             PACKET_PATH_RECIRCULATE,</span></span>
 <span id="L407"><span class="lineNum">     407</span> <span class="tlaGNC">           1 :             depth = depth + 1,</span></span>
 <span id="L408"><span class="lineNum">     408</span>              :           )</span>
@@ -655,15 +655,15 @@
 <span id="L593"><span class="lineNum">     593</span>              : </span>
 <span id="L594"><span class="lineNum">     594</span>              :   private fun initIngressMetadata(</span>
 <span id="L595"><span class="lineNum">     595</span>              :     values: Map&lt;String, Value&gt;,</span>
-<span id="L596"><span class="lineNum">     596</span>              :     ingressPort: UInt,</span>
+<span id="L596"><span class="lineNum">     596</span>              :     ingressPort: DataplanePort,</span>
 <span id="L597"><span class="lineNum">     597</span>              :     packetPath: String,</span>
 <span id="L598"><span class="lineNum">     598</span>              :   ) {</span>
 <span id="L599"><span class="lineNum">     599</span> <span class="tlaGNC">           1 :     (values[&quot;psa_ingress_parser_input_metadata_t&quot;] as? StructVal)?.let {</span></span>
-<span id="L600"><span class="lineNum">     600</span> <span class="tlaGNC">           1 :       it.setBitField(&quot;ingress_port&quot;, ingressPort.toLong())</span></span>
+<span id="L600"><span class="lineNum">     600</span> <span class="tlaGNC">           1 :       it.setBitField(&quot;ingress_port&quot;, ingressPort.unsignedLong)</span></span>
 <span id="L601"><span class="lineNum">     601</span> <span class="tlaGNC">           1 :       it.fields[&quot;packet_path&quot;] = EnumVal(packetPath)</span></span>
 <span id="L602"><span class="lineNum">     602</span> <span class="tlaGNC">           1 :     }</span></span>
 <span id="L603"><span class="lineNum">     603</span> <span class="tlaGNC">           1 :     (values[&quot;psa_ingress_input_metadata_t&quot;] as? StructVal)?.let {</span></span>
-<span id="L604"><span class="lineNum">     604</span> <span class="tlaGNC">           1 :       it.setBitField(&quot;ingress_port&quot;, ingressPort.toLong())</span></span>
+<span id="L604"><span class="lineNum">     604</span> <span class="tlaGNC">           1 :       it.setBitField(&quot;ingress_port&quot;, ingressPort.unsignedLong)</span></span>
 <span id="L605"><span class="lineNum">     605</span> <span class="tlaGNC">           1 :       it.fields[&quot;packet_path&quot;] = EnumVal(packetPath)</span></span>
 <span id="L606"><span class="lineNum">     606</span> <span class="tlaGNC">           1 :       it.fields[&quot;parser_error&quot;] = ErrorVal.NO_ERROR</span></span>
 <span id="L607"><span class="lineNum">     607</span> <span class="tlaGNC">           1 :     }</span></span>
@@ -791,7 +791,7 @@
 <span id="L729"><span class="lineNum">     729</span>              : </span>
 <span id="L730"><span class="lineNum">     730</span>              :     /** PSA_PORT_RECIRCULATE (psa.p4: `const PortId_t PSA_PORT_RECIRCULATE = 32w0xfffffffa`). */</span>
 <span id="L731"><span class="lineNum">     731</span>              :     const val PSA_PORT_RECIRCULATE_LONG = 0xFFFFFFFAL</span>
-<span id="L732"><span class="lineNum">     732</span> <span class="tlaGNC">           1 :     val PSA_PORT_RECIRCULATE_UINT = PSA_PORT_RECIRCULATE_LONG.toUInt()</span></span>
+<span id="L732"><span class="lineNum">     732</span> <span class="tlaGNC">           1 :     val PSA_PORT_RECIRCULATE = DataplanePort.fromUnsignedLong(PSA_PORT_RECIRCULATE_LONG)</span></span>
 <span id="L733"><span class="lineNum">     733</span>              :   }</span>
 <span id="L734"><span class="lineNum">     734</span>              : }</span>
         </pre>

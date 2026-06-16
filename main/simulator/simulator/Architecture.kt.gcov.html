@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-16 10:35:31</td>
+            <td class="headerValue">2026-06-16 20:05:26</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -90,22 +90,29 @@
 <span id="L28"><span class="lineNum">      28</span>              :    * - Handling architecture-specific operations (clone, resubmit, etc.).</span>
 <span id="L29"><span class="lineNum">      29</span>              :    * - Returning the trace tree (with packet outcomes at leaves).</span>
 <span id="L30"><span class="lineNum">      30</span>              :    */</span>
-<span id="L31"><span class="lineNum">      31</span>              :   fun processPacket(ingressPort: UInt, payload: ByteArray, tableStore: TableStore): PipelineResult =</span>
-<span id="L32"><span class="lineNum">      32</span> <span class="tlaGNC tlaBgGNC">           1 :     processPacket(ingressPort, PacketBits.ofBytes(payload), tableStore)</span></span>
-<span id="L33"><span class="lineNum">      33</span>              : </span>
-<span id="L34"><span class="lineNum">      34</span>              :   fun processPacket(ingressPort: UInt, packet: PacketBits, tableStore: TableStore): PipelineResult</span>
-<span id="L35"><span class="lineNum">      35</span>              : }</span>
+<span id="L31"><span class="lineNum">      31</span>              :   fun processPacket(</span>
+<span id="L32"><span class="lineNum">      32</span>              :     ingressPort: DataplanePort,</span>
+<span id="L33"><span class="lineNum">      33</span>              :     payload: ByteArray,</span>
+<span id="L34"><span class="lineNum">      34</span>              :     tableStore: TableStore,</span>
+<span id="L35"><span class="lineNum">      35</span> <span class="tlaGNC tlaBgGNC">           1 :   ): PipelineResult = processPacket(ingressPort, PacketBits.ofBytes(payload), tableStore)</span></span>
 <span id="L36"><span class="lineNum">      36</span>              : </span>
-<span id="L37"><span class="lineNum">      37</span>              : /**</span>
-<span id="L38"><span class="lineNum">      38</span>              :  * The result of running a packet through the pipeline.</span>
-<span id="L39"><span class="lineNum">      39</span>              :  *</span>
-<span id="L40"><span class="lineNum">      40</span>              :  * The [trace] tree carries the complete execution trace. Leaf nodes contain [PacketOutcome]s</span>
-<span id="L41"><span class="lineNum">      41</span>              :  * (output packets or drops); fork nodes represent non-deterministic choice points.</span>
-<span id="L42"><span class="lineNum">      42</span>              :  */</span>
-<span id="L43"><span class="lineNum">      43</span> <span class="tlaGNC">           1 : data class PipelineResult(val trace: TraceTree) {</span></span>
-<span id="L44"><span class="lineNum">      44</span>              :   /** All possible outcome sets, derived from the trace tree's fork structure. */</span>
-<span id="L45"><span class="lineNum">      45</span> <span class="tlaGNC">           1 :   val possibleOutcomes: List&lt;List&lt;OutputPacket&gt;&gt; by lazy { collectPossibleOutcomes(trace) }</span></span>
-<span id="L46"><span class="lineNum">      46</span>              : }</span>
+<span id="L37"><span class="lineNum">      37</span>              :   fun processPacket(</span>
+<span id="L38"><span class="lineNum">      38</span>              :     ingressPort: DataplanePort,</span>
+<span id="L39"><span class="lineNum">      39</span>              :     packet: PacketBits,</span>
+<span id="L40"><span class="lineNum">      40</span>              :     tableStore: TableStore,</span>
+<span id="L41"><span class="lineNum">      41</span>              :   ): PipelineResult</span>
+<span id="L42"><span class="lineNum">      42</span>              : }</span>
+<span id="L43"><span class="lineNum">      43</span>              : </span>
+<span id="L44"><span class="lineNum">      44</span>              : /**</span>
+<span id="L45"><span class="lineNum">      45</span>              :  * The result of running a packet through the pipeline.</span>
+<span id="L46"><span class="lineNum">      46</span>              :  *</span>
+<span id="L47"><span class="lineNum">      47</span>              :  * The [trace] tree carries the complete execution trace. Leaf nodes contain [PacketOutcome]s</span>
+<span id="L48"><span class="lineNum">      48</span>              :  * (output packets or drops); fork nodes represent non-deterministic choice points.</span>
+<span id="L49"><span class="lineNum">      49</span>              :  */</span>
+<span id="L50"><span class="lineNum">      50</span> <span class="tlaGNC">           1 : data class PipelineResult(val trace: TraceTree) {</span></span>
+<span id="L51"><span class="lineNum">      51</span>              :   /** All possible outcome sets, derived from the trace tree's fork structure. */</span>
+<span id="L52"><span class="lineNum">      52</span> <span class="tlaGNC">           1 :   val possibleOutcomes: List&lt;List&lt;OutputPacket&gt;&gt; by lazy { collectPossibleOutcomes(trace) }</span></span>
+<span id="L53"><span class="lineNum">      53</span>              : }</span>
         </pre>
               </td>
             </tr>

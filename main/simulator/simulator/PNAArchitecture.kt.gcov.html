@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-16 10:35:31</td>
+            <td class="headerValue">2026-06-16 20:05:26</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">94.6&nbsp;%</td>
@@ -139,7 +139,7 @@
 <span id="L77"><span class="lineNum">      77</span>              :   }</span>
 <span id="L78"><span class="lineNum">      78</span>              : </span>
 <span id="L79"><span class="lineNum">      79</span>              :   override fun processPacket(</span>
-<span id="L80"><span class="lineNum">      80</span>              :     ingressPort: UInt,</span>
+<span id="L80"><span class="lineNum">      80</span>              :     ingressPort: DataplanePort,</span>
 <span id="L81"><span class="lineNum">      81</span>              :     packet: PacketBits,</span>
 <span id="L82"><span class="lineNum">      82</span>              :     tableStore: TableStore,</span>
 <span id="L83"><span class="lineNum">      83</span>              :   ): PipelineResult {</span>
@@ -180,7 +180,7 @@
 <span id="L118"><span class="lineNum">     118</span> <span class="tlaGNC">           1 :   private fun processPacketRecursive(</span></span>
 <span id="L119"><span class="lineNum">     119</span>              :     pipeline: PipelineConfig,</span>
 <span id="L120"><span class="lineNum">     120</span>              :     packet: PacketBits,</span>
-<span id="L121"><span class="lineNum">     121</span>              :     ingressPort: UInt,</span>
+<span id="L121"><span class="lineNum">     121</span>              :     ingressPort: DataplanePort,</span>
 <span id="L122"><span class="lineNum">     122</span>              :     packetPath: String,</span>
 <span id="L123"><span class="lineNum">     123</span>              :     passNumber: Int,</span>
 <span id="L124"><span class="lineNum">     124</span>              :     depth: Int,</span>
@@ -305,218 +305,222 @@
 <span id="L243"><span class="lineNum">     243</span>              :   // Metadata initialisation</span>
 <span id="L244"><span class="lineNum">     244</span>              :   // ---------------------------------------------------------------------------</span>
 <span id="L245"><span class="lineNum">     245</span>              : </span>
-<span id="L246"><span class="lineNum">     246</span>              :   private fun initMetadata(values: Map&lt;String, Value&gt;, ingressPort: UInt, passNumber: Int) {</span>
-<span id="L247"><span class="lineNum">     247</span> <span class="tlaGNC">           1 :     val loopedback = passNumber &gt; 0</span></span>
-<span id="L248"><span class="lineNum">     248</span> <span class="tlaGNC">           1 :     val direction = DIRECTION_NET_TO_HOST</span></span>
-<span id="L249"><span class="lineNum">     249</span> <span class="tlaGNC">           1 :     val portLong = ingressPort.toLong()</span></span>
-<span id="L250"><span class="lineNum">     250</span>              :     // PassNumber_t is bit&lt;3&gt; (pna.p4), so truncate to 3 bits to avoid overflow.</span>
-<span id="L251"><span class="lineNum">     251</span> <span class="tlaGNC">           1 :     val passTruncated = (passNumber and 0x7).toLong()</span></span>
-<span id="L252"><span class="lineNum">     252</span>              : </span>
-<span id="L253"><span class="lineNum">     253</span> <span class="tlaGNC">           1 :     (values[&quot;pna_pre_input_metadata_t&quot;] as? StructVal)?.let {</span></span>
-<span id="L254"><span class="lineNum">     254</span> <span class="tlaGNC">           1 :       it.setBitField(&quot;input_port&quot;, portLong)</span></span>
-<span id="L255"><span class="lineNum">     255</span> <span class="tlaGNC">           1 :       it.fields[&quot;parser_error&quot;] = ErrorVal.NO_ERROR</span></span>
-<span id="L256"><span class="lineNum">     256</span> <span class="tlaGNC">           1 :       it.fields[&quot;direction&quot;] = EnumVal(direction)</span></span>
-<span id="L257"><span class="lineNum">     257</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;pass&quot;)) it.setBitField(&quot;pass&quot;, passTruncated)</span></span>
-<span id="L258"><span class="lineNum">     258</span> <span class="tlaGNC">           1 :       it.fields[&quot;loopedback&quot;] = BoolVal(loopedback)</span></span>
-<span id="L259"><span class="lineNum">     259</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L260"><span class="lineNum">     260</span> <span class="tlaGNC">           1 :     (values[&quot;pna_pre_output_metadata_t&quot;] as? StructVal)?.let {</span></span>
-<span id="L261"><span class="lineNum">     261</span> <span class="tlaGNC">           1 :       it.fields[&quot;decrypt&quot;] = BoolVal(false)</span></span>
-<span id="L262"><span class="lineNum">     262</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L263"><span class="lineNum">     263</span> <span class="tlaGNC">           1 :     (values[&quot;pna_main_parser_input_metadata_t&quot;] as? StructVal)?.let {</span></span>
-<span id="L264"><span class="lineNum">     264</span> <span class="tlaGNC">           1 :       it.fields[&quot;direction&quot;] = EnumVal(direction)</span></span>
-<span id="L265"><span class="lineNum">     265</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;pass&quot;)) it.setBitField(&quot;pass&quot;, passTruncated)</span></span>
-<span id="L266"><span class="lineNum">     266</span> <span class="tlaGNC">           1 :       it.fields[&quot;loopedback&quot;] = BoolVal(loopedback)</span></span>
-<span id="L267"><span class="lineNum">     267</span> <span class="tlaGNC">           1 :       it.setBitField(&quot;input_port&quot;, portLong)</span></span>
-<span id="L268"><span class="lineNum">     268</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L269"><span class="lineNum">     269</span> <span class="tlaGNC">           1 :     (values[&quot;pna_main_input_metadata_t&quot;] as? StructVal)?.let {</span></span>
-<span id="L270"><span class="lineNum">     270</span> <span class="tlaGNC">           1 :       it.fields[&quot;direction&quot;] = EnumVal(direction)</span></span>
-<span id="L271"><span class="lineNum">     271</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;pass&quot;)) it.setBitField(&quot;pass&quot;, passTruncated)</span></span>
-<span id="L272"><span class="lineNum">     272</span> <span class="tlaGNC">           1 :       it.fields[&quot;loopedback&quot;] = BoolVal(loopedback)</span></span>
-<span id="L273"><span class="lineNum">     273</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;timestamp&quot;)) it.setBitField(&quot;timestamp&quot;, 0L)</span></span>
-<span id="L274"><span class="lineNum">     274</span> <span class="tlaGNC">           1 :       it.fields[&quot;parser_error&quot;] = ErrorVal.NO_ERROR</span></span>
-<span id="L275"><span class="lineNum">     275</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;class_of_service&quot;)) it.setBitField(&quot;class_of_service&quot;, 0L)</span></span>
-<span id="L276"><span class="lineNum">     276</span> <span class="tlaGNC">           1 :       it.setBitField(&quot;input_port&quot;, portLong)</span></span>
-<span id="L277"><span class="lineNum">     277</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L278"><span class="lineNum">     278</span> <span class="tlaGNC">           1 :     (values[&quot;pna_main_output_metadata_t&quot;] as? StructVal)?.let {</span></span>
+<span id="L246"><span class="lineNum">     246</span>              :   private fun initMetadata(</span>
+<span id="L247"><span class="lineNum">     247</span>              :     values: Map&lt;String, Value&gt;,</span>
+<span id="L248"><span class="lineNum">     248</span>              :     ingressPort: DataplanePort,</span>
+<span id="L249"><span class="lineNum">     249</span>              :     passNumber: Int,</span>
+<span id="L250"><span class="lineNum">     250</span>              :   ) {</span>
+<span id="L251"><span class="lineNum">     251</span> <span class="tlaGNC">           1 :     val loopedback = passNumber &gt; 0</span></span>
+<span id="L252"><span class="lineNum">     252</span> <span class="tlaGNC">           1 :     val direction = DIRECTION_NET_TO_HOST</span></span>
+<span id="L253"><span class="lineNum">     253</span> <span class="tlaGNC">           1 :     val portLong = ingressPort.unsignedLong</span></span>
+<span id="L254"><span class="lineNum">     254</span>              :     // PassNumber_t is bit&lt;3&gt; (pna.p4), so truncate to 3 bits to avoid overflow.</span>
+<span id="L255"><span class="lineNum">     255</span> <span class="tlaGNC">           1 :     val passTruncated = (passNumber and 0x7).toLong()</span></span>
+<span id="L256"><span class="lineNum">     256</span>              : </span>
+<span id="L257"><span class="lineNum">     257</span> <span class="tlaGNC">           1 :     (values[&quot;pna_pre_input_metadata_t&quot;] as? StructVal)?.let {</span></span>
+<span id="L258"><span class="lineNum">     258</span> <span class="tlaGNC">           1 :       it.setBitField(&quot;input_port&quot;, portLong)</span></span>
+<span id="L259"><span class="lineNum">     259</span> <span class="tlaGNC">           1 :       it.fields[&quot;parser_error&quot;] = ErrorVal.NO_ERROR</span></span>
+<span id="L260"><span class="lineNum">     260</span> <span class="tlaGNC">           1 :       it.fields[&quot;direction&quot;] = EnumVal(direction)</span></span>
+<span id="L261"><span class="lineNum">     261</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;pass&quot;)) it.setBitField(&quot;pass&quot;, passTruncated)</span></span>
+<span id="L262"><span class="lineNum">     262</span> <span class="tlaGNC">           1 :       it.fields[&quot;loopedback&quot;] = BoolVal(loopedback)</span></span>
+<span id="L263"><span class="lineNum">     263</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L264"><span class="lineNum">     264</span> <span class="tlaGNC">           1 :     (values[&quot;pna_pre_output_metadata_t&quot;] as? StructVal)?.let {</span></span>
+<span id="L265"><span class="lineNum">     265</span> <span class="tlaGNC">           1 :       it.fields[&quot;decrypt&quot;] = BoolVal(false)</span></span>
+<span id="L266"><span class="lineNum">     266</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L267"><span class="lineNum">     267</span> <span class="tlaGNC">           1 :     (values[&quot;pna_main_parser_input_metadata_t&quot;] as? StructVal)?.let {</span></span>
+<span id="L268"><span class="lineNum">     268</span> <span class="tlaGNC">           1 :       it.fields[&quot;direction&quot;] = EnumVal(direction)</span></span>
+<span id="L269"><span class="lineNum">     269</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;pass&quot;)) it.setBitField(&quot;pass&quot;, passTruncated)</span></span>
+<span id="L270"><span class="lineNum">     270</span> <span class="tlaGNC">           1 :       it.fields[&quot;loopedback&quot;] = BoolVal(loopedback)</span></span>
+<span id="L271"><span class="lineNum">     271</span> <span class="tlaGNC">           1 :       it.setBitField(&quot;input_port&quot;, portLong)</span></span>
+<span id="L272"><span class="lineNum">     272</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L273"><span class="lineNum">     273</span> <span class="tlaGNC">           1 :     (values[&quot;pna_main_input_metadata_t&quot;] as? StructVal)?.let {</span></span>
+<span id="L274"><span class="lineNum">     274</span> <span class="tlaGNC">           1 :       it.fields[&quot;direction&quot;] = EnumVal(direction)</span></span>
+<span id="L275"><span class="lineNum">     275</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;pass&quot;)) it.setBitField(&quot;pass&quot;, passTruncated)</span></span>
+<span id="L276"><span class="lineNum">     276</span> <span class="tlaGNC">           1 :       it.fields[&quot;loopedback&quot;] = BoolVal(loopedback)</span></span>
+<span id="L277"><span class="lineNum">     277</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;timestamp&quot;)) it.setBitField(&quot;timestamp&quot;, 0L)</span></span>
+<span id="L278"><span class="lineNum">     278</span> <span class="tlaGNC">           1 :       it.fields[&quot;parser_error&quot;] = ErrorVal.NO_ERROR</span></span>
 <span id="L279"><span class="lineNum">     279</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;class_of_service&quot;)) it.setBitField(&quot;class_of_service&quot;, 0L)</span></span>
-<span id="L280"><span class="lineNum">     280</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L281"><span class="lineNum">     281</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L282"><span class="lineNum">     282</span>              : </span>
-<span id="L283"><span class="lineNum">     283</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L284"><span class="lineNum">     284</span>              :   // PNA extern handler</span>
-<span id="L285"><span class="lineNum">     285</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L280"><span class="lineNum">     280</span> <span class="tlaGNC">           1 :       it.setBitField(&quot;input_port&quot;, portLong)</span></span>
+<span id="L281"><span class="lineNum">     281</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC">           1 :     (values[&quot;pna_main_output_metadata_t&quot;] as? StructVal)?.let {</span></span>
+<span id="L283"><span class="lineNum">     283</span> <span class="tlaGNC">           1 :       if (it.fields.containsKey(&quot;class_of_service&quot;)) it.setBitField(&quot;class_of_service&quot;, 0L)</span></span>
+<span id="L284"><span class="lineNum">     284</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L285"><span class="lineNum">     285</span> <span class="tlaGNC">           1 :   }</span></span>
 <span id="L286"><span class="lineNum">     286</span>              : </span>
-<span id="L287"><span class="lineNum">     287</span>              :   /**</span>
-<span id="L288"><span class="lineNum">     288</span>              :    * PNA extern handler: free functions and extern object methods.</span>
-<span id="L289"><span class="lineNum">     289</span>              :    *</span>
-<span id="L290"><span class="lineNum">     290</span>              :    * PNA's forwarding externs (`drop_packet`, `send_to_port`, `recirculate`) are free functions that</span>
-<span id="L291"><span class="lineNum">     291</span>              :    * mutate [forwardingState] directly, unlike PSA which uses output metadata fields.</span>
-<span id="L292"><span class="lineNum">     292</span>              :    */</span>
-<span id="L293"><span class="lineNum">     293</span>              :   private fun createPnaExternHandler(</span>
-<span id="L294"><span class="lineNum">     294</span>              :     pipeline: PipelineConfig,</span>
-<span id="L295"><span class="lineNum">     295</span>              :     forwardingState: ForwardingState,</span>
-<span id="L296"><span class="lineNum">     296</span>              :     checksumState: MutableMap&lt;String, BigInteger&gt;,</span>
-<span id="L297"><span class="lineNum">     297</span> <span class="tlaGNC">           1 :   ): ExternHandler = ExternHandler { call, eval -&gt;</span></span>
-<span id="L298"><span class="lineNum">     298</span> <span class="tlaGNC">           1 :     when (call) {</span></span>
-<span id="L299"><span class="lineNum">     299</span> <span class="tlaGNC">           1 :       is ExternCall.FreeFunction -&gt; handlePnaFreeFunction(call, eval, pipeline, forwardingState)</span></span>
-<span id="L300"><span class="lineNum">     300</span> <span class="tlaGNC">           1 :       is ExternCall.Method -&gt; handlePnaMethod(call, eval, pipeline, checksumState)</span></span>
-<span id="L301"><span class="lineNum">     301</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L303"><span class="lineNum">     303</span>              : </span>
-<span id="L304"><span class="lineNum">     304</span>              :   /** Handles PNA free-function externs (forwarding, mirroring, add-on-miss). */</span>
-<span id="L305"><span class="lineNum">     305</span>              :   private fun handlePnaFreeFunction(</span>
-<span id="L306"><span class="lineNum">     306</span>              :     call: ExternCall.FreeFunction,</span>
-<span id="L307"><span class="lineNum">     307</span>              :     eval: ExternEvaluator,</span>
-<span id="L308"><span class="lineNum">     308</span>              :     pipeline: PipelineConfig,</span>
-<span id="L309"><span class="lineNum">     309</span>              :     forwardingState: ForwardingState,</span>
-<span id="L310"><span class="lineNum">     310</span>              :   ): Value =</span>
-<span id="L311"><span class="lineNum">     311</span> <span class="tlaGNC">           1 :     when (call.name) {</span></span>
-<span id="L312"><span class="lineNum">     312</span>              :       // PNA spec (pna.p4 §562-570): drop_packet and send_to_port are the &quot;forwarding&quot;</span>
-<span id="L313"><span class="lineNum">     313</span>              :       // set — calling one overwrites the other (last writer wins). recirculate is</span>
-<span id="L314"><span class="lineNum">     314</span>              :       // independent and NOT part of this set.</span>
-<span id="L315"><span class="lineNum">     315</span>              :       &quot;drop_packet&quot; -&gt; {</span>
-<span id="L316"><span class="lineNum">     316</span>              :         // PNA spec: &quot;Invoking drop_packet() is supported only within the main control.&quot;</span>
-<span id="L317"><span class="lineNum">     317</span> <span class="tlaGNC">           1 :         require(forwardingState.currentStage == &quot;main_control&quot;) {</span></span>
-<span id="L318"><span class="lineNum">     318</span> <span class="tlaGNC">           1 :           &quot;drop_packet() called in ${forwardingState.currentStage}, &quot; +</span></span>
-<span id="L319"><span class="lineNum">     319</span> <span class="tlaGNC">           1 :             &quot;but PNA only supports it within main_control&quot;</span></span>
-<span id="L320"><span class="lineNum">     320</span>              :         }</span>
-<span id="L321"><span class="lineNum">     321</span> <span class="tlaGNC">           1 :         forwardingState.dropped = true</span></span>
-<span id="L322"><span class="lineNum">     322</span> <span class="tlaGNC">           1 :         UnitVal</span></span>
-<span id="L323"><span class="lineNum">     323</span>              :       }</span>
-<span id="L324"><span class="lineNum">     324</span>              :       &quot;send_to_port&quot; -&gt; {</span>
-<span id="L325"><span class="lineNum">     325</span> <span class="tlaGNC">           1 :         val port = eval.evalArg(0) as BitVal</span></span>
-<span id="L326"><span class="lineNum">     326</span> <span class="tlaGNC">           1 :         forwardingState.dropped = false</span></span>
-<span id="L327"><span class="lineNum">     327</span> <span class="tlaGNC">           1 :         forwardingState.destPort = port.bits.value.toInt()</span></span>
-<span id="L328"><span class="lineNum">     328</span> <span class="tlaGNC">           1 :         UnitVal</span></span>
-<span id="L329"><span class="lineNum">     329</span>              :       }</span>
-<span id="L330"><span class="lineNum">     330</span>              :       &quot;mirror_packet&quot; -&gt; {</span>
-<span id="L331"><span class="lineNum">     331</span> <span class="tlaGNC">           1 :         val sessionId = (eval.evalArg(1) as BitVal).bits.value.toInt()</span></span>
-<span id="L332"><span class="lineNum">     332</span> <span class="tlaGNC">           1 :         forwardingState.mirrorSessionId = sessionId</span></span>
-<span id="L333"><span class="lineNum">     333</span> <span class="tlaGNC">           1 :         UnitVal</span></span>
-<span id="L334"><span class="lineNum">     334</span>              :       }</span>
-<span id="L335"><span class="lineNum">     335</span>              :       &quot;recirculate&quot; -&gt; {</span>
-<span id="L336"><span class="lineNum">     336</span> <span class="tlaGNC">           1 :         forwardingState.recirculate = true</span></span>
+<span id="L287"><span class="lineNum">     287</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L288"><span class="lineNum">     288</span>              :   // PNA extern handler</span>
+<span id="L289"><span class="lineNum">     289</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L290"><span class="lineNum">     290</span>              : </span>
+<span id="L291"><span class="lineNum">     291</span>              :   /**</span>
+<span id="L292"><span class="lineNum">     292</span>              :    * PNA extern handler: free functions and extern object methods.</span>
+<span id="L293"><span class="lineNum">     293</span>              :    *</span>
+<span id="L294"><span class="lineNum">     294</span>              :    * PNA's forwarding externs (`drop_packet`, `send_to_port`, `recirculate`) are free functions that</span>
+<span id="L295"><span class="lineNum">     295</span>              :    * mutate [forwardingState] directly, unlike PSA which uses output metadata fields.</span>
+<span id="L296"><span class="lineNum">     296</span>              :    */</span>
+<span id="L297"><span class="lineNum">     297</span>              :   private fun createPnaExternHandler(</span>
+<span id="L298"><span class="lineNum">     298</span>              :     pipeline: PipelineConfig,</span>
+<span id="L299"><span class="lineNum">     299</span>              :     forwardingState: ForwardingState,</span>
+<span id="L300"><span class="lineNum">     300</span>              :     checksumState: MutableMap&lt;String, BigInteger&gt;,</span>
+<span id="L301"><span class="lineNum">     301</span> <span class="tlaGNC">           1 :   ): ExternHandler = ExternHandler { call, eval -&gt;</span></span>
+<span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :     when (call) {</span></span>
+<span id="L303"><span class="lineNum">     303</span> <span class="tlaGNC">           1 :       is ExternCall.FreeFunction -&gt; handlePnaFreeFunction(call, eval, pipeline, forwardingState)</span></span>
+<span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :       is ExternCall.Method -&gt; handlePnaMethod(call, eval, pipeline, checksumState)</span></span>
+<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L306"><span class="lineNum">     306</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L307"><span class="lineNum">     307</span>              : </span>
+<span id="L308"><span class="lineNum">     308</span>              :   /** Handles PNA free-function externs (forwarding, mirroring, add-on-miss). */</span>
+<span id="L309"><span class="lineNum">     309</span>              :   private fun handlePnaFreeFunction(</span>
+<span id="L310"><span class="lineNum">     310</span>              :     call: ExternCall.FreeFunction,</span>
+<span id="L311"><span class="lineNum">     311</span>              :     eval: ExternEvaluator,</span>
+<span id="L312"><span class="lineNum">     312</span>              :     pipeline: PipelineConfig,</span>
+<span id="L313"><span class="lineNum">     313</span>              :     forwardingState: ForwardingState,</span>
+<span id="L314"><span class="lineNum">     314</span>              :   ): Value =</span>
+<span id="L315"><span class="lineNum">     315</span> <span class="tlaGNC">           1 :     when (call.name) {</span></span>
+<span id="L316"><span class="lineNum">     316</span>              :       // PNA spec (pna.p4 §562-570): drop_packet and send_to_port are the &quot;forwarding&quot;</span>
+<span id="L317"><span class="lineNum">     317</span>              :       // set — calling one overwrites the other (last writer wins). recirculate is</span>
+<span id="L318"><span class="lineNum">     318</span>              :       // independent and NOT part of this set.</span>
+<span id="L319"><span class="lineNum">     319</span>              :       &quot;drop_packet&quot; -&gt; {</span>
+<span id="L320"><span class="lineNum">     320</span>              :         // PNA spec: &quot;Invoking drop_packet() is supported only within the main control.&quot;</span>
+<span id="L321"><span class="lineNum">     321</span> <span class="tlaGNC">           1 :         require(forwardingState.currentStage == &quot;main_control&quot;) {</span></span>
+<span id="L322"><span class="lineNum">     322</span> <span class="tlaGNC">           1 :           &quot;drop_packet() called in ${forwardingState.currentStage}, &quot; +</span></span>
+<span id="L323"><span class="lineNum">     323</span> <span class="tlaGNC">           1 :             &quot;but PNA only supports it within main_control&quot;</span></span>
+<span id="L324"><span class="lineNum">     324</span>              :         }</span>
+<span id="L325"><span class="lineNum">     325</span> <span class="tlaGNC">           1 :         forwardingState.dropped = true</span></span>
+<span id="L326"><span class="lineNum">     326</span> <span class="tlaGNC">           1 :         UnitVal</span></span>
+<span id="L327"><span class="lineNum">     327</span>              :       }</span>
+<span id="L328"><span class="lineNum">     328</span>              :       &quot;send_to_port&quot; -&gt; {</span>
+<span id="L329"><span class="lineNum">     329</span> <span class="tlaGNC">           1 :         val port = eval.evalArg(0) as BitVal</span></span>
+<span id="L330"><span class="lineNum">     330</span> <span class="tlaGNC">           1 :         forwardingState.dropped = false</span></span>
+<span id="L331"><span class="lineNum">     331</span> <span class="tlaGNC">           1 :         forwardingState.destPort = port.bits.value.toInt()</span></span>
+<span id="L332"><span class="lineNum">     332</span> <span class="tlaGNC">           1 :         UnitVal</span></span>
+<span id="L333"><span class="lineNum">     333</span>              :       }</span>
+<span id="L334"><span class="lineNum">     334</span>              :       &quot;mirror_packet&quot; -&gt; {</span>
+<span id="L335"><span class="lineNum">     335</span> <span class="tlaGNC">           1 :         val sessionId = (eval.evalArg(1) as BitVal).bits.value.toInt()</span></span>
+<span id="L336"><span class="lineNum">     336</span> <span class="tlaGNC">           1 :         forwardingState.mirrorSessionId = sessionId</span></span>
 <span id="L337"><span class="lineNum">     337</span> <span class="tlaGNC">           1 :         UnitVal</span></span>
 <span id="L338"><span class="lineNum">     338</span>              :       }</span>
-<span id="L339"><span class="lineNum">     339</span>              :       &quot;SelectByDirection&quot; -&gt; {</span>
-<span id="L340"><span class="lineNum">     340</span> <span class="tlaGNC">           1 :         val direction = (eval.evalArg(0) as EnumVal).member</span></span>
-<span id="L341"><span class="lineNum">     341</span> <span class="tlaGNC">           1 :         if (direction == DIRECTION_NET_TO_HOST) eval.evalArg(1) else eval.evalArg(2)</span></span>
+<span id="L339"><span class="lineNum">     339</span>              :       &quot;recirculate&quot; -&gt; {</span>
+<span id="L340"><span class="lineNum">     340</span> <span class="tlaGNC">           1 :         forwardingState.recirculate = true</span></span>
+<span id="L341"><span class="lineNum">     341</span> <span class="tlaGNC">           1 :         UnitVal</span></span>
 <span id="L342"><span class="lineNum">     342</span>              :       }</span>
-<span id="L343"><span class="lineNum">     343</span> <span class="tlaGNC">           1 :       &quot;add_entry&quot; -&gt; execAddEntry(eval, pipeline)</span></span>
-<span id="L344"><span class="lineNum">     344</span>              :       // Stub: returns 0. Real NICs would allocate unique per-flow IDs, but a fixed value</span>
-<span id="L345"><span class="lineNum">     345</span>              :       // suffices for STF testing where flow ID values are not checked.</span>
-<span id="L346"><span class="lineNum">     346</span> <span class="tlaUNC tlaBgUNC">           0 :       &quot;allocate_flow_id&quot; -&gt; BitVal(BitVector(BigInteger.ZERO, 32))</span></span>
-<span id="L347"><span class="lineNum">     347</span>              :       // No-op: the simulator has no real timers, so expiration is not modeled.</span>
-<span id="L348"><span class="lineNum">     348</span> <span class="tlaUNC">           0 :       &quot;set_entry_expire_time&quot; -&gt; UnitVal</span></span>
-<span id="L349"><span class="lineNum">     349</span> <span class="tlaUNC">           0 :       &quot;restart_expire_timer&quot; -&gt; UnitVal</span></span>
-<span id="L350"><span class="lineNum">     350</span> <span class="tlaUNC">           0 :       else -&gt; error(&quot;PNA extern '${call.name}' is not implemented&quot;)</span></span>
-<span id="L351"><span class="lineNum">     351</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
-<span id="L352"><span class="lineNum">     352</span>              : </span>
-<span id="L353"><span class="lineNum">     353</span>              :   /**</span>
-<span id="L354"><span class="lineNum">     354</span>              :    * Implements PNA's `add_entry` extern: inserts a table entry from the data plane.</span>
-<span id="L355"><span class="lineNum">     355</span>              :    *</span>
-<span id="L356"><span class="lineNum">     356</span>              :    * The extern signature (from pna.p4):</span>
-<span id="L357"><span class="lineNum">     357</span>              :    * ```</span>
-<span id="L358"><span class="lineNum">     358</span>              :    * extern bool add_entry&lt;T&gt;(string action_name, in T action_params,</span>
-<span id="L359"><span class="lineNum">     359</span>              :    *                          in ExpireTimeProfileId_t expire_time_profile_id);</span>
-<span id="L360"><span class="lineNum">     360</span>              :    * ```</span>
-<span id="L361"><span class="lineNum">     361</span>              :    *</span>
-<span id="L362"><span class="lineNum">     362</span>              :    * The table to insert into is determined by the most recent table miss (the table with</span>
-<span id="L363"><span class="lineNum">     363</span>              :    * `add_on_miss = true` whose default action called `add_entry`). The match key values come from</span>
-<span id="L364"><span class="lineNum">     364</span>              :    * that same miss. After the midend, action_params may be a single value (for actions with one</span>
-<span id="L365"><span class="lineNum">     365</span>              :    * parameter) or a struct (for actions with multiple parameters).</span>
-<span id="L366"><span class="lineNum">     366</span>              :    */</span>
-<span id="L367"><span class="lineNum">     367</span>              :   private fun execAddEntry(eval: ExternEvaluator, pipeline: PipelineConfig): BoolVal {</span>
-<span id="L368"><span class="lineNum">     368</span> <span class="tlaGNC">           1 :     val missCtx = eval.lastTableMiss() ?: error(&quot;add_entry called but no table miss has occurred&quot;)</span></span>
-<span id="L369"><span class="lineNum">     369</span> <span class="tlaGNC">           1 :     val actionAlias = (eval.evalArg(0) as StringVal).value</span></span>
-<span id="L370"><span class="lineNum">     370</span> <span class="tlaGNC">           1 :     val actionName =</span></span>
-<span id="L371"><span class="lineNum">     371</span> <span class="tlaGNC">           1 :       pipeline.tableStore.resolveActionByAlias(actionAlias)</span></span>
-<span id="L372"><span class="lineNum">     372</span> <span class="tlaUNC tlaBgUNC">           0 :         ?: error(&quot;add_entry: unknown action '$actionAlias'&quot;)</span></span>
-<span id="L373"><span class="lineNum">     373</span>              : </span>
-<span id="L374"><span class="lineNum">     374</span>              :     // The action_params argument (arg 1) is either a single value (one-param actions)</span>
-<span id="L375"><span class="lineNum">     375</span>              :     // or a struct (multi-param actions, lowered to a tuple by the midend).</span>
-<span id="L376"><span class="lineNum">     376</span> <span class="tlaGNC tlaBgGNC">           1 :     val paramsValue = eval.evalArg(1)</span></span>
-<span id="L377"><span class="lineNum">     377</span> <span class="tlaGNC">           1 :     val actionParams: List&lt;Value&gt; =</span></span>
-<span id="L378"><span class="lineNum">     378</span> <span class="tlaGNC">           1 :       when (paramsValue) {</span></span>
-<span id="L379"><span class="lineNum">     379</span> <span class="tlaGNC">           1 :         is StructVal -&gt; paramsValue.fields.values.toList()</span></span>
-<span id="L380"><span class="lineNum">     380</span> <span class="tlaGNC">           1 :         else -&gt; listOf(paramsValue)</span></span>
-<span id="L381"><span class="lineNum">     381</span>              :       }</span>
-<span id="L382"><span class="lineNum">     382</span>              : </span>
-<span id="L383"><span class="lineNum">     383</span> <span class="tlaGNC">           1 :     val success =</span></span>
-<span id="L384"><span class="lineNum">     384</span> <span class="tlaGNC">           1 :       pipeline.tableStore.addEntry(missCtx.tableName, missCtx.keyValues, actionName, actionParams)</span></span>
-<span id="L385"><span class="lineNum">     385</span> <span class="tlaGNC">           1 :     return BoolVal(success)</span></span>
-<span id="L386"><span class="lineNum">     386</span>              :   }</span>
-<span id="L387"><span class="lineNum">     387</span>              : </span>
-<span id="L388"><span class="lineNum">     388</span>              :   /** Handles PNA extern method calls (Register, Hash, Counter, Meter, Checksum, Digest). */</span>
-<span id="L389"><span class="lineNum">     389</span>              :   private fun handlePnaMethod(</span>
-<span id="L390"><span class="lineNum">     390</span>              :     call: ExternCall.Method,</span>
-<span id="L391"><span class="lineNum">     391</span>              :     eval: ExternEvaluator,</span>
-<span id="L392"><span class="lineNum">     392</span>              :     pipeline: PipelineConfig,</span>
-<span id="L393"><span class="lineNum">     393</span>              :     checksumState: MutableMap&lt;String, BigInteger&gt;,</span>
-<span id="L394"><span class="lineNum">     394</span>              :   ): Value =</span>
-<span id="L395"><span class="lineNum">     395</span> <span class="tlaGNC">           1 :     handleCommonExternMethod(</span></span>
-<span id="L396"><span class="lineNum">     396</span> <span class="tlaGNC">           1 :       call,</span></span>
-<span id="L397"><span class="lineNum">     397</span> <span class="tlaGNC">           1 :       eval,</span></span>
-<span id="L398"><span class="lineNum">     398</span> <span class="tlaGNC">           1 :       pipeline.tableStore,</span></span>
-<span id="L399"><span class="lineNum">     399</span> <span class="tlaGNC">           1 :       pipeline.externInstances,</span></span>
-<span id="L400"><span class="lineNum">     400</span> <span class="tlaGNC">           1 :       checksumState,</span></span>
-<span id="L401"><span class="lineNum">     401</span> <span class="tlaGNC">           1 :       PNA_HASH_ALGORITHMS,</span></span>
-<span id="L402"><span class="lineNum">     402</span>              :     )</span>
-<span id="L403"><span class="lineNum">     403</span> <span class="tlaUNC tlaBgUNC">           0 :       ?: error(</span></span>
-<span id="L404"><span class="lineNum">     404</span> <span class="tlaUNC">           0 :         &quot;PNA extern method '${call.externType}.${call.method}' is not implemented&quot; +</span></span>
-<span id="L405"><span class="lineNum">     405</span> <span class="tlaUNC">           0 :           &quot; (on ${call.instanceName})&quot;</span></span>
-<span id="L406"><span class="lineNum">     406</span> <span class="tlaGNC tlaBgGNC">           1 :       )</span></span>
-<span id="L407"><span class="lineNum">     407</span>              : </span>
-<span id="L408"><span class="lineNum">     408</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L409"><span class="lineNum">     409</span>              :   // Mirror branch construction</span>
-<span id="L410"><span class="lineNum">     410</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L343"><span class="lineNum">     343</span>              :       &quot;SelectByDirection&quot; -&gt; {</span>
+<span id="L344"><span class="lineNum">     344</span> <span class="tlaGNC">           1 :         val direction = (eval.evalArg(0) as EnumVal).member</span></span>
+<span id="L345"><span class="lineNum">     345</span> <span class="tlaGNC">           1 :         if (direction == DIRECTION_NET_TO_HOST) eval.evalArg(1) else eval.evalArg(2)</span></span>
+<span id="L346"><span class="lineNum">     346</span>              :       }</span>
+<span id="L347"><span class="lineNum">     347</span> <span class="tlaGNC">           1 :       &quot;add_entry&quot; -&gt; execAddEntry(eval, pipeline)</span></span>
+<span id="L348"><span class="lineNum">     348</span>              :       // Stub: returns 0. Real NICs would allocate unique per-flow IDs, but a fixed value</span>
+<span id="L349"><span class="lineNum">     349</span>              :       // suffices for STF testing where flow ID values are not checked.</span>
+<span id="L350"><span class="lineNum">     350</span> <span class="tlaUNC tlaBgUNC">           0 :       &quot;allocate_flow_id&quot; -&gt; BitVal(BitVector(BigInteger.ZERO, 32))</span></span>
+<span id="L351"><span class="lineNum">     351</span>              :       // No-op: the simulator has no real timers, so expiration is not modeled.</span>
+<span id="L352"><span class="lineNum">     352</span> <span class="tlaUNC">           0 :       &quot;set_entry_expire_time&quot; -&gt; UnitVal</span></span>
+<span id="L353"><span class="lineNum">     353</span> <span class="tlaUNC">           0 :       &quot;restart_expire_timer&quot; -&gt; UnitVal</span></span>
+<span id="L354"><span class="lineNum">     354</span> <span class="tlaUNC">           0 :       else -&gt; error(&quot;PNA extern '${call.name}' is not implemented&quot;)</span></span>
+<span id="L355"><span class="lineNum">     355</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
+<span id="L356"><span class="lineNum">     356</span>              : </span>
+<span id="L357"><span class="lineNum">     357</span>              :   /**</span>
+<span id="L358"><span class="lineNum">     358</span>              :    * Implements PNA's `add_entry` extern: inserts a table entry from the data plane.</span>
+<span id="L359"><span class="lineNum">     359</span>              :    *</span>
+<span id="L360"><span class="lineNum">     360</span>              :    * The extern signature (from pna.p4):</span>
+<span id="L361"><span class="lineNum">     361</span>              :    * ```</span>
+<span id="L362"><span class="lineNum">     362</span>              :    * extern bool add_entry&lt;T&gt;(string action_name, in T action_params,</span>
+<span id="L363"><span class="lineNum">     363</span>              :    *                          in ExpireTimeProfileId_t expire_time_profile_id);</span>
+<span id="L364"><span class="lineNum">     364</span>              :    * ```</span>
+<span id="L365"><span class="lineNum">     365</span>              :    *</span>
+<span id="L366"><span class="lineNum">     366</span>              :    * The table to insert into is determined by the most recent table miss (the table with</span>
+<span id="L367"><span class="lineNum">     367</span>              :    * `add_on_miss = true` whose default action called `add_entry`). The match key values come from</span>
+<span id="L368"><span class="lineNum">     368</span>              :    * that same miss. After the midend, action_params may be a single value (for actions with one</span>
+<span id="L369"><span class="lineNum">     369</span>              :    * parameter) or a struct (for actions with multiple parameters).</span>
+<span id="L370"><span class="lineNum">     370</span>              :    */</span>
+<span id="L371"><span class="lineNum">     371</span>              :   private fun execAddEntry(eval: ExternEvaluator, pipeline: PipelineConfig): BoolVal {</span>
+<span id="L372"><span class="lineNum">     372</span> <span class="tlaGNC">           1 :     val missCtx = eval.lastTableMiss() ?: error(&quot;add_entry called but no table miss has occurred&quot;)</span></span>
+<span id="L373"><span class="lineNum">     373</span> <span class="tlaGNC">           1 :     val actionAlias = (eval.evalArg(0) as StringVal).value</span></span>
+<span id="L374"><span class="lineNum">     374</span> <span class="tlaGNC">           1 :     val actionName =</span></span>
+<span id="L375"><span class="lineNum">     375</span> <span class="tlaGNC">           1 :       pipeline.tableStore.resolveActionByAlias(actionAlias)</span></span>
+<span id="L376"><span class="lineNum">     376</span> <span class="tlaUNC tlaBgUNC">           0 :         ?: error(&quot;add_entry: unknown action '$actionAlias'&quot;)</span></span>
+<span id="L377"><span class="lineNum">     377</span>              : </span>
+<span id="L378"><span class="lineNum">     378</span>              :     // The action_params argument (arg 1) is either a single value (one-param actions)</span>
+<span id="L379"><span class="lineNum">     379</span>              :     // or a struct (multi-param actions, lowered to a tuple by the midend).</span>
+<span id="L380"><span class="lineNum">     380</span> <span class="tlaGNC tlaBgGNC">           1 :     val paramsValue = eval.evalArg(1)</span></span>
+<span id="L381"><span class="lineNum">     381</span> <span class="tlaGNC">           1 :     val actionParams: List&lt;Value&gt; =</span></span>
+<span id="L382"><span class="lineNum">     382</span> <span class="tlaGNC">           1 :       when (paramsValue) {</span></span>
+<span id="L383"><span class="lineNum">     383</span> <span class="tlaGNC">           1 :         is StructVal -&gt; paramsValue.fields.values.toList()</span></span>
+<span id="L384"><span class="lineNum">     384</span> <span class="tlaGNC">           1 :         else -&gt; listOf(paramsValue)</span></span>
+<span id="L385"><span class="lineNum">     385</span>              :       }</span>
+<span id="L386"><span class="lineNum">     386</span>              : </span>
+<span id="L387"><span class="lineNum">     387</span> <span class="tlaGNC">           1 :     val success =</span></span>
+<span id="L388"><span class="lineNum">     388</span> <span class="tlaGNC">           1 :       pipeline.tableStore.addEntry(missCtx.tableName, missCtx.keyValues, actionName, actionParams)</span></span>
+<span id="L389"><span class="lineNum">     389</span> <span class="tlaGNC">           1 :     return BoolVal(success)</span></span>
+<span id="L390"><span class="lineNum">     390</span>              :   }</span>
+<span id="L391"><span class="lineNum">     391</span>              : </span>
+<span id="L392"><span class="lineNum">     392</span>              :   /** Handles PNA extern method calls (Register, Hash, Counter, Meter, Checksum, Digest). */</span>
+<span id="L393"><span class="lineNum">     393</span>              :   private fun handlePnaMethod(</span>
+<span id="L394"><span class="lineNum">     394</span>              :     call: ExternCall.Method,</span>
+<span id="L395"><span class="lineNum">     395</span>              :     eval: ExternEvaluator,</span>
+<span id="L396"><span class="lineNum">     396</span>              :     pipeline: PipelineConfig,</span>
+<span id="L397"><span class="lineNum">     397</span>              :     checksumState: MutableMap&lt;String, BigInteger&gt;,</span>
+<span id="L398"><span class="lineNum">     398</span>              :   ): Value =</span>
+<span id="L399"><span class="lineNum">     399</span> <span class="tlaGNC">           1 :     handleCommonExternMethod(</span></span>
+<span id="L400"><span class="lineNum">     400</span> <span class="tlaGNC">           1 :       call,</span></span>
+<span id="L401"><span class="lineNum">     401</span> <span class="tlaGNC">           1 :       eval,</span></span>
+<span id="L402"><span class="lineNum">     402</span> <span class="tlaGNC">           1 :       pipeline.tableStore,</span></span>
+<span id="L403"><span class="lineNum">     403</span> <span class="tlaGNC">           1 :       pipeline.externInstances,</span></span>
+<span id="L404"><span class="lineNum">     404</span> <span class="tlaGNC">           1 :       checksumState,</span></span>
+<span id="L405"><span class="lineNum">     405</span> <span class="tlaGNC">           1 :       PNA_HASH_ALGORITHMS,</span></span>
+<span id="L406"><span class="lineNum">     406</span>              :     )</span>
+<span id="L407"><span class="lineNum">     407</span> <span class="tlaUNC tlaBgUNC">           0 :       ?: error(</span></span>
+<span id="L408"><span class="lineNum">     408</span> <span class="tlaUNC">           0 :         &quot;PNA extern method '${call.externType}.${call.method}' is not implemented&quot; +</span></span>
+<span id="L409"><span class="lineNum">     409</span> <span class="tlaUNC">           0 :           &quot; (on ${call.instanceName})&quot;</span></span>
+<span id="L410"><span class="lineNum">     410</span> <span class="tlaGNC tlaBgGNC">           1 :       )</span></span>
 <span id="L411"><span class="lineNum">     411</span>              : </span>
-<span id="L412"><span class="lineNum">     412</span>              :   /**</span>
-<span id="L413"><span class="lineNum">     413</span>              :    * Builds mirror branches if `mirror_packet()` was called during main control.</span>
-<span id="L414"><span class="lineNum">     414</span>              :    *</span>
-<span id="L415"><span class="lineNum">     415</span>              :    * PNA mirrors the deparsed packet (post-modification), matching DPDK SoftNIC behavior. Each</span>
-<span id="L416"><span class="lineNum">     416</span>              :    * replica in the clone session outputs the deparsed bytes on the replica's egress port. Unlike</span>
-<span id="L417"><span class="lineNum">     417</span>              :    * PSA clones (which run through a separate egress pipeline), PNA mirror replicas emit directly</span>
-<span id="L418"><span class="lineNum">     418</span>              :    * because PNA has no separate egress stage for mirrored packets to traverse.</span>
-<span id="L419"><span class="lineNum">     419</span>              :    */</span>
-<span id="L420"><span class="lineNum">     420</span>              :   private fun buildMirrorBranches(</span>
-<span id="L421"><span class="lineNum">     421</span>              :     pipeline: PipelineConfig,</span>
-<span id="L422"><span class="lineNum">     422</span>              :     deparsedBytes: ByteArray,</span>
-<span id="L423"><span class="lineNum">     423</span>              :     forwardingState: ForwardingState,</span>
-<span id="L424"><span class="lineNum">     424</span>              :   ): List&lt;ForkBranch&gt; {</span>
-<span id="L425"><span class="lineNum">     425</span> <span class="tlaGNC">           1 :     val sessionId = forwardingState.mirrorSessionId ?: return emptyList()</span></span>
-<span id="L426"><span class="lineNum">     426</span> <span class="tlaGNC">           1 :     val session = pipeline.tableStore.getCloneSession(sessionId) ?: return emptyList()</span></span>
-<span id="L427"><span class="lineNum">     427</span> <span class="tlaGNC">           1 :     return session.replicasList.map { replica -&gt;</span></span>
-<span id="L428"><span class="lineNum">     428</span> <span class="tlaGNC">           1 :       val port = replicaPort(replica)</span></span>
-<span id="L429"><span class="lineNum">     429</span> <span class="tlaGNC">           1 :       val subtree = buildOutputTrace(emptyList(), port, deparsedBytes)</span></span>
-<span id="L430"><span class="lineNum">     430</span> <span class="tlaGNC">           1 :       ForkBranch.newBuilder().setLabel(&quot;mirror_port_$port&quot;).setSubtree(subtree).build()</span></span>
-<span id="L431"><span class="lineNum">     431</span>              :     }</span>
-<span id="L432"><span class="lineNum">     432</span>              :   }</span>
-<span id="L433"><span class="lineNum">     433</span>              : </span>
-<span id="L434"><span class="lineNum">     434</span>              :   private companion object {</span>
-<span id="L435"><span class="lineNum">     435</span>              :     // PNA_Direction_t enum values (pna.p4).</span>
-<span id="L436"><span class="lineNum">     436</span>              :     const val DIRECTION_NET_TO_HOST = &quot;NET_TO_HOST&quot;</span>
+<span id="L412"><span class="lineNum">     412</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L413"><span class="lineNum">     413</span>              :   // Mirror branch construction</span>
+<span id="L414"><span class="lineNum">     414</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L415"><span class="lineNum">     415</span>              : </span>
+<span id="L416"><span class="lineNum">     416</span>              :   /**</span>
+<span id="L417"><span class="lineNum">     417</span>              :    * Builds mirror branches if `mirror_packet()` was called during main control.</span>
+<span id="L418"><span class="lineNum">     418</span>              :    *</span>
+<span id="L419"><span class="lineNum">     419</span>              :    * PNA mirrors the deparsed packet (post-modification), matching DPDK SoftNIC behavior. Each</span>
+<span id="L420"><span class="lineNum">     420</span>              :    * replica in the clone session outputs the deparsed bytes on the replica's egress port. Unlike</span>
+<span id="L421"><span class="lineNum">     421</span>              :    * PSA clones (which run through a separate egress pipeline), PNA mirror replicas emit directly</span>
+<span id="L422"><span class="lineNum">     422</span>              :    * because PNA has no separate egress stage for mirrored packets to traverse.</span>
+<span id="L423"><span class="lineNum">     423</span>              :    */</span>
+<span id="L424"><span class="lineNum">     424</span>              :   private fun buildMirrorBranches(</span>
+<span id="L425"><span class="lineNum">     425</span>              :     pipeline: PipelineConfig,</span>
+<span id="L426"><span class="lineNum">     426</span>              :     deparsedBytes: ByteArray,</span>
+<span id="L427"><span class="lineNum">     427</span>              :     forwardingState: ForwardingState,</span>
+<span id="L428"><span class="lineNum">     428</span>              :   ): List&lt;ForkBranch&gt; {</span>
+<span id="L429"><span class="lineNum">     429</span> <span class="tlaGNC">           1 :     val sessionId = forwardingState.mirrorSessionId ?: return emptyList()</span></span>
+<span id="L430"><span class="lineNum">     430</span> <span class="tlaGNC">           1 :     val session = pipeline.tableStore.getCloneSession(sessionId) ?: return emptyList()</span></span>
+<span id="L431"><span class="lineNum">     431</span> <span class="tlaGNC">           1 :     return session.replicasList.map { replica -&gt;</span></span>
+<span id="L432"><span class="lineNum">     432</span> <span class="tlaGNC">           1 :       val port = replicaPort(replica)</span></span>
+<span id="L433"><span class="lineNum">     433</span> <span class="tlaGNC">           1 :       val subtree = buildOutputTrace(emptyList(), port, deparsedBytes)</span></span>
+<span id="L434"><span class="lineNum">     434</span> <span class="tlaGNC">           1 :       ForkBranch.newBuilder().setLabel(&quot;mirror_port_$port&quot;).setSubtree(subtree).build()</span></span>
+<span id="L435"><span class="lineNum">     435</span>              :     }</span>
+<span id="L436"><span class="lineNum">     436</span>              :   }</span>
 <span id="L437"><span class="lineNum">     437</span>              : </span>
-<span id="L438"><span class="lineNum">     438</span>              :     // PNA_PacketPath_t enum values (pna.p4).</span>
-<span id="L439"><span class="lineNum">     439</span>              :     const val PACKET_PATH_FROM_NET_PORT = &quot;FROM_NET_PORT&quot;</span>
-<span id="L440"><span class="lineNum">     440</span>              :     const val PACKET_PATH_FROM_NET_RECIRCULATED = &quot;FROM_NET_RECIRCULATED&quot;</span>
+<span id="L438"><span class="lineNum">     438</span>              :   private companion object {</span>
+<span id="L439"><span class="lineNum">     439</span>              :     // PNA_Direction_t enum values (pna.p4).</span>
+<span id="L440"><span class="lineNum">     440</span>              :     const val DIRECTION_NET_TO_HOST = &quot;NET_TO_HOST&quot;</span>
 <span id="L441"><span class="lineNum">     441</span>              : </span>
-<span id="L442"><span class="lineNum">     442</span>              :     /**</span>
-<span id="L443"><span class="lineNum">     443</span>              :      * Maps PNA_HashAlgorithm_t enum members to the internal algorithm names used by Hash.kt.</span>
-<span id="L444"><span class="lineNum">     444</span>              :      *</span>
-<span id="L445"><span class="lineNum">     445</span>              :      * PNA's hash algorithm enum has the same values as PSA's, plus TARGET_DEFAULT which we map to</span>
-<span id="L446"><span class="lineNum">     446</span>              :      * identity as a safe fallback.</span>
-<span id="L447"><span class="lineNum">     447</span>              :      */</span>
-<span id="L448"><span class="lineNum">     448</span> <span class="tlaUNC tlaBgUNC">           0 :     val PNA_HASH_ALGORITHMS =</span></span>
-<span id="L449"><span class="lineNum">     449</span> <span class="tlaGNC tlaBgGNC">           1 :       mapOf(</span></span>
-<span id="L450"><span class="lineNum">     450</span> <span class="tlaGNC">           1 :         &quot;IDENTITY&quot; to &quot;identity&quot;,</span></span>
-<span id="L451"><span class="lineNum">     451</span> <span class="tlaGNC">           1 :         &quot;CRC16&quot; to &quot;crc16&quot;,</span></span>
-<span id="L452"><span class="lineNum">     452</span> <span class="tlaGNC">           1 :         &quot;CRC32&quot; to &quot;crc32&quot;,</span></span>
-<span id="L453"><span class="lineNum">     453</span> <span class="tlaGNC">           1 :         &quot;ONES_COMPLEMENT16&quot; to &quot;csum16&quot;,</span></span>
-<span id="L454"><span class="lineNum">     454</span> <span class="tlaGNC">           1 :         &quot;TARGET_DEFAULT&quot; to &quot;identity&quot;,</span></span>
-<span id="L455"><span class="lineNum">     455</span>              :       )</span>
-<span id="L456"><span class="lineNum">     456</span>              :   }</span>
-<span id="L457"><span class="lineNum">     457</span>              : }</span>
+<span id="L442"><span class="lineNum">     442</span>              :     // PNA_PacketPath_t enum values (pna.p4).</span>
+<span id="L443"><span class="lineNum">     443</span>              :     const val PACKET_PATH_FROM_NET_PORT = &quot;FROM_NET_PORT&quot;</span>
+<span id="L444"><span class="lineNum">     444</span>              :     const val PACKET_PATH_FROM_NET_RECIRCULATED = &quot;FROM_NET_RECIRCULATED&quot;</span>
+<span id="L445"><span class="lineNum">     445</span>              : </span>
+<span id="L446"><span class="lineNum">     446</span>              :     /**</span>
+<span id="L447"><span class="lineNum">     447</span>              :      * Maps PNA_HashAlgorithm_t enum members to the internal algorithm names used by Hash.kt.</span>
+<span id="L448"><span class="lineNum">     448</span>              :      *</span>
+<span id="L449"><span class="lineNum">     449</span>              :      * PNA's hash algorithm enum has the same values as PSA's, plus TARGET_DEFAULT which we map to</span>
+<span id="L450"><span class="lineNum">     450</span>              :      * identity as a safe fallback.</span>
+<span id="L451"><span class="lineNum">     451</span>              :      */</span>
+<span id="L452"><span class="lineNum">     452</span> <span class="tlaUNC tlaBgUNC">           0 :     val PNA_HASH_ALGORITHMS =</span></span>
+<span id="L453"><span class="lineNum">     453</span> <span class="tlaGNC tlaBgGNC">           1 :       mapOf(</span></span>
+<span id="L454"><span class="lineNum">     454</span> <span class="tlaGNC">           1 :         &quot;IDENTITY&quot; to &quot;identity&quot;,</span></span>
+<span id="L455"><span class="lineNum">     455</span> <span class="tlaGNC">           1 :         &quot;CRC16&quot; to &quot;crc16&quot;,</span></span>
+<span id="L456"><span class="lineNum">     456</span> <span class="tlaGNC">           1 :         &quot;CRC32&quot; to &quot;crc32&quot;,</span></span>
+<span id="L457"><span class="lineNum">     457</span> <span class="tlaGNC">           1 :         &quot;ONES_COMPLEMENT16&quot; to &quot;csum16&quot;,</span></span>
+<span id="L458"><span class="lineNum">     458</span> <span class="tlaGNC">           1 :         &quot;TARGET_DEFAULT&quot; to &quot;identity&quot;,</span></span>
+<span id="L459"><span class="lineNum">     459</span>              :       )</span>
+<span id="L460"><span class="lineNum">     460</span>              :   }</span>
+<span id="L461"><span class="lineNum">     461</span>              : }</span>
         </pre>
               </td>
             </tr>
