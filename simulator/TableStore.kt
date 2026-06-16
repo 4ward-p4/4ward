@@ -127,12 +127,19 @@ private fun resolveTableWrite(
     }
 
   val storedEntry =
-    if (!rawEntry.hasCounterData() && !rawEntry.hasMeterConfig()) {
+    if (
+      !rawEntry.hasCounterData() && !rawEntry.hasMeterConfig() && !rawEntry.hasMeterCounterData()
+    ) {
       effectiveEntry ?: rawEntry
     } else {
       // TableEntry carries direct extern data on reads, but forwarding entries are keyed only by
       // match/action data. Store direct counter and meter state in their dedicated maps.
-      (effectiveEntry ?: rawEntry).toBuilder().clearCounterData().clearMeterConfig().build()
+      (effectiveEntry ?: rawEntry)
+        .toBuilder()
+        .clearCounterData()
+        .clearMeterConfig()
+        .clearMeterCounterData()
+        .build()
     }
 
   return ResolvedTableWrite(rawEntry, effectiveEntry, storedEntry)
@@ -173,10 +180,17 @@ private fun validateInlineDirectResourceWrite(
       "table '$tableName' has no direct meter, but TableEntry contained meter_config"
     )
   }
+  if (rawEntry.hasMeterCounterData() && tableName !in directMeterTables) {
+    return WriteResult.InvalidArgument(
+      "table '$tableName' has no direct meter, but TableEntry contained meter_counter_data"
+    )
+  }
   // DELETE matches by key, but inline direct-resource fields still have to be valid for the table.
   if (updateType == Update.Type.DELETE) return null
+  val hasDirectResourceData =
+    rawEntry.hasCounterData() || rawEntry.hasMeterConfig() || rawEntry.hasMeterCounterData()
   if (
-    (rawEntry.hasCounterData() || rawEntry.hasMeterConfig()) &&
+    hasDirectResourceData &&
       write.effectiveEntryForValidation?.action?.typeCase ==
         P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET
   ) {
