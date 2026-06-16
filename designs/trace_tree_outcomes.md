@@ -65,11 +65,10 @@ keeping them apart:
 
 - **Why it branched, and with what detail** — *open, architecture-specific,
   unbounded.* "clone" vs "multicast" vs some future primitive; session ids,
-  multicast members, preserved metadata. This axis is carried entirely by
-  **typed trace events**; each branching outcome references the event that
-  *caused* it. There is no free-string `reason` and no parallel annotation
-  channel — the cause is the typed operation already recorded in the event
-  stream.
+  multicast members, preserved metadata. This axis never lives in proto
+  structure: it is carried entirely by **typed trace events**, with each
+  outcome referencing the event that *caused* it (detailed under *Causes*,
+  below).
 
 ### The five outcomes
 
@@ -123,6 +122,23 @@ cannot add a new combine semantics, so it cannot break the dispatch.
 ≥2 branches (a choice among one is not a choice), `Replication` has ≥1,
 `Continuation` has exactly one successor, leaves have none.
 
+### Vocabulary
+
+Consistent across proto, Kotlin, and docs:
+
+- **outcome** — how a node ends: a fork, a continuation, or a leaf.
+- **fork** — a `Replication` or a `Choice` (a node with ≥2 branches). A
+  `Continuation` is **not** a fork; `Output`/`Drop` are **leaves**.
+- **branch** — one subtree under a fork.
+- **pass** — one parser-to-deparser traversal (one re-parse of the packet);
+  passes are linked by `Continuation`s.
+- **cause** — the id of the typed event that triggered a fork or backward
+  continuation. Replaces the old free-string `reason`.
+
+This **retires** the `parallel` / `alternative` terminology and the
+`ForkMode` / `forkModeOf` machinery. "Parallel" was never a clean antonym
+of "alternative" and actively misled by lumping continuations under it.
+
 ### Causes: a reference, not a string
 
 A fork does not carry *why* it happened as a string. The cause of a branch
@@ -140,9 +156,9 @@ because the triggering event may live in an *ancestor* node — e.g.
 *original* drops at the boundary; the `Drop` (in a child subtree) must
 reference the `mark_to_drop` (in the parent). A global id reaches across
 the tree and survives reshaping (renderer flattening, pruning) that would
-invalidate indices. Resolving a reference is a one-pass `id → event` walk.
-The relevant event is the *data-flow* cause (the last writer of the
-forwarding decision), which is why distance from the outcome is irrelevant.
+invalidate indices. Resolving a reference is a one-pass `id → event` walk,
+and the referenced event is the *data-flow* cause — the last writer of the
+forwarding decision, wherever it sits.
 
 A forward `Continuation` (plain ingress→egress flow) has no triggering
 primitive, so its `cause` is absent; the stage it enters is identified by a
@@ -197,23 +213,6 @@ destinations are handled without inflating it:
 This keeps the one place that *is* load-bearing (the result packet and
 where it left) typed and universal, while refusing to let architecture port
 taxonomies leak into the core.
-
-### Vocabulary
-
-Consistent across proto, Kotlin, and docs:
-
-- **outcome** — how a node ends: a fork, a continuation, or a leaf.
-- **fork** — a `Replication` or a `Choice` (a node with ≥2 branches). A
-  `Continuation` is **not** a fork; `Output`/`Drop` are **leaves**.
-- **branch** — one subtree under a fork.
-- **pass** — one parser-to-deparser traversal (one re-parse of the packet);
-  passes are linked by `Continuation`s.
-- **cause** — the id of the typed event that triggered a fork or backward
-  continuation. Replaces the old free-string `reason`.
-
-This **retires** the `parallel` / `alternative` terminology and the
-`ForkMode` / `forkModeOf` machinery. "Parallel" was never a clean antonym
-of "alternative" and actively misled by lumping continuations under it.
 
 ### One cause per fork; nest for multiplicity
 
