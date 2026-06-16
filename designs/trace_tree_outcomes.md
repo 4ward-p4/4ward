@@ -148,6 +148,16 @@ A forward `Continuation` (plain ingress→egress flow) has no triggering
 primitive, so its `cause` is absent; the stage it enters is identified by a
 typed entry event at the head of its `next` subtree.
 
+Two invariants keep references sound. **Referential integrity:** every
+`cause`/`trigger` must resolve to an event `id` that exists in the trace
+(an ancestor's or this node's) — a validator checks this and fails loud, so
+a dangling reference is a build error, never a silent mystery.
+**Deterministic ids:** the producer assigns ids as a counter in emission
+order, so the same input yields the same ids and golden traces are stable.
+Ids are an internal handle, unique within one trace and meaningless across
+traces; consumers that diff traces should compare *structure and resolved
+events*, not raw id values.
+
 ### Drop
 
 `Drop` is the one outcome that can occur by the **absence** of any
@@ -169,6 +179,25 @@ drop. A miss runs the table's default action; whatever that action does
 itself is recorded as `hit:false` on the `TableLookup` event, not as a
 drop category.
 
+### Output and ports
+
+`Output { PortRef port; bytes packet }` carries the egress port as a
+**neutral port identity** — the value the program/architecture computed,
+nothing more. The core proto holds no special-port enum. Special
+destinations are handled without inflating it:
+
+- **recirculation / resubmission** is a `Continuation`, not an `Output`.
+- **drop** is a `Drop`, not an output to a "drop port".
+- **to-CPU (packet-in), pipe-qualified ports, flood** are *architecture
+  interpretations* of the port identity — applied by an architecture lens
+  or read from a typed event — never core fields. A v1model port and a
+  TNA pipe-qualified port are the same neutral `PortRef` to a generic
+  consumer; only an architecture-aware one decodes the structure.
+
+This keeps the one place that *is* load-bearing (the result packet and
+where it left) typed and universal, while refusing to let architecture port
+taxonomies leak into the core.
+
 ### Vocabulary
 
 Consistent across proto, Kotlin, and docs:
@@ -177,8 +206,8 @@ Consistent across proto, Kotlin, and docs:
 - **fork** — a `Replication` or a `Choice` (a node with ≥2 branches). A
   `Continuation` is **not** a fork; `Output`/`Drop` are **leaves**.
 - **branch** — one subtree under a fork.
-- **pass** — one traversal of a pipeline stage; passes are linked by
-  `Continuation`s.
+- **pass** — one parser-to-deparser traversal (one re-parse of the packet);
+  passes are linked by `Continuation`s.
 - **cause** — the id of the typed event that triggered a fork or backward
   continuation. Replaces the old free-string `reason`.
 
@@ -222,23 +251,32 @@ Replication (cause: clone-session lookup)
 ### Continuation handles all stage transitions, not just loopback
 
 A `Continuation` means "the same packet continues as another pass." It is
-**not** specialized to looping back. A forward stage transition
-(ingress→egress, pipe0→pipe1) is a `Continuation` whose `cause` is absent
-(no triggering primitive — the stage it enters is named by a typed entry
-event at the head of `next`); recirculate/resubmit are `Continuation`s
-whose `cause` references the recirculate/resubmit primitive. The
-multiplicity at a transition picks the outcome:
+**not** specialized to looping back. The multiplicity at a transition picks
+the outcome:
 
 | transition | outcome |
 |---|---|
-| forward, single packet (unicast ingress→egress) | `Continuation`, no cause |
+| forward, single packet (one re-parse) | `Continuation`, no cause |
 | forward, replicated (multicast at the TM) | `Replication` |
 | forward, nondeterministic routing | `Choice` |
 | backward (recirculate, resubmit) | `Continuation`, cause = the primitive |
 
-A pass is one pipeline-stage traversal; the proto never needs to know how
-many stages an architecture has or their names — that is carried by the
-typed stage-entry events. The combine basis `{Replication, Choice,
+**A pass is one parser-to-deparser traversal — one re-parse of the
+packet — and a `Continuation` marks exactly a re-parse.** This makes
+pass-cutting a fact about the architecture, not the trace author's taste:
+an architecture emits a `Continuation` precisely where it hands the packet
+to a parser again, and the `next` subtree begins with that parser/entry
+event. So the cut points are verifiable, and the next pass's events are
+cleanly scoped to their own parse.
+
+This is deliberately *architecture-determined*, not uniform: PSA and TNA
+have separate ingress and egress parsers, so ingress→egress re-parses and
+is a forward `Continuation`; v1model parses once, so its ingress and egress
+sit in **one pass** (one node, modulo forks) with no `Continuation` between
+them. That difference is real — the architectures genuinely re-parse
+different numbers of times — so the traces *should* differ here rather than
+be forced into a common shape. The proto never needs to know how many
+passes an architecture has; the combine basis `{Replication, Choice,
 Continuation, Output, Drop}` is unchanged by multi-pipe or N-stage
 architectures.
 
