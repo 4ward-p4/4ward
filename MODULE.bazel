@@ -90,7 +90,7 @@ bazel_dep(name = "googleapis-java", version = "1.1.5")
 # exports, and the macOS build fix).
 #
 # Why: our e2e_tests/p4testgen PNA suite needs the drop-by-default fix
-# (p4lang/p4c#5569), which is still open upstream. The smolkaj/p4c fork is
+# (p4lang/p4c#5569), which is still open upstream. The 4ward-p4/p4c fork is
 # upstream main plus that single patch; PR #5570 (PNA STF backend) is already
 # in upstream main.
 #
@@ -100,7 +100,7 @@ bazel_dep(name = "p4c", version = "1.2.5.11.bcr.1")
 git_override(
     module_name = "p4c",
     commit = "93932df3cc9fe7de596ad257f6eee7bcddc0fd58",
-    remote = "https://github.com/smolkaj/p4c.git",
+    remote = "https://github.com/4ward-p4/p4c.git",
 )
 
 # p4-constraints validates @entry_restriction / @action_restriction annotations.

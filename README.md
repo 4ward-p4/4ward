@@ -3,9 +3,9 @@
   <br><br>
   <strong>Your P4 programs, finally explained.</strong>
   <br><br>
-  <a href="https://github.com/smolkaj/4ward/actions/workflows/ci.yml"><img src="https://github.com/smolkaj/4ward/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://smolkaj.github.io/4ward/"><img src="https://img.shields.io/badge/docs-4ward-blue" alt="Docs"></a>
-  <a href="https://smolkaj.github.io/4ward/main/"><img src="https://img.shields.io/badge/coverage-report-blue" alt="Coverage"></a>
+  <a href="https://github.com/4ward-p4/4ward/actions/workflows/ci.yml"><img src="https://github.com/4ward-p4/4ward/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://4ward-p4.github.io/4ward/"><img src="https://img.shields.io/badge/docs-4ward-blue" alt="Docs"></a>
+  <a href="https://4ward-p4.github.io/4ward/main/"><img src="https://img.shields.io/badge/coverage-report-blue" alt="Coverage"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License"></a>
 </p>
 
@@ -90,7 +90,7 @@ C++20 compiler for the p4c backend. Everything else is hermetic — Bazel
 handles it.
 
 ```sh
-git clone https://github.com/smolkaj/4ward.git && cd 4ward
+git clone https://github.com/4ward-p4/4ward.git && cd 4ward
 bazel build //...   # build everything
 bazel test //...    # run all tests
 ```
@@ -281,7 +281,7 @@ ergonomics (sealed classes, pattern matching).
 > [!IMPORTANT]
 > **You don't need Kotlin to contribute to — or use — 4ward.**
 > [AI writes the code](docs/AI_WORKFLOW.md); C++ projects embed via
-> [`//fourward_cc:dataplane_client`](https://smolkaj.github.io/4ward/reference/embedding-cc/);
+> [`//fourward_cc:dataplane_client`](https://4ward-p4.github.io/4ward/reference/embedding-cc/);
 > any gRPC client works in any language.
 
 ## Project structure
@@ -306,7 +306,7 @@ ergonomics (sealed classes, pattern matching).
 │   ├── sai_p4/             SAI P4 test fixtures
 │   └── <feature>/          Hand-written feature tests (passthrough, lpm, …)
 ├── designs/                Design documents
-├── userdocs/               User-facing documentation (MkDocs → smolkaj.github.io/4ward/)
+├── userdocs/               User-facing documentation (MkDocs → 4ward-p4.github.io/4ward/)
 ├── docs/                   Developer documentation (architecture, roadmap, testing)
 └── tools/                  Developer scripts (format, lint, coverage, …)
 ```
@@ -323,10 +323,10 @@ report in about 5. No flakes, no "works on my machine." See for yourself on the
 
 ## Documentation
 
-**[User documentation](https://smolkaj.github.io/4ward/)** — getting started
+**[User documentation](https://4ward-p4.github.io/4ward/)** — getting started
 guides, reference pages, and concept explainers for the web playground, CLI,
-gRPC API, and [C++ library](https://smolkaj.github.io/4ward/reference/embedding-cc/)
-(including composable [gtest matchers](https://smolkaj.github.io/4ward/reference/dataplane-matchers/)).
+gRPC API, and [C++ library](https://4ward-p4.github.io/4ward/reference/embedding-cc/)
+(including composable [gtest matchers](https://4ward-p4.github.io/4ward/reference/dataplane-matchers/)).
 
 **[Tutorial](examples/tutorial.t)** — a hands-on walkthrough from hello
 world to machine-readable trace output. Doubles as a regression test (cram

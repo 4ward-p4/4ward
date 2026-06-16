@@ -3,7 +3,7 @@
 User-facing documentation for 4ward, built with
 [MkDocs Material](https://squidfunk.github.io/mkdocs-material/).
 
-**Live site:** https://smolkaj.github.io/4ward/
+**Live site:** https://4ward-p4.github.io/4ward/
 
 **Local preview:**
 
