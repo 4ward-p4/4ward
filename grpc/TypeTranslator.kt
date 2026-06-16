@@ -39,12 +39,10 @@ fun encodeMinWidth(value: Int): ByteString {
  */
 fun encodeMinWidth(value: BigInteger): ByteString {
   require(value.signum() >= 0) { "value must be non-negative: $value" }
-  if (value.signum() == 0) return ByteString.copyFrom(byteArrayOf(0))
-  // BigInteger.toByteArray() is big-endian two's complement; a positive value whose top bit is set
-  // gets a leading 0x00 sign byte. Drop it to reach the canonical minimum-width form.
-  val raw = value.toByteArray()
-  val start = if (raw[0].toInt() == 0) 1 else 0
-  return ByteString.copyFrom(raw, start, raw.size - start)
+  // BigInteger.toByteArray() is big-endian two's complement; for a non-negative value that is just
+  // the magnitude, possibly with a leading 0x00 sign byte. canonicalize() strips that to the §8.3
+  // shortest form (and keeps a single 0x00 for zero).
+  return canonicalize(ByteString.copyFrom(value.toByteArray()))
 }
 
 /** The P4Runtime (controller-facing) value for a translated type. */
