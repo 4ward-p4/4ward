@@ -144,8 +144,6 @@ private constructor(
   val portTranslator: PortTranslator?,
 ) {
 
-  private val logger = Logger.getLogger(TypeTranslator::class.java.name)
-
   // Data-plane values already warned about in lenient reverse translation, so a punt stream that
   // repeatedly presents the same unmapped port (e.g. the drop port) is logged once, not per packet.
   private val warnedUnmappedReverse = ConcurrentHashMap.newKeySet<String>()
@@ -508,8 +506,10 @@ private constructor(
       metadata.map { meta ->
         val typeName = typeNameMap[meta.metadataId]
         if (typeName != null) {
+          val table = getOrCreateTable(typeName)
           val translated =
-            translateValue(getOrCreateTable(typeName), meta.value, direction, lenient, typeName)
+            if (lenient) reverseTranslateLenient(table, meta.value, typeName)
+            else translateValue(table, meta.value, direction)
           changed = true
           meta.toBuilder().setValue(translated).build()
         } else {
@@ -524,17 +524,8 @@ private constructor(
    *
    * For `sdn_string` tables, the P4Runtime value is a UTF-8 string encoded in the proto `bytes`
    * field (per P4Runtime spec §8.3 — there is no separate string field).
-   *
-   * When [lenient] (reverse direction only), a value with no SDN mapping is returned unchanged
-   * instead of throwing — see [translatePacketIn]. [typeName] labels the value in that case's log.
    */
-  private fun translateValue(
-    table: TranslationTable,
-    value: ByteString,
-    direction: Direction,
-    lenient: Boolean = false,
-    typeName: String = "",
-  ): ByteString =
+  private fun translateValue(table: TranslationTable, value: ByteString, direction: Direction) =
     when (direction) {
       Direction.TO_DATAPLANE ->
         if (table.isStringType) {
@@ -542,30 +533,41 @@ private constructor(
         } else {
           table.lookupOrAllocateBitstring(value)
         }
-      Direction.TO_P4RT ->
-        when (
-          val p4rtValue =
-            if (lenient) table.reverseLookupOrNull(value) else table.reverseLookup(value)
-        ) {
-          is P4rtValue.Bitstring -> p4rtValue.value
-          is P4rtValue.Str -> ByteString.copyFromUtf8(p4rtValue.value)
-          // No SDN name for this data-plane value (e.g. an architectural port like the drop port
-          // the control plane never named). Deliver it untranslated, but warn once per distinct
-          // value so a genuinely unexpected gap stays visible without flooding a punt stream.
-          null -> {
-            if (warnedUnmappedReverse.add("$typeName:${value.toHex()}")) {
-              val decimal = BigInteger(1, value.toByteArray())
-              logger.warning(
-                "no SDN mapping for data-plane value 0x${value.toHex()} ($decimal) of translated " +
-                  "type '$typeName'; passing it through untranslated"
-              )
-            }
-            value
-          }
-        }
+      Direction.TO_P4RT -> table.reverseLookup(value).toByteString()
+    }
+
+  /**
+   * Reverse-translates a PacketIn metadata [value] of type [typeName], tolerating values the
+   * control plane never named (e.g. the drop port a punt presents): returns the raw value
+   * untranslated and warns once per distinct value instead of throwing. See [translatePacketIn].
+   */
+  private fun reverseTranslateLenient(
+    table: TranslationTable,
+    value: ByteString,
+    typeName: String,
+  ): ByteString {
+    val p4rtValue = table.reverseLookupOrNull(value)
+    if (p4rtValue != null) return p4rtValue.toByteString()
+    if (warnedUnmappedReverse.add("$typeName:${value.toHex()}")) {
+      val decimal = BigInteger(1, value.toByteArray())
+      logger.warning(
+        "no SDN mapping for data-plane value 0x${value.toHex()} ($decimal) of translated type " +
+          "'$typeName'; delivering it untranslated in PacketIn metadata"
+      )
+    }
+    return value
+  }
+
+  /** The on-the-wire P4Runtime bytes for a reverse-translated value (string → UTF-8, else raw). */
+  private fun P4rtValue.toByteString(): ByteString =
+    when (this) {
+      is P4rtValue.Bitstring -> value
+      is P4rtValue.Str -> ByteString.copyFromUtf8(value)
     }
 
   companion object {
+    private val logger = Logger.getLogger(TypeTranslator::class.java.name)
+
     /**
      * Creates a TypeTranslator from translation configurations.
      *
