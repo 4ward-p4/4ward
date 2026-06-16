@@ -43,9 +43,8 @@ guilt — just write it down so someone can find it later.
   written and read back, but token buckets, refill timing, and rate-based color
   transitions are permanently out of scope: 4ward is a deterministic packet
   simulator with no wall-clock traffic-rate model.
-- **`digest` is a no-op stub.** PSA `Digest.pack()` is accepted but doesn't
-  deliver messages to the control plane. v1model `digest()` is not
-  implemented and will crash at runtime.
+- **`digest` is a no-op stub.** v1model `digest()` and PSA/PNA `Digest.pack()`
+  are accepted but do not deliver messages to the control plane.
 
 ## v1model gaps
 
