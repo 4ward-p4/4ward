@@ -541,6 +541,14 @@ void FourWardBackend::emitTypeDecls(const IR::P4Program* program) {
       auto* td = behavioral_->add_types();
       td->set_name(hdr->name.name.c_str());
       auto* hdecl = td->mutable_header();
+      if (const auto* ann = hdr->getAnnotation("controller_header"_cs)) {
+        if (ann->getExpr().size() == 1) {
+          if (const auto* value =
+                  ann->getExpr().at(0)->to<IR::StringLiteral>()) {
+            hdecl->set_controller_header(value->value.c_str());
+          }
+        }
+      }
       for (const auto* field : hdr->fields) {
         auto* fd = hdecl->add_fields();
         fd->set_name(field->name.name.c_str());

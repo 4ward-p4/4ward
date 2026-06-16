@@ -234,6 +234,9 @@ message TypeDecl {
 
 message HeaderDecl {
   repeated FieldDecl fields = 1;
+  // Value of @controller_header, e.g. "packet_out" or "packet_in". Empty for
+  // ordinary headers.
+  string controller_header = 2;
 }
 message StructDecl {
   repeated FieldDecl fields = 1;

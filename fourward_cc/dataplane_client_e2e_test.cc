@@ -230,6 +230,10 @@ p4::v1::PacketOut BuildSaiSubmitToEgressPacketOut(
   submit_to_ingress->set_metadata_id(
       PacketOutMetadataId(p4info, "submit_to_ingress"));
   submit_to_ingress->set_value(std::string(1, '\0'));
+
+  p4::v1::PacketMetadata* unused_pad = packet.add_metadata();
+  unused_pad->set_metadata_id(PacketOutMetadataId(p4info, "unused_pad"));
+  unused_pad->set_value(std::string(1, '\0'));
   return packet;
 }
 

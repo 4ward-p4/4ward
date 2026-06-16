@@ -43,6 +43,75 @@ class BitLevelSerializationTest {
   }
 
   @Test
+  fun `controller_header annotations are emitted into behavioral IR`() {
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      @controller_header("packet_out")
+      header CompletelyArbitraryOutboundName_t {
+        bit<9> egress_port;
+        bit<1> submit_to_ingress;
+        @padding
+        bit<6> unused_pad;
+      }
+
+      @controller_header("packet_in")
+      header CompletelyArbitraryInboundName_t {
+        bit<9> ingress_port;
+        bit<7> reason;
+      }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t {
+        CompletelyArbitraryOutboundName_t out_hdr;
+        CompletelyArbitraryInboundName_t in_hdr;
+        ethernet_t eth;
+      }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start {
+          pkt.extract(hdr.out_hdr);
+          pkt.extract(hdr.eth);
+          transition accept;
+        }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.egress_spec = h.out_hdr.egress_port; }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply {
+          h.out_hdr.setInvalid();
+          h.in_hdr.setValid();
+          h.in_hdr.ingress_port = sm.ingress_port;
+          h.in_hdr.reason = 0;
+        }
+      }
+      control D(packet_out pkt, in headers_t h) {
+        apply {
+          pkt.emit(h.in_hdr);
+          pkt.emit(h.eth);
+        }
+      }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val packetOutHeader =
+      config.device.behavioral.typesList.single { it.name == "CompletelyArbitraryOutboundName_t" }
+    val packetInHeader =
+      config.device.behavioral.typesList.single { it.name == "CompletelyArbitraryInboundName_t" }
+
+    assertEquals("packet_out", packetOutHeader.header.controllerHeader)
+    assertEquals("packet_in", packetInHeader.header.controllerHeader)
+  }
+
+  @Test
   fun `compiled program runs in simulator`() {
     val config =
       compileInlineP4(
