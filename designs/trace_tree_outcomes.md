@@ -65,9 +65,11 @@ keeping them apart:
 
 - **Why it branched, and with what detail** — *open, architecture-specific,
   unbounded.* "clone" vs "multicast" vs some future primitive; session ids,
-  multicast members, preserved metadata. This axis is carried as *open
-  annotation* — a `reason` string (names, not IDs) plus ordinary trace
-  events — never as proto structure.
+  multicast members, preserved metadata. This axis is carried entirely by
+  **typed trace events**; each branching outcome references the event that
+  *caused* it. There is no free-string `reason` and no parallel annotation
+  channel — the cause is the typed operation already recorded in the event
+  stream.
 
 ### The five outcomes
 
@@ -85,11 +87,24 @@ message TraceTree {
   }
 }
 
-message Replication  { string reason = 1; repeated TraceTree branches = 2; }
-message Choice       { string reason = 1; repeated TraceTree branches = 2; }
-message Continuation { string reason = 1; TraceTree next = 2; }
-message Output       { PortRef port = 1; bytes packet = 2; }
-message Drop         { string reason = 1; }
+message TraceEvent {
+  uint64 id = 1;                    // trace-global, referenceable (see "Causes")
+  oneof event {
+    TableLookup          table_lookup = 2;
+    MulticastGroupLookup mcast_lookup = 3;
+    CloneSessionLookup   clone_lookup = 4;
+    FieldWrite           write        = 5;
+    MarkToDrop           mark_to_drop = 6;
+    // … per-architecture events, added via extension …
+  }
+}
+
+// `cause` is the id of the typed event that triggered this branch.
+message Replication  { uint64 cause = 1; repeated TraceTree branches = 2; }  // branches ≥ 1
+message Choice       { uint64 cause = 1; repeated TraceTree branches = 2; }  // branches ≥ 2
+message Continuation { optional uint64 cause = 1; TraceTree next = 2; }      // exactly one successor
+message Output       { PortRef port = 1; bytes packet = 2; }                 // the result; no cause
+message Drop         { optional uint64 trigger = 1; }                        // see "Drop" below
 ```
 
 | Outcome | Meaning | Output semantics |
@@ -104,6 +119,56 @@ The outcome *type* is the combine semantics — `collectPossibleOutcomes`
 dispatches on it directly. No `forkModeOf` table, and a new architecture
 cannot add a new combine semantics, so it cannot break the dispatch.
 
+**Arity invariants** make meaningless shapes unrepresentable: `Choice` has
+≥2 branches (a choice among one is not a choice), `Replication` has ≥1,
+`Continuation` has exactly one successor, leaves have none.
+
+### Causes: a reference, not a string
+
+A fork does not carry *why* it happened as a string. The cause of a branch
+is always a typed event that already exists in the trace — a `Replication`
+follows a `MulticastGroupLookup` or `CloneSessionLookup`; a `Choice`
+follows an action-selector apply; a backward `Continuation` follows a
+recirculate/resubmit primitive. So the outcome simply **references** that
+event by its `id`. A free-string `reason` would re-encode information the
+event already holds — the same redundancy we reject for the `info` bag and
+for per-branch state, applied consistently.
+
+The reference is a **trace-global event id**, not a positional index,
+because the triggering event may live in an *ancestor* node — e.g.
+`mark_to_drop` fires mid-ingress, the packet is then cloned, and the
+*original* drops at the boundary; the `Drop` (in a child subtree) must
+reference the `mark_to_drop` (in the parent). A global id reaches across
+the tree and survives reshaping (renderer flattening, pruning) that would
+invalidate indices. Resolving a reference is a one-pass `id → event` walk.
+The relevant event is the *data-flow* cause (the last writer of the
+forwarding decision), which is why distance from the outcome is irrelevant.
+
+A forward `Continuation` (plain ingress→egress flow) has no triggering
+primitive, so its `cause` is absent; the stage it enters is identified by a
+typed entry event at the head of its `next` subtree.
+
+### Drop
+
+`Drop` is the one outcome that can occur by the **absence** of any
+decision — the packet reaches the end of the pipeline with no forwarding
+decision, so there is no event to reference. Every other outcome requires
+an explicit trigger; drop is the default fate. So `Drop` carries an
+**optional** trigger:
+
+- **`trigger` present** — an explicit cause; the referenced event's *type*
+  says which: `MarkToDrop`, a `FieldWrite` setting `egress_spec` to the
+  drop value, or a `MulticastGroupLookup` miss (multicast to an empty
+  group). No enum of drop reasons — the event already classifies it.
+- **`trigger` absent** — the packet fell off the end with no decision. This
+  is the only drop with no event behind it.
+
+Note what is deliberately *not* a drop cause: a **table miss** is not a
+drop. A miss runs the table's default action; whatever that action does
+(possibly `mark_to_drop`, possibly nothing) determines the fate. The miss
+itself is recorded as `hit:false` on the `TableLookup` event, not as a
+drop category.
+
 ### Vocabulary
 
 Consistent across proto, Kotlin, and docs:
@@ -114,27 +179,28 @@ Consistent across proto, Kotlin, and docs:
 - **branch** — one subtree under a fork.
 - **pass** — one traversal of a pipeline stage; passes are linked by
   `Continuation`s.
-- **reason** — the string naming the specific cause on a fork or
-  continuation (`"multicast"`, `"clone"`, `"action_selector"`,
-  `"recirculate"`, `"resubmit"`, `"to_egress"`).
+- **cause** — the id of the typed event that triggered a fork or backward
+  continuation. Replaces the old free-string `reason`.
 
 This **retires** the `parallel` / `alternative` terminology and the
 `ForkMode` / `forkModeOf` machinery. "Parallel" was never a clean antonym
 of "alternative" and actively misled by lumping continuations under it.
 
-### One reason per fork; nest for multiplicity
+### One cause per fork; nest for multiplicity
 
-A fork carries a single `reason`; all its branches share that cause.
-Concurrent effects at one boundary are modeled as **nested forks**, each
-homogeneous, not as one fork with heterogeneous per-branch reasons.
+A fork has a single `cause`; all its branches stem from that one
+operation. Concurrent effects at one boundary are modeled as **nested
+forks**, each with its own cause, not as one fork with mixed per-branch
+causes.
 
 Replication operations compose on "the original": clone splits off a copy
 and the original continues; multicast then fans the original out. So
-clone + multicast at end-of-ingress is:
+clone + multicast at end-of-ingress is (each fork's `cause` references the
+clone-session / multicast-group lookup that produced it):
 
 ```
-Replication reason="clone"
-├─ original  ── Replication reason="multicast"
+Replication (cause: clone-session lookup)
+├─ original  ── Replication (cause: multicast-group lookup)
 │               ├─ r0 → egress → Output
 │               ├─ r1 → egress → Output
 │               └─ r2 → egress → Output
@@ -148,8 +214,8 @@ single-reason guess **unrepresentable**: recirculate is the *continuation
 of the original branch*, never a sibling of the mirror copies:
 
 ```
-Replication reason="clone"
-├─ original  ── Continuation reason="recirculate" → next pass …
+Replication (cause: clone-session lookup)
+├─ original  ── Continuation (cause: recirculate primitive) → next pass …
 └─ mirror-copy ── Output
 ```
 
@@ -157,21 +223,24 @@ Replication reason="clone"
 
 A `Continuation` means "the same packet continues as another pass." It is
 **not** specialized to looping back. A forward stage transition
-(ingress→egress, pipe0→pipe1) is a `Continuation` with a forward `reason`;
-recirculate/resubmit are `Continuation`s with a backward `reason`. The
+(ingress→egress, pipe0→pipe1) is a `Continuation` whose `cause` is absent
+(no triggering primitive — the stage it enters is named by a typed entry
+event at the head of `next`); recirculate/resubmit are `Continuation`s
+whose `cause` references the recirculate/resubmit primitive. The
 multiplicity at a transition picks the outcome:
 
 | transition | outcome |
 |---|---|
-| forward, single packet (unicast ingress→egress) | `Continuation` |
+| forward, single packet (unicast ingress→egress) | `Continuation`, no cause |
 | forward, replicated (multicast at the TM) | `Replication` |
 | forward, nondeterministic routing | `Choice` |
-| backward (recirculate, resubmit) | `Continuation`, backward reason |
+| backward (recirculate, resubmit) | `Continuation`, cause = the primitive |
 
 A pass is one pipeline-stage traversal; the proto never needs to know how
-many stages an architecture has or their names — that is all in `reason`
-strings. The combine basis `{Replication, Choice, Continuation, Output,
-Drop}` is unchanged by multi-pipe or N-stage architectures.
+many stages an architecture has or their names — that is carried by the
+typed stage-entry events. The combine basis `{Replication, Choice,
+Continuation, Output, Drop}` is unchanged by multi-pipe or N-stage
+architectures.
 
 The trace tree is rooted at a *single input packet*. It composes by
 `Replication` / `Choice` / `Continuation` (all 1→1 or 1→N). It has no
@@ -190,9 +259,10 @@ head events of each branch (`rid=0 → port 5`).
 There is **no** per-branch metadata bag (`info`, `map<string, Value>`,
 etc.). An earlier draft proposed one; it was redundant with `events` —
 re-recording, at the fork, state the subtree already carries. The only
-thing genuinely attached to a fork is its `reason`. Load-bearing result
-data (the egress port and bytes at an `Output`) stays typed on the leaf,
-because that is the simulation's product, not annotation.
+thing genuinely attached to a fork is its `cause` reference (and that, too,
+points *into* the event stream rather than duplicating it). Load-bearing
+result data (the egress port and bytes at an `Output`) stays typed on the
+leaf, because that is the simulation's product, not annotation.
 
 ### PRE lookups are first-class entries
 
@@ -207,34 +277,36 @@ event preceding its action.
 
 `CloneSessionLookupEvent` already exists. The redesign adds the symmetric
 `MulticastGroupLookupEvent` (today multicast is implied only by the fork
-`reason`), and both record **hits and misses**:
+`reason`), and both record **hits and misses**. The `Replication`'s `cause`
+references the lookup event directly:
 
 ```
-events: [ set meta.mcast_grp = 7,
-          MulticastGroupLookup group=7 → members [(port 5, rid 0), (port 68, rid 1)] ]
-Replication reason="multicast"
- ├─ rid0  events:[ set egress_port=5,  … ] Output(5)
- └─ rid1  events:[ set egress_port=68, … ] Continuation reason="recirculate" …
+events: [ #1 write meta.mcast_grp = 7,
+          #2 mcast_lookup group=7 → members [(port 5, rid 0), (port 68, rid 1)] ]
+Replication (cause: #2)
+ ├─ rid0  events:[ write egress_port=5,  … ] Output(5)
+ └─ rid1  events:[ write egress_port=68, … ] Continuation (cause: recirculate) …
 ```
 
 A miss — multicast to an unconfigured group, a common bring-up bug —
-becomes visible instead of a silently vanished packet:
+becomes visible instead of a silently vanished packet; the `Drop` simply
+points at the miss event:
 
 ```
-events: [ set meta.mcast_grp = 9,
-          MulticastGroupLookup group=9 → MISS (no entry) → 0 replicas ]
-Drop reason="multicast_no_replicas"
+events: [ #1 write meta.mcast_grp = 9,
+          #2 mcast_lookup group=9 → MISS (no entry) → 0 replicas ]
+Drop (trigger: #2)
 ```
 
 These are standard P4Runtime PRE concepts, so typed lookup events belong
 in the shared proto; an architecture without a PRE simply never emits
-them, just as it never emits a `Replication` with `reason="multicast"`.
+them — and never emits a `Replication` whose cause is a multicast lookup.
 
 ### One format; architecture-specific typing via shared schemas
 
 There is **one** serialized trace format: the architecture-neutral tree
-above. It is **lossless** — events capture all state, `reason` captures
-all causes, PRE lookups capture all replication config — so any
+above. It is **lossless** — events capture all state, outcomes reference
+their causes by id, PRE lookups capture all replication config — so any
 architecture-specific, strongly-typed trace is a *derivable projection*,
 never an independent source of truth. We never build a second serialized
 format that competes with it.
@@ -257,26 +329,26 @@ none hand-parsed:
    a typed field. This is the primary channel — push architecture detail
    here first.
 
-3. **Residual structured detail + typed cause — proto extensions.** What
-   remains (the `reason` and any structured payload not naturally an event)
-   is carried by **`extend`ing** the core node from each architecture's own
-   proto:
+3. **Architecture-specific event types — proto extensions.** New
+   per-architecture events (and the rare node-level payload that is not
+   naturally an event) are carried by **`extend`ing** the core message from
+   each architecture's own proto, rather than editing the core oneof:
 
    ```proto
    // core trace proto (edition 2024) — declares the point, then never changes:
-   message TraceNode { /* … */ extensions 1000 to max; }
+   message TraceEvent { /* id + universal events … */ extensions 1000 to max; }
 
    // v1model_trace.proto, owned by 4ward, allocated 1000:
-   extend TraceNode { V1ModelInfo v1model = 1000; }
+   extend TraceEvent { V1ModelEvent v1model = 1000; }
    // tna_trace.proto, allocated 1001 — core proto untouched:
-   extend TraceNode { TnaInfo tna = 1001; }
+   extend TraceEvent { TnaEvent tna = 1001; }
    ```
 
    This is a good fit **because 4ward is the central authority for
    architecture schemas.** Extensions need globally-unique field numbers;
    4ward allocates them, in one repo, so there is no collision risk. The
    many consumers are *consumers* of these schemas, not authors of new
-   ones. And the mechanism preserves neutrality: the core `TraceNode`
+   ones. And the mechanism preserves neutrality: the core `TraceEvent`
    message definition never changes — a new architecture is purely
    additive, a new proto file extending the existing range. Consumers in
    any language run protoc on the architecture protos they care about and
@@ -304,7 +376,7 @@ truth, and the typed layer is always a generated projection over it.
   (`CloneFork`, `MulticastFork`, …).** Rejected: bakes architecture
   vocabulary into closed proto structure — the opposite of
   architecture-neutral. The correct split is on the *combine semantics*
-  (closed), with `reason` as open annotation.
+  (closed), with causes carried by typed events.
 
 - **Inline a continuation's events into the current node instead of a
   `Continuation` node.** Rejected for future-proofing. Structure → flat is
@@ -321,7 +393,13 @@ truth, and the typed layer is always a generated projection over it.
 
 - **A per-branch `info` metadata bag (`map`/`Any`/`repeated NamedValue`).**
   Rejected as redundant with `events`. State writes are events; the only
-  fork-level datum is `reason`.
+  fork-level datum is the `cause` reference into the event stream.
+
+- **A free-string `reason` on each fork/continuation.** Rejected for the
+  same redundancy: a branch's cause is always a typed event already in the
+  trace, so the outcome references it by id instead. `Drop` is the sole
+  carrier of cause information not in an event — its by-absence case — and
+  even that is an *optional missing trigger*, not a string.
 
 - **A second, architecture-specific serialized trace format.** Rejected:
   the generic format is lossless, so a typed format is a projection, not a
@@ -346,3 +424,9 @@ this work ("why is recirculate a replication fork?" — it should not be).
 `docs/ARCHITECTURE.md` must redefine "fork" as `Replication`|`Choice`, add
 "Continuation", and carry a revision note explaining the reclassification
 rather than silently relabeling.
+
+The `reason` enum is *removed*, not renamed: causes become references to
+typed events. A consumer that read `Fork.reason == MULTICAST` instead
+resolves the outcome's `cause` event (the `MulticastGroupLookup`) — the
+same pattern existing `TableLookupEvent` / `CloneSessionLookupEvent`
+consumers already use, including the reproduce-trace entity extraction.
