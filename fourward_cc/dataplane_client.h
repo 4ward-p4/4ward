@@ -112,6 +112,10 @@ class ResultStream {
 // intentionally not wrapped — use the raw stub for advanced use cases.
 //
 // Thread-safe: each method uses its own ClientContext.
+//
+// `default_timeout` applies to unary RPCs (InjectPacket, GetReproducer).
+// Streaming RPCs (InjectPackets, SubscribeResults) carry no deadline by
+// default, since their duration is caller-controlled.
 class DataplaneClient {
  public:
   explicit DataplaneClient(const FourwardServer &server,

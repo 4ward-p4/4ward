@@ -15,7 +15,8 @@ import p4.v1.P4RuntimeOuterClass
 internal data class BlockParam(val name: String, val typeName: String)
 
 internal fun randomInInclusiveRange(lo: BigInteger, hi: BigInteger): BigInteger {
-  if (hi <= lo) return lo
+  require(hi >= lo) { "lo ($lo) must be <= hi ($hi)" }
+  if (hi == lo) return lo
   val rangeSize = hi - lo + BigInteger.ONE
   var offset: BigInteger
   do {
