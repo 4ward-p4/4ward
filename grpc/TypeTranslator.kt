@@ -5,6 +5,7 @@ import fourward.TranslationEntry
 import fourward.TypeTranslation
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
+import java.util.logging.Logger
 import p4.config.v1.P4InfoOuterClass.P4Info
 import p4.config.v1.P4Types
 import p4.v1.P4RuntimeOuterClass.Entity
@@ -142,6 +143,12 @@ private constructor(
   /** Port translator for hardcoded port fields, or null if the port type is not translated. */
   val portTranslator: PortTranslator?,
 ) {
+
+  private val logger = Logger.getLogger(TypeTranslator::class.java.name)
+
+  // Data-plane values already warned about in lenient reverse translation, so a punt stream that
+  // repeatedly presents the same unmapped port (e.g. the drop port) is logged once, not per packet.
+  private val warnedUnmappedReverse = ConcurrentHashMap.newKeySet<String>()
 
   /** True if this translator has any translated types to handle. */
   val hasTranslations: Boolean =
@@ -354,11 +361,12 @@ private constructor(
    * Translates PacketIn metadata from data-plane to P4Runtime representation.
    *
    * Reverse translation is lenient: a metadata value with no SDN mapping is passed through as its
-   * raw data-plane value rather than throwing. PacketIn carries whatever ports the P4 program
-   * computed — including architectural sentinels like the drop port that the control plane never
-   * named — and a single such packet must not tear down PacketIn delivery for the whole stream.
-   * (Table-entry reads stay strict: a stored value always came from a forward translation, so a
-   * missing reverse mapping there is a real inconsistency worth surfacing.)
+   * raw data-plane value (and logged once per distinct value) rather than throwing. PacketIn
+   * carries whatever ports the P4 program computed — including architectural sentinels like the
+   * drop port that the control plane never named — and a single such packet must not tear down
+   * PacketIn delivery for the whole stream. (Table-entry reads stay strict: a stored value always
+   * came from a forward translation, so a missing reverse mapping there is a real inconsistency
+   * worth surfacing.)
    */
   fun translatePacketIn(packetIn: PacketIn): PacketIn {
     if (packetInMetadataTypeNames.isEmpty()) return packetIn
@@ -501,7 +509,7 @@ private constructor(
         val typeName = typeNameMap[meta.metadataId]
         if (typeName != null) {
           val translated =
-            translateValue(getOrCreateTable(typeName), meta.value, direction, lenient)
+            translateValue(getOrCreateTable(typeName), meta.value, direction, lenient, typeName)
           changed = true
           meta.toBuilder().setValue(translated).build()
         } else {
@@ -518,13 +526,14 @@ private constructor(
    * field (per P4Runtime spec §8.3 — there is no separate string field).
    *
    * When [lenient] (reverse direction only), a value with no SDN mapping is returned unchanged
-   * instead of throwing — see [translatePacketIn].
+   * instead of throwing — see [translatePacketIn]. [typeName] labels the value in that case's log.
    */
   private fun translateValue(
     table: TranslationTable,
     value: ByteString,
     direction: Direction,
     lenient: Boolean = false,
+    typeName: String = "",
   ): ByteString =
     when (direction) {
       Direction.TO_DATAPLANE ->
@@ -540,7 +549,19 @@ private constructor(
         ) {
           is P4rtValue.Bitstring -> p4rtValue.value
           is P4rtValue.Str -> ByteString.copyFromUtf8(p4rtValue.value)
-          null -> value // No SDN name for this data-plane value; deliver it as-is.
+          // No SDN name for this data-plane value (e.g. an architectural port like the drop port
+          // the control plane never named). Deliver it untranslated, but warn once per distinct
+          // value so a genuinely unexpected gap stays visible without flooding a punt stream.
+          null -> {
+            if (warnedUnmappedReverse.add("$typeName:${value.toHex()}")) {
+              val decimal = BigInteger(1, value.toByteArray())
+              logger.warning(
+                "no SDN mapping for data-plane value 0x${value.toHex()} ($decimal) of translated " +
+                  "type '$typeName'; passing it through untranslated"
+              )
+            }
+            value
+          }
         }
     }
 
