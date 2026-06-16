@@ -147,7 +147,7 @@ UNIMPLEMENTED (rejection is tested), **N/A** = out of scope
 | 9.51 | Indirect counter read/write | Y | TableStoreTest, ConformanceTest #46-48 |
 | 9.52 | Direct meter config | Y | TableStoreTest, ConformanceTest #55-57 |
 | 9.53 | Indirect meter config | Y | TableStoreTest, ConformanceTest #49-51 |
-| 9.54 | MeterCounterData (per-color packet counts) | N/A | Requires hardware-level metering; reference simulator implements config only |
+| 9.54 | MeterCounterData (per-color packet counts) | N/A | Runtime meter rate behavior is outside the simulator model |
 
 ### Packet replication engine (spec §9.5)
 
@@ -242,9 +242,9 @@ UNIMPLEMENTED (rejection is tested), **N/A** = out of scope
 | 14.2 | PacketOut with table entries forwards correctly | Y | ConformanceTest #14 |
 | 14.3 | Multiple packets preserve ordering | Y | ConformanceTest #15 |
 | 14.4 | StreamError on invalid stream message | Y | ConformanceTest #67 |
-| 14.5 | Digest delivery | N/A | Out of scope — no control-plane digest queue or stream-delivery model |
+| 14.5 | Digest delivery | N/A | Out of scope — asynchronous controller queues are outside the simulator model |
 | 14.6 | DigestListAck handling | N/A | Digests out of scope |
-| 14.7 | Idle timeout notifications | N/A | Out of scope — no wall-clock time in a reference simulator |
+| 14.7 | Idle timeout notifications | N/A | Out of scope — wall-clock expiry is outside the simulator model |
 | 14.8 | Architecture-specific `other` messages | Y | Rejected with StreamError; ConformanceTest #67 |
 
 ### Capabilities (spec §17)
@@ -285,7 +285,8 @@ justification, or noted as out-of-scope. Key decisions:
 - **§9.1.5 Preinitialized tables**: Const entry load, readback, and immutability tested (#114-116).
 - **§9.1.8 Idle timeout**: Rejected with UNIMPLEMENTED; tested (#117).
 - **§9.2.2 Action profile groups**: Empty groups and full member replacement tested (#118-119); watch_port N/A.
-- **§9.4.3 MeterCounterData**: N/A — per-color counting requires hardware-level metering.
+- **§9.4.3 MeterCounterData**: N/A — per-color counting requires runtime
+  meter rate behavior, which is outside the simulator model.
 - **§10 Error reporting**: Per-update structured errors tested (#120-121).
 - **§11 Atomicity**: Guaranteed by design (single mutex serializes all reads/writes).
 - **§12.1 Write batch ordering**: Cross-entity-type dependency ordering tested (#122).

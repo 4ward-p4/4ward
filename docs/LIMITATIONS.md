@@ -32,6 +32,25 @@ guilt — just write it down so someone can find it later.
   counters (indirect + direct), and `Random.read()`. Add-on-miss externs (`add_entry`,
   `allocate_flow_id`, `set_entry_expire_time`, `restart_expire_timer`) are stubs.
   37 STF corpus tests, 31 compile-only tests, 33 p4testgen symbolic tests.
+
+## Runtime services outside the simulator model
+
+4ward models deterministic packet execution and explicit control-plane state.
+It does not model autonomous runtime services that depend on elapsed time,
+traffic rates, or asynchronous controller queues.
+
+- **Meter rate behavior is permanently out of scope.** Meter configs can be
+  written and read back via P4Runtime, but token buckets, refill timing,
+  per-color packet counts, and rate-based color transitions are not modeled.
+  Meter externs always return GREEN.
+- **Digest delivery is permanently out of scope.** v1model `digest()` and
+  PSA/PNA `Digest.pack()` are accepted as no-ops, and P4Runtime
+  `DigestEntry` configuration is rejected with UNIMPLEMENTED. There is no
+  control-plane digest queue, stream-delivery model, or ack state.
+- **Idle timeout notifications are permanently out of scope.** P4Runtime
+  `idle_timeout_ns` configuration is rejected with UNIMPLEMENTED because
+  there is no wall-clock time model to expire idle table entries.
+
 ## Externs
 
 - **No user-defined extern functions.** Extern functions declared in P4
@@ -39,12 +58,11 @@ guilt — just write it down so someone can find it later.
   executed — their semantics exist only in architecture-specific libraries.
   Blocks 1 corpus test (`extern-funcs-bmv2`).
 - **Meters always return GREEN by design.** `meter.execute_meter()` and
-  `direct_meter.read()` always return GREEN (0). P4Runtime meter configs can be
-  written and read back, but token buckets, refill timing, and rate-based color
-  transitions are permanently out of scope: 4ward is a deterministic packet
-  simulator with no wall-clock traffic-rate model.
+  `direct_meter.read()` always return GREEN (0). See
+  [Runtime services outside the simulator model](#runtime-services-outside-the-simulator-model).
 - **`digest` is a no-op stub.** v1model `digest()` and PSA/PNA `Digest.pack()`
-  are accepted but do not deliver messages to the control plane.
+  are accepted but do not deliver messages to the control plane. See
+  [Runtime services outside the simulator model](#runtime-services-outside-the-simulator-model).
 
 ## v1model gaps
 
@@ -73,13 +91,7 @@ guilt — just write it down so someone can find it later.
   to forward-allocate mappings, and provide explicit `TypeTranslation` entries
   for architecture-defined ports (like the CPU port) that auto-allocation
   cannot assign correctly.
-- **Direct meters always return GREEN by design.** Direct meter configs can be
-  written and read via P4Runtime, but `direct_meter.read()` does not consume or
-  refill buckets. It always returns the default color (GREEN).
-- **No digest delivery or idle timeouts (by design).** Both need runtime
-  machinery that is outside the reference simulator: there is no control-plane
-  digest queue or stream-delivery model, and no wall-clock time to expire idle
-  entries. These are explicitly out of scope.
+
 ## Simulator
 
 - **Fork-point resume is v1model only.** When the trace tree forks (action
