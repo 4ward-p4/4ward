@@ -9,7 +9,7 @@ everything you need to know.
 
 To try it yourself, clone the repo and set up a shell alias:
 
-$ git clone https://github.com/smolkaj/4ward.git && cd 4ward
+$ git clone https://github.com/4ward-p4/4ward.git && cd 4ward
 $ alias 4ward='bazel run //cli:4ward --'
 
 With that alias, every command below will work as shown. The example

@@ -104,7 +104,7 @@ class DirectResourceUsageTest {
   // -------------------------------------------------------------------------
   // v1model + action profile/selector: counters fire implicitly on every hit,
   // so counter_data must be accepted even for actions that don't call count().
-  // Regression tests for https://github.com/smolkaj/4ward/issues/737.
+  // Regression tests for https://github.com/4ward-p4/4ward/issues/737.
   // -------------------------------------------------------------------------
 
   @Test

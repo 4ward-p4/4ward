@@ -1,8 +1,8 @@
 site_name: 4ward
 site_description: Glass-box P4 simulator — trace every decision your packet makes.
-site_url: https://smolka.st/4ward/
-repo_url: https://github.com/smolkaj/4ward
-repo_name: smolkaj/4ward
+site_url: https://4ward-p4.github.io/4ward/
+repo_url: https://github.com/4ward-p4/4ward
+repo_name: 4ward-p4/4ward
 edit_uri: edit/main/userdocs/
 
 docs_dir: userdocs
@@ -18,7 +18,7 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/smolkaj/4ward
+      link: https://github.com/4ward-p4/4ward
 
 extra_css:
   - stylesheets/extra.css

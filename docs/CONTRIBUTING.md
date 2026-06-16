@@ -5,7 +5,7 @@ thousandth, you're welcome.
 
 ## The easiest way to contribute
 
-Check the [roadmap](ROADMAP.md) and [issue tracker](https://github.com/smolkaj/4ward/issues)
+Check the [roadmap](ROADMAP.md) and [issue tracker](https://github.com/4ward-p4/4ward/issues)
 for open work — or add a new STF test for an untested edge case and make it
 pass. STF contributions are great because they're **naturally well-scoped** —
 you know exactly when you're done (the test passes), and you don't need to
@@ -15,7 +15,7 @@ understand the whole codebase to get started.
 
 ```sh
 # Clone and build — that's really all there is to it.
-git clone https://github.com/smolkaj/4ward
+git clone https://github.com/4ward-p4/4ward
 cd 4ward
 bazel build //...
 bazel test //...

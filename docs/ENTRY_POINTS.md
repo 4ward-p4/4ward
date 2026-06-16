@@ -169,7 +169,7 @@ auto dataplane = server.NewDataplaneStub();
 
 **When to use:** Any C++ project that wants to use 4ward.
 
-See the [user-facing embedding guide](https://smolkaj.github.io/4ward/reference/embedding-cc/)
+See the [user-facing embedding guide](https://4ward-p4.github.io/4ward/reference/embedding-cc/)
 for the Bazel setup and full example.
 
 ## Intrinsic port configuration
