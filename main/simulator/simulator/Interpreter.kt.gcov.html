@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-16 07:37:08</td>
+            <td class="headerValue">2026-06-16 09:15:54</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">96.0&nbsp;%</td>
@@ -1085,7 +1085,7 @@
 <span id="L1023"><span class="lineNum">    1023</span> <span class="tlaGNC">           1 :           result.members,</span></span>
 <span id="L1024"><span class="lineNum">    1024</span> <span class="tlaGNC">           1 :           packetCtx!!.getEvents(),</span></span>
 <span id="L1025"><span class="lineNum">    1025</span> <span class="tlaGNC">           1 :           env.deepCopy(),</span></span>
-<span id="L1026"><span class="lineNum">    1026</span> <span class="tlaGNC">           1 :           packetCtx!!.bytesConsumed,</span></span>
+<span id="L1026"><span class="lineNum">    1026</span> <span class="tlaGNC">           1 :           packetCtx!!.bitsConsumed,</span></span>
 <span id="L1027"><span class="lineNum">    1027</span> <span class="tlaGNC">           1 :           currentSourceInfo,</span></span>
 <span id="L1028"><span class="lineNum">    1028</span>              :         )</span>
 <span id="L1029"><span class="lineNum">    1029</span>              :       }</span>
@@ -1658,8 +1658,8 @@
 <span id="L1596"><span class="lineNum">    1596</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
 <span id="L1597"><span class="lineNum">    1597</span>              :   /** Deep copy of the environment at the fork point — each branch restores from this. */</span>
 <span id="L1598"><span class="lineNum">    1598</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
-<span id="L1599"><span class="lineNum">    1599</span>              :   /** Parser buffer position at the fork point. */</span>
-<span id="L1600"><span class="lineNum">    1600</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
+<span id="L1599"><span class="lineNum">    1599</span>              :   /** Exact parser bit position at the fork point (not rounded to bytes). */</span>
+<span id="L1600"><span class="lineNum">    1600</span> <span class="tlaGNC">           1 :   val bitsConsumed: Int,</span></span>
 <span id="L1601"><span class="lineNum">    1601</span>              :   /** Source info at the fork point (the table apply statement), for trace events in branches. */</span>
 <span id="L1602"><span class="lineNum">    1602</span> <span class="tlaGNC">           1 :   val sourceInfo: fourward.SourceInfo? = null,</span></span>
 <span id="L1603"><span class="lineNum">    1603</span>              :   /**</span>

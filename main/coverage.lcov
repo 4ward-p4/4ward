@@ -3930,7 +3930,7 @@ FNDA:1,fourward/simulator/BlockParam::getTypeName ()Ljava/lang/String;
 BRDA:18,0,0,1
 BRDA:18,0,1,1
 BRDA:23,0,0,1
-BRDA:23,0,1,1
+BRDA:23,0,1,0
 BRDA:35,0,0,1
 BRDA:35,0,1,1
 BRDA:37,0,0,1
@@ -5096,8 +5096,8 @@ FN:85,fourward/simulator/PacketContext::<init> ([BIILkotlin/jvm/internal/Default
 FNDA:1,fourward/simulator/PacketContext::<init> ([BIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 FN:91,fourward/simulator/PacketContext::getPayloadSize ()I
 FNDA:1,fourward/simulator/PacketContext::getPayloadSize ()I
-FN:103,fourward/simulator/PacketContext::getBytesConsumed ()I
-FNDA:1,fourward/simulator/PacketContext::getBytesConsumed ()I
+FN:103,fourward/simulator/PacketContext::getBitsConsumed ()I
+FNDA:1,fourward/simulator/PacketContext::getBitsConsumed ()I
 FN:108,fourward/simulator/PacketContext::extractBytes (I)[B
 FNDA:1,fourward/simulator/PacketContext::extractBytes (I)[B
 FN:110,fourward/simulator/PacketContext::extractBits (I)Ljava/math/BigInteger;
@@ -5128,8 +5128,8 @@ FN:178,fourward/simulator/ParserCursor::<init> ([BII)V
 FNDA:1,fourward/simulator/ParserCursor::<init> ([BII)V
 FN:179,fourward/simulator/ParserCursor::<init> ([BIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 FNDA:0,fourward/simulator/ParserCursor::<init> ([BIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
-FN:197,fourward/simulator/ParserCursor::getBytesConsumed ()I
-FNDA:1,fourward/simulator/ParserCursor::getBytesConsumed ()I
+FN:197,fourward/simulator/ParserCursor::getBitsConsumed ()I
+FNDA:1,fourward/simulator/ParserCursor::getBitsConsumed ()I
 FN:199,fourward/simulator/ParserCursor::hasRemaining ()Z
 FNDA:1,fourward/simulator/ParserCursor::hasRemaining ()Z
 FN:202,fourward/simulator/ParserCursor::isByteAligned ()Z
@@ -5543,8 +5543,8 @@ FN:1595,fourward/simulator/ActionSelectorFork::getMembers ()Ljava/util/List;
 FNDA:1,fourward/simulator/ActionSelectorFork::getMembers ()Ljava/util/List;
 FN:1598,fourward/simulator/ActionSelectorFork::getForkPointEnv ()Lfourward/simulator/Environment;
 FNDA:1,fourward/simulator/ActionSelectorFork::getForkPointEnv ()Lfourward/simulator/Environment;
-FN:1600,fourward/simulator/ActionSelectorFork::getBytesConsumed ()I
-FNDA:1,fourward/simulator/ActionSelectorFork::getBytesConsumed ()I
+FN:1600,fourward/simulator/ActionSelectorFork::getBitsConsumed ()I
+FNDA:1,fourward/simulator/ActionSelectorFork::getBitsConsumed ()I
 FN:1602,fourward/simulator/ActionSelectorFork::getSourceInfo ()Lfourward/SourceInfo;
 FNDA:1,fourward/simulator/ActionSelectorFork::getSourceInfo ()Lfourward/SourceInfo;
 FN:1607,fourward/simulator/ActionSelectorFork::getRemainingStmts ()Lkotlin/collections/ArrayDeque;
@@ -11212,8 +11212,8 @@ FN:1360,fourward/simulator/CloneFork::getPreservedMetadata ()Ljava/util/Map;
 FNDA:1,fourward/simulator/CloneFork::getPreservedMetadata ()Ljava/util/Map;
 FN:1362,fourward/simulator/CloneFork::getForkPointEnv ()Lfourward/simulator/Environment;
 FNDA:1,fourward/simulator/CloneFork::getForkPointEnv ()Lfourward/simulator/Environment;
-FN:1364,fourward/simulator/CloneFork::getBytesConsumed ()I
-FNDA:1,fourward/simulator/CloneFork::getBytesConsumed ()I
+FN:1364,fourward/simulator/CloneFork::getBitsConsumed ()I
+FNDA:1,fourward/simulator/CloneFork::getBitsConsumed ()I
 FN:1366,fourward/simulator/CloneFork::getForkPointPendingOps ()Lfourward/simulator/V1ModelPendingOps;
 FNDA:1,fourward/simulator/CloneFork::getForkPointPendingOps ()Lfourward/simulator/V1ModelPendingOps;
 FN:1368,fourward/simulator/CloneFork::getPostParserEnv ()Lfourward/simulator/Environment;
@@ -11232,8 +11232,8 @@ FN:1381,fourward/simulator/EgressCloneFork::getPreservedMetadata ()Ljava/util/Ma
 FNDA:1,fourward/simulator/EgressCloneFork::getPreservedMetadata ()Ljava/util/Map;
 FN:1383,fourward/simulator/EgressCloneFork::getForkPointEnv ()Lfourward/simulator/Environment;
 FNDA:1,fourward/simulator/EgressCloneFork::getForkPointEnv ()Lfourward/simulator/Environment;
-FN:1385,fourward/simulator/EgressCloneFork::getBytesConsumed ()I
-FNDA:1,fourward/simulator/EgressCloneFork::getBytesConsumed ()I
+FN:1385,fourward/simulator/EgressCloneFork::getBitsConsumed ()I
+FNDA:1,fourward/simulator/EgressCloneFork::getBitsConsumed ()I
 FN:1387,fourward/simulator/EgressCloneFork::getForkPointPendingOps ()Lfourward/simulator/V1ModelPendingOps;
 FNDA:1,fourward/simulator/EgressCloneFork::getForkPointPendingOps ()Lfourward/simulator/V1ModelPendingOps;
 FN:1389,fourward/simulator/EgressCloneFork::getTruncateBytes ()I
@@ -11244,8 +11244,8 @@ FN:1394,fourward/simulator/MulticastFork::getReplicas ()Ljava/util/List;
 FNDA:1,fourward/simulator/MulticastFork::getReplicas ()Ljava/util/List;
 FN:1397,fourward/simulator/MulticastFork::getForkPointEnv ()Lfourward/simulator/Environment;
 FNDA:1,fourward/simulator/MulticastFork::getForkPointEnv ()Lfourward/simulator/Environment;
-FN:1399,fourward/simulator/MulticastFork::getBytesConsumed ()I
-FNDA:1,fourward/simulator/MulticastFork::getBytesConsumed ()I
+FN:1399,fourward/simulator/MulticastFork::getBitsConsumed ()I
+FNDA:1,fourward/simulator/MulticastFork::getBitsConsumed ()I
 FN:1401,fourward/simulator/MulticastFork::getForkPointPendingOps ()Lfourward/simulator/V1ModelPendingOps;
 FNDA:1,fourward/simulator/MulticastFork::getForkPointPendingOps ()Lfourward/simulator/V1ModelPendingOps;
 FN:1411,fourward/simulator/RecirculateFork::<init> ([BLjava/util/List;Ljava/util/Map;)V

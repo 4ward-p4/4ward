@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-16 07:37:08</td>
+            <td class="headerValue">2026-06-16 09:15:54</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">94.2&nbsp;%</td>
@@ -258,12 +258,12 @@
 <span id="L196"><span class="lineNum">     196</span>              :    */</span>
 <span id="L197"><span class="lineNum">     197</span> <span class="tlaGNC">           1 :   private fun createBranchState(</span></span>
 <span id="L198"><span class="lineNum">     198</span>              :     ctx: PipelineContext,</span>
-<span id="L199"><span class="lineNum">     199</span>              :     bytesConsumed: Int,</span>
+<span id="L199"><span class="lineNum">     199</span>              :     bitsConsumed: Int,</span>
 <span id="L200"><span class="lineNum">     200</span>              :     snapshotEnv: Environment,</span>
 <span id="L201"><span class="lineNum">     201</span> <span class="tlaUNC tlaBgUNC">           0 :     snapshotPendingOps: V1ModelPendingOps? = null,</span></span>
 <span id="L202"><span class="lineNum">     202</span> <span class="tlaGNC tlaBgGNC">           1 :     selectorMembers: Map&lt;String, Int&gt; = emptyMap(),</span></span>
 <span id="L203"><span class="lineNum">     203</span>              :   ): PipelineState {</span>
-<span id="L204"><span class="lineNum">     204</span> <span class="tlaGNC">           1 :     val packetCtx = PacketContext(ctx.packet, bytesConsumed)</span></span>
+<span id="L204"><span class="lineNum">     204</span> <span class="tlaGNC">           1 :     val packetCtx = PacketContext(ctx.packet, bitsConsumed)</span></span>
 <span id="L205"><span class="lineNum">     205</span> <span class="tlaGNC">           1 :     val env = snapshotEnv.deepCopy()</span></span>
 <span id="L206"><span class="lineNum">     206</span> <span class="tlaGNC">           1 :     val pendingOps = snapshotPendingOps?.copy() ?: V1ModelPendingOps()</span></span>
 <span id="L207"><span class="lineNum">     207</span> <span class="tlaGNC">           1 :     val standardMetadata = resolveStandardMetadata(ctx, env)</span></span>
@@ -283,13 +283,13 @@
 <span id="L221"><span class="lineNum">     221</span>              :    */</span>
 <span id="L222"><span class="lineNum">     222</span> <span class="tlaUNC tlaBgUNC">           0 :   private inline fun runBranch(</span></span>
 <span id="L223"><span class="lineNum">     223</span>              :     ctx: PipelineContext,</span>
-<span id="L224"><span class="lineNum">     224</span>              :     bytesConsumed: Int,</span>
+<span id="L224"><span class="lineNum">     224</span>              :     bitsConsumed: Int,</span>
 <span id="L225"><span class="lineNum">     225</span>              :     snapshotEnv: Environment,</span>
 <span id="L226"><span class="lineNum">     226</span> <span class="tlaUNC">           0 :     snapshotPendingOps: V1ModelPendingOps? = null,</span></span>
 <span id="L227"><span class="lineNum">     227</span> <span class="tlaUNC">           0 :     configure: (PipelineState) -&gt; Unit = {},</span></span>
 <span id="L228"><span class="lineNum">     228</span>              :     pipelineTail: (PipelineContext, PipelineState) -&gt; TraceTree,</span>
 <span id="L229"><span class="lineNum">     229</span>              :   ): TraceTree {</span>
-<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC tlaBgGNC">           1 :     val s = createBranchState(ctx, bytesConsumed, snapshotEnv, snapshotPendingOps)</span></span>
+<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC tlaBgGNC">           1 :     val s = createBranchState(ctx, bitsConsumed, snapshotEnv, snapshotPendingOps)</span></span>
 <span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :     configure(s)</span></span>
 <span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :     return try {</span></span>
 <span id="L233"><span class="lineNum">     233</span> <span class="tlaGNC">           1 :       pipelineTail(ctx, s)</span></span>
@@ -340,7 +340,7 @@
 <span id="L278"><span class="lineNum">     278</span>              :     member: TableStore.MemberAction,</span>
 <span id="L279"><span class="lineNum">     279</span>              :   ): TraceTree {</span>
 <span id="L280"><span class="lineNum">     280</span> <span class="tlaGNC tlaBgGNC">           1 :     val fork = selectorFork.fork</span></span>
-<span id="L281"><span class="lineNum">     281</span> <span class="tlaGNC">           1 :     val s = createBranchState(ctx, fork.bytesConsumed, fork.forkPointEnv, selectorFork.pendingOps)</span></span>
+<span id="L281"><span class="lineNum">     281</span> <span class="tlaGNC">           1 :     val s = createBranchState(ctx, fork.bitsConsumed, fork.forkPointEnv, selectorFork.pendingOps)</span></span>
 <span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC">           1 :     s.postParserEnv = selectorFork.postParserEnv</span></span>
 <span id="L283"><span class="lineNum">     283</span>              : </span>
 <span id="L284"><span class="lineNum">     284</span> <span class="tlaGNC">           1 :     try {</span></span>
@@ -383,7 +383,7 @@
 <span id="L321"><span class="lineNum">     321</span> <span class="tlaGNC tlaBgGNC">           1 :     val buildBranch = { replica: Replica -&gt;</span></span>
 <span id="L322"><span class="lineNum">     322</span> <span class="tlaGNC">           1 :       runBranch(</span></span>
 <span id="L323"><span class="lineNum">     323</span> <span class="tlaGNC">           1 :         ctx,</span></span>
-<span id="L324"><span class="lineNum">     324</span> <span class="tlaGNC">           1 :         fork.bytesConsumed,</span></span>
+<span id="L324"><span class="lineNum">     324</span> <span class="tlaGNC">           1 :         fork.bitsConsumed,</span></span>
 <span id="L325"><span class="lineNum">     325</span> <span class="tlaGNC">           1 :         fork.forkPointEnv,</span></span>
 <span id="L326"><span class="lineNum">     326</span> <span class="tlaGNC">           1 :         fork.forkPointPendingOps,</span></span>
 <span id="L327"><span class="lineNum">     327</span>              :         configure = { s -&gt;</span>
@@ -418,7 +418,7 @@
 <span id="L356"><span class="lineNum">     356</span> <span class="tlaGNC">           1 :     val original =</span></span>
 <span id="L357"><span class="lineNum">     357</span> <span class="tlaGNC">           1 :       runBranch(</span></span>
 <span id="L358"><span class="lineNum">     358</span> <span class="tlaGNC">           1 :         ctx,</span></span>
-<span id="L359"><span class="lineNum">     359</span> <span class="tlaGNC">           1 :         fork.bytesConsumed,</span></span>
+<span id="L359"><span class="lineNum">     359</span> <span class="tlaGNC">           1 :         fork.bitsConsumed,</span></span>
 <span id="L360"><span class="lineNum">     360</span> <span class="tlaGNC">           1 :         fork.forkPointEnv,</span></span>
 <span id="L361"><span class="lineNum">     361</span> <span class="tlaGNC">           1 :         fork.forkPointPendingOps,</span></span>
 <span id="L362"><span class="lineNum">     362</span> <span class="tlaGNC">           1 :         configure = { s -&gt; s.pendingOps.cloneSessionId = null },</span></span>
@@ -437,7 +437,7 @@
 <span id="L375"><span class="lineNum">     375</span> <span class="tlaGNC">           1 :       buildCloneBranches(</span></span>
 <span id="L376"><span class="lineNum">     376</span> <span class="tlaGNC">           1 :         cloneCtx,</span></span>
 <span id="L377"><span class="lineNum">     377</span> <span class="tlaGNC">           1 :         fork.replicas,</span></span>
-<span id="L378"><span class="lineNum">     378</span> <span class="tlaGNC">           1 :         fork.bytesConsumed,</span></span>
+<span id="L378"><span class="lineNum">     378</span> <span class="tlaGNC">           1 :         fork.bitsConsumed,</span></span>
 <span id="L379"><span class="lineNum">     379</span> <span class="tlaGNC">           1 :         fork.postParserEnv,</span></span>
 <span id="L380"><span class="lineNum">     380</span> <span class="tlaGNC">           1 :         snapshotPendingOps = null,</span></span>
 <span id="L381"><span class="lineNum">     381</span> <span class="tlaGNC">           1 :         CLONE_I2E_INSTANCE_TYPE,</span></span>
@@ -459,7 +459,7 @@
 <span id="L397"><span class="lineNum">     397</span> <span class="tlaGNC">           1 :     val original =</span></span>
 <span id="L398"><span class="lineNum">     398</span> <span class="tlaGNC">           1 :       runBranch(</span></span>
 <span id="L399"><span class="lineNum">     399</span> <span class="tlaGNC">           1 :         ctx,</span></span>
-<span id="L400"><span class="lineNum">     400</span> <span class="tlaGNC">           1 :         fork.bytesConsumed,</span></span>
+<span id="L400"><span class="lineNum">     400</span> <span class="tlaGNC">           1 :         fork.bitsConsumed,</span></span>
 <span id="L401"><span class="lineNum">     401</span> <span class="tlaGNC">           1 :         fork.forkPointEnv,</span></span>
 <span id="L402"><span class="lineNum">     402</span> <span class="tlaGNC">           1 :         fork.forkPointPendingOps,</span></span>
 <span id="L403"><span class="lineNum">     403</span> <span class="tlaGNC">           1 :         configure = { s -&gt; s.pendingOps.egressCloneSessionId = null },</span></span>
@@ -477,7 +477,7 @@
 <span id="L415"><span class="lineNum">     415</span> <span class="tlaGNC">           1 :       buildCloneBranches(</span></span>
 <span id="L416"><span class="lineNum">     416</span> <span class="tlaGNC">           1 :         cloneCtx,</span></span>
 <span id="L417"><span class="lineNum">     417</span> <span class="tlaGNC">           1 :         fork.replicas,</span></span>
-<span id="L418"><span class="lineNum">     418</span> <span class="tlaGNC">           1 :         fork.bytesConsumed,</span></span>
+<span id="L418"><span class="lineNum">     418</span> <span class="tlaGNC">           1 :         fork.bitsConsumed,</span></span>
 <span id="L419"><span class="lineNum">     419</span> <span class="tlaGNC">           1 :         fork.forkPointEnv,</span></span>
 <span id="L420"><span class="lineNum">     420</span> <span class="tlaGNC">           1 :         fork.forkPointPendingOps,</span></span>
 <span id="L421"><span class="lineNum">     421</span> <span class="tlaGNC">           1 :         CLONE_E2E_INSTANCE_TYPE,</span></span>
@@ -497,7 +497,7 @@
 <span id="L435"><span class="lineNum">     435</span>              :   private fun buildCloneBranches(</span>
 <span id="L436"><span class="lineNum">     436</span>              :     ctx: PipelineContext,</span>
 <span id="L437"><span class="lineNum">     437</span>              :     replicas: List&lt;Replica&gt;,</span>
-<span id="L438"><span class="lineNum">     438</span>              :     bytesConsumed: Int,</span>
+<span id="L438"><span class="lineNum">     438</span>              :     bitsConsumed: Int,</span>
 <span id="L439"><span class="lineNum">     439</span>              :     snapshotEnv: Environment,</span>
 <span id="L440"><span class="lineNum">     440</span>              :     snapshotPendingOps: V1ModelPendingOps?,</span>
 <span id="L441"><span class="lineNum">     441</span>              :     instanceType: Long,</span>
@@ -507,7 +507,7 @@
 <span id="L445"><span class="lineNum">     445</span> <span class="tlaGNC">           1 :     val buildBranch = { replica: Replica -&gt;</span></span>
 <span id="L446"><span class="lineNum">     446</span> <span class="tlaGNC">           1 :       runBranch(</span></span>
 <span id="L447"><span class="lineNum">     447</span> <span class="tlaGNC">           1 :         ctx,</span></span>
-<span id="L448"><span class="lineNum">     448</span> <span class="tlaGNC">           1 :         bytesConsumed,</span></span>
+<span id="L448"><span class="lineNum">     448</span> <span class="tlaGNC">           1 :         bitsConsumed,</span></span>
 <span id="L449"><span class="lineNum">     449</span> <span class="tlaGNC">           1 :         snapshotEnv,</span></span>
 <span id="L450"><span class="lineNum">     450</span> <span class="tlaGNC">           1 :         snapshotPendingOps,</span></span>
 <span id="L451"><span class="lineNum">     451</span>              :         configure = { s -&gt;</span>
@@ -883,7 +883,7 @@
 <span id="L821"><span class="lineNum">     821</span> <span class="tlaGNC">           1 :           s.packetCtx.getEvents(),</span></span>
 <span id="L822"><span class="lineNum">     822</span> <span class="tlaGNC">           1 :           snapshotPreservedMetadata(s, s.pendingOps.cloneFieldListId),</span></span>
 <span id="L823"><span class="lineNum">     823</span> <span class="tlaGNC">           1 :           s.env.deepCopy(),</span></span>
-<span id="L824"><span class="lineNum">     824</span> <span class="tlaGNC">           1 :           s.packetCtx.bytesConsumed,</span></span>
+<span id="L824"><span class="lineNum">     824</span> <span class="tlaGNC">           1 :           s.packetCtx.bitsConsumed,</span></span>
 <span id="L825"><span class="lineNum">     825</span> <span class="tlaGNC">           1 :           s.pendingOps.copy(),</span></span>
 <span id="L826"><span class="lineNum">     826</span> <span class="tlaGNC">           1 :           s.postParserEnv ?: error(&quot;no post-parser env for I2E clone&quot;),</span></span>
 <span id="L827"><span class="lineNum">     827</span> <span class="tlaGNC">           1 :           session.truncateBytes,</span></span>
@@ -906,7 +906,7 @@
 <span id="L844"><span class="lineNum">     844</span> <span class="tlaGNC">           1 :           replicas,</span></span>
 <span id="L845"><span class="lineNum">     845</span> <span class="tlaGNC">           1 :           s.packetCtx.getEvents(),</span></span>
 <span id="L846"><span class="lineNum">     846</span> <span class="tlaGNC">           1 :           s.env.deepCopy(),</span></span>
-<span id="L847"><span class="lineNum">     847</span> <span class="tlaGNC">           1 :           s.packetCtx.bytesConsumed,</span></span>
+<span id="L847"><span class="lineNum">     847</span> <span class="tlaGNC">           1 :           s.packetCtx.bitsConsumed,</span></span>
 <span id="L848"><span class="lineNum">     848</span> <span class="tlaGNC">           1 :           s.pendingOps.copy(),</span></span>
 <span id="L849"><span class="lineNum">     849</span>              :         )</span>
 <span id="L850"><span class="lineNum">     850</span>              :       }</span>
@@ -932,7 +932,7 @@
 <span id="L870"><span class="lineNum">     870</span> <span class="tlaGNC">           1 :           s.packetCtx.getEvents(),</span></span>
 <span id="L871"><span class="lineNum">     871</span> <span class="tlaGNC">           1 :           snapshotPreservedMetadata(s, s.pendingOps.egressCloneFieldListId),</span></span>
 <span id="L872"><span class="lineNum">     872</span> <span class="tlaGNC">           1 :           s.env.deepCopy(),</span></span>
-<span id="L873"><span class="lineNum">     873</span> <span class="tlaGNC">           1 :           s.packetCtx.bytesConsumed,</span></span>
+<span id="L873"><span class="lineNum">     873</span> <span class="tlaGNC">           1 :           s.packetCtx.bitsConsumed,</span></span>
 <span id="L874"><span class="lineNum">     874</span> <span class="tlaGNC">           1 :           s.pendingOps.copy(),</span></span>
 <span id="L875"><span class="lineNum">     875</span> <span class="tlaGNC">           1 :           session.truncateBytes,</span></span>
 <span id="L876"><span class="lineNum">     876</span>              :         )</span>
@@ -1422,8 +1422,8 @@
 <span id="L1360"><span class="lineNum">    1360</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
 <span id="L1361"><span class="lineNum">    1361</span>              :   /** Deep copy of the post-ingress environment (for the &quot;original&quot; branch). */</span>
 <span id="L1362"><span class="lineNum">    1362</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
-<span id="L1363"><span class="lineNum">    1363</span>              :   /** Parser buffer position at the fork point. */</span>
-<span id="L1364"><span class="lineNum">    1364</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
+<span id="L1363"><span class="lineNum">    1363</span>              :   /** Exact parser bit position at the fork point (not rounded to bytes). */</span>
+<span id="L1364"><span class="lineNum">    1364</span> <span class="tlaGNC">           1 :   val bitsConsumed: Int,</span></span>
 <span id="L1365"><span class="lineNum">    1365</span>              :   /** Pending operations at the fork point. */</span>
 <span id="L1366"><span class="lineNum">    1366</span> <span class="tlaGNC">           1 :   val forkPointPendingOps: V1ModelPendingOps,</span></span>
 <span id="L1367"><span class="lineNum">    1367</span>              :   /** Post-parser env (for clone branches — BMv2: clone gets pre-ingress state). */</span>
@@ -1443,8 +1443,8 @@
 <span id="L1381"><span class="lineNum">    1381</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
 <span id="L1382"><span class="lineNum">    1382</span>              :   /** Deep copy of the post-egress environment (for both branches). */</span>
 <span id="L1383"><span class="lineNum">    1383</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
-<span id="L1384"><span class="lineNum">    1384</span>              :   /** Parser buffer position at the fork point. */</span>
-<span id="L1385"><span class="lineNum">    1385</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
+<span id="L1384"><span class="lineNum">    1384</span>              :   /** Exact parser bit position at the fork point (not rounded to bytes). */</span>
+<span id="L1385"><span class="lineNum">    1385</span> <span class="tlaGNC">           1 :   val bitsConsumed: Int,</span></span>
 <span id="L1386"><span class="lineNum">    1386</span>              :   /** Pending operations at the fork point. */</span>
 <span id="L1387"><span class="lineNum">    1387</span> <span class="tlaGNC">           1 :   val forkPointPendingOps: V1ModelPendingOps,</span></span>
 <span id="L1388"><span class="lineNum">    1388</span>              :   /** Clone session packet_length_bytes: 0 = no truncation, &gt;0 = truncate to this many bytes. */</span>
@@ -1457,8 +1457,8 @@
 <span id="L1395"><span class="lineNum">    1395</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
 <span id="L1396"><span class="lineNum">    1396</span>              :   /** Deep copy of the environment at the fork point (post-ingress). */</span>
 <span id="L1397"><span class="lineNum">    1397</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
-<span id="L1398"><span class="lineNum">    1398</span>              :   /** Parser buffer position at the fork point. */</span>
-<span id="L1399"><span class="lineNum">    1399</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
+<span id="L1398"><span class="lineNum">    1398</span>              :   /** Exact parser bit position at the fork point (not rounded to bytes). */</span>
+<span id="L1399"><span class="lineNum">    1399</span> <span class="tlaGNC">           1 :   val bitsConsumed: Int,</span></span>
 <span id="L1400"><span class="lineNum">    1400</span>              :   /** Pending operations at the fork point. */</span>
 <span id="L1401"><span class="lineNum">    1401</span> <span class="tlaGNC">           1 :   val forkPointPendingOps: V1ModelPendingOps,</span></span>
 <span id="L1402"><span class="lineNum">    1402</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
