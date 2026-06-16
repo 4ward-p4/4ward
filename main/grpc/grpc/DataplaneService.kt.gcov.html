@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">90.3&nbsp;%</td>
-            <td class="headerCovTableEntry">165</td>
-            <td class="headerCovTableEntry">149</td>
+            <td class="headerCovTableEntryHi">90.1&nbsp;%</td>
+            <td class="headerCovTableEntry">161</td>
+            <td class="headerCovTableEntry">145</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-16 06:45:06</td>
+            <td class="headerValue">2026-06-16 07:13:40</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">91.2&nbsp;%</td>
@@ -344,7 +344,7 @@
 <span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC">           1 :     .addAllPossibleOutcomes(</span></span>
 <span id="L283"><span class="lineNum">     283</span> <span class="tlaGNC">           1 :       possibleOutcomes.map { world -&gt;</span></span>
 <span id="L284"><span class="lineNum">     284</span> <span class="tlaGNC">           1 :         PacketSet.newBuilder()</span></span>
-<span id="L285"><span class="lineNum">     285</span> <span class="tlaGNC">           1 :           .addAllPackets(world.map { it.toDualEncoded(translator, codec, ingressPort) })</span></span>
+<span id="L285"><span class="lineNum">     285</span> <span class="tlaGNC">           1 :           .addAllPackets(world.map { it.toDualEncoded(translator, codec) })</span></span>
 <span id="L286"><span class="lineNum">     286</span> <span class="tlaGNC">           1 :           .build()</span></span>
 <span id="L287"><span class="lineNum">     287</span>              :       }</span>
 <span id="L288"><span class="lineNum">     288</span>              :     )</span>
@@ -362,29 +362,24 @@
 <span id="L300"><span class="lineNum">     300</span>              : private fun OutputPacket.toDualEncoded(</span>
 <span id="L301"><span class="lineNum">     301</span>              :   translator: TypeTranslator?,</span>
 <span id="L302"><span class="lineNum">     302</span>              :   codec: PacketHeaderCodec?,</span>
-<span id="L303"><span class="lineNum">     303</span>              :   ingressPort: Int,</span>
-<span id="L304"><span class="lineNum">     304</span>              : ): OutputPacket {</span>
-<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :   val rawPayload = payload</span></span>
-<span id="L306"><span class="lineNum">     306</span> <span class="tlaGNC">           1 :   val pt = translator?.portTranslator</span></span>
-<span id="L307"><span class="lineNum">     307</span> <span class="tlaGNC">           1 :   return OutputPacket.newBuilder()</span></span>
-<span id="L308"><span class="lineNum">     308</span> <span class="tlaGNC">           1 :     .setDataplaneEgressPort(dataplaneEgressPort)</span></span>
-<span id="L309"><span class="lineNum">     309</span> <span class="tlaGNC">           1 :     .setPayload(rawPayload)</span></span>
-<span id="L310"><span class="lineNum">     310</span> <span class="tlaGNC">           1 :     .apply {</span></span>
-<span id="L311"><span class="lineNum">     311</span>              :       // Egress ports may come from P4 pipeline logic (e.g. the CPU port, hardcoded</span>
-<span id="L312"><span class="lineNum">     312</span>              :       // by the architecture) that was never forward-allocated via a P4Runtime Write,</span>
-<span id="L313"><span class="lineNum">     313</span>              :       // so a missing reverse mapping is expected — same as for ingress ports above.</span>
-<span id="L314"><span class="lineNum">     314</span> <span class="tlaGNC">           1 :       pt?.dataplaneToP4rt(dataplaneEgressPort)?.let { setP4RtEgressPort(it) }</span></span>
-<span id="L315"><span class="lineNum">     315</span> <span class="tlaGNC">           1 :       if (codec != null &amp;&amp; dataplaneEgressPort == codec.cpuPort) {</span></span>
-<span id="L316"><span class="lineNum">     316</span> <span class="tlaGNC">           1 :         val rawPacketIn =</span></span>
-<span id="L317"><span class="lineNum">     317</span> <span class="tlaGNC">           1 :           p4.v1.P4RuntimeOuterClass.PacketIn.newBuilder()</span></span>
-<span id="L318"><span class="lineNum">     318</span> <span class="tlaGNC">           1 :             .setPayload(codec.stripPacketInHeader(rawPayload))</span></span>
-<span id="L319"><span class="lineNum">     319</span> <span class="tlaGNC">           1 :             .addAllMetadata(codec.buildPacketInMetadata(ingressPort, dataplaneEgressPort))</span></span>
-<span id="L320"><span class="lineNum">     320</span> <span class="tlaGNC">           1 :             .build()</span></span>
-<span id="L321"><span class="lineNum">     321</span> <span class="tlaGNC">           1 :         setPacketIn(translator?.translatePacketIn(rawPacketIn) ?: rawPacketIn)</span></span>
-<span id="L322"><span class="lineNum">     322</span>              :       }</span>
-<span id="L323"><span class="lineNum">     323</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L324"><span class="lineNum">     324</span> <span class="tlaGNC">           1 :     .build()</span></span>
-<span id="L325"><span class="lineNum">     325</span>              : }</span>
+<span id="L303"><span class="lineNum">     303</span>              : ): OutputPacket {</span>
+<span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :   val rawPayload = payload</span></span>
+<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :   val pt = translator?.portTranslator</span></span>
+<span id="L306"><span class="lineNum">     306</span> <span class="tlaGNC">           1 :   return OutputPacket.newBuilder()</span></span>
+<span id="L307"><span class="lineNum">     307</span> <span class="tlaGNC">           1 :     .setDataplaneEgressPort(dataplaneEgressPort)</span></span>
+<span id="L308"><span class="lineNum">     308</span> <span class="tlaGNC">           1 :     .setPayload(rawPayload)</span></span>
+<span id="L309"><span class="lineNum">     309</span> <span class="tlaGNC">           1 :     .apply {</span></span>
+<span id="L310"><span class="lineNum">     310</span>              :       // Egress ports may come from P4 pipeline logic (e.g. the CPU port, hardcoded</span>
+<span id="L311"><span class="lineNum">     311</span>              :       // by the architecture) that was never forward-allocated via a P4Runtime Write,</span>
+<span id="L312"><span class="lineNum">     312</span>              :       // so a missing reverse mapping is expected — same as for ingress ports above.</span>
+<span id="L313"><span class="lineNum">     313</span> <span class="tlaGNC">           1 :       pt?.dataplaneToP4rt(dataplaneEgressPort)?.let { setP4RtEgressPort(it) }</span></span>
+<span id="L314"><span class="lineNum">     314</span> <span class="tlaGNC">           1 :       if (codec != null &amp;&amp; dataplaneEgressPort == codec.cpuPort) {</span></span>
+<span id="L315"><span class="lineNum">     315</span> <span class="tlaGNC">           1 :         val rawPacketIn = codec.decodePacketIn(rawPayload)</span></span>
+<span id="L316"><span class="lineNum">     316</span> <span class="tlaGNC">           1 :         setPacketIn(translator?.translatePacketIn(rawPacketIn) ?: rawPacketIn)</span></span>
+<span id="L317"><span class="lineNum">     317</span>              :       }</span>
+<span id="L318"><span class="lineNum">     318</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L319"><span class="lineNum">     319</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L320"><span class="lineNum">     320</span>              : }</span>
         </pre>
               </td>
             </tr>
