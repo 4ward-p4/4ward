@@ -35,7 +35,6 @@ import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
 import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigRequest
 import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigResponse
 import p4.v1.P4RuntimeOuterClass.MasterArbitrationUpdate
-import p4.v1.P4RuntimeOuterClass.PacketIn
 import p4.v1.P4RuntimeOuterClass.ReadRequest
 import p4.v1.P4RuntimeOuterClass.ReadResponse
 import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
@@ -635,8 +634,7 @@ class P4RuntimeService(
       val packetInHandle =
         broker.subscribe { subResult ->
           try {
-            for (response in
-              buildPacketInResponses(subResult.possibleOutcomes.flatten(), subResult.ingressPort)) {
+            for (response in buildPacketInResponses(subResult.possibleOutcomes.flatten())) {
               trySend(response)
             }
           } catch (
@@ -757,8 +755,7 @@ class P4RuntimeService(
    * empty list if there is no pipeline, no codec (`@controller_header`), or no CPU-port outputs.
    */
   private fun buildPacketInResponses(
-    outputPackets: List<OutputPacket>,
-    ingressPort: Int,
+    outputPackets: List<OutputPacket>
   ): List<StreamMessageResponse> {
     val state = pipeline ?: return emptyList()
     val codec = state.packetHeaderCodec ?: return emptyList()
@@ -767,11 +764,9 @@ class P4RuntimeService(
     return outputPackets
       .filter { it.dataplaneEgressPort == cpuPort }
       .map { outputPacket ->
-        val metadata = codec.buildPacketInMetadata(ingressPort, outputPacket.dataplaneEgressPort)
-        // The deparser emits the @controller_header("packet_in") as part of the
-        // payload. Strip it — metadata is constructed from the simulation context.
-        val payload = codec.stripPacketInHeader(outputPacket.payload)
-        val rawPacketIn = PacketIn.newBuilder().setPayload(payload).addAllMetadata(metadata).build()
+        // Decode the @controller_header("packet_in") that the deparser emitted at the front of the
+        // payload: metadata is parsed from the header bits, never reconstructed from port state.
+        val rawPacketIn = codec.decodePacketIn(outputPacket.payload)
         StreamMessageResponse.newBuilder()
           .setPacket(translator?.translatePacketIn(rawPacketIn) ?: rawPacketIn)
           .build()

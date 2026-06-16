@@ -3,6 +3,7 @@ package fourward.grpc
 import com.google.protobuf.ByteString
 import fourward.TranslationEntry
 import fourward.TypeTranslation
+import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import p4.config.v1.P4InfoOuterClass.P4Info
 import p4.config.v1.P4Types
@@ -30,6 +31,20 @@ fun encodeMinWidth(value: Int): ByteString {
     v = v shr 8
   }
   return ByteString.copyFrom(bytes.toByteArray())
+}
+
+/**
+ * Minimum-width unsigned big-endian encoding of a non-negative [BigInteger] (P4Runtime canonical
+ * form). Handles values wider than [Int], as controller-header fields may exceed 32 bits.
+ */
+fun encodeMinWidth(value: BigInteger): ByteString {
+  require(value.signum() >= 0) { "value must be non-negative: $value" }
+  if (value.signum() == 0) return ByteString.copyFrom(byteArrayOf(0))
+  // BigInteger.toByteArray() is big-endian two's complement; a positive value whose top bit is set
+  // gets a leading 0x00 sign byte. Drop it to reach the canonical minimum-width form.
+  val raw = value.toByteArray()
+  val start = if (raw[0].toInt() == 0) 1 else 0
+  return ByteString.copyFrom(raw, start, raw.size - start)
 }
 
 /** The P4Runtime (controller-facing) value for a translated type. */

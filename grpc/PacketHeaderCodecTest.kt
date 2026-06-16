@@ -27,8 +27,8 @@ import p4.v1.P4RuntimeOuterClass.PacketMetadata
 /**
  * Unit tests for [PacketHeaderCodec].
  *
- * Validates bit-packing of PacketOut metadata into binary headers and construction of PacketIn
- * metadata from port values.
+ * Validates bit-packing of PacketOut metadata into binary headers and decoding of PacketIn metadata
+ * from the deparsed `@controller_header("packet_in")` bits.
  */
 class PacketHeaderCodecTest {
 
@@ -226,27 +226,86 @@ class PacketHeaderCodecTest {
   }
 
   // =========================================================================
-  // buildPacketInMetadata
+  // decodePacketIn
   // =========================================================================
 
   @Test
   @Suppress("MagicNumber")
-  fun `buildPacketInMetadata produces correct metadata`() {
+  fun `decodePacketIn parses metadata from the deparsed header`() {
     val (p4info, behavioral) = buildSaiLikeConfig()
     val codec = PacketHeaderCodec.create(p4info, behavioral)!!
 
-    val metadata = codec.buildPacketInMetadata(ingressPort = 510, egressPort = 1)
-    assertEquals(2, metadata.size)
+    // Deparser output: packet_in header (ingress_port=7, target_egress_port=511) followed by a
+    // 2-byte payload. target_egress_port=511 is the DROP port — distinct from any actual egress
+    // port — so a value read here can only have come from the header, not reconstructed state.
+    // 18 header bits + 16 payload bits = 34 bits → 5 bytes.
+    val acc = BitAccumulator()
+    acc.append(BigInteger.valueOf(7), 9) // ingress_port
+    acc.append(BigInteger.valueOf(511), 9) // target_egress_port (DROP)
+    acc.append(BigInteger.valueOf(0xBEEF), 16) // payload
+    val deparsed = com.google.protobuf.ByteString.copyFrom(acc.toByteArray())
 
-    // First field = ingress_port (metadata_id=3 in our test config)
-    assertEquals(3, metadata[0].metadataId)
-    val ingressBytes = metadata[0].value.toByteArray()
-    assertEquals(510, bytesToInt(ingressBytes))
+    val packetIn = codec.decodePacketIn(deparsed)
 
-    // Second field = target_egress_port (metadata_id=4)
-    assertEquals(4, metadata[1].metadataId)
-    val egressBytes = metadata[1].value.toByteArray()
-    assertEquals(1, bytesToInt(egressBytes))
+    // Fields are read positionally in p4info order: ingress_port (id=3), target_egress_port (id=4).
+    assertEquals(2, packetIn.metadataCount)
+    assertEquals(3, packetIn.getMetadata(0).metadataId)
+    assertEquals(7, bytesToInt(packetIn.getMetadata(0).value.toByteArray()))
+    assertEquals(4, packetIn.getMetadata(1).metadataId)
+    assertEquals(511, bytesToInt(packetIn.getMetadata(1).value.toByteArray()))
+    // Header stripped; original payload recovered.
+    assertArrayEquals(byteArrayOf(0xBE.toByte(), 0xEF.toByte()), packetIn.payload.toByteArray())
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `decodePacketIn is generic — no hardcoded field names`() {
+    // A packet_in header whose fields are NOT the well-known port fields. The codec must still
+    // decode their values from the header bits; nothing about specific P4 programs is baked in.
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+        )
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_in"))
+            .addMetadata(metaWithBitwidth(2, "foo", 5))
+            .addMetadata(metaWithBitwidth(3, "bar", 11))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_in_header_t")
+            .setHeader(
+              HeaderDecl.newBuilder().addFields(bitField("foo", 5)).addFields(bitField("bar", 11))
+            )
+        )
+        .build()
+    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+
+    // 16-bit header (foo=0x15, bar=0x2AB) + 1-byte payload.
+    val acc = BitAccumulator()
+    acc.append(BigInteger.valueOf(0x15), 5) // foo
+    acc.append(BigInteger.valueOf(0x2AB), 11) // bar
+    acc.append(BigInteger.valueOf(0xC3), 8) // payload
+    val deparsed = com.google.protobuf.ByteString.copyFrom(acc.toByteArray())
+
+    val packetIn = codec.decodePacketIn(deparsed)
+
+    assertEquals(2, packetIn.metadataCount)
+    assertEquals(0x15, bytesToInt(packetIn.getMetadata(0).value.toByteArray()))
+    assertEquals(0x2AB, bytesToInt(packetIn.getMetadata(1).value.toByteArray()))
+    assertArrayEquals(byteArrayOf(0xC3.toByte()), packetIn.payload.toByteArray())
   }
 
   // =========================================================================

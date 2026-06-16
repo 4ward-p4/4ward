@@ -471,17 +471,17 @@ class SaiP4E2ETest {
     assertBytesEqual("PacketIn src_mac", SRC_MAC, packetIn.payload.toByteArray(), MAC_LEN)
     assertTrue("PacketIn should have metadata", packetIn.metadataCount > 0)
 
-    // Metadata port values should be P4RT-translated strings, not raw dataplane bytes.
-    for (meta in packetIn.metadataList) {
-      val metaName = findPacketInMetadataName(meta.metadataId)
-      if (metaName == "ingress_port" || metaName == "target_egress_port") {
-        val str = meta.value.toStringUtf8()
-        assertTrue(
-          "PacketIn $metaName should be a valid decimal string, got bytes: ${meta.value}",
-          str.all { it.isDigit() },
-        )
-      }
-    }
+    // Metadata is decoded from the deparsed packet_in header and P4RT-translated. The packet
+    // ingressed on port "0" and was routed toward "Ethernet1" before the ACL trapped it, so that
+    // is the egress the program recorded in target_egress_port. Crucially it is NOT the CPU port
+    // "510" the packet physically left on — see issue #767: 4ward must report the program's
+    // intended egress, decoded generically from the header, not reconstructed from egress state.
+    assertEquals("PacketIn ingress_port", "0", packetInMetaValue(packetIn, "ingress_port"))
+    assertEquals(
+      "PacketIn target_egress_port should be the intended routed egress, not the CPU port",
+      "Ethernet1",
+      packetInMetaValue(packetIn, "target_egress_port"),
+    )
   }
 
   @Test
@@ -729,19 +729,17 @@ class SaiP4E2ETest {
       assertNotNull("ACL trap should produce PacketIn on StreamChannel", response)
       assertTrue("response should be PacketIn", response!!.hasPacket())
 
-      // Verify PacketIn metadata port fields are valid P4RT strings (the controller-chosen
-      // encoding from Replica.port), not raw dataplane bytes.
+      // PacketIn metadata is decoded from the deparsed header and P4RT-translated to port names.
+      // This packet was submitted to ingress via PacketOut, so it ingressed on the CPU port "510".
+      // It routed toward "Ethernet1" before the ACL trapped it, so target_egress_port is the
+      // intended egress — not the CPU port "510" it physically left on (issue #767).
       val packetIn = response.packet
-      for (meta in packetIn.metadataList) {
-        val metaName = findPacketInMetadataName(meta.metadataId)
-        if (metaName == "ingress_port" || metaName == "target_egress_port") {
-          val str = meta.value.toStringUtf8()
-          assertTrue(
-            "PacketIn $metaName should be a valid decimal string, got bytes: ${meta.value}",
-            str.all { it.isDigit() },
-          )
-        }
-      }
+      assertEquals("PacketIn ingress_port", "510", packetInMetaValue(packetIn, "ingress_port"))
+      assertEquals(
+        "PacketIn target_egress_port should be the intended routed egress, not the CPU port",
+        "Ethernet1",
+        packetInMetaValue(packetIn, "target_egress_port"),
+      )
     }
   }
 
@@ -2170,6 +2168,13 @@ class SaiP4E2ETest {
         ?: return null
     return packetIn.metadataList.find { it.id == metadataId }?.name
   }
+
+  /** Returns the P4RT (string) value of the named `packet_in` metadata field. */
+  private fun packetInMetaValue(packetIn: P4RuntimeOuterClass.PacketIn, name: String): String =
+    packetIn.metadataList
+      .first { findPacketInMetadataName(it.metadataId) == name }
+      .value
+      .toStringUtf8()
 
   companion object {
     // CPU port = 2^9 - 2 = 510 for 9-bit ports (SAI P4 ids.h: SAI_P4_CPU_PORT).
