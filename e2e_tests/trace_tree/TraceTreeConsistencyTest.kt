@@ -1,7 +1,6 @@
 package fourward.e2e.tracetree
 
 import com.google.protobuf.TextFormat
-import fourward.PacketOutcome
 import fourward.TraceTree
 import fourward.simulator.ProcessPacketResult
 import fourward.simulator.Simulator
@@ -58,9 +57,9 @@ class TraceTreeConsistencyTest(private val testName: String) {
 
   private fun verifyConsistency(result: ProcessPacketResult) {
     val trace = result.trace
-    val leafOutcomes = collectLeafOutcomes(trace)
+    val leafTrees = collectLeafOutcomes(trace)
 
-    assertTrue("Trace tree for $testName has no leaf outcomes", leafOutcomes.isNotEmpty())
+    assertTrue("Trace tree for $testName has no leaf outcomes", leafTrees.isNotEmpty())
 
     // Verify possibleOutcomes is consistent with the trace tree: flattening all worlds
     // should produce the same outputs as collecting all leaf outputs from the tree.
@@ -68,9 +67,7 @@ class TraceTreeConsistencyTest(private val testName: String) {
       result.possibleOutcomes.flatten().map { it.dataplaneEgressPort to it.payload }
 
     val outputsFromTree =
-      leafOutcomes
-        .filter { it.hasOutput() }
-        .map { it.output.dataplaneEgressPort to it.output.payload }
+      leafTrees.filter { it.hasOutput() }.map { it.output.dataplaneEgressPort to it.output.payload }
 
     // For trees without nested alternative-inside-parallel forks, these match exactly.
     // For trees with such nesting, possibleOutcomes may have duplicates from the Cartesian
@@ -83,12 +80,17 @@ class TraceTreeConsistencyTest(private val testName: String) {
     )
   }
 
-  /** Recursively collects all leaf [PacketOutcome]s from a trace tree. */
-  private fun collectLeafOutcomes(tree: TraceTree): List<PacketOutcome> =
+  /**
+   * Recursively collects all leaf [TraceTree]s (nodes with terminal outcomes) from a trace tree.
+   */
+  private fun collectLeafOutcomes(tree: TraceTree): List<TraceTree> =
     when (tree.outcomeCase) {
-      TraceTree.OutcomeCase.PACKET_OUTCOME -> listOf(tree.packetOutcome)
-      TraceTree.OutcomeCase.FORK_OUTCOME ->
-        tree.forkOutcome.branchesList.flatMap { collectLeafOutcomes(it.subtree) }
+      TraceTree.OutcomeCase.OUTPUT,
+      TraceTree.OutcomeCase.DROP -> listOf(tree)
+      TraceTree.OutcomeCase.REPLICATION ->
+        tree.replication.branchesList.flatMap { collectLeafOutcomes(it) }
+      TraceTree.OutcomeCase.CHOICE -> tree.choice.branchesList.flatMap { collectLeafOutcomes(it) }
+      TraceTree.OutcomeCase.CONTINUATION -> collectLeafOutcomes(tree.continuation.next)
       TraceTree.OutcomeCase.OUTCOME_NOT_SET,
       null -> emptyList()
     }

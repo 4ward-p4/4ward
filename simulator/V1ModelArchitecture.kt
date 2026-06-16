@@ -4,8 +4,6 @@ import fourward.BehavioralConfig
 import fourward.CloneEvent
 import fourward.CloneSessionLookupEvent
 import fourward.DropReason
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.LogMessageEvent
 import fourward.MarkToDropEvent
 import fourward.PipelineStage
@@ -175,13 +173,8 @@ class V1ModelArchitecture(
         fork.members.map(buildBranch)
       }
 
-    val branches =
-      fork.members.zip(traces).map { (member, trace) ->
-        ForkBranch.newBuilder().setLabel("member_${member.memberId}").setSubtree(trace).build()
-      }
-    return PipelineResult(
-      buildForkTree(fork.eventsBeforeFork, ForkReason.ACTION_SELECTOR, branches)
-    )
+    val causeId = fork.eventsBeforeFork.lastOrNull()?.id ?: 0L
+    return PipelineResult(buildChoiceTree(fork.eventsBeforeFork, causeId, traces))
   }
 
   // -------------------------------------------------------------------------
@@ -233,7 +226,7 @@ class V1ModelArchitecture(
     } catch (nestedFork: ForkException) {
       handleFork(ctx, nestedFork).trace
     } catch (_: AssertionFailureException) {
-      buildDropTrace(s.packetCtx.getEvents(), DropReason.ASSERTION_FAILURE)
+      buildDropTrace(s.packetCtx.getEvents(), s.packetCtx.lastEventIdWhere { it.hasAssertion() })
     }
   }
 
@@ -305,13 +298,19 @@ class V1ModelArchitecture(
       if (selectorFork.duringIngress) {
         ingressEgressBoundary(ctx, s)
         if (egressPortIsDropPort(s)) {
-          return buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+          return buildDropTrace(
+            s.packetCtx.getEvents(),
+            s.packetCtx.lastEventIdWhere { it.hasMarkToDrop() },
+          )
         }
         return runEgressAndDeparser(ctx, s)
       }
       return runPostEgressAndDeparser(ctx, s)
     } catch (_: AssertionFailureException) {
-      return buildDropTrace(s.packetCtx.getEvents(), DropReason.ASSERTION_FAILURE)
+      return buildDropTrace(
+        s.packetCtx.getEvents(),
+        s.packetCtx.lastEventIdWhere { it.hasAssertion() },
+      )
     }
   }
 
@@ -331,20 +330,14 @@ class V1ModelArchitecture(
         pipelineTail = { c, s -> runEgressAndDeparser(c, s) },
       )
     }
-    val results =
+    val branches =
       if (INTRA_PACKET_PARALLELISM_ENABLED) {
         fork.replicas.parallelStream().map(buildBranch).toList()
       } else {
         fork.replicas.map(buildBranch)
       }
-    val branches =
-      fork.replicas.zip(results).map { (replica, trace) ->
-        ForkBranch.newBuilder()
-          .setLabel("replica_${replica.rid}_port_${replica.port}")
-          .setSubtree(trace)
-          .build()
-      }
-    return PipelineResult(buildForkTree(fork.eventsBeforeFork, ForkReason.MULTICAST, branches))
+    val causeId = fork.eventsBeforeFork.lastOrNull()?.id ?: 0L
+    return PipelineResult(buildReplicationTree(fork.eventsBeforeFork, causeId, branches))
   }
 
   /**
@@ -362,7 +355,10 @@ class V1ModelArchitecture(
         pipelineTail = { c, s ->
           ingressEgressBoundary(c, s)
           if (egressPortIsDropPort(s))
-            buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+            buildDropTrace(
+              s.packetCtx.getEvents(),
+              s.packetCtx.lastEventIdWhere { it.hasMarkToDrop() },
+            )
           else runEgressAndDeparser(c, s)
         },
       )
@@ -370,7 +366,6 @@ class V1ModelArchitecture(
     return assembleCloneFork(
       fork.eventsBeforeFork,
       original,
-      fork.replicas,
       buildCloneBranches(
         cloneCtx,
         fork.replicas,
@@ -402,7 +397,10 @@ class V1ModelArchitecture(
         configure = { s -> s.pendingOps.egressCloneSessionId = null },
         pipelineTail = { _, s ->
           if (egressSpecIsDropPort(s))
-            buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+            buildDropTrace(
+              s.packetCtx.getEvents(),
+              s.packetCtx.lastEventIdWhere { it.hasMarkToDrop() },
+            )
           else runDeparser(s)
         },
       )
@@ -410,7 +408,6 @@ class V1ModelArchitecture(
     return assembleCloneFork(
       fork.eventsBeforeFork,
       original,
-      fork.replicas,
       buildCloneBranches(
         cloneCtx,
         fork.replicas,
@@ -423,7 +420,10 @@ class V1ModelArchitecture(
         resetEgressSpec(s)
         runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
         if (egressSpecIsDropPort(s))
-          buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+          buildDropTrace(
+            s.packetCtx.getEvents(),
+            s.packetCtx.lastEventIdWhere { it.hasMarkToDrop() },
+          )
         else runDeparser(s)
       },
     )
@@ -466,29 +466,22 @@ class V1ModelArchitecture(
     }
   }
 
-  /** Assembles the "original" branch + clone branches into a CLONE fork result. */
+  /** Assembles the "original" branch + clone branches into a Replication result. */
   private fun assembleCloneFork(
     eventsBeforeFork: List<TraceEvent>,
     original: TraceTree,
-    replicas: List<Replica>,
     clones: List<TraceTree>,
   ): PipelineResult {
     val branches =
-      buildList(replicas.size + 1) {
-        add(ForkBranch.newBuilder().setLabel("original").setSubtree(original).build())
-        replicas.zip(clones).mapTo(this) { (replica, trace) ->
-          ForkBranch.newBuilder()
-            .setLabel(
-              if (replicas.size == 1) "clone" else "clone_${replica.rid}_port_${replica.port}"
-            )
-            .setSubtree(trace)
-            .build()
-        }
+      buildList(clones.size + 1) {
+        add(original)
+        addAll(clones)
       }
-    return PipelineResult(buildForkTree(eventsBeforeFork, ForkReason.CLONE, branches))
+    val causeId = eventsBeforeFork.lastOrNull()?.id ?: 0L
+    return PipelineResult(buildReplicationTree(eventsBeforeFork, causeId, branches))
   }
 
-  /** Resubmit: restarts the pipeline with preserved metadata. */
+  /** Resubmit: the same packet re-enters the pipeline — modeled as a Continuation. */
   private fun buildResubmitForkTree(
     ctx: PipelineContext,
     fork: ResubmitFork,
@@ -500,15 +493,11 @@ class V1ModelArchitecture(
         instanceTypeOverride = RESUBMIT_INSTANCE_TYPE,
         preservedMetadata = fork.preservedMetadata,
       )
-    val branch =
-      ForkBranch.newBuilder()
-        .setLabel("resubmit")
-        .setSubtree(buildTraceTree(ctx, decisions).trace)
-        .build()
-    return PipelineResult(buildForkTree(fork.eventsBeforeFork, ForkReason.RESUBMIT, listOf(branch)))
+    val next = buildTraceTree(ctx, decisions).trace
+    return PipelineResult(buildContinuationTree(fork.eventsBeforeFork, next = next))
   }
 
-  /** Recirculate: restarts the pipeline with deparsed bytes. */
+  /** Recirculate: the deparsed packet re-enters the pipeline — modeled as a Continuation. */
   private fun buildRecirculateForkTree(
     ctx: PipelineContext,
     fork: RecirculateFork,
@@ -520,16 +509,9 @@ class V1ModelArchitecture(
         instanceTypeOverride = RECIRC_INSTANCE_TYPE,
         preservedMetadata = fork.preservedMetadata,
       )
-    val branch =
-      ForkBranch.newBuilder()
-        .setLabel("recirculate")
-        .setSubtree(
-          buildTraceTree(ctx.copy(packet = PacketBits.ofBytes(fork.deparsedBytes)), decisions).trace
-        )
-        .build()
-    return PipelineResult(
-      buildForkTree(fork.eventsBeforeFork, ForkReason.RECIRCULATE, listOf(branch))
-    )
+    val next =
+      buildTraceTree(ctx.copy(packet = PacketBits.ofBytes(fork.deparsedBytes)), decisions).trace
+    return PipelineResult(buildContinuationTree(fork.eventsBeforeFork, next = next))
   }
 
   /**
@@ -665,7 +647,8 @@ class V1ModelArchitecture(
     s.packetCtx.addTraceEvent(packetIngressEvent(ctx.ingressPort))
     val parserExitDrop = runParser(s)
     s.postParserEnv = s.env.deepCopy()
-    if (parserExitDrop) return buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+    // Parser exit drops the packet without a mark_to_drop() call — trigger is absent.
+    if (parserExitDrop) return buildDropTrace(s.packetCtx.getEvents())
 
     // An assert()/assume() failure anywhere in the pipeline drops the packet.
     try {
@@ -680,13 +663,19 @@ class V1ModelArchitecture(
       // --- Ingress→egress boundary (traffic manager) ---
       ingressEgressBoundary(ctx, s)
       if (egressPortIsDropPort(s)) {
-        return buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+        return buildDropTrace(
+          s.packetCtx.getEvents(),
+          s.packetCtx.lastEventIdWhere { it.hasMarkToDrop() },
+        )
       }
 
       // --- Egress + deparser ---
       return runEgressAndDeparser(ctx, s)
     } catch (_: AssertionFailureException) {
-      return buildDropTrace(s.packetCtx.getEvents(), DropReason.ASSERTION_FAILURE)
+      return buildDropTrace(
+        s.packetCtx.getEvents(),
+        s.packetCtx.lastEventIdWhere { it.hasAssertion() },
+      )
     }
   }
 
@@ -701,7 +690,10 @@ class V1ModelArchitecture(
     postEgressBoundary(ctx, s)
 
     if (egressSpecIsDropPort(s)) {
-      return buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+      return buildDropTrace(
+        s.packetCtx.getEvents(),
+        s.packetCtx.lastEventIdWhere { it.hasMarkToDrop() },
+      )
     }
 
     return runDeparser(s)
@@ -715,7 +707,10 @@ class V1ModelArchitecture(
     postEgressBoundary(ctx, s)
 
     if (egressSpecIsDropPort(s)) {
-      return buildDropTrace(s.packetCtx.getEvents(), DropReason.MARK_TO_DROP)
+      return buildDropTrace(
+        s.packetCtx.getEvents(),
+        s.packetCtx.lastEventIdWhere { it.hasMarkToDrop() },
+      )
     }
 
     return runDeparser(s)

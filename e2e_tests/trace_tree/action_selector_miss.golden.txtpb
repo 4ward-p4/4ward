@@ -1,6 +1,7 @@
 events {
   packet_ingress {
   }
+  id: 1
 }
 events {
   pipeline_stage {
@@ -8,6 +9,7 @@ events {
     stage_kind: PARSER
     direction: ENTER
   }
+  id: 2
 }
 events {
   parser_transition {
@@ -15,6 +17,7 @@ events {
     from_state: "start"
     to_state: "accept"
   }
+  id: 3
   source_info {
     file: "e2e_tests/trace_tree/action_selector_miss.p4"
     line: 22
@@ -28,6 +31,7 @@ events {
     stage_kind: PARSER
     direction: EXIT
   }
+  id: 4
 }
 events {
   pipeline_stage {
@@ -36,6 +40,7 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 5
 }
 events {
   pipeline_stage {
@@ -44,6 +49,7 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 6
 }
 events {
   pipeline_stage {
@@ -52,6 +58,7 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 7
 }
 events {
   table_lookup {
@@ -59,6 +66,7 @@ events {
     hit: false
     action_name: "drop"
   }
+  id: 8
   source_info {
     file: "e2e_tests/trace_tree/action_selector_miss.p4"
     line: 49
@@ -74,6 +82,7 @@ events {
   action_execution {
     action_name: "drop"
   }
+  id: 9
   source_info {
     file: "e2e_tests/trace_tree/action_selector_miss.p4"
     line: 49
@@ -85,6 +94,7 @@ events {
   mark_to_drop {
     reason: MARK_TO_DROP
   }
+  id: 10
   source_info {
     file: "e2e_tests/trace_tree/action_selector_miss.p4"
     line: 35
@@ -99,9 +109,8 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 11
 }
-packet_outcome {
-  drop {
-    reason: MARK_TO_DROP
-  }
+drop {
+  trigger: 10
 }

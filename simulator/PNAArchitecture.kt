@@ -1,11 +1,7 @@
 package fourward.simulator
 
 import fourward.BehavioralConfig
-import fourward.DropReason
 import fourward.ExternInstanceDecl
-import fourward.Fork
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.PipelineStage
 import fourward.TraceTree
 import fourward.TypeDecl
@@ -171,7 +167,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
       bindStageParams(env, pipeline.mainControl.blockName, pipeline.blockParams, values)
       runControlStage(interpreter, ctx, env, pipeline.mainControl)
     } catch (_: AssertionFailureException) {
-      return buildDropTrace(ctx.getEvents(), DropReason.ASSERTION_FAILURE)
+      return buildDropTrace(ctx.getEvents(), ctx.lastEventIdWhere { it.hasAssertion() })
     } catch (fork: ActionSelectorFork) {
       return handleActionSelectorFork(fork, selectorMembers) { newSelectors ->
         processPacketRecursive(
@@ -200,11 +196,15 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     runControlStage(interpreter, ctx, env, pipeline.mainDeparser)
     val deparsedBytes = ctx.deparsedPayload()
 
-    val mirrorBranches = buildMirrorBranches(pipeline, deparsedBytes, forwardingState)
+    val mirrorTrees = buildMirrorTrees(pipeline, deparsedBytes, forwardingState)
 
     if (forwardingState.dropped && !forwardingState.recirculate) {
-      // Dropped with mirror: emit only mirror branches.
-      return buildForkTree(ctx.getEvents(), ForkReason.CLONE, mirrorBranches)
+      // Dropped: if mirrors were requested they still go out; original is silently dropped.
+      return if (mirrorTrees.isEmpty()) {
+        buildDropTrace(ctx.getEvents())
+      } else {
+        buildReplicationTree(ctx.getEvents(), cause = 0L, mirrorTrees)
+      }
     }
 
     if (forwardingState.recirculate) {
@@ -217,26 +217,21 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
           passNumber = passNumber + 1,
           depth = depth + 1,
         )
-      val recircBranch =
-        ForkBranch.newBuilder().setLabel("recirculate").setSubtree(recircTree).build()
       // Mirror is independent of recirculation — emit both if requested.
-      val branches = mirrorBranches + recircBranch
-      val reason = if (mirrorBranches.isNotEmpty()) ForkReason.CLONE else ForkReason.RECIRCULATE
-      return TraceTree.newBuilder()
-        .addAllEvents(ctx.getEvents())
-        .setForkOutcome(Fork.newBuilder().setReason(reason).addAllBranches(branches))
-        .build()
+      return if (mirrorTrees.isEmpty()) {
+        buildContinuationTree(ctx.getEvents(), next = recircTree)
+      } else {
+        val continuationBranch = buildContinuationTree(emptyList(), next = recircTree)
+        buildReplicationTree(ctx.getEvents(), cause = 0L, listOf(continuationBranch) + mirrorTrees)
+      }
     }
 
     val originalTree = buildOutputTrace(ctx.getEvents(), forwardingState.destPort, deparsedBytes)
-
-    if (mirrorBranches.isNotEmpty()) {
-      val originalBranch =
-        ForkBranch.newBuilder().setLabel("original").setSubtree(originalTree).build()
-      return buildForkTree(emptyList(), ForkReason.CLONE, listOf(originalBranch) + mirrorBranches)
+    return if (mirrorTrees.isEmpty()) {
+      originalTree
+    } else {
+      buildReplicationTree(emptyList(), cause = 0L, listOf(originalTree) + mirrorTrees)
     }
-
-    return originalTree
   }
 
   // ---------------------------------------------------------------------------
@@ -414,24 +409,22 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
   // ---------------------------------------------------------------------------
 
   /**
-   * Builds mirror branches if `mirror_packet()` was called during main control.
+   * Builds mirror output subtrees if `mirror_packet()` was called during main control.
    *
    * PNA mirrors the deparsed packet (post-modification), matching DPDK SoftNIC behavior. Each
    * replica in the clone session outputs the deparsed bytes on the replica's egress port. Unlike
    * PSA clones (which run through a separate egress pipeline), PNA mirror replicas emit directly
    * because PNA has no separate egress stage for mirrored packets to traverse.
    */
-  private fun buildMirrorBranches(
+  private fun buildMirrorTrees(
     pipeline: PipelineConfig,
     deparsedBytes: ByteArray,
     forwardingState: ForwardingState,
-  ): List<ForkBranch> {
+  ): List<TraceTree> {
     val sessionId = forwardingState.mirrorSessionId ?: return emptyList()
     val session = pipeline.tableStore.getCloneSession(sessionId) ?: return emptyList()
     return session.replicasList.map { replica ->
-      val port = replicaPort(replica)
-      val subtree = buildOutputTrace(emptyList(), port, deparsedBytes)
-      ForkBranch.newBuilder().setLabel("mirror_port_$port").setSubtree(subtree).build()
+      buildOutputTrace(emptyList(), replicaPort(replica), deparsedBytes)
     }
   }
 

@@ -47,27 +47,41 @@ object TraceEnricher {
     }
 
     when (tree.outcomeCase) {
-      TraceTree.OutcomeCase.FORK_OUTCOME -> {
-        val fork = tree.forkOutcome
-        for (i in 0 until fork.branchesCount) {
-          val branch = fork.getBranches(i)
-          val enrichedSubtree = enrichTree(branch.subtree, pt, translator)
-          if (enrichedSubtree !== branch.subtree) {
-            lazyBuilder()
-              .forkOutcomeBuilder
-              .setBranches(i, branch.toBuilder().setSubtree(enrichedSubtree))
+      TraceTree.OutcomeCase.REPLICATION -> {
+        val rep = tree.replication
+        for (i in 0 until rep.branchesCount) {
+          val enriched = enrichTree(rep.getBranches(i), pt, translator)
+          if (enriched !== rep.getBranches(i)) {
+            lazyBuilder().replicationBuilder.setBranches(i, enriched)
           }
         }
       }
-      TraceTree.OutcomeCase.PACKET_OUTCOME -> {
-        if (pt != null && tree.packetOutcome.hasOutput()) {
-          val output = tree.packetOutcome.output
+      TraceTree.OutcomeCase.CHOICE -> {
+        val choice = tree.choice
+        for (i in 0 until choice.branchesCount) {
+          val enriched = enrichTree(choice.getBranches(i), pt, translator)
+          if (enriched !== choice.getBranches(i)) {
+            lazyBuilder().choiceBuilder.setBranches(i, enriched)
+          }
+        }
+      }
+      TraceTree.OutcomeCase.CONTINUATION -> {
+        val cont = tree.continuation
+        val enrichedNext = enrichTree(cont.next, pt, translator)
+        if (enrichedNext !== cont.next) {
+          lazyBuilder().continuationBuilder.setNext(enrichedNext)
+        }
+      }
+      TraceTree.OutcomeCase.OUTPUT -> {
+        if (pt != null) {
+          val output = tree.output
           val p4rtPort = pt.dataplaneToP4rt(DataplanePort.fromProto(output.dataplaneEgressPort))
           if (p4rtPort != null) {
-            lazyBuilder().packetOutcomeBuilder.outputBuilder.setP4RtEgressPort(p4rtPort)
+            lazyBuilder().outputBuilder.setP4RtEgressPort(p4rtPort)
           }
         }
       }
+      TraceTree.OutcomeCase.DROP,
       TraceTree.OutcomeCase.OUTCOME_NOT_SET,
       null -> {}
     }

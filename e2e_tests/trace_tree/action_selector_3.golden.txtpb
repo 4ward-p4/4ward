@@ -1,6 +1,7 @@
 events {
   packet_ingress {
   }
+  id: 1
 }
 events {
   pipeline_stage {
@@ -8,6 +9,7 @@ events {
     stage_kind: PARSER
     direction: ENTER
   }
+  id: 2
 }
 events {
   parser_transition {
@@ -15,6 +17,7 @@ events {
     from_state: "start"
     to_state: "accept"
   }
+  id: 3
   source_info {
     file: "e2e_tests/trace_tree/action_selector_3.p4"
     line: 22
@@ -28,6 +31,7 @@ events {
     stage_kind: PARSER
     direction: EXIT
   }
+  id: 4
 }
 events {
   pipeline_stage {
@@ -36,6 +40,7 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 5
 }
 events {
   pipeline_stage {
@@ -44,6 +49,7 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 6
 }
 events {
   pipeline_stage {
@@ -52,6 +58,7 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 7
 }
 events {
   table_lookup {
@@ -71,6 +78,7 @@ events {
     }
     action_name: "set_port"
   }
+  id: 8
   source_info {
     file: "e2e_tests/trace_tree/action_selector_3.p4"
     line: 49
@@ -82,309 +90,324 @@ events {
     value: "281474976710655 (0xffffffffffff)"
   }
 }
-fork_outcome {
-  reason: ACTION_SELECTOR
+choice {
+  cause: 8
   branches {
-    label: "member_0"
-    subtree {
-      events {
-        action_execution {
-          action_name: "set_port"
-          params {
-            key: "port"
-            value: "\000\001"
-          }
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/action_selector_3.p4"
-          line: 49
-          column: 12
-          source_fragment: "ecmp.apply()"
-        }
-      }
-      events {
-        assignment {
-          target: "smeta.egress_spec"
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/action_selector_3.p4"
-          line: 34
-          column: 53
-          source_fragment: "smeta.egress_spec = port"
-        }
-        variable_values {
+    events {
+      action_execution {
+        action_name: "set_port"
+        params {
           key: "port"
-          value: "1"
-        }
-        result_value: "1"
-      }
-      events {
-        pipeline_stage {
-          stage_name: "ingress"
-          stage_kind: CONTROL
-          direction: EXIT
+          value: "\000\001"
         }
       }
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 1
-        }
+      id: 1
+      source_info {
+        file: "e2e_tests/trace_tree/action_selector_3.p4"
+        line: 49
+        column: 12
+        source_fragment: "ecmp.apply()"
       }
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 1
-        }
+    }
+    events {
+      assignment {
+        target: "smeta.egress_spec"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 1
-        }
+      id: 2
+      source_info {
+        file: "e2e_tests/trace_tree/action_selector_3.p4"
+        line: 34
+        column: 53
+        source_fragment: "smeta.egress_spec = port"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 1
-        }
+      variable_values {
+        key: "port"
+        value: "1"
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: ENTER
-        }
+      result_value: "1"
+    }
+    events {
+      pipeline_stage {
+        stage_name: "ingress"
+        stage_kind: CONTROL
+        direction: EXIT
       }
-      events {
-        deparser_emit {
-          header_type: "ethernet_t"
-          byte_length: 14
-        }
+      id: 3
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 1
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: EXIT
-        }
+      id: 4
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 1
       }
-      packet_outcome {
-        output {
-          dataplane_egress_port: 1
-          payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
-        }
+      id: 5
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 1
       }
+      id: 6
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 1
+      }
+      id: 7
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: ENTER
+      }
+      id: 8
+    }
+    events {
+      deparser_emit {
+        header_type: "ethernet_t"
+        byte_length: 14
+      }
+      id: 9
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: EXIT
+      }
+      id: 10
+    }
+    output {
+      dataplane_egress_port: 1
+      payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
     }
   }
   branches {
-    label: "member_1"
-    subtree {
-      events {
-        action_execution {
-          action_name: "set_port"
-          params {
-            key: "port"
-            value: "\000\002"
-          }
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/action_selector_3.p4"
-          line: 49
-          column: 12
-          source_fragment: "ecmp.apply()"
-        }
-      }
-      events {
-        assignment {
-          target: "smeta.egress_spec"
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/action_selector_3.p4"
-          line: 34
-          column: 53
-          source_fragment: "smeta.egress_spec = port"
-        }
-        variable_values {
+    events {
+      action_execution {
+        action_name: "set_port"
+        params {
           key: "port"
-          value: "2"
-        }
-        result_value: "2"
-      }
-      events {
-        pipeline_stage {
-          stage_name: "ingress"
-          stage_kind: CONTROL
-          direction: EXIT
+          value: "\000\002"
         }
       }
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 2
-        }
+      id: 1
+      source_info {
+        file: "e2e_tests/trace_tree/action_selector_3.p4"
+        line: 49
+        column: 12
+        source_fragment: "ecmp.apply()"
       }
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 2
-        }
+    }
+    events {
+      assignment {
+        target: "smeta.egress_spec"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 2
-        }
+      id: 2
+      source_info {
+        file: "e2e_tests/trace_tree/action_selector_3.p4"
+        line: 34
+        column: 53
+        source_fragment: "smeta.egress_spec = port"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 2
-        }
+      variable_values {
+        key: "port"
+        value: "2"
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: ENTER
-        }
+      result_value: "2"
+    }
+    events {
+      pipeline_stage {
+        stage_name: "ingress"
+        stage_kind: CONTROL
+        direction: EXIT
       }
-      events {
-        deparser_emit {
-          header_type: "ethernet_t"
-          byte_length: 14
-        }
+      id: 3
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 2
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: EXIT
-        }
+      id: 4
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 2
       }
-      packet_outcome {
-        output {
-          dataplane_egress_port: 2
-          payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
-        }
+      id: 5
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 2
       }
+      id: 6
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 2
+      }
+      id: 7
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: ENTER
+      }
+      id: 8
+    }
+    events {
+      deparser_emit {
+        header_type: "ethernet_t"
+        byte_length: 14
+      }
+      id: 9
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: EXIT
+      }
+      id: 10
+    }
+    output {
+      dataplane_egress_port: 2
+      payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
     }
   }
   branches {
-    label: "member_2"
-    subtree {
-      events {
-        action_execution {
-          action_name: "set_port"
-          params {
-            key: "port"
-            value: "\000\003"
-          }
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/action_selector_3.p4"
-          line: 49
-          column: 12
-          source_fragment: "ecmp.apply()"
-        }
-      }
-      events {
-        assignment {
-          target: "smeta.egress_spec"
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/action_selector_3.p4"
-          line: 34
-          column: 53
-          source_fragment: "smeta.egress_spec = port"
-        }
-        variable_values {
+    events {
+      action_execution {
+        action_name: "set_port"
+        params {
           key: "port"
-          value: "3"
-        }
-        result_value: "3"
-      }
-      events {
-        pipeline_stage {
-          stage_name: "ingress"
-          stage_kind: CONTROL
-          direction: EXIT
+          value: "\000\003"
         }
       }
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 3
-        }
+      id: 1
+      source_info {
+        file: "e2e_tests/trace_tree/action_selector_3.p4"
+        line: 49
+        column: 12
+        source_fragment: "ecmp.apply()"
       }
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 3
-        }
+    }
+    events {
+      assignment {
+        target: "smeta.egress_spec"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 3
-        }
+      id: 2
+      source_info {
+        file: "e2e_tests/trace_tree/action_selector_3.p4"
+        line: 34
+        column: 53
+        source_fragment: "smeta.egress_spec = port"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 3
-        }
+      variable_values {
+        key: "port"
+        value: "3"
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: ENTER
-        }
+      result_value: "3"
+    }
+    events {
+      pipeline_stage {
+        stage_name: "ingress"
+        stage_kind: CONTROL
+        direction: EXIT
       }
-      events {
-        deparser_emit {
-          header_type: "ethernet_t"
-          byte_length: 14
-        }
+      id: 3
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 3
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: EXIT
-        }
+      id: 4
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 3
       }
-      packet_outcome {
-        output {
-          dataplane_egress_port: 3
-          payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
-        }
+      id: 5
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 3
       }
+      id: 6
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 3
+      }
+      id: 7
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: ENTER
+      }
+      id: 8
+    }
+    events {
+      deparser_emit {
+        header_type: "ethernet_t"
+        byte_length: 14
+      }
+      id: 9
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: EXIT
+      }
+      id: 10
+    }
+    output {
+      dataplane_egress_port: 3
+      payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
     }
   }
 }

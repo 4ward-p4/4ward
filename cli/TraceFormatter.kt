@@ -1,6 +1,5 @@
 package fourward.cli
 
-import fourward.DropReason
 import fourward.TraceEvent
 import fourward.TraceTree
 
@@ -14,30 +13,29 @@ object TraceFormatter {
       appendEvent(event, indent)
     }
     when (tree.outcomeCase) {
-      TraceTree.OutcomeCase.FORK_OUTCOME -> {
-        val fork = tree.forkOutcome
-        appendLine("${pad(indent)}fork (${fork.reason.humanName()})")
-        for (branch in fork.branchesList) {
-          appendLine("${pad(indent + 1)}branch: ${branch.label}")
-          appendTree(branch.subtree, indent + 2)
+      TraceTree.OutcomeCase.REPLICATION -> {
+        appendLine("${pad(indent)}replication")
+        for (branch in tree.replication.branchesList) {
+          appendTree(branch, indent + 1)
         }
       }
-      TraceTree.OutcomeCase.PACKET_OUTCOME -> {
-        val outcome = tree.packetOutcome
-        when (outcome.outcomeCase) {
-          fourward.PacketOutcome.OutcomeCase.OUTPUT -> {
-            val out = outcome.output
-            appendLine(
-              "${pad(indent)}output port ${out.dataplaneEgressPort}, ${out.payload.size()} bytes"
-            )
-          }
-          fourward.PacketOutcome.OutcomeCase.DROP -> {
-            appendLine("${pad(indent)}drop (reason: ${outcome.drop.reason.humanName()})")
-          }
-          fourward.PacketOutcome.OutcomeCase.OUTCOME_NOT_SET,
-          null -> {}
+      TraceTree.OutcomeCase.CHOICE -> {
+        appendLine("${pad(indent)}choice")
+        for (branch in tree.choice.branchesList) {
+          appendTree(branch, indent + 1)
         }
       }
+      TraceTree.OutcomeCase.CONTINUATION -> {
+        appendLine("${pad(indent)}continuation")
+        appendTree(tree.continuation.next, indent + 1)
+      }
+      TraceTree.OutcomeCase.OUTPUT -> {
+        val out = tree.output
+        appendLine(
+          "${pad(indent)}output port ${out.dataplaneEgressPort}, ${out.payload.size()} bytes"
+        )
+      }
+      TraceTree.OutcomeCase.DROP -> appendLine("${pad(indent)}drop")
       TraceTree.OutcomeCase.OUTCOME_NOT_SET,
       null -> {}
     }
@@ -103,16 +101,4 @@ object TraceFormatter {
 
   private fun com.google.protobuf.ByteString.decimal(): String =
     java.math.BigInteger(1, toByteArray()).toString()
-
-  private fun DropReason.humanName(): String =
-    when (this) {
-      DropReason.MARK_TO_DROP -> "mark_to_drop"
-      DropReason.PARSER_REJECT -> "parser reject"
-      DropReason.PIPELINE_EXECUTION_LIMIT_REACHED -> "execution limit"
-      DropReason.ASSERTION_FAILURE -> "assertion failure"
-      else -> "unknown"
-    }
-
-  private fun fourward.ForkReason.humanName(): String =
-    name.removePrefix("ACTION_").lowercase().replace('_', ' ')
 }

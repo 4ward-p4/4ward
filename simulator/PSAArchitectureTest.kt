@@ -7,13 +7,11 @@ import fourward.BehavioralConfig
 import fourward.BinaryOp
 import fourward.BinaryOperator
 import fourward.ControlDecl
-import fourward.DropReason
 import fourward.EnumDecl
 import fourward.Expr
 import fourward.ExternInstanceDecl
 import fourward.FieldAccess
 import fourward.FieldDecl
-import fourward.ForkReason
 import fourward.Literal
 import fourward.MethodCall
 import fourward.MethodCallStmt
@@ -350,9 +348,7 @@ class PSAArchitectureTest {
     val config = psaConfig()
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.MARK_TO_DROP, result.trace.packetOutcome.drop.reason)
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -501,11 +497,11 @@ class PSAArchitectureTest {
 
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.MULTICAST, result.trace.forkOutcome.reason)
-    assertEquals(2, result.trace.forkOutcome.branchesCount)
-    assertEquals("replica_0_port_2", result.trace.forkOutcome.branchesList[0].label)
-    assertEquals("replica_1_port_3", result.trace.forkOutcome.branchesList[1].label)
+    assertTrue(result.trace.hasReplication())
+    assertEquals(2, result.trace.replication.branchesCount)
+    // Branches are in replica order; each outputs to its assigned port.
+    assertEquals(2, result.trace.replication.branchesList[0].output.dataplaneEgressPort)
+    assertEquals(3, result.trace.replication.branchesList[1].output.dataplaneEgressPort)
   }
 
   @Test
@@ -514,9 +510,7 @@ class PSAArchitectureTest {
     val config = psaConfig(ingressStmts = listOf(multicast(99)))
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.MARK_TO_DROP, result.trace.packetOutcome.drop.reason)
+    assertTrue(result.trace.hasDrop())
   }
 
   // ---------------------------------------------------------------------------
@@ -969,10 +963,11 @@ class PSAArchitectureTest {
 
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    assertEquals("original", result.trace.forkOutcome.branchesList[0].label)
-    assertEquals("clone_port_5", result.trace.forkOutcome.branchesList[1].label)
+    assertTrue(result.trace.hasReplication())
+    assertEquals(2, result.trace.replication.branchesCount)
+    // Branch[0] is the original (port 2), branch[1] is the I2E clone (port 5).
+    assertEquals(2, result.trace.replication.branchesList[0].output.dataplaneEgressPort)
+    assertEquals(5, result.trace.replication.branchesList[1].output.dataplaneEgressPort)
   }
 
   @Test
@@ -1022,13 +1017,11 @@ class PSAArchitectureTest {
 
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0xDD.toByte()), store)
 
-    // Clone fork exists even though original drops — E2E clone is processed independently.
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    assertEquals(1, result.trace.forkOutcome.branchesCount)
-    assertEquals("clone_port_9", result.trace.forkOutcome.branchesList[0].label)
+    // Clone replication exists even though original drops — E2E clone is processed independently.
+    assertTrue(result.trace.hasReplication())
+    assertEquals(1, result.trace.replication.branchesCount)
     // Clone also dropped by the same egress control.
-    assertTrue(result.trace.forkOutcome.branchesList[0].subtree.packetOutcome.hasDrop())
+    assertTrue(result.trace.replication.branchesList[0].hasDrop())
   }
 
   @Test
@@ -1050,13 +1043,13 @@ class PSAArchitectureTest {
 
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
-    // E2E clone fork is in the egress subtree, flattened into the top-level trace since
+    // E2E clone replication is in the egress subtree, flattened into the top-level trace since
     // there's no I2E clone.
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    assertEquals(2, result.trace.forkOutcome.branchesCount)
-    assertEquals("original", result.trace.forkOutcome.branchesList[0].label)
-    assertEquals("clone_port_8", result.trace.forkOutcome.branchesList[1].label)
+    assertTrue(result.trace.hasReplication())
+    assertEquals(2, result.trace.replication.branchesCount)
+    // Branch[0] is the original output (port 2), branch[1] is the E2E clone (port 8).
+    assertEquals(2, result.trace.replication.branchesList[0].output.dataplaneEgressPort)
+    assertEquals(8, result.trace.replication.branchesList[1].output.dataplaneEgressPort)
   }
 
   @Test
@@ -1124,10 +1117,8 @@ class PSAArchitectureTest {
     // Packet recirculates once, then forwards on port 5.
     assertEquals(1, outputs.size)
     assertEquals(5, outputs[0].dataplaneEgressPort)
-    // Trace should show a RECIRCULATE fork.
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.RECIRCULATE, result.trace.forkOutcome.reason)
-    assertEquals("recirculate", result.trace.forkOutcome.branchesList[0].label)
+    // Trace should show a CONTINUATION (recirculate loops back to ingress).
+    assertTrue(result.trace.hasContinuation())
   }
 
   @Test
@@ -1136,9 +1127,7 @@ class PSAArchitectureTest {
     val config = psaConfig(ingressStmts = listOf(sendToPort(2)), egressStmts = listOf(egressDrop()))
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.MARK_TO_DROP, result.trace.packetOutcome.drop.reason)
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -1148,8 +1137,7 @@ class PSAArchitectureTest {
       psaConfig(ingressStmts = listOf(sendToPort(2), externCall("ingress_drop", nameRef("ostd"))))
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -1194,9 +1182,8 @@ class PSAArchitectureTest {
 
     assertEquals(1, outputs.size)
     assertEquals(7, outputs[0].dataplaneEgressPort)
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.RESUBMIT, result.trace.forkOutcome.reason)
-    assertEquals("resubmit", result.trace.forkOutcome.branchesList[0].label)
+    // Resubmit is a Continuation: the same packet re-enters ingress.
+    assertTrue(result.trace.hasContinuation())
   }
 
   @Test
@@ -1231,8 +1218,7 @@ class PSAArchitectureTest {
       psaConfig(ingressStmts = listOf(resubmitStmt())) // drop=true by default, resubmit=true
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -1259,7 +1245,7 @@ class PSAArchitectureTest {
     // Resubmit wins: packet loops back, then exits on port 5. No clone on port 9.
     assertEquals(1, outputs.size)
     assertEquals(5, outputs[0].dataplaneEgressPort)
-    assertEquals(ForkReason.RESUBMIT, result.trace.forkOutcome.reason)
+    assertTrue(result.trace.hasContinuation())
   }
 
   @Test
@@ -1483,14 +1469,11 @@ class PSAArchitectureTest {
 
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
-    // Should produce an ACTION_SELECTOR fork with 2 member branches.
-    assertTrue("expected fork outcome", result.trace.hasForkOutcome())
-    assertEquals(ForkReason.ACTION_SELECTOR, result.trace.forkOutcome.reason)
-    assertEquals(2, result.trace.forkOutcome.branchesCount)
-    assertEquals("member_0", result.trace.forkOutcome.branchesList[0].label)
-    assertEquals("member_1", result.trace.forkOutcome.branchesList[1].label)
+    // Should produce an ACTION_SELECTOR choice with 2 member branches.
+    assertTrue("expected choice outcome", result.trace.hasChoice())
+    assertEquals(2, result.trace.choice.branchesCount)
 
-    // Alternative fork: 2 possible worlds, each with 1 output (send_to_port(1) post-table).
+    // Alternative choice: 2 possible worlds, each with 1 output (send_to_port(1) post-table).
     val outcomes = result.possibleOutcomes
     assertEquals(2, outcomes.size)
     assertTrue(outcomes.all { world -> world.size == 1 && world[0].dataplaneEgressPort == 1 })
@@ -1506,8 +1489,7 @@ class PSAArchitectureTest {
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
     // No fork — table miss falls through to default action, packet dropped by PSA default.
-    assertTrue("expected drop (no fork)", result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue("expected drop (no fork)", result.trace.hasDrop())
   }
 
   @Test
@@ -1520,12 +1502,10 @@ class PSAArchitectureTest {
 
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
-    assertTrue("expected fork outcome", result.trace.hasForkOutcome())
-    assertEquals(ForkReason.ACTION_SELECTOR, result.trace.forkOutcome.reason)
-    assertEquals(1, result.trace.forkOutcome.branchesCount)
-    assertEquals("member_0", result.trace.forkOutcome.branchesList[0].label)
+    assertTrue("expected choice outcome", result.trace.hasChoice())
+    assertEquals(1, result.trace.choice.branchesCount)
 
-    // Alternative fork: 1 possible world with 1 output.
+    // Alternative choice: 1 possible world with 1 output.
     val outcomes = result.possibleOutcomes
     assertEquals(1, outcomes.size)
     assertEquals(1, outcomes[0].size)
@@ -1544,14 +1524,11 @@ class PSAArchitectureTest {
 
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
-    // Egress fork: ACTION_SELECTOR with 2 member branches.
-    assertTrue("expected fork outcome", result.trace.hasForkOutcome())
-    assertEquals(ForkReason.ACTION_SELECTOR, result.trace.forkOutcome.reason)
-    assertEquals(2, result.trace.forkOutcome.branchesCount)
-    assertEquals("member_0", result.trace.forkOutcome.branchesList[0].label)
-    assertEquals("member_1", result.trace.forkOutcome.branchesList[1].label)
+    // Egress choice: ACTION_SELECTOR with 2 member branches.
+    assertTrue("expected choice outcome", result.trace.hasChoice())
+    assertEquals(2, result.trace.choice.branchesCount)
 
-    // Alternative fork: 2 possible worlds, each with 1 output.
+    // Alternative choice: 2 possible worlds, each with 1 output.
     val outcomes = result.possibleOutcomes
     assertEquals(2, outcomes.size)
     assertTrue(outcomes.all { world -> world.size == 1 && world[0].dataplaneEgressPort == 1 })
@@ -1571,21 +1548,19 @@ class PSAArchitectureTest {
 
     val result = PSAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
-    // Top-level fork is CLONE (I2E clone) — parallel.
-    assertTrue("expected clone fork", result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
+    // Top-level outcome is REPLICATION (I2E clone) — branches[0]=original, branches[1]=clone.
+    assertTrue("expected replication (I2E clone)", result.trace.hasReplication())
+    assertEquals(2, result.trace.replication.branchesCount)
 
-    // Original branch: egress action selector fork with 2 members.
-    val originalBranch = result.trace.forkOutcome.branchesList.first { it.label == "original" }
-    assertTrue("expected fork in original", originalBranch.subtree.hasForkOutcome())
-    assertEquals(ForkReason.ACTION_SELECTOR, originalBranch.subtree.forkOutcome.reason)
-    assertEquals(2, originalBranch.subtree.forkOutcome.branchesCount)
+    // Original branch: egress action selector choice with 2 members.
+    val originalBranch = result.trace.replication.branchesList[0]
+    assertTrue("expected choice in original", originalBranch.hasChoice())
+    assertEquals(2, originalBranch.choice.branchesCount)
 
-    // Clone branch: also hits the egress table, producing its own action selector fork.
-    val cloneBranch = result.trace.forkOutcome.branchesList.first { it.label.startsWith("clone_") }
-    assertTrue("expected fork in clone", cloneBranch.subtree.hasForkOutcome())
-    assertEquals(ForkReason.ACTION_SELECTOR, cloneBranch.subtree.forkOutcome.reason)
-    assertEquals(2, cloneBranch.subtree.forkOutcome.branchesCount)
+    // Clone branch: also hits the egress table, producing its own action selector choice.
+    val cloneBranch = result.trace.replication.branchesList[1]
+    assertTrue("expected choice in clone", cloneBranch.hasChoice())
+    assertEquals(2, cloneBranch.choice.branchesCount)
 
     // Parallel clone × alternative selector: 2 members × 2 members = 4 possible worlds,
     // each with 2 outputs (one from original, one from clone).

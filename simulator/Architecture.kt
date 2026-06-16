@@ -44,8 +44,8 @@ interface Architecture {
 /**
  * The result of running a packet through the pipeline.
  *
- * The [trace] tree carries the complete execution trace. Leaf nodes contain [PacketOutcome]s
- * (output packets or drops); fork nodes represent non-deterministic choice points.
+ * The [trace] tree carries the complete execution trace. Leaf nodes are [Output] or [Drop];
+ * interior nodes ([Replication], [Choice], [Continuation]) represent branching and looping.
  */
 data class PipelineResult(val trace: TraceTree) {
   /** All possible outcome sets, derived from the trace tree's fork structure. */

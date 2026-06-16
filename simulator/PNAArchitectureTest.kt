@@ -6,12 +6,10 @@ import fourward.BehavioralConfig
 import fourward.BinaryOp
 import fourward.BinaryOperator
 import fourward.ControlDecl
-import fourward.DropReason
 import fourward.EnumDecl
 import fourward.Expr
 import fourward.ExternInstanceDecl
 import fourward.FieldDecl
-import fourward.ForkReason
 import fourward.HeaderDecl
 import fourward.ParamDecl
 import fourward.ParserDecl
@@ -302,8 +300,7 @@ class PNAArchitectureTest {
     val config = pnaConfig()
     val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -324,8 +321,7 @@ class PNAArchitectureTest {
     val config = pnaConfig(mainControlStmts = listOf(sendToPort(5), dropPacket()))
     val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -463,9 +459,7 @@ class PNAArchitectureTest {
     val config = pnaConfig(mainControlStmts = listOf(externCall("assert", boolLit(false))))
     val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.ASSERTION_FAILURE, result.trace.packetOutcome.drop.reason)
+    assertTrue(result.trace.hasDrop())
   }
 
   // ---------------------------------------------------------------------------
@@ -545,17 +539,15 @@ class PNAArchitectureTest {
   }
 
   @Test
-  fun `mirror_packet trace has CLONE fork reason`() {
+  fun `mirror_packet trace has REPLICATION outcome`() {
     val config = pnaConfig(mainControlStmts = listOf(sendToPort(2), mirrorPacket(0, 100)))
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5))
 
     val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    assertEquals("original", result.trace.forkOutcome.branchesList[0].label)
-    assertEquals("mirror_port_5", result.trace.forkOutcome.branchesList[1].label)
+    assertTrue(result.trace.hasReplication())
+    assertEquals(2, result.trace.replication.branchesList.size)
   }
 
   @Test

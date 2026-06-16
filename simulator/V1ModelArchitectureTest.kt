@@ -7,12 +7,10 @@ import fourward.BinaryOp
 import fourward.BinaryOperator
 import fourward.BlockStmt
 import fourward.ControlDecl
-import fourward.DropReason
 import fourward.ExitStmt
 import fourward.Expr
 import fourward.FieldAccess
 import fourward.FieldDecl
-import fourward.ForkReason
 import fourward.IfStmt
 import fourward.Literal
 import fourward.ParamDecl
@@ -559,8 +557,7 @@ class V1ModelArchitectureTest {
       )
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -582,8 +579,7 @@ class V1ModelArchitectureTest {
       result.trace.eventsList.filter { it.hasPipelineStage() }.map { it.pipelineStage.stageName }
     assertTrue("egress should not appear in trace", "egress" !in stageNames)
     assertTrue("compute_checksum should not appear in trace", "compute_checksum" !in stageNames)
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -719,9 +715,8 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.MULTICAST, result.trace.forkOutcome.reason)
-    assertEquals(2, result.trace.forkOutcome.branchesCount)
+    assertTrue(result.trace.hasReplication())
+    assertEquals(2, result.trace.replication.branchesCount)
   }
 
   @Test
@@ -738,12 +733,8 @@ class V1ModelArchitectureTest {
     val payload = byteArrayOf(0xAA.toByte())
     val result = V1ModelArchitecture(config).processPacket(port(0), payload, tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(2, branches.size)
-    assertEquals("original", branches[0].label)
-    assertEquals("clone", branches[1].label)
+    assertTrue(result.trace.hasReplication())
+    assertEquals(2, result.trace.replication.branchesCount)
 
     val outputs = result.possibleOutcomes.single()
     assertEquals(2, outputs.size)
@@ -862,12 +853,8 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(2, branches.size)
-    assertEquals("original", branches[0].label)
-    assertEquals("clone", branches[1].label)
+    assertTrue(result.trace.hasReplication())
+    assertEquals(2, result.trace.replication.branchesCount)
 
     val outputs = result.possibleOutcomes.single()
     assertEquals(2, outputs.size)
@@ -926,13 +913,8 @@ class V1ModelArchitectureTest {
     val result =
       V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0xAA.toByte()), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(3, branches.size)
-    assertEquals("original", branches[0].label)
-    assertEquals("clone_10_port_7", branches[1].label)
-    assertEquals("clone_20_port_8", branches[2].label)
+    assertTrue(result.trace.hasReplication())
+    assertEquals(3, result.trace.replication.branchesCount)
 
     val outputs = result.possibleOutcomes.single()
     assertEquals(3, outputs.size)
@@ -963,11 +945,8 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(3, branches.size)
-    assertEquals("original", branches[0].label)
+    assertTrue(result.trace.hasReplication())
+    assertEquals(3, result.trace.replication.branchesCount)
 
     val outputs = result.possibleOutcomes.single()
     assertEquals(3, outputs.size)
@@ -1094,11 +1073,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.RESUBMIT, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(1, branches.size)
-    assertEquals("resubmit", branches[0].label)
+    assertTrue(result.trace.hasContinuation())
   }
 
   @Test
@@ -1117,11 +1092,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.RECIRCULATE, result.trace.forkOutcome.reason)
-    val branches = result.trace.forkOutcome.branchesList
-    assertEquals(1, branches.size)
-    assertEquals("recirculate", branches[0].label)
+    assertTrue(result.trace.hasContinuation())
   }
 
   @Test
@@ -1136,7 +1107,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertFalse(result.trace.hasForkOutcome())
+    assertFalse(result.trace.hasReplication())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
     assertEquals(2, outputs[0].dataplaneEgressPort)
@@ -1154,7 +1125,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertFalse(result.trace.hasForkOutcome())
+    assertFalse(result.trace.hasReplication())
     val outputs = result.possibleOutcomes.single()
     assertEquals(1, outputs.size)
     assertEquals(3, outputs[0].dataplaneEgressPort)
@@ -1174,7 +1145,7 @@ class V1ModelArchitectureTest {
       byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte(), 0xEE.toByte())
     val result = V1ModelArchitecture(config).processPacket(port(0), payload, tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
+    assertTrue(result.trace.hasReplication())
     val outputs = result.possibleOutcomes.single()
     assertEquals(2, outputs.size)
     assertEquals(5, outputs[0].payload.size())
@@ -1196,7 +1167,7 @@ class V1ModelArchitectureTest {
     val payload = byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte())
     val result = V1ModelArchitecture(config).processPacket(port(0), payload, tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
+    assertTrue(result.trace.hasReplication())
     val outputs = result.possibleOutcomes.single()
     assertEquals(2, outputs.size)
     assertEquals(4, outputs[0].payload.size())
@@ -1293,7 +1264,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
+    assertTrue(result.trace.hasReplication())
     val outputs = result.possibleOutcomes.single()
     // Original is dropped (mark_to_drop set egress_spec to drop port).
     // Clone survives on port 7.
@@ -1327,7 +1298,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
+    assertTrue(result.trace.hasReplication())
     val outputs = result.possibleOutcomes.single()
     // Original is dropped (egress mark_to_drop). Clone survives on port 8.
     assertEquals(1, outputs.size)
@@ -1436,9 +1407,7 @@ class V1ModelArchitectureTest {
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     // Should be a drop.
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.MARK_TO_DROP, result.trace.packetOutcome.drop.reason)
+    assertTrue(result.trace.hasDrop())
 
     // Parser EXIT event must be present even though the parser exited early.
     val events = stageEvents(result.trace)
@@ -1494,8 +1463,7 @@ class V1ModelArchitectureTest {
     val config = widePortConfig(portBits, assignField("sm", "egress_spec", dropPort, portBits))
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -1520,8 +1488,7 @@ class V1ModelArchitectureTest {
     val config = widePortConfig(portBits, markToDrop)
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -1585,8 +1552,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
+    assertTrue(result.trace.hasReplication())
     val outputs = result.possibleOutcomes.single()
     // Both original and clone produce output (metadata was preserved, so no drop).
     assertEquals(2, outputs.size)
@@ -1631,8 +1597,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
+    assertTrue(result.trace.hasReplication())
     val outputs = result.possibleOutcomes.single()
     assertEquals(2, outputs.size)
     assertEquals(3, outputs[0].dataplaneEgressPort)
@@ -1719,8 +1684,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.RESUBMIT, result.trace.forkOutcome.reason)
+    assertTrue(result.trace.hasContinuation())
     val outputs = result.possibleOutcomes.single()
     // Resubmit branch outputs (metadata was preserved, so no drop).
     assertEquals(1, outputs.size)
@@ -1772,8 +1736,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.RECIRCULATE, result.trace.forkOutcome.reason)
+    assertTrue(result.trace.hasContinuation())
     val outputs = result.possibleOutcomes.single()
     // Recirculate branch outputs (metadata was preserved, so no drop).
     assertEquals(1, outputs.size)
@@ -1817,7 +1780,7 @@ class V1ModelArchitectureTest {
 
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), tableStore)
 
-    assertTrue(result.trace.hasForkOutcome())
+    assertTrue(result.trace.hasReplication())
     val outputs = result.possibleOutcomes.single()
     // Clone should NOT drop: not_preserved was reset to 0, so 0x1234 check is false.
     assertEquals(2, outputs.size)
@@ -1844,25 +1807,21 @@ class V1ModelArchitectureTest {
   }
 
   @Test
-  fun `assert false drops packet with ASSERTION_FAILURE reason`() {
+  fun `assert false drops packet`() {
     val config = v1modelConfig(externCall("assert", boolLit(false)))
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.ASSERTION_FAILURE, result.trace.packetOutcome.drop.reason)
+    assertTrue(result.trace.hasDrop())
     // Trace should contain a failing assertion event.
     assertTrue(result.trace.eventsList.any { it.hasAssertion() && !it.assertion.passed })
   }
 
   @Test
-  fun `assume false drops packet with ASSERTION_FAILURE reason`() {
+  fun `assume false drops packet`() {
     val config = v1modelConfig(externCall("assume", boolLit(false)))
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.ASSERTION_FAILURE, result.trace.packetOutcome.drop.reason)
+    assertTrue(result.trace.hasDrop())
   }
 
   // ---------------------------------------------------------------------------
@@ -1902,7 +1861,7 @@ class V1ModelArchitectureTest {
   }
 
   @Test
-  fun `egress assert false drops packet with ASSERTION_FAILURE reason`() {
+  fun `egress assert false drops packet`() {
     val config =
       v1modelConfig(
         ingressStmts =
@@ -1911,9 +1870,7 @@ class V1ModelArchitectureTest {
       )
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.ASSERTION_FAILURE, result.trace.packetOutcome.drop.reason)
+    assertTrue(result.trace.hasDrop())
   }
 
   // ---------------------------------------------------------------------------
@@ -1929,8 +1886,7 @@ class V1ModelArchitectureTest {
       V1ModelArchitecture(config, dropPortOverride = DataplanePort.fromUnsignedLong(42))
         .processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -1955,8 +1911,7 @@ class V1ModelArchitectureTest {
       V1ModelArchitecture(config, dropPortOverride = DataplanePort.fromUnsignedLong(42))
         .processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -1968,8 +1923,7 @@ class V1ModelArchitectureTest {
       V1ModelArchitecture(config, dropPortOverride = null)
         .processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   companion object {

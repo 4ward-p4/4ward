@@ -178,7 +178,7 @@ internal fun runControlStage(
  *
  * On the first encounter with an action selector group hit, the [Interpreter] throws
  * [ActionSelectorFork] with the list of group members and the trace events accumulated before the
- * fork. This method builds a fork [TraceTree] with one branch per member, re-executing via
+ * fork. This method builds a [Choice] [TraceTree] with one branch per member, re-executing via
  * [reExecute] with the forced member selection added to [currentSelectors].
  *
  * The re-execution produces identical events up to the fork point (deterministic replay), so the
@@ -190,19 +190,29 @@ internal fun handleActionSelectorFork(
   reExecute: (Map<String, Int>) -> TraceTree,
 ): TraceTree {
   val prefixLength = fork.eventsBeforeFork.size
+  // The last event in eventsBeforeFork is the TableLookupEvent for the selector — it's the cause.
+  val causeId = fork.eventsBeforeFork.lastOrNull()?.id ?: 0L
   val branches =
     fork.members.map { member ->
       val newSelectors = currentSelectors + (fork.tableName to member.memberId)
-      val subtree = reExecute(newSelectors)
-      val stripped = TraceTree.newBuilder().addAllEvents(subtree.eventsList.drop(prefixLength))
-      if (subtree.hasPacketOutcome()) stripped.setPacketOutcome(subtree.packetOutcome)
-      if (subtree.hasForkOutcome()) stripped.setForkOutcome(subtree.forkOutcome)
-      fourward.ForkBranch.newBuilder()
-        .setLabel("member_${member.memberId}")
-        .setSubtree(stripped.build())
-        .build()
+      dropPrefixEvents(reExecute(newSelectors), prefixLength)
     }
-  return buildForkTree(fork.eventsBeforeFork, fourward.ForkReason.ACTION_SELECTOR, branches)
+  return buildChoiceTree(fork.eventsBeforeFork, causeId, branches)
+}
+
+/** Returns a copy of [tree] with the first [count] events removed, preserving the outcome. */
+private fun dropPrefixEvents(tree: TraceTree, count: Int): TraceTree {
+  val b = TraceTree.newBuilder().addAllEvents(tree.eventsList.drop(count))
+  when (tree.outcomeCase) {
+    TraceTree.OutcomeCase.REPLICATION -> b.setReplication(tree.replication)
+    TraceTree.OutcomeCase.CHOICE -> b.setChoice(tree.choice)
+    TraceTree.OutcomeCase.CONTINUATION -> b.setContinuation(tree.continuation)
+    TraceTree.OutcomeCase.OUTPUT -> b.setOutput(tree.output)
+    TraceTree.OutcomeCase.DROP -> b.setDrop(tree.drop)
+    TraceTree.OutcomeCase.OUTCOME_NOT_SET,
+    null -> {}
+  }
+  return b.build()
 }
 
 /**

@@ -1,64 +1,95 @@
 package fourward.simulator
 
+import fourward.Choice
+import fourward.Continuation
 import fourward.Drop
-import fourward.DropReason
-import fourward.Fork
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.MulticastGroupLookupEvent
+import fourward.OutputPacket
 import fourward.PacketIngressEvent
-import fourward.PacketOutcome
 import fourward.PipelineStage
 import fourward.PipelineStageEvent
+import fourward.Replication
 import fourward.TraceEvent
 import fourward.TraceTree
 
-/**
- * Whether a fork's branches all happen (parallel) or only one happens (alternative).
- * - **Parallel** (clone, multicast, resubmit, recirculate): all branches execute simultaneously.
- *   Output packets are the union of all branch outputs.
- * - **Alternative** (action selector): exactly one branch executes at runtime. Each branch is a
- *   "possible world" — a distinct possible outcome set.
- */
-enum class ForkMode {
-  PARALLEL,
-  ALTERNATIVE,
-}
-
-/**
- * Maps a [ForkReason] to its [ForkMode].
- *
- * Exhaustive — adding a new [ForkReason] without updating this function is a compile error.
- */
-fun forkModeOf(reason: ForkReason): ForkMode =
-  when (reason) {
-    ForkReason.ACTION_SELECTOR -> ForkMode.ALTERNATIVE
-    ForkReason.CLONE,
-    ForkReason.MULTICAST,
-    ForkReason.RESUBMIT,
-    ForkReason.RECIRCULATE -> ForkMode.PARALLEL
-    ForkReason.FORK_REASON_UNSPECIFIED,
-    ForkReason.UNRECOGNIZED -> error("unexpected fork reason: $reason")
-  }
-
-/** Builds a [TraceTree] representing a dropped packet with the given trace events and reason. */
-internal fun buildDropTrace(
-  events: List<TraceEvent>,
-  reason: DropReason = DropReason.MARK_TO_DROP,
-): TraceTree {
-  val outcome = PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(reason)).build()
-  return TraceTree.newBuilder().addAllEvents(events).setPacketOutcome(outcome).build()
+/** Builds a [TraceTree] representing a dropped packet with the given trace events. */
+internal fun buildDropTrace(events: List<TraceEvent>, triggerId: Long = 0L): TraceTree {
+  val drop = Drop.newBuilder().also { if (triggerId != 0L) it.setTrigger(triggerId) }.build()
+  return TraceTree.newBuilder().addAllEvents(events).setDrop(drop).build()
 }
 
 /** Builds a [TraceTree] representing a packet output on the given port. */
 internal fun buildOutputTrace(events: List<TraceEvent>, port: Int, payload: ByteArray): TraceTree {
   val output =
-    fourward.OutputPacket.newBuilder()
+    OutputPacket.newBuilder()
       .setDataplaneEgressPort(port)
       .setPayload(com.google.protobuf.ByteString.copyFrom(payload))
       .build()
-  val outcome = PacketOutcome.newBuilder().setOutput(output).build()
-  return TraceTree.newBuilder().addAllEvents(events).setPacketOutcome(outcome).build()
+  return TraceTree.newBuilder().addAllEvents(events).setOutput(output).build()
+}
+
+/**
+ * Builds a [TraceTree] where all branches execute simultaneously (clone, multicast). [cause] is the
+ * id of the CloneSessionLookupEvent or MulticastGroupLookupEvent that triggered the replication.
+ */
+internal fun buildReplicationTree(
+  events: List<TraceEvent>,
+  cause: Long,
+  branches: List<TraceTree>,
+): TraceTree =
+  TraceTree.newBuilder()
+    .addAllEvents(events)
+    .setReplication(Replication.newBuilder().setCause(cause).addAllBranches(branches))
+    .build()
+
+/**
+ * Builds a [TraceTree] where exactly one branch executes at runtime (action selector). [cause] is
+ * the id of the TableLookupEvent for the selector table.
+ */
+internal fun buildChoiceTree(
+  events: List<TraceEvent>,
+  cause: Long,
+  branches: List<TraceTree>,
+): TraceTree =
+  TraceTree.newBuilder()
+    .addAllEvents(events)
+    .setChoice(Choice.newBuilder().setCause(cause).addAllBranches(branches))
+    .build()
+
+/**
+ * Builds a [TraceTree] where the same packet continues as another pass. Used for resubmit,
+ * recirculate, and forward stage transitions. [cause] is the id of the event that triggered the
+ * re-parse; 0 when absent (forward transitions).
+ */
+internal fun buildContinuationTree(
+  events: List<TraceEvent>,
+  cause: Long = 0L,
+  next: TraceTree,
+): TraceTree =
+  TraceTree.newBuilder()
+    .addAllEvents(events)
+    .setContinuation(
+      Continuation.newBuilder().also { if (cause != 0L) it.setCause(cause) }.setNext(next)
+    )
+    .build()
+
+/**
+ * Prepends [prefix] events to [tree], returning a new [TraceTree] with the same outcome. Used when
+ * flattening sequential pipeline stages into a single node.
+ */
+internal fun prependEvents(tree: TraceTree, prefix: List<TraceEvent>): TraceTree {
+  if (prefix.isEmpty()) return tree
+  val b = TraceTree.newBuilder().addAllEvents(prefix).addAllEvents(tree.eventsList)
+  when (tree.outcomeCase) {
+    TraceTree.OutcomeCase.REPLICATION -> b.setReplication(tree.replication)
+    TraceTree.OutcomeCase.CHOICE -> b.setChoice(tree.choice)
+    TraceTree.OutcomeCase.CONTINUATION -> b.setContinuation(tree.continuation)
+    TraceTree.OutcomeCase.OUTPUT -> b.setOutput(tree.output)
+    TraceTree.OutcomeCase.DROP -> b.setDrop(tree.drop)
+    TraceTree.OutcomeCase.OUTCOME_NOT_SET,
+    null -> {}
+  }
+  return b.build()
 }
 
 /** Creates a [TraceEvent] recording the packet's ingress port. */
@@ -102,15 +133,4 @@ internal fun multicastGroupMissEvent(groupId: Int): TraceEvent =
     .setMulticastGroupLookup(
       MulticastGroupLookupEvent.newBuilder().setMulticastGroupId(groupId).setGroupFound(false)
     )
-    .build()
-
-/** Builds a [TraceTree] with a fork outcome from accumulated events and branches. */
-internal fun buildForkTree(
-  events: List<TraceEvent>,
-  reason: ForkReason,
-  branches: List<ForkBranch>,
-): TraceTree =
-  TraceTree.newBuilder()
-    .addAllEvents(events)
-    .setForkOutcome(Fork.newBuilder().setReason(reason).addAllBranches(branches))
     .build()

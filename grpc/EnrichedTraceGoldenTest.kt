@@ -52,6 +52,14 @@ class EnrichedTraceGoldenTest {
     val response = harness.injectPacketP4rt(p4rtPort, payload)
     val actual = response.trace
 
+    if (UPDATE) {
+      fourward.bazel.repoRoot
+        .resolve(GOLDEN_PATH)
+        .toFile()
+        .writeText(TextFormat.printer().printToString(actual))
+      return
+    }
+
     val golden = loadGolden()
     if (actual != golden) {
       fail(
@@ -107,5 +115,6 @@ class EnrichedTraceGoldenTest {
 
   companion object {
     private const val GOLDEN_PATH = "grpc/enriched_trace.golden.txtpb"
+    private val UPDATE = System.getProperty("update") == "true"
   }
 }

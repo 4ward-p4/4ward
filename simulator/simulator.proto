@@ -48,79 +48,83 @@ message OutputPacket {
 //
 // A complete record of every decision the simulator made while processing a
 // packet.  Events within a node are ordered chronologically.  At
-// non-deterministic choice points the tree forks: each branch represents one
-// possible outcome and contains its own subtree of events.
+// branch points the tree forks: each branch represents one possible execution
+// path and contains its own subtree of events.
 //
-// Every node terminates: either forking (fork_outcome) or reaching a final
-// packet fate (packet_outcome).  A zero-fork tree has a single
-// packet_outcome at the root.
+// Every node terminates with exactly one outcome — a fork (Replication or
+// Choice), a Continuation into another pass, an Output, or a Drop.
 // =============================================================================
 
 // Recursive trace structure: a sequence of events followed by an outcome.
-// Shared prefix events (e.g. the parser trace before a selector fork) live in
-// the parent node; per-branch events live in the fork's subtrees.
+// Shared prefix events live in the parent node; per-branch events in subtrees.
 message TraceTree {
   repeated TraceEvent events = 1;
+  reserved 2,
+      3;  // formerly fork_outcome (Fork) and packet_outcome (PacketOutcome)
   oneof outcome {
-    Fork fork_outcome = 2;
-    PacketOutcome packet_outcome = 3;
+    // All branches happen simultaneously; outputs are the union.
+    // Cause: clone session or multicast group lookup that triggered the copies.
+    Replication replication = 4;
+
+    // Exactly one branch happens at runtime (possible worlds).
+    // Cause: the table-apply event for the action selector.
+    Choice choice = 5;
+
+    // The same packet continues as another parser-to-deparser pass.
+    // Cause: the resubmit/recirculate primitive (absent for forward
+    // transitions).
+    Continuation continuation = 6;
+
+    // Terminal: packet emitted on a port.
+    OutputPacket output = 7;
+
+    // Terminal: packet discarded.
+    Drop drop = 8;
   }
 }
 
-// A non-deterministic choice point where execution forks into multiple
-// possible paths.
-//
-// Forks come in two flavors (see ForkMode):
-//
-//  • **Parallel** (clone, multicast, resubmit, recirculate) — all branches
-//    execute simultaneously in a single real execution.  The packet outputs
-//    are the union of all branch outputs.
-//
-//  • **Alternative** (action selector) — exactly one branch executes at
-//    runtime (determined by a hash function).  Each branch represents one
-//    *possible world*; the trace tree explores all of them.
-//
-// This distinction matters when collecting output packets from the tree:
-// parallel branches are combined (union), while alternative branches are
-// kept separate (each is a distinct possible outcome set).
-message Fork {
-  ForkReason reason = 1;
-  repeated ForkBranch branches = 2;
+// All branches execute; their output packets are the union.
+// Used for clone (I2E/E2E) and multicast replication.
+// `cause` references the CloneSessionLookupEvent or MulticastGroupLookupEvent
+// whose id is in the enclosing node's events stream.
+message Replication {
+  uint64 cause = 1;                 // id of the typed event that triggered this
+  repeated TraceTree branches = 2;  // ≥ 1 branch
 }
 
-// One branch of a fork.  The label describes this particular outcome (e.g. the
-// action selector member name or "clone"/"original").
-message ForkBranch {
-  string label = 1;
-  TraceTree subtree = 2;
+// Exactly one branch executes at runtime.
+// Used for action selector groups (the selected member is unknown statically).
+// `cause` references the TableLookupEvent for the selector table.
+message Choice {
+  uint64 cause = 1;                 // id of the typed event that triggered this
+  repeated TraceTree branches = 2;  // ≥ 2 branches
 }
 
-// Whether a fork's branches all happen or only one happens is determined by
-// the ForkReason.  See ForkMode in the simulator Kotlin code.
-enum ForkReason {
-  FORK_REASON_UNSPECIFIED = 0;
-  ACTION_SELECTOR = 1;  // Alternative: one member is selected by hash.
-  CLONE = 2;            // Parallel: original + clone(s) all execute.
-  MULTICAST = 3;        // Parallel: one replica per multicast group member.
-  RESUBMIT = 4;         // Parallel: packet re-enters the pipeline.
-  RECIRCULATE = 5;      // Parallel: deparsed packet loops back.
+// The same packet continues as another parser-to-deparser pass.
+// Used for resubmit, recirculate, and forward stage transitions.
+// `cause` is absent for normal forward transitions; present for backward ones
+// when a specific event recorded the primitive (e.g. a recirculate/resubmit).
+message Continuation {
+  optional uint64 cause = 1;  // id of the event that triggered the re-parse
+  TraceTree next = 2;         // exactly one successor
 }
 
-// The terminal fate of a packet: either output on a port or dropped.
-message PacketOutcome {
-  oneof outcome {
-    OutputPacket output = 1;
-    Drop drop = 2;
-  }
-}
-
-// A packet that was dropped (as opposed to MarkToDropEvent, which records the
-// mark_to_drop() call site in the trace).
+// A packet that was dropped.  `trigger` is absent when the packet fell off the
+// end of the pipeline with no forwarding decision (the implicit default).
+// When present, the referenced event's type identifies the cause:
+//   MarkToDropEvent  → explicit mark_to_drop() call
+//   AssertionEvent   → assert()/assume() failure
+//   MulticastGroupLookupEvent with group_found=false → multicast to empty group
 message Drop {
-  DropReason reason = 1;
+  optional uint64 trigger = 1;  // id of the event that caused the drop, if any
 }
 
 message TraceEvent {
+  // Trace-global identifier, assigned by the simulator in emission order.
+  // Referenced by Replication.cause, Choice.cause, Continuation.cause, and
+  // Drop.trigger to identify which event triggered each outcome.
+  uint64 id = 16;
+
   oneof event {
     // Pipeline lifecycle.
     PacketIngressEvent packet_ingress = 8;
@@ -299,11 +303,9 @@ message AssignmentEvent {
   string target = 1;  // LHS field path (e.g. "standard_metadata.egress_spec")
 }
 
+// Used only by MarkToDropEvent to classify the call site.
+// Drop.trigger identifies the cause by referencing the event directly.
 enum DropReason {
   DROP_REASON_UNSPECIFIED = 0;
-  MARK_TO_DROP = 1;   // explicit mark_to_drop()
-  PARSER_REJECT = 2;  // parser transitioned to reject state
-  PIPELINE_EXECUTION_LIMIT_REACHED =
-      3;                  // too many fork branches (exponential blowup guard)
-  ASSERTION_FAILURE = 4;  // assert() or assume() failed
+  MARK_TO_DROP = 1;  // explicit mark_to_drop()
 }

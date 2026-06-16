@@ -561,12 +561,8 @@ class SaiP4E2ETest {
     )
 
     // Output packet in the trace outcome should have P4RT encoding.
-    assertTrue("should have packet outcome", trace.hasPacketOutcome())
-    assertTrue("should have output", trace.packetOutcome.hasOutput())
-    assertTrue(
-      "egress port should have P4RT encoding",
-      !trace.packetOutcome.output.p4RtEgressPort.isEmpty,
-    )
+    assertTrue("should have output", trace.hasOutput())
+    assertTrue("egress port should have P4RT encoding", !trace.output.p4RtEgressPort.isEmpty)
   }
 
   @Test

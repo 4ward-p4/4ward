@@ -1,11 +1,7 @@
 package fourward.simulator
 
 import fourward.BehavioralConfig
-import fourward.DropReason
 import fourward.ExternInstanceDecl
-import fourward.Fork
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.PipelineStage
 import fourward.TraceEvent
 import fourward.TraceTree
@@ -137,12 +133,13 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       val i2eCloneBranches =
         buildI2ECloneBranches(pipeline, packet, ingress.output, selectorMembers)
       if (i2eCloneBranches.isNotEmpty()) {
-        return buildForkTree(ingress.events, ForkReason.CLONE, i2eCloneBranches)
+        val causeId = ingress.cloneLookupEventId
+        return buildReplicationTree(ingress.events, causeId, i2eCloneBranches)
       }
-      return buildDropTrace(ingress.events, ingress.dropReason)
+      return buildDropTrace(ingress.events, ingress.dropTriggerId)
     }
 
-    // Resubmit: loop original bytes back to ingress. Suppresses I2E clone.
+    // Resubmit: the same packet re-enters ingress — modeled as a Continuation.
     val resubmit = (ingress.output?.fields?.get("resubmit") as? BoolVal)?.value == true
     if (resubmit) {
       val resubmitTree =
@@ -153,11 +150,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
           PACKET_PATH_RESUBMIT,
           depth = depth + 1,
         )
-      return buildForkTree(
-        ingress.events,
-        ForkReason.RESUBMIT,
-        listOf(ForkBranch.newBuilder().setLabel("resubmit").setSubtree(resubmitTree).build()),
-      )
+      return buildContinuationTree(ingress.events, next = resubmitTree)
     }
 
     // === Traffic Manager: I2E clone + multicast/unicast ===
@@ -165,22 +158,12 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val originalTree = buildOriginalEgressPath(pipeline, ingress, depth, selectorMembers)
 
     if (i2eCloneBranches.isNotEmpty()) {
-      val originalBranch =
-        ForkBranch.newBuilder().setLabel("original").setSubtree(originalTree).build()
-      return buildForkTree(
-        ingress.events,
-        ForkReason.CLONE,
-        listOf(originalBranch) + i2eCloneBranches,
-      )
+      val causeId = ingress.cloneLookupEventId
+      return buildReplicationTree(ingress.events, causeId, listOf(originalTree) + i2eCloneBranches)
     }
 
     // No I2E clone: flatten ingress + original egress into a single trace.
-    return TraceTree.newBuilder()
-      .addAllEvents(ingress.events)
-      .addAllEvents(originalTree.eventsList)
-      .also { if (originalTree.hasPacketOutcome()) it.setPacketOutcome(originalTree.packetOutcome) }
-      .also { if (originalTree.hasForkOutcome()) it.setForkOutcome(originalTree.forkOutcome) }
-      .build()
+    return prependEvents(originalTree, ingress.events)
   }
 
   /** Builds the egress path for the original (non-cloned) packet: multicast or unicast. */
@@ -222,7 +205,10 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val output: StructVal?,
     val deparsedBytes: ByteArray,
     val dropped: Boolean,
-    val dropReason: DropReason = DropReason.MARK_TO_DROP,
+    /** Id of the event that caused a drop (MarkToDropEvent or AssertionEvent), or 0 if none. */
+    val dropTriggerId: Long = 0L,
+    /** Id of the CloneSessionLookupEvent when an I2E clone was requested, or 0 if none. */
+    val cloneLookupEventId: Long = 0L,
   )
 
   private fun runIngressPipeline(
@@ -266,7 +252,13 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       // --- Ingress drop check (PSA: drop=true by default) ---
       val dropped = (output?.fields?.get("drop") as? BoolVal)?.value != false
       if (dropped) {
-        return IngressResult(ctx.getEvents(), output, byteArrayOf(), dropped = true)
+        return IngressResult(
+          ctx.getEvents(),
+          output,
+          byteArrayOf(),
+          dropped = true,
+          dropTriggerId = ctx.lastEventIdWhere { it.hasMarkToDrop() },
+        )
       }
 
       // --- Ingress Deparser ---
@@ -278,19 +270,28 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         output,
         byteArrayOf(),
         dropped = true,
-        dropReason = DropReason.ASSERTION_FAILURE,
+        dropTriggerId = ctx.lastEventIdWhere { it.hasAssertion() },
       )
     }
 
+    // Capture clone lookup event id before I2E clone branch building reads it.
+    val cloneLookupId =
+      ctx.lastEventIdWhere { it.hasCloneSessionLookup() && it.cloneSessionLookup.sessionFound }
     val deparsedBytes = ctx.deparsedPayload()
-    return IngressResult(ctx.getEvents(), output, deparsedBytes, dropped = false)
+    return IngressResult(
+      ctx.getEvents(),
+      output,
+      deparsedBytes,
+      dropped = false,
+      cloneLookupEventId = cloneLookupId,
+    )
   }
 
   // ---------------------------------------------------------------------------
   // Traffic Manager: multicast
   // ---------------------------------------------------------------------------
 
-  /** Builds a multicast fork TraceTree (without ingress events — caller prepends those). */
+  /** Builds a multicast Replication TraceTree (without ingress events — caller prepends those). */
   private fun multicastEgressTree(
     egressState: EgressState,
     ingress: IngressResult,
@@ -300,31 +301,31 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
   ): TraceTree {
     val group = egressState.pipeline.tableStore.getMulticastGroup(multicastGroup)
     if (group == null) {
-      return buildDropTrace(listOf(multicastGroupMissEvent(multicastGroup)))
+      // Multicast to unconfigured group — the lookup miss is the trigger for the drop.
+      // cause = 0 here because this event is added directly (not through PacketContext).
+      return TraceTree.newBuilder()
+        .addEvents(multicastGroupMissEvent(multicastGroup))
+        .setDrop(fourward.Drop.newBuilder())
+        .build()
     }
 
-    val lookupEvent = multicastGroupLookupEvent(multicastGroup, group.replicasCount)
     val branches =
       group.replicasList.map { replica ->
         val port = replicaPort(replica)
-        val subtree =
-          runEgressWithPostProcessing(
-            egressState,
-            ingress.deparsedBytes,
-            port,
-            replica.instance,
-            PACKET_PATH_NORMAL_MULTICAST,
-            depth,
-            selectorMembers,
-          )
-        ForkBranch.newBuilder()
-          .setLabel("replica_${replica.instance}_port_$port")
-          .setSubtree(subtree)
-          .build()
+        runEgressWithPostProcessing(
+          egressState,
+          ingress.deparsedBytes,
+          port,
+          replica.instance,
+          PACKET_PATH_NORMAL_MULTICAST,
+          depth,
+          selectorMembers,
+        )
       }
+    // cause = 0: the lookup event is added inline (not via PacketContext), so its id isn't stamped.
     return TraceTree.newBuilder()
-      .addEvents(lookupEvent)
-      .setForkOutcome(Fork.newBuilder().setReason(ForkReason.MULTICAST).addAllBranches(branches))
+      .addEvents(multicastGroupLookupEvent(multicastGroup, group.replicasCount))
+      .setReplication(fourward.Replication.newBuilder().addAllBranches(branches))
       .build()
   }
 
@@ -343,7 +344,10 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val dropped: Boolean,
     val deparsedBytes: ByteArray,
     val output: StructVal?,
-    val dropReason: DropReason = DropReason.MARK_TO_DROP,
+    /** Id of the event that caused a drop, or 0 if none. */
+    val dropTriggerId: Long = 0L,
+    /** Id of the CloneSessionLookupEvent for E2E clone, or 0 if none. */
+    val cloneLookupEventId: Long = 0L,
   )
 
   /**
@@ -386,15 +390,16 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
     // E2E clone: uses deparsed bytes from this egress pass. Independent of drop decision.
     val e2eCloneBranches = buildE2ECloneBranches(state.pipeline, core, selectorMembers)
+    val cloneLookupId = core.cloneLookupEventId
 
     if (core.dropped) {
       if (e2eCloneBranches.isNotEmpty()) {
-        return buildForkTree(core.events, ForkReason.CLONE, e2eCloneBranches)
+        return buildReplicationTree(core.events, cloneLookupId, e2eCloneBranches)
       }
-      return buildDropTrace(core.events, core.dropReason)
+      return buildDropTrace(core.events, core.dropTriggerId)
     }
 
-    // Recirculate: loop deparsed bytes back to ingress.
+    // Recirculate: the same packet loops back to ingress — modeled as a Continuation.
     val isRecirculate = egressPort.toUInt().toLong() == PSA_PORT_RECIRCULATE_LONG
     val outputTree =
       if (isRecirculate) {
@@ -406,22 +411,13 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
             PACKET_PATH_RECIRCULATE,
             depth = depth + 1,
           )
-        TraceTree.newBuilder()
-          .addAllEvents(core.events)
-          .setForkOutcome(
-            Fork.newBuilder()
-              .setReason(ForkReason.RECIRCULATE)
-              .addBranches(ForkBranch.newBuilder().setLabel("recirculate").setSubtree(recircTree))
-          )
-          .build()
+        buildContinuationTree(core.events, next = recircTree)
       } else {
         buildOutputTrace(core.events, egressPort, core.deparsedBytes)
       }
 
     if (e2eCloneBranches.isNotEmpty()) {
-      val originalBranch =
-        ForkBranch.newBuilder().setLabel("original").setSubtree(outputTree).build()
-      return buildForkTree(emptyList(), ForkReason.CLONE, listOf(originalBranch) + e2eCloneBranches)
+      return buildReplicationTree(emptyList(), cloneLookupId, listOf(outputTree) + e2eCloneBranches)
     }
 
     return outputTree
@@ -469,7 +465,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         dropped = true,
         byteArrayOf(),
         egressOutput,
-        dropReason = DropReason.ASSERTION_FAILURE,
+        dropTriggerId = egressCtx.lastEventIdWhere { it.hasAssertion() },
       )
     }
 
@@ -481,7 +477,15 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     runControlStage(egressInterpreter, egressCtx, egressEnv, p.egressDeparser)
 
     val outputBytes = egressCtx.deparsedPayload()
-    return EgressCoreResult(egressCtx.getEvents(), dropped, outputBytes, egressOutput)
+    val dropTriggerId = if (dropped) egressCtx.lastEventIdWhere { it.hasMarkToDrop() } else 0L
+    // PSA E2E clone sessions don't emit a CloneSessionLookupEvent in the current impl.
+    return EgressCoreResult(
+      egressCtx.getEvents(),
+      dropped,
+      outputBytes,
+      egressOutput,
+      dropTriggerId,
+    )
   }
 
   // ---------------------------------------------------------------------------
@@ -500,19 +504,13 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     originalPacket: PacketBits,
     ingressOutput: StructVal?,
     selectorMembers: Map<String, Int> = emptyMap(),
-  ): List<ForkBranch> =
+  ): List<TraceTree> =
     // I2E clones don't carry ingress output metadata to egress — egress gets a fresh EgressState
     // with no ingressOutput. Clones do not produce further clones (no chained cloning in PSA).
-    buildCloneBranches(
-      pipeline,
-      ingressOutput,
-      originalPacket,
-      PACKET_PATH_CLONE_I2E,
-      selectorMembers,
-    )
+    buildCloneTrees(pipeline, ingressOutput, originalPacket, PACKET_PATH_CLONE_I2E, selectorMembers)
 
   /**
-   * Builds E2E clone branches if the egress output metadata requests cloning.
+   * Builds E2E clone subtrees if the egress output metadata requests cloning.
    *
    * E2E clones use the deparsed bytes from the current egress pass. Each replica produces a fresh
    * egress execution with `packet_path = CLONE_E2E`. Chained E2E cloning is suppressed (PSA spec:
@@ -522,8 +520,8 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     pipeline: PipelineConfig,
     core: EgressCoreResult,
     selectorMembers: Map<String, Int> = emptyMap(),
-  ): List<ForkBranch> =
-    buildCloneBranches(
+  ): List<TraceTree> =
+    buildCloneTrees(
       pipeline,
       core.output,
       PacketBits.ofBytes(core.deparsedBytes),
@@ -532,19 +530,19 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     )
 
   /**
-   * Shared clone branch builder for both I2E and E2E cloning.
+   * Shared clone subtree builder for both I2E and E2E cloning.
    *
    * Checks the clone flag in [cloneMetadata], looks up the clone session, and runs a fresh egress
    * for each replica. Clone egress runs via [runEgressCore] directly (no post-processing), which
    * prevents chained cloning.
    */
-  private fun buildCloneBranches(
+  private fun buildCloneTrees(
     pipeline: PipelineConfig,
     cloneMetadata: StructVal?,
     clonePacket: PacketBits,
     packetPath: String,
     selectorMembers: Map<String, Int> = emptyMap(),
-  ): List<ForkBranch> {
+  ): List<TraceTree> {
     if ((cloneMetadata?.fields?.get("clone") as? BoolVal)?.value != true) return emptyList()
     val sessionId =
       (cloneMetadata.fields["clone_session_id"] as? BitVal)?.bits?.value?.toInt()
@@ -553,9 +551,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val cloneState = EgressState(pipeline, ingressOutput = null)
     return session.replicasList.map { replica ->
       val port = replicaPort(replica)
-      val subtree =
-        runCloneEgress(cloneState, clonePacket, port, replica.instance, packetPath, selectorMembers)
-      ForkBranch.newBuilder().setLabel("clone_port_$port").setSubtree(subtree).build()
+      runCloneEgress(cloneState, clonePacket, port, replica.instance, packetPath, selectorMembers)
     }
   }
 
@@ -574,7 +570,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     selectorMembers: Map<String, Int>,
   ): TraceTree {
     fun egressToTrace(result: EgressCoreResult): TraceTree =
-      if (result.dropped) buildDropTrace(result.events, result.dropReason)
+      if (result.dropped) buildDropTrace(result.events, result.dropTriggerId)
       else buildOutputTrace(result.events, egressPort, result.deparsedBytes)
     return try {
       egressToTrace(
@@ -706,7 +702,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
   // Hash helpers (evalGetHash, hashDataArg, sumWords) live in Hash.kt.
   // Action selector fork handling (handleActionSelectorFork) and trace helpers
-  // (buildForkTree) live in ArchitectureHelpers.kt and TraceHelpers.kt.
+  // live in ArchitectureHelpers.kt and TraceHelpers.kt.
 
   private companion object {
     // PSA_PacketPath_t enum values (PSA spec §6.1).
