@@ -23,16 +23,7 @@ fun ByteString.toHex(): String = toByteArray().joinToString("") { "%02x".format(
 /**
  * Minimum-width unsigned big-endian encoding of a non-negative integer (P4Runtime canonical form).
  */
-fun encodeMinWidth(value: Int): ByteString {
-  if (value == 0) return ByteString.copyFrom(byteArrayOf(0))
-  val bytes = mutableListOf<Byte>()
-  var v = value
-  while (v > 0) {
-    bytes.add(0, (v and 0xFF).toByte())
-    v = v shr 8
-  }
-  return ByteString.copyFrom(bytes.toByteArray())
-}
+fun encodeMinWidth(value: Int): ByteString = encodeMinWidth(BigInteger.valueOf(value.toLong()))
 
 /**
  * Minimum-width unsigned big-endian encoding of a non-negative [BigInteger] (P4Runtime canonical

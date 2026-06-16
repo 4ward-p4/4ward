@@ -932,6 +932,21 @@ class TypeTranslatorTest {
     assertThrows(IllegalArgumentException::class.java) { encodeMinWidth(BigInteger.valueOf(-1)) }
   }
 
+  @Test
+  fun `encodeMinWidth of Int matches the BigInteger encoding`() {
+    // The Int overload delegates to the BigInteger one, so it shares the canonical form across the
+    // boundary cases (zero, high-bit sign byte, multi-byte) and the same fail-loud rejection of
+    // negatives (previously a negative Int silently produced an empty bytestring).
+    for (value in listOf(0, 1, 0x80, 255, 256, 511, Int.MAX_VALUE)) {
+      assertArrayEquals(
+        "encodeMinWidth($value)",
+        encodeMinWidth(BigInteger.valueOf(value.toLong())).toByteArray(),
+        encodeMinWidth(value).toByteArray(),
+      )
+    }
+    assertThrows(IllegalArgumentException::class.java) { encodeMinWidth(-1) }
+  }
+
   private fun packetInWithMeta(value: ByteArray): P4RuntimeOuterClass.PacketIn =
     P4RuntimeOuterClass.PacketIn.newBuilder()
       .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
@@ -1303,20 +1318,9 @@ class TypeTranslatorTest {
       .setDataplaneValue(ByteString.copyFrom(dataplaneValue))
       .build()
 
-  private fun p4rtBytes(value: Int): ByteArray = encodeMinWidth(value)
+  private fun p4rtBytes(value: Int): ByteArray = encodeMinWidth(value).toByteArray()
 
-  private fun dpBytes(value: Int): ByteArray = encodeMinWidth(value)
-
-  private fun encodeMinWidth(value: Int): ByteArray {
-    if (value == 0) return byteArrayOf(0)
-    val bytes = mutableListOf<Byte>()
-    var v = value
-    while (v > 0) {
-      bytes.add(0, (v and 0xFF).toByte())
-      v = v shr 8
-    }
-    return bytes.toByteArray()
-  }
+  private fun dpBytes(value: Int): ByteArray = encodeMinWidth(value).toByteArray()
 
   /** Wraps a ByteArray as ByteString. */
   private fun bs(bytes: ByteArray): ByteString = ByteString.copyFrom(bytes)
