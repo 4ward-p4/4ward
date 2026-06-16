@@ -4,6 +4,7 @@ import fourward.OutputPacket
 import fourward.PrePacketHookInvocation
 import fourward.PrePacketHookResponse
 import fourward.TraceTree
+import fourward.simulator.DataplanePort
 import fourward.simulator.PacketBits
 import fourward.simulator.ProcessPacketResult
 import java.util.concurrent.atomic.AtomicInteger
@@ -15,6 +16,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PacketBrokerTest {
+
+  private fun port(value: Int): DataplanePort = DataplanePort.fromProto(value)
 
   private fun outputPacket(egressPort: Int, payload: ByteArray = byteArrayOf()) =
     OutputPacket.newBuilder()
@@ -31,9 +34,9 @@ class PacketBrokerTest {
 
   private fun fakeProcessor(
     vararg results: Pair<Int, ProcessPacketResult>
-  ): (Int, PacketBits) -> ProcessPacketResult {
+  ): (DataplanePort, PacketBits) -> ProcessPacketResult {
     val map = results.toMap()
-    return { port, _ -> map[port] ?: result() }
+    return { port, _ -> map[port.protoValue] ?: result() }
   }
 
   private fun broker(vararg results: Pair<Int, ProcessPacketResult>) =
@@ -44,7 +47,7 @@ class PacketBrokerTest {
     val expected = result(outputPacket(1, byteArrayOf(0xAB.toByte())))
     val broker = broker(0 to expected)
 
-    val actual = broker.processPacket(0, byteArrayOf(0x01))
+    val actual = broker.processPacket(port(0), byteArrayOf(0x01))
     assertEquals(expected.possibleOutcomes, actual.possibleOutcomes)
   }
 
@@ -60,7 +63,7 @@ class PacketBrokerTest {
         kotlinx.coroutines.sync.Mutex(),
       )
 
-    broker.processPacket(0, PacketBits.ofPaddedBytes(byteArrayOf(0xA0.toByte()), 4))
+    broker.processPacket(port(0), PacketBits.ofPaddedBytes(byteArrayOf(0xA0.toByte()), 4))
 
     assertEquals(4, capturedBitLength)
   }
@@ -73,10 +76,10 @@ class PacketBrokerTest {
     val received = mutableListOf<PacketBroker.SubscriptionResult>()
     broker.subscribe { received.add(it) }
 
-    broker.processPacket(0, byteArrayOf(0x01))
+    broker.processPacket(port(0), byteArrayOf(0x01))
 
     assertEquals(1, received.size)
-    assertEquals(0, received[0].ingressPort)
+    assertEquals(DataplanePort.fromProto(0), received[0].ingressPort)
     assertEquals(listOf(outputs), received[0].possibleOutcomes)
   }
 
@@ -87,7 +90,7 @@ class PacketBrokerTest {
     broker.subscribe { received.add(it) }
 
     broker.processPacket(
-      0,
+      port(0),
       PacketBits.ofPaddedBytes(byteArrayOf(0xAB.toByte(), 0xFF.toByte(), 0xFF.toByte()), 10),
     )
 
@@ -107,7 +110,7 @@ class PacketBrokerTest {
     broker.subscribe { received1.add(it) }
     broker.subscribe { received2.add(it) }
 
-    broker.processPacket(0, byteArrayOf())
+    broker.processPacket(port(0), byteArrayOf())
 
     assertEquals(1, received1.size)
     assertEquals(1, received2.size)
@@ -116,7 +119,7 @@ class PacketBrokerTest {
   @Test
   fun `no subscribers does not cause errors`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
-    broker.processPacket(0, byteArrayOf())
+    broker.processPacket(port(0), byteArrayOf())
   }
 
   @Test
@@ -126,11 +129,11 @@ class PacketBrokerTest {
     val received = mutableListOf<PacketBroker.SubscriptionResult>()
     val handle = broker.subscribe { received.add(it) }
 
-    broker.processPacket(0, byteArrayOf())
+    broker.processPacket(port(0), byteArrayOf())
     assertEquals(1, received.size)
 
     handle.unsubscribe()
-    broker.processPacket(0, byteArrayOf())
+    broker.processPacket(port(0), byteArrayOf())
     assertEquals("no new result after unsubscribe", 1, received.size)
   }
 
@@ -140,7 +143,7 @@ class PacketBrokerTest {
     val received = mutableListOf<PacketBroker.SubscriptionResult>()
     broker.subscribe { received.add(it) }
 
-    broker.processPacket(0, byteArrayOf(), tag = 42)
+    broker.processPacket(port(0), byteArrayOf(), tag = 42)
 
     assertEquals(1, received.size)
     assertEquals(42L, received[0].tag)
@@ -155,7 +158,7 @@ class PacketBrokerTest {
     broker.subscribe { received.add(it) }
 
     // The caller should get the result even though the first subscriber threw.
-    val callerResult = broker.processPacket(0, byteArrayOf())
+    val callerResult = broker.processPacket(port(0), byteArrayOf())
     assertEquals(1, callerResult.possibleOutcomes.single().size)
 
     // The second subscriber should still receive the result.
@@ -201,7 +204,7 @@ class PacketBrokerTest {
     val broker = broker(0 to result(outputPacket(1)))
     val hookCount = registerAutoRespondHook(broker)
 
-    broker.processPacket(0, byteArrayOf())
+    broker.processPacket(port(0), byteArrayOf())
 
     assertEquals("hook should fire once per processPacket", 1, hookCount.get())
   }
@@ -211,9 +214,9 @@ class PacketBrokerTest {
     val broker = broker(0 to result(outputPacket(1)))
     val hookCount = registerAutoRespondHook(broker)
 
-    broker.processPacket(0, byteArrayOf())
-    broker.processPacket(0, byteArrayOf())
-    broker.processPacket(0, byteArrayOf())
+    broker.processPacket(port(0), byteArrayOf())
+    broker.processPacket(port(0), byteArrayOf())
+    broker.processPacket(port(0), byteArrayOf())
 
     assertEquals("hook should fire once per processPacket", 3, hookCount.get())
   }
@@ -224,7 +227,7 @@ class PacketBrokerTest {
     val broker = broker(0 to expected)
 
     // No hook registered — should still work.
-    val actual = broker.processPacket(0, byteArrayOf())
+    val actual = broker.processPacket(port(0), byteArrayOf())
     assertEquals(expected.possibleOutcomes, actual.possibleOutcomes)
   }
 
@@ -234,9 +237,9 @@ class PacketBrokerTest {
     val hookCount = registerAutoRespondHook(broker)
 
     broker.withHookOnce { processPacket ->
-      processPacket(0, byteArrayOf(), 0)
-      processPacket(0, byteArrayOf(), 0)
-      processPacket(0, byteArrayOf(), 0)
+      processPacket(DataplanePort.fromProto(0), byteArrayOf(), 0)
+      processPacket(DataplanePort.fromProto(0), byteArrayOf(), 0)
+      processPacket(DataplanePort.fromProto(0), byteArrayOf(), 0)
     }
 
     assertEquals("hook should fire exactly once for the batch", 1, hookCount.get())
@@ -249,7 +252,7 @@ class PacketBrokerTest {
     val processed = AtomicInteger(0)
 
     broker.withHookOnce { processPacket ->
-      processPacket(0, byteArrayOf(), 0)
+      processPacket(DataplanePort.fromProto(0), byteArrayOf(), 0)
       processed.incrementAndGet()
     }
 
@@ -303,7 +306,7 @@ class PacketBrokerTest {
         start()
       }
 
-    broker.processPacket(0, byteArrayOf())
+    broker.processPacket(port(0), byteArrayOf())
 
     assertEquals("applyUpdates should receive the update", 1, appliedUpdates.size)
     assertEquals(p4.v1.P4RuntimeOuterClass.Update.Type.INSERT, appliedUpdates[0].type)

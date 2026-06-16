@@ -69,7 +69,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
   )
 
   override fun processPacket(
-    ingressPort: UInt,
+    ingressPort: DataplanePort,
     packet: PacketBits,
     tableStore: TableStore,
   ): PipelineResult {
@@ -103,7 +103,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
   private fun processPacketRecursive(
     pipeline: PipelineConfig,
     packet: PacketBits,
-    ingressPort: UInt,
+    ingressPort: DataplanePort,
     packetPath: String,
     depth: Int,
     selectorMembers: Map<String, Int> = emptyMap(),
@@ -228,7 +228,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
   private fun runIngressPipeline(
     pipeline: PipelineConfig,
     packet: PacketBits,
-    ingressPort: UInt,
+    ingressPort: DataplanePort,
     packetPath: String,
     selectorMembers: Map<String, Int> = emptyMap(),
   ): IngressResult {
@@ -402,7 +402,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
           processPacketRecursive(
             state.pipeline,
             PacketBits.ofBytes(core.deparsedBytes),
-            PSA_PORT_RECIRCULATE_UINT,
+            PSA_PORT_RECIRCULATE,
             PACKET_PATH_RECIRCULATE,
             depth = depth + 1,
           )
@@ -593,15 +593,15 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
   private fun initIngressMetadata(
     values: Map<String, Value>,
-    ingressPort: UInt,
+    ingressPort: DataplanePort,
     packetPath: String,
   ) {
     (values["psa_ingress_parser_input_metadata_t"] as? StructVal)?.let {
-      it.setBitField("ingress_port", ingressPort.toLong())
+      it.setBitField("ingress_port", ingressPort.unsignedLong)
       it.fields["packet_path"] = EnumVal(packetPath)
     }
     (values["psa_ingress_input_metadata_t"] as? StructVal)?.let {
-      it.setBitField("ingress_port", ingressPort.toLong())
+      it.setBitField("ingress_port", ingressPort.unsignedLong)
       it.fields["packet_path"] = EnumVal(packetPath)
       it.fields["parser_error"] = ErrorVal.NO_ERROR
     }
@@ -729,6 +729,6 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
     /** PSA_PORT_RECIRCULATE (psa.p4: `const PortId_t PSA_PORT_RECIRCULATE = 32w0xfffffffa`). */
     const val PSA_PORT_RECIRCULATE_LONG = 0xFFFFFFFAL
-    val PSA_PORT_RECIRCULATE_UINT = PSA_PORT_RECIRCULATE_LONG.toUInt()
+    val PSA_PORT_RECIRCULATE = DataplanePort.fromUnsignedLong(PSA_PORT_RECIRCULATE_LONG)
   }
 }

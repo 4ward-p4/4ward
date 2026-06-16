@@ -4,6 +4,7 @@ import fourward.PipelineConfig
 import fourward.TranslationEntry
 import fourward.TypeTranslation
 import fourward.grpc.FourwardTestHarness.Companion.loadConfig
+import fourward.simulator.DataplanePort
 import io.grpc.Status
 import org.junit.Test
 
@@ -32,8 +33,9 @@ class PortOverrideTest {
 
   @Test
   fun `dataplane cpu port still works`() {
-    FourwardTestHarness(cpuPortConfig = CpuPortConfig.Override(PortOverride.Dataplane(510))).use {
-      harness ->
+    val cpuPort =
+      CpuPortConfig.Override(PortOverride.Dataplane(DataplanePort.fromUnsignedLong(510)))
+    FourwardTestHarness(cpuPortConfig = cpuPort).use { harness ->
       harness.loadPipeline(loadTranslatedPort())
     }
   }

@@ -77,7 +77,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
   }
 
   override fun processPacket(
-    ingressPort: UInt,
+    ingressPort: DataplanePort,
     packet: PacketBits,
     tableStore: TableStore,
   ): PipelineResult {
@@ -118,7 +118,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
   private fun processPacketRecursive(
     pipeline: PipelineConfig,
     packet: PacketBits,
-    ingressPort: UInt,
+    ingressPort: DataplanePort,
     packetPath: String,
     passNumber: Int,
     depth: Int,
@@ -243,10 +243,14 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
   // Metadata initialisation
   // ---------------------------------------------------------------------------
 
-  private fun initMetadata(values: Map<String, Value>, ingressPort: UInt, passNumber: Int) {
+  private fun initMetadata(
+    values: Map<String, Value>,
+    ingressPort: DataplanePort,
+    passNumber: Int,
+  ) {
     val loopedback = passNumber > 0
     val direction = DIRECTION_NET_TO_HOST
-    val portLong = ingressPort.toLong()
+    val portLong = ingressPort.unsignedLong
     // PassNumber_t is bit<3> (pna.p4), so truncate to 3 bits to avoid overflow.
     val passTruncated = (passNumber and 0x7).toLong()
 

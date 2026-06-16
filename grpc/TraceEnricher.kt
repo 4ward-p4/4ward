@@ -2,6 +2,7 @@ package fourward.grpc
 
 import fourward.TraceEvent
 import fourward.TraceTree
+import fourward.simulator.DataplanePort
 import p4.v1.P4RuntimeOuterClass.Entity
 
 /**
@@ -61,7 +62,7 @@ object TraceEnricher {
       TraceTree.OutcomeCase.PACKET_OUTCOME -> {
         if (pt != null && tree.packetOutcome.hasOutput()) {
           val output = tree.packetOutcome.output
-          val p4rtPort = pt.dataplaneToP4rt(output.dataplaneEgressPort)
+          val p4rtPort = pt.dataplaneToP4rt(DataplanePort.fromProto(output.dataplaneEgressPort))
           if (p4rtPort != null) {
             lazyBuilder().packetOutcomeBuilder.outputBuilder.setP4RtEgressPort(p4rtPort)
           }
@@ -81,7 +82,8 @@ object TraceEnricher {
   ): TraceEvent? {
     if (event.hasPacketIngress() && pt != null) {
       val ingress = event.packetIngress
-      val p4rtPort = pt.dataplaneToP4rt(ingress.dataplaneIngressPort) ?: return null
+      val p4rtPort =
+        pt.dataplaneToP4rt(DataplanePort.fromProto(ingress.dataplaneIngressPort)) ?: return null
       return event
         .toBuilder()
         .setPacketIngress(ingress.toBuilder().setP4RtIngressPort(p4rtPort))
@@ -92,7 +94,8 @@ object TraceEnricher {
       val csl = event.cloneSessionLookup
       if (!csl.sessionFound) return null
       // Enriches the first replica's port only; per-replica details are in fork branch labels.
-      val p4rtPort = pt.dataplaneToP4rt(csl.dataplaneEgressPort) ?: return null
+      val p4rtPort =
+        pt.dataplaneToP4rt(DataplanePort.fromProto(csl.dataplaneEgressPort)) ?: return null
       return event
         .toBuilder()
         .setCloneSessionLookup(csl.toBuilder().setP4RtEgressPort(p4rtPort))
