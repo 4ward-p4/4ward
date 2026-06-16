@@ -32,7 +32,7 @@ Legend:
 | Recirculate | Supported | Supported | Supported | PNA recirculate tracks pass count. |
 | Registers | Supported | Supported | Supported | Reproducers seed the packet-start register values read by the trace. |
 | Counters | Supported | Supported | Supported | Direct counters increment on table hits; PSA/PNA `Counter.count()` updates P4Runtime-readable counter state. |
-| Meters | Stub | Stub | Stub | Stubbed by design: configs round-trip, but meter externs always return GREEN and rate behavior is out of scope. |
+| Meters | Stub | Stub | Stub | Stubbed by design: configs round-trip, but meter externs always return GREEN and runtime rate behavior is out of scope. |
 | Checksums | Supported | Supported | Supported | v1model checksum externs and PSA/PNA `InternetChecksum` are implemented. |
 | Hash externs | Supported | Supported | Supported | PSA/PNA support documented hash forms and algorithms. |
 | Random externs | Supported | Supported | Supported | v1model `random()` and PSA/PNA `Random.read()` are implemented. |
@@ -57,7 +57,7 @@ Legend:
 | Action profile members/groups | Supported | CRUD, max size, empty groups, and selector references are tested. |
 | One-shot action selector entries | Supported | Validated and covered by table-store/write-validation tests. |
 | Counter entries | Supported | Indirect and direct counter read/write are tested. |
-| Meter entries | Partial | Config read/write works; token-bucket/rate behavior is permanently out of scope and meters always return GREEN. |
+| Meter entries | Partial | Config read/write works; runtime rate behavior is permanently out of scope and meters always return GREEN. |
 | Register entries | Supported | MODIFY/read semantics and bounds checks are tested. |
 | PRE clone sessions | Supported | CRUD and Read support are tested. |
 | PRE multicast groups | Supported | CRUD and Read support are tested. |
@@ -66,9 +66,9 @@ Legend:
 | p4-constraints | Supported | `@entry_restriction` and `@action_restriction` are enforced on Write. |
 | `StreamChannel` PacketIO | Supported | PacketOut/PacketIn flow, ordering, and invalid message handling are tested. |
 | DigestEntry configuration | Rejected | Digest configuration is rejected with UNIMPLEMENTED. |
-| Digest stream delivery/ack | Out of scope | There is no control-plane digest queue or stream-delivery model. |
+| Digest stream delivery/ack | Out of scope | Asynchronous controller queues are outside the simulator runtime model. |
 | Idle timeout configuration | Rejected | `idle_timeout_ns` is rejected with UNIMPLEMENTED. |
-| Idle timeout notifications | Out of scope | There is no wall-clock time model. |
+| Idle timeout notifications | Out of scope | Wall-clock expiry is outside the simulator runtime model. |
 | `ValueSetEntry` | Partial | `MODIFY` and Read are supported; `INSERT` and `DELETE` are rejected with INVALID_ARGUMENT. |
 | `ExternEntry` | Rejected | Dedicated entity types are supported instead. |
 | P4Data complex table values | Out of scope | No current program exposes complex P4Data in P4Runtime-visible fields. |

@@ -91,8 +91,8 @@ Multiple calls use last-writer-wins semantics. All of these produce
   generic array storage.
 - `counter.count(index)` / `direct_counter.count()` increments a counter
   (fire-and-forget).
-- `meter.execute_meter(index, out color)` always returns GREEN — there are no
-  real packet rates in the simulator.
+- `meter.execute_meter(index, out color)` always returns GREEN — runtime meter
+  rate behavior is outside the simulator model.
 
 ## PSA
 
@@ -227,11 +227,12 @@ The main input metadata (`pna_main_input_metadata_t`):
 
 These limitations apply to all architectures:
 
-- **Meters always return GREEN** because the simulator has no real packet rates.
+- **Meters always return GREEN** because runtime meter rate behavior is outside
+  the simulator model.
 - **Counters are fire-and-forget** and can't be read from P4 logic (only via
   P4Runtime Read from the control plane).
-- **Digest is a no-op** because there's no control-plane receiver in the
-  simulator.
+- **Digest is a no-op** because asynchronous controller queues are outside the
+  simulator model.
 
 See [LIMITATIONS.md]({{ config.repo_url }}/blob/main/docs/LIMITATIONS.md)
 for the full list.
