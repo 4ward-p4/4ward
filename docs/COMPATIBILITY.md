@@ -66,7 +66,7 @@ Legend:
 | p4-constraints | Supported | `@entry_restriction` and `@action_restriction` are enforced on Write. |
 | `StreamChannel` PacketIO | Supported | PacketOut/PacketIn flow, ordering, and invalid message handling are tested. |
 | DigestEntry configuration | Rejected | Digest configuration is rejected with UNIMPLEMENTED. |
-| Digest stream delivery/ack | Out of scope | There are no real packet rates to trigger digest delivery. |
+| Digest stream delivery/ack | Out of scope | There is no control-plane digest queue or stream-delivery model. |
 | Idle timeout configuration | Rejected | `idle_timeout_ns` is rejected with UNIMPLEMENTED. |
 | Idle timeout notifications | Out of scope | There is no wall-clock time model. |
 | `ValueSetEntry` | Partial | `MODIFY` and Read are supported; `INSERT` and `DELETE` are rejected with INVALID_ARGUMENT. |
