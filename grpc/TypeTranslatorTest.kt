@@ -844,6 +844,29 @@ class TypeTranslatorTest {
   }
 
   @Test
+  fun `packet in metadata with no reverse mapping passes through unchanged`() {
+    val translator = buildP4InfoTranslatorWithStringPacketIO()
+
+    // No forward mapping was ever installed for dp value 7, so it has no SDN name. PacketIn must
+    // still be delivered — with the raw data-plane value — rather than throwing and tearing down
+    // the stream. This is how the drop port (and any program-computed, never-named port) reaches
+    // the controller on a punt.
+    val unmappedValue = ByteString.copyFrom(dpBytes(7))
+    val packetIn =
+      P4RuntimeOuterClass.PacketIn.newBuilder()
+        .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
+        .addMetadata(
+          P4RuntimeOuterClass.PacketMetadata.newBuilder()
+            .setMetadataId(PACKET_METADATA_ID)
+            .setValue(unmappedValue)
+        )
+        .build()
+
+    val translated = translator.translatePacketIn(packetIn)
+    assertEquals(unmappedValue, translated.metadataList.first().value)
+  }
+
+  @Test
   fun `non-translated packet metadata passes through unchanged`() {
     val translator = buildP4InfoTranslatorWithPacketIO()
 

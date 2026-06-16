@@ -355,9 +355,12 @@ private constructor(
   /**
    * Translates PacketIn metadata from data-plane to P4Runtime representation.
    *
-   * @throws TranslationException if a metadata value has no reverse mapping. This happens when
-   *   clone sessions or multicast groups use the deprecated `Replica.egress_port` (int32) field,
-   *   which bypasses port translation. Use `Replica.port` (bytes, P4RT v1.4+) instead.
+   * Reverse translation is lenient: a metadata value with no SDN mapping is passed through as its
+   * raw data-plane value rather than throwing. PacketIn carries whatever ports the P4 program
+   * computed — including architectural sentinels like the drop port that the control plane never
+   * named — and a single such packet must not tear down PacketIn delivery for the whole stream.
+   * (Table-entry reads stay strict: a stored value always came from a forward translation, so a
+   * missing reverse mapping there is a real inconsistency worth surfacing.)
    */
   fun translatePacketIn(packetIn: PacketIn): PacketIn {
     if (packetInMetadataTypeNames.isEmpty()) return packetIn
@@ -366,6 +369,7 @@ private constructor(
         packetInMetadataTypeNames,
         packetIn.metadataList,
         direction = Direction.TO_P4RT,
+        lenient = true,
       ) ?: return packetIn
     return packetIn.toBuilder().clearMetadata().addAllMetadata(translated).build()
   }
@@ -491,13 +495,15 @@ private constructor(
     typeNameMap: Map<Int, String>,
     metadata: List<p4.v1.P4RuntimeOuterClass.PacketMetadata>,
     direction: Direction,
+    lenient: Boolean = false,
   ): List<p4.v1.P4RuntimeOuterClass.PacketMetadata>? {
     var changed = false
     val result =
       metadata.map { meta ->
         val typeName = typeNameMap[meta.metadataId]
         if (typeName != null) {
-          val translated = translateValue(getOrCreateTable(typeName), meta.value, direction)
+          val translated =
+            translateValue(getOrCreateTable(typeName), meta.value, direction, lenient)
           changed = true
           meta.toBuilder().setValue(translated).build()
         } else {
@@ -512,11 +518,15 @@ private constructor(
    *
    * For `sdn_string` tables, the P4Runtime value is a UTF-8 string encoded in the proto `bytes`
    * field (per P4Runtime spec §8.3 — there is no separate string field).
+   *
+   * When [lenient] (reverse direction only), a value with no SDN mapping is returned unchanged
+   * instead of throwing — see [translatePacketIn].
    */
   private fun translateValue(
     table: TranslationTable,
     value: ByteString,
     direction: Direction,
+    lenient: Boolean = false,
   ): ByteString =
     when (direction) {
       Direction.TO_DATAPLANE ->
@@ -526,9 +536,13 @@ private constructor(
           table.lookupOrAllocateBitstring(value)
         }
       Direction.TO_P4RT ->
-        when (val p4rtValue = table.reverseLookup(value)) {
+        when (
+          val p4rtValue =
+            if (lenient) table.reverseLookupOrNull(value) else table.reverseLookup(value)
+        ) {
           is P4rtValue.Bitstring -> p4rtValue.value
           is P4rtValue.Str -> ByteString.copyFromUtf8(p4rtValue.value)
+          null -> value // No SDN name for this data-plane value; deliver it as-is.
         }
     }
 
