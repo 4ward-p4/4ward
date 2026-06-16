@@ -32,12 +32,12 @@
             <td></td>
             <td class="headerItem">Lines:</td>
             <td class="headerCovTableEntryHi">94.6&nbsp;%</td>
-            <td class="headerCovTableEntry">718</td>
-            <td class="headerCovTableEntry">679</td>
+            <td class="headerCovTableEntry">719</td>
+            <td class="headerCovTableEntry">680</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-16 05:57:06</td>
+            <td class="headerValue">2026-06-16 06:45:06</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">94.2&nbsp;%</td>
@@ -1228,289 +1228,292 @@
 <span id="L1166"><span class="lineNum">    1166</span> <span class="tlaGNC">           1 :         eval.writeOutArg(0, BitVal(BitVector(randomInInclusiveRange(lo, hi), resultWidth)))</span></span>
 <span id="L1167"><span class="lineNum">    1167</span> <span class="tlaGNC">           1 :         UnitVal</span></span>
 <span id="L1168"><span class="lineNum">    1168</span>              :       }</span>
-<span id="L1169"><span class="lineNum">    1169</span>              :       // log_msg(msg) / log_msg(msg, data): debug output with {} placeholders.</span>
-<span id="L1170"><span class="lineNum">    1170</span>              :       // Defined in v1model.p4 — emits a trace event with the interpolated message.</span>
-<span id="L1171"><span class="lineNum">    1171</span>              :       &quot;log_msg&quot; -&gt; {</span>
-<span id="L1172"><span class="lineNum">    1172</span> <span class="tlaGNC">           1 :         val format = (eval.evalArg(0) as StringVal).value</span></span>
-<span id="L1173"><span class="lineNum">    1173</span> <span class="tlaGNC">           1 :         val message = if (eval.argCount() &gt; 1) formatLogMessage(format, eval.evalArg(1)) else format</span></span>
-<span id="L1174"><span class="lineNum">    1174</span> <span class="tlaGNC">           1 :         eval.addTraceEvent(</span></span>
-<span id="L1175"><span class="lineNum">    1175</span> <span class="tlaGNC">           1 :           eval</span></span>
-<span id="L1176"><span class="lineNum">    1176</span> <span class="tlaGNC">           1 :             .traceEventBuilder()</span></span>
-<span id="L1177"><span class="lineNum">    1177</span> <span class="tlaGNC">           1 :             .setLogMessage(LogMessageEvent.newBuilder().setMessage(message))</span></span>
-<span id="L1178"><span class="lineNum">    1178</span> <span class="tlaGNC">           1 :             .build()</span></span>
-<span id="L1179"><span class="lineNum">    1179</span>              :         )</span>
-<span id="L1180"><span class="lineNum">    1180</span> <span class="tlaGNC">           1 :         UnitVal</span></span>
-<span id="L1181"><span class="lineNum">    1181</span>              :       }</span>
-<span id="L1182"><span class="lineNum">    1182</span> <span class="tlaUNC tlaBgUNC">           0 :       else -&gt; error(&quot;v1model extern '$name' is not implemented&quot;)</span></span>
-<span id="L1183"><span class="lineNum">    1183</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
-<span id="L1184"><span class="lineNum">    1184</span>              : </span>
-<span id="L1185"><span class="lineNum">    1185</span>              :   // -------------------------------------------------------------------------</span>
-<span id="L1186"><span class="lineNum">    1186</span>              :   // v1model extern method handler</span>
-<span id="L1187"><span class="lineNum">    1187</span>              :   // -------------------------------------------------------------------------</span>
-<span id="L1188"><span class="lineNum">    1188</span>              : </span>
-<span id="L1189"><span class="lineNum">    1189</span>              :   /**</span>
-<span id="L1190"><span class="lineNum">    1190</span>              :    * Dispatches method calls on v1model extern object instances (registers, counters, meters).</span>
-<span id="L1191"><span class="lineNum">    1191</span>              :    *</span>
-<span id="L1192"><span class="lineNum">    1192</span>              :    * These are distinct from free-function externs: they're called as `instance.method(args)` rather</span>
-<span id="L1193"><span class="lineNum">    1193</span>              :    * than `function(args)`. The extern type and instance name come from [call]; storage is resolved</span>
-<span id="L1194"><span class="lineNum">    1194</span>              :    * via [tableStore].</span>
-<span id="L1195"><span class="lineNum">    1195</span>              :    */</span>
-<span id="L1196"><span class="lineNum">    1196</span>              :   @Suppress(&quot;ThrowsCount&quot;)</span>
-<span id="L1197"><span class="lineNum">    1197</span>              :   private fun v1modelExternMethodCall(</span>
-<span id="L1198"><span class="lineNum">    1198</span>              :     call: ExternCall.Method,</span>
-<span id="L1199"><span class="lineNum">    1199</span>              :     eval: ExternEvaluator,</span>
-<span id="L1200"><span class="lineNum">    1200</span>              :     tableStore: TableStore,</span>
-<span id="L1201"><span class="lineNum">    1201</span>              :   ): Value =</span>
-<span id="L1202"><span class="lineNum">    1202</span> <span class="tlaGNC">           1 :     when (call.externType) {</span></span>
-<span id="L1203"><span class="lineNum">    1203</span>              :       &quot;register&quot; -&gt;</span>
-<span id="L1204"><span class="lineNum">    1204</span> <span class="tlaGNC">           1 :         when (call.method) {</span></span>
-<span id="L1205"><span class="lineNum">    1205</span> <span class="tlaGNC">           1 :           &quot;read&quot; -&gt; {</span></span>
-<span id="L1206"><span class="lineNum">    1206</span> <span class="tlaGNC">           1 :             val index = (eval.evalArg(1) as BitVal).bits.value.toInt()</span></span>
-<span id="L1207"><span class="lineNum">    1207</span> <span class="tlaGNC">           1 :             val stored = tableStore.registerRead(call.instanceName, index)</span></span>
-<span id="L1208"><span class="lineNum">    1208</span> <span class="tlaGNC">           1 :             eval.writeOutArg(0, stored ?: eval.defaultValue(eval.argType(0)))</span></span>
-<span id="L1209"><span class="lineNum">    1209</span> <span class="tlaGNC">           1 :             UnitVal</span></span>
-<span id="L1210"><span class="lineNum">    1210</span>              :           }</span>
-<span id="L1211"><span class="lineNum">    1211</span> <span class="tlaGNC">           1 :           &quot;write&quot; -&gt; {</span></span>
-<span id="L1212"><span class="lineNum">    1212</span> <span class="tlaGNC">           1 :             val index = (eval.evalArg(0) as BitVal).bits.value.toInt()</span></span>
-<span id="L1213"><span class="lineNum">    1213</span> <span class="tlaGNC">           1 :             tableStore.registerWrite(call.instanceName, index, eval.evalArg(1))</span></span>
-<span id="L1214"><span class="lineNum">    1214</span> <span class="tlaGNC">           1 :             UnitVal</span></span>
-<span id="L1215"><span class="lineNum">    1215</span>              :           }</span>
-<span id="L1216"><span class="lineNum">    1216</span>              :           else -&gt;</span>
-<span id="L1217"><span class="lineNum">    1217</span> <span class="tlaUNC tlaBgUNC">           0 :             error(</span></span>
-<span id="L1218"><span class="lineNum">    1218</span> <span class="tlaGNC tlaBgGNC">           1 :               &quot;v1model register method '${call.method}' &quot; +</span></span>
-<span id="L1219"><span class="lineNum">    1219</span> <span class="tlaUNC tlaBgUNC">           0 :                 &quot;is not implemented (on ${call.instanceName})&quot;</span></span>
-<span id="L1220"><span class="lineNum">    1220</span>              :             )</span>
-<span id="L1221"><span class="lineNum">    1221</span>              :         }</span>
-<span id="L1222"><span class="lineNum">    1222</span>              :       &quot;counter&quot;,</span>
-<span id="L1223"><span class="lineNum">    1223</span>              :       &quot;direct_counter&quot; -&gt;</span>
-<span id="L1224"><span class="lineNum">    1224</span> <span class="tlaGNC tlaBgGNC">           1 :         when (call.method) {</span></span>
-<span id="L1225"><span class="lineNum">    1225</span>              :           // fire-and-forget side-effect, invisible to data plane.</span>
-<span id="L1226"><span class="lineNum">    1226</span> <span class="tlaGNC">           1 :           &quot;count&quot; -&gt; UnitVal</span></span>
-<span id="L1227"><span class="lineNum">    1227</span>              :           else -&gt;</span>
-<span id="L1228"><span class="lineNum">    1228</span> <span class="tlaUNC tlaBgUNC">           0 :             error(</span></span>
-<span id="L1229"><span class="lineNum">    1229</span> <span class="tlaGNC tlaBgGNC">           1 :               &quot;v1model counter method '${call.method}' is not implemented (on ${call.instanceName})&quot;</span></span>
-<span id="L1230"><span class="lineNum">    1230</span>              :             )</span>
-<span id="L1231"><span class="lineNum">    1231</span>              :         }</span>
-<span id="L1232"><span class="lineNum">    1232</span>              :       &quot;meter&quot; -&gt;</span>
-<span id="L1233"><span class="lineNum">    1233</span> <span class="tlaGNC">           1 :         when (call.method) {</span></span>
-<span id="L1234"><span class="lineNum">    1234</span>              :           // execute_meter(in index, out color): always GREEN (no real rates in simulator).</span>
-<span id="L1235"><span class="lineNum">    1235</span> <span class="tlaGNC">           1 :           &quot;execute_meter&quot; -&gt; {</span></span>
-<span id="L1236"><span class="lineNum">    1236</span> <span class="tlaGNC">           1 :             eval.writeOutArg(1, eval.defaultValue(eval.argType(1)))</span></span>
-<span id="L1237"><span class="lineNum">    1237</span> <span class="tlaGNC">           1 :             UnitVal</span></span>
-<span id="L1238"><span class="lineNum">    1238</span>              :           }</span>
-<span id="L1239"><span class="lineNum">    1239</span>              :           else -&gt;</span>
-<span id="L1240"><span class="lineNum">    1240</span> <span class="tlaUNC tlaBgUNC">           0 :             error(</span></span>
-<span id="L1241"><span class="lineNum">    1241</span> <span class="tlaGNC tlaBgGNC">           1 :               &quot;v1model meter method '${call.method}' is not implemented (on ${call.instanceName})&quot;</span></span>
-<span id="L1242"><span class="lineNum">    1242</span>              :             )</span>
-<span id="L1243"><span class="lineNum">    1243</span>              :         }</span>
-<span id="L1244"><span class="lineNum">    1244</span>              :       &quot;direct_meter&quot; -&gt;</span>
-<span id="L1245"><span class="lineNum">    1245</span> <span class="tlaGNC">           1 :         when (call.method) {</span></span>
-<span id="L1246"><span class="lineNum">    1246</span>              :           // read(out color): always GREEN (no real rates in simulator).</span>
-<span id="L1247"><span class="lineNum">    1247</span> <span class="tlaGNC">           1 :           &quot;read&quot; -&gt; {</span></span>
-<span id="L1248"><span class="lineNum">    1248</span> <span class="tlaGNC">           1 :             eval.writeOutArg(0, eval.defaultValue(eval.argType(0)))</span></span>
-<span id="L1249"><span class="lineNum">    1249</span> <span class="tlaGNC">           1 :             UnitVal</span></span>
-<span id="L1250"><span class="lineNum">    1250</span>              :           }</span>
-<span id="L1251"><span class="lineNum">    1251</span>              :           else -&gt;</span>
-<span id="L1252"><span class="lineNum">    1252</span> <span class="tlaUNC tlaBgUNC">           0 :             error(</span></span>
-<span id="L1253"><span class="lineNum">    1253</span> <span class="tlaGNC tlaBgGNC">           1 :               &quot;v1model direct_meter method '${call.method}' &quot; +</span></span>
-<span id="L1254"><span class="lineNum">    1254</span> <span class="tlaUNC tlaBgUNC">           0 :                 &quot;is not implemented (on ${call.instanceName})&quot;</span></span>
-<span id="L1255"><span class="lineNum">    1255</span>              :             )</span>
-<span id="L1256"><span class="lineNum">    1256</span>              :         }</span>
-<span id="L1257"><span class="lineNum">    1257</span>              :       else -&gt;</span>
-<span id="L1258"><span class="lineNum">    1258</span> <span class="tlaUNC">           0 :         error(</span></span>
-<span id="L1259"><span class="lineNum">    1259</span> <span class="tlaUNC">           0 :           &quot;v1model extern method '${call.externType}.${call.method}' is not implemented&quot; +</span></span>
-<span id="L1260"><span class="lineNum">    1260</span> <span class="tlaUNC">           0 :             &quot; (on ${call.instanceName})&quot;</span></span>
-<span id="L1261"><span class="lineNum">    1261</span>              :         )</span>
-<span id="L1262"><span class="lineNum">    1262</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
-<span id="L1263"><span class="lineNum">    1263</span>              : </span>
-<span id="L1264"><span class="lineNum">    1264</span>              :   companion object {</span>
-<span id="L1265"><span class="lineNum">    1265</span>              :     // Default v1model port width and drop port. These are the values for standard v1model.p4</span>
-<span id="L1266"><span class="lineNum">    1266</span>              :     // (bit&lt;9&gt; PortId_t). At runtime, the actual values are derived from the IR — see</span>
-<span id="L1267"><span class="lineNum">    1267</span>              :     // PipelineState.portBits and PipelineState.dropPort.</span>
-<span id="L1268"><span class="lineNum">    1268</span>              :     const val DEFAULT_PORT_BITS = 9</span>
-<span id="L1269"><span class="lineNum">    1269</span>              :     const val DEFAULT_DROP_PORT = (1 shl DEFAULT_PORT_BITS) - 1 // 511</span>
-<span id="L1270"><span class="lineNum">    1270</span>              : </span>
-<span id="L1271"><span class="lineNum">    1271</span>              :     // Number of user-visible params in the v1model parser after removing packet_in/packet_out:</span>
-<span id="L1272"><span class="lineNum">    1272</span>              :     // (hdr, meta, standard_metadata).</span>
-<span id="L1273"><span class="lineNum">    1273</span>              :     private const val V1MODEL_USER_PARAM_COUNT = 3</span>
-<span id="L1274"><span class="lineNum">    1274</span>              : </span>
-<span id="L1275"><span class="lineNum">    1275</span>              :     // v1model: first 2 control stages are ingress-side (verify checksum, ingress).</span>
-<span id="L1276"><span class="lineNum">    1276</span>              :     private const val INGRESS_CONTROL_COUNT = 2</span>
+<span id="L1169"><span class="lineNum">    1169</span>              :       // digest(receiver, data): accepted as a no-op. Digest delivery is intentionally out of</span>
+<span id="L1170"><span class="lineNum">    1170</span>              :       // scope because the simulator has no control-plane digest queue or stream-delivery model.</span>
+<span id="L1171"><span class="lineNum">    1171</span> <span class="tlaGNC">           1 :       &quot;digest&quot; -&gt; UnitVal</span></span>
+<span id="L1172"><span class="lineNum">    1172</span>              :       // log_msg(msg) / log_msg(msg, data): debug output with {} placeholders.</span>
+<span id="L1173"><span class="lineNum">    1173</span>              :       // Defined in v1model.p4 — emits a trace event with the interpolated message.</span>
+<span id="L1174"><span class="lineNum">    1174</span>              :       &quot;log_msg&quot; -&gt; {</span>
+<span id="L1175"><span class="lineNum">    1175</span> <span class="tlaGNC">           1 :         val format = (eval.evalArg(0) as StringVal).value</span></span>
+<span id="L1176"><span class="lineNum">    1176</span> <span class="tlaGNC">           1 :         val message = if (eval.argCount() &gt; 1) formatLogMessage(format, eval.evalArg(1)) else format</span></span>
+<span id="L1177"><span class="lineNum">    1177</span> <span class="tlaGNC">           1 :         eval.addTraceEvent(</span></span>
+<span id="L1178"><span class="lineNum">    1178</span> <span class="tlaGNC">           1 :           eval</span></span>
+<span id="L1179"><span class="lineNum">    1179</span> <span class="tlaGNC">           1 :             .traceEventBuilder()</span></span>
+<span id="L1180"><span class="lineNum">    1180</span> <span class="tlaGNC">           1 :             .setLogMessage(LogMessageEvent.newBuilder().setMessage(message))</span></span>
+<span id="L1181"><span class="lineNum">    1181</span> <span class="tlaGNC">           1 :             .build()</span></span>
+<span id="L1182"><span class="lineNum">    1182</span>              :         )</span>
+<span id="L1183"><span class="lineNum">    1183</span> <span class="tlaGNC">           1 :         UnitVal</span></span>
+<span id="L1184"><span class="lineNum">    1184</span>              :       }</span>
+<span id="L1185"><span class="lineNum">    1185</span> <span class="tlaUNC tlaBgUNC">           0 :       else -&gt; error(&quot;v1model extern '$name' is not implemented&quot;)</span></span>
+<span id="L1186"><span class="lineNum">    1186</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
+<span id="L1187"><span class="lineNum">    1187</span>              : </span>
+<span id="L1188"><span class="lineNum">    1188</span>              :   // -------------------------------------------------------------------------</span>
+<span id="L1189"><span class="lineNum">    1189</span>              :   // v1model extern method handler</span>
+<span id="L1190"><span class="lineNum">    1190</span>              :   // -------------------------------------------------------------------------</span>
+<span id="L1191"><span class="lineNum">    1191</span>              : </span>
+<span id="L1192"><span class="lineNum">    1192</span>              :   /**</span>
+<span id="L1193"><span class="lineNum">    1193</span>              :    * Dispatches method calls on v1model extern object instances (registers, counters, meters).</span>
+<span id="L1194"><span class="lineNum">    1194</span>              :    *</span>
+<span id="L1195"><span class="lineNum">    1195</span>              :    * These are distinct from free-function externs: they're called as `instance.method(args)` rather</span>
+<span id="L1196"><span class="lineNum">    1196</span>              :    * than `function(args)`. The extern type and instance name come from [call]; storage is resolved</span>
+<span id="L1197"><span class="lineNum">    1197</span>              :    * via [tableStore].</span>
+<span id="L1198"><span class="lineNum">    1198</span>              :    */</span>
+<span id="L1199"><span class="lineNum">    1199</span>              :   @Suppress(&quot;ThrowsCount&quot;)</span>
+<span id="L1200"><span class="lineNum">    1200</span>              :   private fun v1modelExternMethodCall(</span>
+<span id="L1201"><span class="lineNum">    1201</span>              :     call: ExternCall.Method,</span>
+<span id="L1202"><span class="lineNum">    1202</span>              :     eval: ExternEvaluator,</span>
+<span id="L1203"><span class="lineNum">    1203</span>              :     tableStore: TableStore,</span>
+<span id="L1204"><span class="lineNum">    1204</span>              :   ): Value =</span>
+<span id="L1205"><span class="lineNum">    1205</span> <span class="tlaGNC">           1 :     when (call.externType) {</span></span>
+<span id="L1206"><span class="lineNum">    1206</span>              :       &quot;register&quot; -&gt;</span>
+<span id="L1207"><span class="lineNum">    1207</span> <span class="tlaGNC">           1 :         when (call.method) {</span></span>
+<span id="L1208"><span class="lineNum">    1208</span> <span class="tlaGNC">           1 :           &quot;read&quot; -&gt; {</span></span>
+<span id="L1209"><span class="lineNum">    1209</span> <span class="tlaGNC">           1 :             val index = (eval.evalArg(1) as BitVal).bits.value.toInt()</span></span>
+<span id="L1210"><span class="lineNum">    1210</span> <span class="tlaGNC">           1 :             val stored = tableStore.registerRead(call.instanceName, index)</span></span>
+<span id="L1211"><span class="lineNum">    1211</span> <span class="tlaGNC">           1 :             eval.writeOutArg(0, stored ?: eval.defaultValue(eval.argType(0)))</span></span>
+<span id="L1212"><span class="lineNum">    1212</span> <span class="tlaGNC">           1 :             UnitVal</span></span>
+<span id="L1213"><span class="lineNum">    1213</span>              :           }</span>
+<span id="L1214"><span class="lineNum">    1214</span> <span class="tlaGNC">           1 :           &quot;write&quot; -&gt; {</span></span>
+<span id="L1215"><span class="lineNum">    1215</span> <span class="tlaGNC">           1 :             val index = (eval.evalArg(0) as BitVal).bits.value.toInt()</span></span>
+<span id="L1216"><span class="lineNum">    1216</span> <span class="tlaGNC">           1 :             tableStore.registerWrite(call.instanceName, index, eval.evalArg(1))</span></span>
+<span id="L1217"><span class="lineNum">    1217</span> <span class="tlaGNC">           1 :             UnitVal</span></span>
+<span id="L1218"><span class="lineNum">    1218</span>              :           }</span>
+<span id="L1219"><span class="lineNum">    1219</span>              :           else -&gt;</span>
+<span id="L1220"><span class="lineNum">    1220</span> <span class="tlaUNC tlaBgUNC">           0 :             error(</span></span>
+<span id="L1221"><span class="lineNum">    1221</span> <span class="tlaGNC tlaBgGNC">           1 :               &quot;v1model register method '${call.method}' &quot; +</span></span>
+<span id="L1222"><span class="lineNum">    1222</span> <span class="tlaUNC tlaBgUNC">           0 :                 &quot;is not implemented (on ${call.instanceName})&quot;</span></span>
+<span id="L1223"><span class="lineNum">    1223</span>              :             )</span>
+<span id="L1224"><span class="lineNum">    1224</span>              :         }</span>
+<span id="L1225"><span class="lineNum">    1225</span>              :       &quot;counter&quot;,</span>
+<span id="L1226"><span class="lineNum">    1226</span>              :       &quot;direct_counter&quot; -&gt;</span>
+<span id="L1227"><span class="lineNum">    1227</span> <span class="tlaGNC tlaBgGNC">           1 :         when (call.method) {</span></span>
+<span id="L1228"><span class="lineNum">    1228</span>              :           // fire-and-forget side-effect, invisible to data plane.</span>
+<span id="L1229"><span class="lineNum">    1229</span> <span class="tlaGNC">           1 :           &quot;count&quot; -&gt; UnitVal</span></span>
+<span id="L1230"><span class="lineNum">    1230</span>              :           else -&gt;</span>
+<span id="L1231"><span class="lineNum">    1231</span> <span class="tlaUNC tlaBgUNC">           0 :             error(</span></span>
+<span id="L1232"><span class="lineNum">    1232</span> <span class="tlaGNC tlaBgGNC">           1 :               &quot;v1model counter method '${call.method}' is not implemented (on ${call.instanceName})&quot;</span></span>
+<span id="L1233"><span class="lineNum">    1233</span>              :             )</span>
+<span id="L1234"><span class="lineNum">    1234</span>              :         }</span>
+<span id="L1235"><span class="lineNum">    1235</span>              :       &quot;meter&quot; -&gt;</span>
+<span id="L1236"><span class="lineNum">    1236</span> <span class="tlaGNC">           1 :         when (call.method) {</span></span>
+<span id="L1237"><span class="lineNum">    1237</span>              :           // execute_meter(in index, out color): always GREEN (no real rates in simulator).</span>
+<span id="L1238"><span class="lineNum">    1238</span> <span class="tlaGNC">           1 :           &quot;execute_meter&quot; -&gt; {</span></span>
+<span id="L1239"><span class="lineNum">    1239</span> <span class="tlaGNC">           1 :             eval.writeOutArg(1, eval.defaultValue(eval.argType(1)))</span></span>
+<span id="L1240"><span class="lineNum">    1240</span> <span class="tlaGNC">           1 :             UnitVal</span></span>
+<span id="L1241"><span class="lineNum">    1241</span>              :           }</span>
+<span id="L1242"><span class="lineNum">    1242</span>              :           else -&gt;</span>
+<span id="L1243"><span class="lineNum">    1243</span> <span class="tlaUNC tlaBgUNC">           0 :             error(</span></span>
+<span id="L1244"><span class="lineNum">    1244</span> <span class="tlaGNC tlaBgGNC">           1 :               &quot;v1model meter method '${call.method}' is not implemented (on ${call.instanceName})&quot;</span></span>
+<span id="L1245"><span class="lineNum">    1245</span>              :             )</span>
+<span id="L1246"><span class="lineNum">    1246</span>              :         }</span>
+<span id="L1247"><span class="lineNum">    1247</span>              :       &quot;direct_meter&quot; -&gt;</span>
+<span id="L1248"><span class="lineNum">    1248</span> <span class="tlaGNC">           1 :         when (call.method) {</span></span>
+<span id="L1249"><span class="lineNum">    1249</span>              :           // read(out color): always GREEN (no real rates in simulator).</span>
+<span id="L1250"><span class="lineNum">    1250</span> <span class="tlaGNC">           1 :           &quot;read&quot; -&gt; {</span></span>
+<span id="L1251"><span class="lineNum">    1251</span> <span class="tlaGNC">           1 :             eval.writeOutArg(0, eval.defaultValue(eval.argType(0)))</span></span>
+<span id="L1252"><span class="lineNum">    1252</span> <span class="tlaGNC">           1 :             UnitVal</span></span>
+<span id="L1253"><span class="lineNum">    1253</span>              :           }</span>
+<span id="L1254"><span class="lineNum">    1254</span>              :           else -&gt;</span>
+<span id="L1255"><span class="lineNum">    1255</span> <span class="tlaUNC tlaBgUNC">           0 :             error(</span></span>
+<span id="L1256"><span class="lineNum">    1256</span> <span class="tlaGNC tlaBgGNC">           1 :               &quot;v1model direct_meter method '${call.method}' &quot; +</span></span>
+<span id="L1257"><span class="lineNum">    1257</span> <span class="tlaUNC tlaBgUNC">           0 :                 &quot;is not implemented (on ${call.instanceName})&quot;</span></span>
+<span id="L1258"><span class="lineNum">    1258</span>              :             )</span>
+<span id="L1259"><span class="lineNum">    1259</span>              :         }</span>
+<span id="L1260"><span class="lineNum">    1260</span>              :       else -&gt;</span>
+<span id="L1261"><span class="lineNum">    1261</span> <span class="tlaUNC">           0 :         error(</span></span>
+<span id="L1262"><span class="lineNum">    1262</span> <span class="tlaUNC">           0 :           &quot;v1model extern method '${call.externType}.${call.method}' is not implemented&quot; +</span></span>
+<span id="L1263"><span class="lineNum">    1263</span> <span class="tlaUNC">           0 :             &quot; (on ${call.instanceName})&quot;</span></span>
+<span id="L1264"><span class="lineNum">    1264</span>              :         )</span>
+<span id="L1265"><span class="lineNum">    1265</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
+<span id="L1266"><span class="lineNum">    1266</span>              : </span>
+<span id="L1267"><span class="lineNum">    1267</span>              :   companion object {</span>
+<span id="L1268"><span class="lineNum">    1268</span>              :     // Default v1model port width and drop port. These are the values for standard v1model.p4</span>
+<span id="L1269"><span class="lineNum">    1269</span>              :     // (bit&lt;9&gt; PortId_t). At runtime, the actual values are derived from the IR — see</span>
+<span id="L1270"><span class="lineNum">    1270</span>              :     // PipelineState.portBits and PipelineState.dropPort.</span>
+<span id="L1271"><span class="lineNum">    1271</span>              :     const val DEFAULT_PORT_BITS = 9</span>
+<span id="L1272"><span class="lineNum">    1272</span>              :     const val DEFAULT_DROP_PORT = (1 shl DEFAULT_PORT_BITS) - 1 // 511</span>
+<span id="L1273"><span class="lineNum">    1273</span>              : </span>
+<span id="L1274"><span class="lineNum">    1274</span>              :     // Number of user-visible params in the v1model parser after removing packet_in/packet_out:</span>
+<span id="L1275"><span class="lineNum">    1275</span>              :     // (hdr, meta, standard_metadata).</span>
+<span id="L1276"><span class="lineNum">    1276</span>              :     private const val V1MODEL_USER_PARAM_COUNT = 3</span>
 <span id="L1277"><span class="lineNum">    1277</span>              : </span>
-<span id="L1278"><span class="lineNum">    1278</span>              :     private const val MAX_PIPELINE_DEPTH = 10</span>
-<span id="L1279"><span class="lineNum">    1279</span>              : </span>
-<span id="L1280"><span class="lineNum">    1280</span>              :     private const val NANOS_PER_MICRO = 1000</span>
-<span id="L1281"><span class="lineNum">    1281</span>              : </span>
-<span id="L1282"><span class="lineNum">    1282</span>              :     // v1model instance_type values (BMv2 PktInstanceType convention).</span>
-<span id="L1283"><span class="lineNum">    1283</span>              :     private const val CLONE_I2E_INSTANCE_TYPE = 1L</span>
-<span id="L1284"><span class="lineNum">    1284</span>              :     private const val CLONE_E2E_INSTANCE_TYPE = 2L</span>
-<span id="L1285"><span class="lineNum">    1285</span>              :     private const val RECIRC_INSTANCE_TYPE = 4L</span>
-<span id="L1286"><span class="lineNum">    1286</span>              :     private const val REPLICATION_INSTANCE_TYPE = 5L</span>
-<span id="L1287"><span class="lineNum">    1287</span>              :     private const val RESUBMIT_INSTANCE_TYPE = 6L</span>
-<span id="L1288"><span class="lineNum">    1288</span>              :   }</span>
-<span id="L1289"><span class="lineNum">    1289</span>              : }</span>
-<span id="L1290"><span class="lineNum">    1290</span>              : </span>
-<span id="L1291"><span class="lineNum">    1291</span>              : // =============================================================================</span>
-<span id="L1292"><span class="lineNum">    1292</span>              : // v1model-specific fork types and pipeline execution decisions</span>
-<span id="L1293"><span class="lineNum">    1293</span>              : // =============================================================================</span>
-<span id="L1294"><span class="lineNum">    1294</span>              : </span>
-<span id="L1295"><span class="lineNum">    1295</span>              : /** Multicast replica descriptor: egress port and replication ID. */</span>
-<span id="L1296"><span class="lineNum">    1296</span> <span class="tlaGNC">           1 : internal data class Replica(val rid: Int, val port: Int)</span></span>
+<span id="L1278"><span class="lineNum">    1278</span>              :     // v1model: first 2 control stages are ingress-side (verify checksum, ingress).</span>
+<span id="L1279"><span class="lineNum">    1279</span>              :     private const val INGRESS_CONTROL_COUNT = 2</span>
+<span id="L1280"><span class="lineNum">    1280</span>              : </span>
+<span id="L1281"><span class="lineNum">    1281</span>              :     private const val MAX_PIPELINE_DEPTH = 10</span>
+<span id="L1282"><span class="lineNum">    1282</span>              : </span>
+<span id="L1283"><span class="lineNum">    1283</span>              :     private const val NANOS_PER_MICRO = 1000</span>
+<span id="L1284"><span class="lineNum">    1284</span>              : </span>
+<span id="L1285"><span class="lineNum">    1285</span>              :     // v1model instance_type values (BMv2 PktInstanceType convention).</span>
+<span id="L1286"><span class="lineNum">    1286</span>              :     private const val CLONE_I2E_INSTANCE_TYPE = 1L</span>
+<span id="L1287"><span class="lineNum">    1287</span>              :     private const val CLONE_E2E_INSTANCE_TYPE = 2L</span>
+<span id="L1288"><span class="lineNum">    1288</span>              :     private const val RECIRC_INSTANCE_TYPE = 4L</span>
+<span id="L1289"><span class="lineNum">    1289</span>              :     private const val REPLICATION_INSTANCE_TYPE = 5L</span>
+<span id="L1290"><span class="lineNum">    1290</span>              :     private const val RESUBMIT_INSTANCE_TYPE = 6L</span>
+<span id="L1291"><span class="lineNum">    1291</span>              :   }</span>
+<span id="L1292"><span class="lineNum">    1292</span>              : }</span>
+<span id="L1293"><span class="lineNum">    1293</span>              : </span>
+<span id="L1294"><span class="lineNum">    1294</span>              : // =============================================================================</span>
+<span id="L1295"><span class="lineNum">    1295</span>              : // v1model-specific fork types and pipeline execution decisions</span>
+<span id="L1296"><span class="lineNum">    1296</span>              : // =============================================================================</span>
 <span id="L1297"><span class="lineNum">    1297</span>              : </span>
-<span id="L1298"><span class="lineNum">    1298</span>              : /**</span>
-<span id="L1299"><span class="lineNum">    1299</span>              :  * Pipeline execution decisions for resubmit/recirculate replays. Fork-on-write branches bypass this</span>
-<span id="L1300"><span class="lineNum">    1300</span>              :  * entirely — they restore state from the fork-point snapshot instead.</span>
-<span id="L1301"><span class="lineNum">    1301</span>              :  */</span>
-<span id="L1302"><span class="lineNum">    1302</span> <span class="tlaGNC">           1 : internal data class V1ModelDecisions(</span></span>
-<span id="L1303"><span class="lineNum">    1303</span> <span class="tlaGNC">           1 :   val selectorMembers: Map&lt;String, Int&gt; = emptyMap(),</span></span>
-<span id="L1304"><span class="lineNum">    1304</span> <span class="tlaGNC">           1 :   val instanceTypeOverride: Long? = null,</span></span>
-<span id="L1305"><span class="lineNum">    1305</span> <span class="tlaGNC">           1 :   val pipelineDepth: Int = 0,</span></span>
-<span id="L1306"><span class="lineNum">    1306</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
-<span id="L1307"><span class="lineNum">    1307</span> <span class="tlaGNC">           1 : )</span></span>
-<span id="L1308"><span class="lineNum">    1308</span>              : </span>
-<span id="L1309"><span class="lineNum">    1309</span>              : /**</span>
-<span id="L1310"><span class="lineNum">    1310</span>              :  * Mutable v1model-specific pending operations set by extern calls and read at pipeline boundaries.</span>
-<span id="L1311"><span class="lineNum">    1311</span>              :  *</span>
-<span id="L1312"><span class="lineNum">    1312</span>              :  * A fresh instance is created per pipeline execution. This keeps v1model state out of the shared</span>
-<span id="L1313"><span class="lineNum">    1313</span>              :  * [PacketContext], which only carries architecture-agnostic concerns (packet I/O, trace events).</span>
-<span id="L1314"><span class="lineNum">    1314</span>              :  */</span>
-<span id="L1315"><span class="lineNum">    1315</span> <span class="tlaGNC">           1 : internal data class V1ModelPendingOps(</span></span>
-<span id="L1316"><span class="lineNum">    1316</span> <span class="tlaGNC">           1 :   var cloneSessionId: Int? = null,</span></span>
-<span id="L1317"><span class="lineNum">    1317</span> <span class="tlaGNC">           1 :   var cloneFieldListId: Int? = null,</span></span>
-<span id="L1318"><span class="lineNum">    1318</span> <span class="tlaGNC">           1 :   var egressCloneSessionId: Int? = null,</span></span>
-<span id="L1319"><span class="lineNum">    1319</span> <span class="tlaGNC">           1 :   var egressCloneFieldListId: Int? = null,</span></span>
-<span id="L1320"><span class="lineNum">    1320</span> <span class="tlaGNC">           1 :   var resubmit: Boolean = false,</span></span>
-<span id="L1321"><span class="lineNum">    1321</span> <span class="tlaGNC">           1 :   var resubmitFieldListId: Int? = null,</span></span>
-<span id="L1322"><span class="lineNum">    1322</span> <span class="tlaGNC">           1 :   var recirculate: Boolean = false,</span></span>
-<span id="L1323"><span class="lineNum">    1323</span> <span class="tlaGNC">           1 :   var recirculateFieldListId: Int? = null,</span></span>
-<span id="L1324"><span class="lineNum">    1324</span> <span class="tlaGNC">           1 :   var truncateBytes: Int? = null,</span></span>
-<span id="L1325"><span class="lineNum">    1325</span> <span class="tlaGNC">           1 : )</span></span>
-<span id="L1326"><span class="lineNum">    1326</span>              : </span>
-<span id="L1327"><span class="lineNum">    1327</span>              : // -------------------------------------------------------------------------</span>
-<span id="L1328"><span class="lineNum">    1328</span>              : // v1model-specific fork exceptions</span>
-<span id="L1329"><span class="lineNum">    1329</span>              : // -------------------------------------------------------------------------</span>
-<span id="L1330"><span class="lineNum">    1330</span>              : </span>
-<span id="L1331"><span class="lineNum">    1331</span>              : /**</span>
-<span id="L1332"><span class="lineNum">    1332</span>              :  * Wraps an [ActionSelectorFork] with v1model-specific pipeline state captured at the fork point.</span>
-<span id="L1333"><span class="lineNum">    1333</span>              :  *</span>
-<span id="L1334"><span class="lineNum">    1334</span>              :  * Created by [runControlStages] when it catches the interpreter's fork exception. Carries</span>
-<span id="L1335"><span class="lineNum">    1335</span>              :  * everything needed to resume each branch from the fork point (fork-point resume) instead of</span>
-<span id="L1336"><span class="lineNum">    1336</span>              :  * replaying the pipeline.</span>
-<span id="L1337"><span class="lineNum">    1337</span>              :  */</span>
-<span id="L1338"><span class="lineNum">    1338</span> <span class="tlaGNC">           1 : internal class V1ModelSelectorFork(</span></span>
-<span id="L1339"><span class="lineNum">    1339</span> <span class="tlaGNC">           1 :   val fork: ActionSelectorFork,</span></span>
-<span id="L1340"><span class="lineNum">    1340</span> <span class="tlaGNC">           1 :   val pendingOps: V1ModelPendingOps,</span></span>
-<span id="L1341"><span class="lineNum">    1341</span> <span class="tlaGNC">           1 :   val stage: PipelineStage,</span></span>
-<span id="L1342"><span class="lineNum">    1342</span> <span class="tlaGNC">           1 :   val remainingStages: List&lt;PipelineStage&gt;,</span></span>
-<span id="L1343"><span class="lineNum">    1343</span>              :   /** True if the fork happened during ingress controls (boundary + egress + deparser remain). */</span>
-<span id="L1344"><span class="lineNum">    1344</span> <span class="tlaGNC">           1 :   val duringIngress: Boolean,</span></span>
-<span id="L1345"><span class="lineNum">    1345</span>              :   /** Post-parser env for I2E clone fork-point resume (may be null for egress forks). */</span>
-<span id="L1346"><span class="lineNum">    1346</span> <span class="tlaGNC">           1 :   val postParserEnv: Environment? = null,</span></span>
-<span id="L1347"><span class="lineNum">    1347</span> <span class="tlaGNC">           1 : ) : ForkException(fork.eventsBeforeFork)</span></span>
-<span id="L1348"><span class="lineNum">    1348</span>              : </span>
-<span id="L1349"><span class="lineNum">    1349</span>              : /**</span>
-<span id="L1350"><span class="lineNum">    1350</span>              :  * Fork at the ingress→egress boundary when an I2E clone was requested — &quot;original&quot; plus one clone</span>
-<span id="L1351"><span class="lineNum">    1351</span>              :  * branch per replica. Carries fork-point state so all branches can continue via fork-point resume.</span>
-<span id="L1352"><span class="lineNum">    1352</span>              :  */</span>
-<span id="L1353"><span class="lineNum">    1353</span> <span class="tlaGNC">           1 : internal class CloneFork(</span></span>
-<span id="L1354"><span class="lineNum">    1354</span> <span class="tlaGNC">           1 :   val sessionId: Int,</span></span>
-<span id="L1355"><span class="lineNum">    1355</span> <span class="tlaGNC">           1 :   val replicas: List&lt;Replica&gt;,</span></span>
-<span id="L1356"><span class="lineNum">    1356</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
-<span id="L1357"><span class="lineNum">    1357</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
-<span id="L1358"><span class="lineNum">    1358</span>              :   /** Deep copy of the post-ingress environment (for the &quot;original&quot; branch). */</span>
-<span id="L1359"><span class="lineNum">    1359</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
-<span id="L1360"><span class="lineNum">    1360</span>              :   /** Parser buffer position at the fork point. */</span>
-<span id="L1361"><span class="lineNum">    1361</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
-<span id="L1362"><span class="lineNum">    1362</span>              :   /** Pending operations at the fork point. */</span>
-<span id="L1363"><span class="lineNum">    1363</span> <span class="tlaGNC">           1 :   val forkPointPendingOps: V1ModelPendingOps,</span></span>
-<span id="L1364"><span class="lineNum">    1364</span>              :   /** Post-parser env (for clone branches — BMv2: clone gets pre-ingress state). */</span>
-<span id="L1365"><span class="lineNum">    1365</span> <span class="tlaGNC">           1 :   val postParserEnv: Environment,</span></span>
-<span id="L1366"><span class="lineNum">    1366</span>              :   /** Clone session packet_length_bytes: 0 = no truncation, &gt;0 = truncate to this many bytes. */</span>
-<span id="L1367"><span class="lineNum">    1367</span> <span class="tlaGNC">           1 :   val truncateBytes: Int = 0,</span></span>
-<span id="L1368"><span class="lineNum">    1368</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
-<span id="L1369"><span class="lineNum">    1369</span>              : </span>
-<span id="L1370"><span class="lineNum">    1370</span>              : /**</span>
-<span id="L1371"><span class="lineNum">    1371</span>              :  * Fork after egress controls when an E2E clone was requested — &quot;original&quot; plus one clone branch per</span>
-<span id="L1372"><span class="lineNum">    1372</span>              :  * replica. Carries fork-point state so all branches can continue via fork-point resume.</span>
-<span id="L1373"><span class="lineNum">    1373</span>              :  */</span>
-<span id="L1374"><span class="lineNum">    1374</span> <span class="tlaGNC">           1 : internal class EgressCloneFork(</span></span>
-<span id="L1375"><span class="lineNum">    1375</span> <span class="tlaGNC">           1 :   val sessionId: Int,</span></span>
-<span id="L1376"><span class="lineNum">    1376</span> <span class="tlaGNC">           1 :   val replicas: List&lt;Replica&gt;,</span></span>
-<span id="L1377"><span class="lineNum">    1377</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
-<span id="L1378"><span class="lineNum">    1378</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
-<span id="L1379"><span class="lineNum">    1379</span>              :   /** Deep copy of the post-egress environment (for both branches). */</span>
-<span id="L1380"><span class="lineNum">    1380</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
-<span id="L1381"><span class="lineNum">    1381</span>              :   /** Parser buffer position at the fork point. */</span>
-<span id="L1382"><span class="lineNum">    1382</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
-<span id="L1383"><span class="lineNum">    1383</span>              :   /** Pending operations at the fork point. */</span>
-<span id="L1384"><span class="lineNum">    1384</span> <span class="tlaGNC">           1 :   val forkPointPendingOps: V1ModelPendingOps,</span></span>
-<span id="L1385"><span class="lineNum">    1385</span>              :   /** Clone session packet_length_bytes: 0 = no truncation, &gt;0 = truncate to this many bytes. */</span>
-<span id="L1386"><span class="lineNum">    1386</span> <span class="tlaGNC">           1 :   val truncateBytes: Int = 0,</span></span>
-<span id="L1387"><span class="lineNum">    1387</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
-<span id="L1388"><span class="lineNum">    1388</span>              : </span>
-<span id="L1389"><span class="lineNum">    1389</span>              : /** Fork at the ingress→egress boundary when mcast_grp is set — one branch per replica. */</span>
-<span id="L1390"><span class="lineNum">    1390</span> <span class="tlaGNC">           1 : internal class MulticastFork(</span></span>
-<span id="L1391"><span class="lineNum">    1391</span> <span class="tlaGNC">           1 :   val replicas: List&lt;Replica&gt;,</span></span>
-<span id="L1392"><span class="lineNum">    1392</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
-<span id="L1393"><span class="lineNum">    1393</span>              :   /** Deep copy of the environment at the fork point (post-ingress). */</span>
-<span id="L1394"><span class="lineNum">    1394</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
-<span id="L1395"><span class="lineNum">    1395</span>              :   /** Parser buffer position at the fork point. */</span>
-<span id="L1396"><span class="lineNum">    1396</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
-<span id="L1397"><span class="lineNum">    1397</span>              :   /** Pending operations at the fork point. */</span>
-<span id="L1398"><span class="lineNum">    1398</span> <span class="tlaGNC">           1 :   val forkPointPendingOps: V1ModelPendingOps,</span></span>
-<span id="L1399"><span class="lineNum">    1399</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
-<span id="L1400"><span class="lineNum">    1400</span>              : </span>
-<span id="L1401"><span class="lineNum">    1401</span>              : /** Fork at the ingress→egress boundary when resubmit was requested — single branch re-ingress. */</span>
-<span id="L1402"><span class="lineNum">    1402</span> <span class="tlaGNC">           1 : internal class ResubmitFork(</span></span>
-<span id="L1403"><span class="lineNum">    1403</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
-<span id="L1404"><span class="lineNum">    1404</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
-<span id="L1405"><span class="lineNum">    1405</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
-<span id="L1406"><span class="lineNum">    1406</span>              : </span>
-<span id="L1407"><span class="lineNum">    1407</span>              : /** Fork after deparser when recirculate was requested — single branch with deparsed bytes. */</span>
-<span id="L1408"><span class="lineNum">    1408</span> <span class="tlaGNC">           1 : internal class RecirculateFork(</span></span>
-<span id="L1409"><span class="lineNum">    1409</span> <span class="tlaGNC">           1 :   val deparsedBytes: ByteArray,</span></span>
-<span id="L1410"><span class="lineNum">    1410</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
-<span id="L1411"><span class="lineNum">    1411</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
-<span id="L1412"><span class="lineNum">    1412</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
-<span id="L1413"><span class="lineNum">    1413</span>              : </span>
-<span id="L1414"><span class="lineNum">    1414</span>              : // =============================================================================</span>
-<span id="L1415"><span class="lineNum">    1415</span>              : // log_msg formatting helpers</span>
-<span id="L1416"><span class="lineNum">    1416</span>              : // =============================================================================</span>
-<span id="L1417"><span class="lineNum">    1417</span>              : </span>
-<span id="L1418"><span class="lineNum">    1418</span>              : /** Substitutes `{}` placeholders in a log_msg format string with struct field values. */</span>
-<span id="L1419"><span class="lineNum">    1419</span>              : private fun formatLogMessage(format: String, data: Value): String {</span>
-<span id="L1420"><span class="lineNum">    1420</span> <span class="tlaGNC">           1 :   val values =</span></span>
-<span id="L1421"><span class="lineNum">    1421</span> <span class="tlaGNC">           1 :     when (data) {</span></span>
-<span id="L1422"><span class="lineNum">    1422</span> <span class="tlaGNC">           1 :       is StructVal -&gt; data.fields.values.toList()</span></span>
-<span id="L1423"><span class="lineNum">    1423</span> <span class="tlaGNC">           1 :       else -&gt; listOf(data)</span></span>
-<span id="L1424"><span class="lineNum">    1424</span>              :     }</span>
-<span id="L1425"><span class="lineNum">    1425</span> <span class="tlaGNC">           1 :   val sb = StringBuilder()</span></span>
-<span id="L1426"><span class="lineNum">    1426</span> <span class="tlaGNC">           1 :   var valueIdx = 0</span></span>
-<span id="L1427"><span class="lineNum">    1427</span> <span class="tlaGNC">           1 :   var i = 0</span></span>
-<span id="L1428"><span class="lineNum">    1428</span> <span class="tlaGNC">           1 :   while (i &lt; format.length) {</span></span>
-<span id="L1429"><span class="lineNum">    1429</span> <span class="tlaGNC">           1 :     if (i + 1 &lt; format.length &amp;&amp; format[i] == '{' &amp;&amp; format[i + 1] == '}') {</span></span>
-<span id="L1430"><span class="lineNum">    1430</span> <span class="tlaGNC">           1 :       sb.append(if (valueIdx &lt; values.size) formatValue(values[valueIdx++]) else &quot;{}&quot;)</span></span>
-<span id="L1431"><span class="lineNum">    1431</span> <span class="tlaGNC">           1 :       i += 2</span></span>
-<span id="L1432"><span class="lineNum">    1432</span>              :     } else {</span>
-<span id="L1433"><span class="lineNum">    1433</span> <span class="tlaGNC">           1 :       sb.append(format[i])</span></span>
-<span id="L1434"><span class="lineNum">    1434</span> <span class="tlaGNC">           1 :       i++</span></span>
-<span id="L1435"><span class="lineNum">    1435</span>              :     }</span>
-<span id="L1436"><span class="lineNum">    1436</span>              :   }</span>
-<span id="L1437"><span class="lineNum">    1437</span> <span class="tlaGNC">           1 :   return sb.toString()</span></span>
-<span id="L1438"><span class="lineNum">    1438</span>              : }</span>
-<span id="L1439"><span class="lineNum">    1439</span>              : </span>
-<span id="L1440"><span class="lineNum">    1440</span>              : /** Formats a runtime value for log_msg output. */</span>
-<span id="L1441"><span class="lineNum">    1441</span>              : private fun formatValue(value: Value): String =</span>
-<span id="L1442"><span class="lineNum">    1442</span> <span class="tlaGNC">           1 :   when (value) {</span></span>
-<span id="L1443"><span class="lineNum">    1443</span> <span class="tlaGNC">           1 :     is BitVal -&gt; value.bits.value.toString()</span></span>
-<span id="L1444"><span class="lineNum">    1444</span> <span class="tlaUNC tlaBgUNC">           0 :     is IntVal -&gt; value.bits.value.toString()</span></span>
-<span id="L1445"><span class="lineNum">    1445</span> <span class="tlaUNC">           0 :     is BoolVal -&gt; value.value.toString()</span></span>
-<span id="L1446"><span class="lineNum">    1446</span> <span class="tlaUNC">           0 :     is InfIntVal -&gt; value.value.toString()</span></span>
-<span id="L1447"><span class="lineNum">    1447</span> <span class="tlaUNC">           0 :     is EnumVal -&gt; value.member</span></span>
-<span id="L1448"><span class="lineNum">    1448</span> <span class="tlaUNC">           0 :     is ErrorVal -&gt; value.member</span></span>
-<span id="L1449"><span class="lineNum">    1449</span> <span class="tlaUNC">           0 :     is StringVal -&gt; value.value</span></span>
-<span id="L1450"><span class="lineNum">    1450</span> <span class="tlaUNC">           0 :     else -&gt; value.toString()</span></span>
-<span id="L1451"><span class="lineNum">    1451</span> <span class="tlaGNC tlaBgGNC">           1 :   }</span></span>
+<span id="L1298"><span class="lineNum">    1298</span>              : /** Multicast replica descriptor: egress port and replication ID. */</span>
+<span id="L1299"><span class="lineNum">    1299</span> <span class="tlaGNC">           1 : internal data class Replica(val rid: Int, val port: Int)</span></span>
+<span id="L1300"><span class="lineNum">    1300</span>              : </span>
+<span id="L1301"><span class="lineNum">    1301</span>              : /**</span>
+<span id="L1302"><span class="lineNum">    1302</span>              :  * Pipeline execution decisions for resubmit/recirculate replays. Fork-on-write branches bypass this</span>
+<span id="L1303"><span class="lineNum">    1303</span>              :  * entirely — they restore state from the fork-point snapshot instead.</span>
+<span id="L1304"><span class="lineNum">    1304</span>              :  */</span>
+<span id="L1305"><span class="lineNum">    1305</span> <span class="tlaGNC">           1 : internal data class V1ModelDecisions(</span></span>
+<span id="L1306"><span class="lineNum">    1306</span> <span class="tlaGNC">           1 :   val selectorMembers: Map&lt;String, Int&gt; = emptyMap(),</span></span>
+<span id="L1307"><span class="lineNum">    1307</span> <span class="tlaGNC">           1 :   val instanceTypeOverride: Long? = null,</span></span>
+<span id="L1308"><span class="lineNum">    1308</span> <span class="tlaGNC">           1 :   val pipelineDepth: Int = 0,</span></span>
+<span id="L1309"><span class="lineNum">    1309</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
+<span id="L1310"><span class="lineNum">    1310</span> <span class="tlaGNC">           1 : )</span></span>
+<span id="L1311"><span class="lineNum">    1311</span>              : </span>
+<span id="L1312"><span class="lineNum">    1312</span>              : /**</span>
+<span id="L1313"><span class="lineNum">    1313</span>              :  * Mutable v1model-specific pending operations set by extern calls and read at pipeline boundaries.</span>
+<span id="L1314"><span class="lineNum">    1314</span>              :  *</span>
+<span id="L1315"><span class="lineNum">    1315</span>              :  * A fresh instance is created per pipeline execution. This keeps v1model state out of the shared</span>
+<span id="L1316"><span class="lineNum">    1316</span>              :  * [PacketContext], which only carries architecture-agnostic concerns (packet I/O, trace events).</span>
+<span id="L1317"><span class="lineNum">    1317</span>              :  */</span>
+<span id="L1318"><span class="lineNum">    1318</span> <span class="tlaGNC">           1 : internal data class V1ModelPendingOps(</span></span>
+<span id="L1319"><span class="lineNum">    1319</span> <span class="tlaGNC">           1 :   var cloneSessionId: Int? = null,</span></span>
+<span id="L1320"><span class="lineNum">    1320</span> <span class="tlaGNC">           1 :   var cloneFieldListId: Int? = null,</span></span>
+<span id="L1321"><span class="lineNum">    1321</span> <span class="tlaGNC">           1 :   var egressCloneSessionId: Int? = null,</span></span>
+<span id="L1322"><span class="lineNum">    1322</span> <span class="tlaGNC">           1 :   var egressCloneFieldListId: Int? = null,</span></span>
+<span id="L1323"><span class="lineNum">    1323</span> <span class="tlaGNC">           1 :   var resubmit: Boolean = false,</span></span>
+<span id="L1324"><span class="lineNum">    1324</span> <span class="tlaGNC">           1 :   var resubmitFieldListId: Int? = null,</span></span>
+<span id="L1325"><span class="lineNum">    1325</span> <span class="tlaGNC">           1 :   var recirculate: Boolean = false,</span></span>
+<span id="L1326"><span class="lineNum">    1326</span> <span class="tlaGNC">           1 :   var recirculateFieldListId: Int? = null,</span></span>
+<span id="L1327"><span class="lineNum">    1327</span> <span class="tlaGNC">           1 :   var truncateBytes: Int? = null,</span></span>
+<span id="L1328"><span class="lineNum">    1328</span> <span class="tlaGNC">           1 : )</span></span>
+<span id="L1329"><span class="lineNum">    1329</span>              : </span>
+<span id="L1330"><span class="lineNum">    1330</span>              : // -------------------------------------------------------------------------</span>
+<span id="L1331"><span class="lineNum">    1331</span>              : // v1model-specific fork exceptions</span>
+<span id="L1332"><span class="lineNum">    1332</span>              : // -------------------------------------------------------------------------</span>
+<span id="L1333"><span class="lineNum">    1333</span>              : </span>
+<span id="L1334"><span class="lineNum">    1334</span>              : /**</span>
+<span id="L1335"><span class="lineNum">    1335</span>              :  * Wraps an [ActionSelectorFork] with v1model-specific pipeline state captured at the fork point.</span>
+<span id="L1336"><span class="lineNum">    1336</span>              :  *</span>
+<span id="L1337"><span class="lineNum">    1337</span>              :  * Created by [runControlStages] when it catches the interpreter's fork exception. Carries</span>
+<span id="L1338"><span class="lineNum">    1338</span>              :  * everything needed to resume each branch from the fork point (fork-point resume) instead of</span>
+<span id="L1339"><span class="lineNum">    1339</span>              :  * replaying the pipeline.</span>
+<span id="L1340"><span class="lineNum">    1340</span>              :  */</span>
+<span id="L1341"><span class="lineNum">    1341</span> <span class="tlaGNC">           1 : internal class V1ModelSelectorFork(</span></span>
+<span id="L1342"><span class="lineNum">    1342</span> <span class="tlaGNC">           1 :   val fork: ActionSelectorFork,</span></span>
+<span id="L1343"><span class="lineNum">    1343</span> <span class="tlaGNC">           1 :   val pendingOps: V1ModelPendingOps,</span></span>
+<span id="L1344"><span class="lineNum">    1344</span> <span class="tlaGNC">           1 :   val stage: PipelineStage,</span></span>
+<span id="L1345"><span class="lineNum">    1345</span> <span class="tlaGNC">           1 :   val remainingStages: List&lt;PipelineStage&gt;,</span></span>
+<span id="L1346"><span class="lineNum">    1346</span>              :   /** True if the fork happened during ingress controls (boundary + egress + deparser remain). */</span>
+<span id="L1347"><span class="lineNum">    1347</span> <span class="tlaGNC">           1 :   val duringIngress: Boolean,</span></span>
+<span id="L1348"><span class="lineNum">    1348</span>              :   /** Post-parser env for I2E clone fork-point resume (may be null for egress forks). */</span>
+<span id="L1349"><span class="lineNum">    1349</span> <span class="tlaGNC">           1 :   val postParserEnv: Environment? = null,</span></span>
+<span id="L1350"><span class="lineNum">    1350</span> <span class="tlaGNC">           1 : ) : ForkException(fork.eventsBeforeFork)</span></span>
+<span id="L1351"><span class="lineNum">    1351</span>              : </span>
+<span id="L1352"><span class="lineNum">    1352</span>              : /**</span>
+<span id="L1353"><span class="lineNum">    1353</span>              :  * Fork at the ingress→egress boundary when an I2E clone was requested — &quot;original&quot; plus one clone</span>
+<span id="L1354"><span class="lineNum">    1354</span>              :  * branch per replica. Carries fork-point state so all branches can continue via fork-point resume.</span>
+<span id="L1355"><span class="lineNum">    1355</span>              :  */</span>
+<span id="L1356"><span class="lineNum">    1356</span> <span class="tlaGNC">           1 : internal class CloneFork(</span></span>
+<span id="L1357"><span class="lineNum">    1357</span> <span class="tlaGNC">           1 :   val sessionId: Int,</span></span>
+<span id="L1358"><span class="lineNum">    1358</span> <span class="tlaGNC">           1 :   val replicas: List&lt;Replica&gt;,</span></span>
+<span id="L1359"><span class="lineNum">    1359</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
+<span id="L1360"><span class="lineNum">    1360</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
+<span id="L1361"><span class="lineNum">    1361</span>              :   /** Deep copy of the post-ingress environment (for the &quot;original&quot; branch). */</span>
+<span id="L1362"><span class="lineNum">    1362</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
+<span id="L1363"><span class="lineNum">    1363</span>              :   /** Parser buffer position at the fork point. */</span>
+<span id="L1364"><span class="lineNum">    1364</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
+<span id="L1365"><span class="lineNum">    1365</span>              :   /** Pending operations at the fork point. */</span>
+<span id="L1366"><span class="lineNum">    1366</span> <span class="tlaGNC">           1 :   val forkPointPendingOps: V1ModelPendingOps,</span></span>
+<span id="L1367"><span class="lineNum">    1367</span>              :   /** Post-parser env (for clone branches — BMv2: clone gets pre-ingress state). */</span>
+<span id="L1368"><span class="lineNum">    1368</span> <span class="tlaGNC">           1 :   val postParserEnv: Environment,</span></span>
+<span id="L1369"><span class="lineNum">    1369</span>              :   /** Clone session packet_length_bytes: 0 = no truncation, &gt;0 = truncate to this many bytes. */</span>
+<span id="L1370"><span class="lineNum">    1370</span> <span class="tlaGNC">           1 :   val truncateBytes: Int = 0,</span></span>
+<span id="L1371"><span class="lineNum">    1371</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
+<span id="L1372"><span class="lineNum">    1372</span>              : </span>
+<span id="L1373"><span class="lineNum">    1373</span>              : /**</span>
+<span id="L1374"><span class="lineNum">    1374</span>              :  * Fork after egress controls when an E2E clone was requested — &quot;original&quot; plus one clone branch per</span>
+<span id="L1375"><span class="lineNum">    1375</span>              :  * replica. Carries fork-point state so all branches can continue via fork-point resume.</span>
+<span id="L1376"><span class="lineNum">    1376</span>              :  */</span>
+<span id="L1377"><span class="lineNum">    1377</span> <span class="tlaGNC">           1 : internal class EgressCloneFork(</span></span>
+<span id="L1378"><span class="lineNum">    1378</span> <span class="tlaGNC">           1 :   val sessionId: Int,</span></span>
+<span id="L1379"><span class="lineNum">    1379</span> <span class="tlaGNC">           1 :   val replicas: List&lt;Replica&gt;,</span></span>
+<span id="L1380"><span class="lineNum">    1380</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
+<span id="L1381"><span class="lineNum">    1381</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
+<span id="L1382"><span class="lineNum">    1382</span>              :   /** Deep copy of the post-egress environment (for both branches). */</span>
+<span id="L1383"><span class="lineNum">    1383</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
+<span id="L1384"><span class="lineNum">    1384</span>              :   /** Parser buffer position at the fork point. */</span>
+<span id="L1385"><span class="lineNum">    1385</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
+<span id="L1386"><span class="lineNum">    1386</span>              :   /** Pending operations at the fork point. */</span>
+<span id="L1387"><span class="lineNum">    1387</span> <span class="tlaGNC">           1 :   val forkPointPendingOps: V1ModelPendingOps,</span></span>
+<span id="L1388"><span class="lineNum">    1388</span>              :   /** Clone session packet_length_bytes: 0 = no truncation, &gt;0 = truncate to this many bytes. */</span>
+<span id="L1389"><span class="lineNum">    1389</span> <span class="tlaGNC">           1 :   val truncateBytes: Int = 0,</span></span>
+<span id="L1390"><span class="lineNum">    1390</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
+<span id="L1391"><span class="lineNum">    1391</span>              : </span>
+<span id="L1392"><span class="lineNum">    1392</span>              : /** Fork at the ingress→egress boundary when mcast_grp is set — one branch per replica. */</span>
+<span id="L1393"><span class="lineNum">    1393</span> <span class="tlaGNC">           1 : internal class MulticastFork(</span></span>
+<span id="L1394"><span class="lineNum">    1394</span> <span class="tlaGNC">           1 :   val replicas: List&lt;Replica&gt;,</span></span>
+<span id="L1395"><span class="lineNum">    1395</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
+<span id="L1396"><span class="lineNum">    1396</span>              :   /** Deep copy of the environment at the fork point (post-ingress). */</span>
+<span id="L1397"><span class="lineNum">    1397</span> <span class="tlaGNC">           1 :   val forkPointEnv: Environment,</span></span>
+<span id="L1398"><span class="lineNum">    1398</span>              :   /** Parser buffer position at the fork point. */</span>
+<span id="L1399"><span class="lineNum">    1399</span> <span class="tlaGNC">           1 :   val bytesConsumed: Int,</span></span>
+<span id="L1400"><span class="lineNum">    1400</span>              :   /** Pending operations at the fork point. */</span>
+<span id="L1401"><span class="lineNum">    1401</span> <span class="tlaGNC">           1 :   val forkPointPendingOps: V1ModelPendingOps,</span></span>
+<span id="L1402"><span class="lineNum">    1402</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
+<span id="L1403"><span class="lineNum">    1403</span>              : </span>
+<span id="L1404"><span class="lineNum">    1404</span>              : /** Fork at the ingress→egress boundary when resubmit was requested — single branch re-ingress. */</span>
+<span id="L1405"><span class="lineNum">    1405</span> <span class="tlaGNC">           1 : internal class ResubmitFork(</span></span>
+<span id="L1406"><span class="lineNum">    1406</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
+<span id="L1407"><span class="lineNum">    1407</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
+<span id="L1408"><span class="lineNum">    1408</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
+<span id="L1409"><span class="lineNum">    1409</span>              : </span>
+<span id="L1410"><span class="lineNum">    1410</span>              : /** Fork after deparser when recirculate was requested — single branch with deparsed bytes. */</span>
+<span id="L1411"><span class="lineNum">    1411</span> <span class="tlaGNC">           1 : internal class RecirculateFork(</span></span>
+<span id="L1412"><span class="lineNum">    1412</span> <span class="tlaGNC">           1 :   val deparsedBytes: ByteArray,</span></span>
+<span id="L1413"><span class="lineNum">    1413</span>              :   eventsBeforeFork: List&lt;TraceEvent&gt;,</span>
+<span id="L1414"><span class="lineNum">    1414</span> <span class="tlaGNC">           1 :   val preservedMetadata: Map&lt;String, Value&gt;? = null,</span></span>
+<span id="L1415"><span class="lineNum">    1415</span> <span class="tlaGNC">           1 : ) : ForkException(eventsBeforeFork)</span></span>
+<span id="L1416"><span class="lineNum">    1416</span>              : </span>
+<span id="L1417"><span class="lineNum">    1417</span>              : // =============================================================================</span>
+<span id="L1418"><span class="lineNum">    1418</span>              : // log_msg formatting helpers</span>
+<span id="L1419"><span class="lineNum">    1419</span>              : // =============================================================================</span>
+<span id="L1420"><span class="lineNum">    1420</span>              : </span>
+<span id="L1421"><span class="lineNum">    1421</span>              : /** Substitutes `{}` placeholders in a log_msg format string with struct field values. */</span>
+<span id="L1422"><span class="lineNum">    1422</span>              : private fun formatLogMessage(format: String, data: Value): String {</span>
+<span id="L1423"><span class="lineNum">    1423</span> <span class="tlaGNC">           1 :   val values =</span></span>
+<span id="L1424"><span class="lineNum">    1424</span> <span class="tlaGNC">           1 :     when (data) {</span></span>
+<span id="L1425"><span class="lineNum">    1425</span> <span class="tlaGNC">           1 :       is StructVal -&gt; data.fields.values.toList()</span></span>
+<span id="L1426"><span class="lineNum">    1426</span> <span class="tlaGNC">           1 :       else -&gt; listOf(data)</span></span>
+<span id="L1427"><span class="lineNum">    1427</span>              :     }</span>
+<span id="L1428"><span class="lineNum">    1428</span> <span class="tlaGNC">           1 :   val sb = StringBuilder()</span></span>
+<span id="L1429"><span class="lineNum">    1429</span> <span class="tlaGNC">           1 :   var valueIdx = 0</span></span>
+<span id="L1430"><span class="lineNum">    1430</span> <span class="tlaGNC">           1 :   var i = 0</span></span>
+<span id="L1431"><span class="lineNum">    1431</span> <span class="tlaGNC">           1 :   while (i &lt; format.length) {</span></span>
+<span id="L1432"><span class="lineNum">    1432</span> <span class="tlaGNC">           1 :     if (i + 1 &lt; format.length &amp;&amp; format[i] == '{' &amp;&amp; format[i + 1] == '}') {</span></span>
+<span id="L1433"><span class="lineNum">    1433</span> <span class="tlaGNC">           1 :       sb.append(if (valueIdx &lt; values.size) formatValue(values[valueIdx++]) else &quot;{}&quot;)</span></span>
+<span id="L1434"><span class="lineNum">    1434</span> <span class="tlaGNC">           1 :       i += 2</span></span>
+<span id="L1435"><span class="lineNum">    1435</span>              :     } else {</span>
+<span id="L1436"><span class="lineNum">    1436</span> <span class="tlaGNC">           1 :       sb.append(format[i])</span></span>
+<span id="L1437"><span class="lineNum">    1437</span> <span class="tlaGNC">           1 :       i++</span></span>
+<span id="L1438"><span class="lineNum">    1438</span>              :     }</span>
+<span id="L1439"><span class="lineNum">    1439</span>              :   }</span>
+<span id="L1440"><span class="lineNum">    1440</span> <span class="tlaGNC">           1 :   return sb.toString()</span></span>
+<span id="L1441"><span class="lineNum">    1441</span>              : }</span>
+<span id="L1442"><span class="lineNum">    1442</span>              : </span>
+<span id="L1443"><span class="lineNum">    1443</span>              : /** Formats a runtime value for log_msg output. */</span>
+<span id="L1444"><span class="lineNum">    1444</span>              : private fun formatValue(value: Value): String =</span>
+<span id="L1445"><span class="lineNum">    1445</span> <span class="tlaGNC">           1 :   when (value) {</span></span>
+<span id="L1446"><span class="lineNum">    1446</span> <span class="tlaGNC">           1 :     is BitVal -&gt; value.bits.value.toString()</span></span>
+<span id="L1447"><span class="lineNum">    1447</span> <span class="tlaUNC tlaBgUNC">           0 :     is IntVal -&gt; value.bits.value.toString()</span></span>
+<span id="L1448"><span class="lineNum">    1448</span> <span class="tlaUNC">           0 :     is BoolVal -&gt; value.value.toString()</span></span>
+<span id="L1449"><span class="lineNum">    1449</span> <span class="tlaUNC">           0 :     is InfIntVal -&gt; value.value.toString()</span></span>
+<span id="L1450"><span class="lineNum">    1450</span> <span class="tlaUNC">           0 :     is EnumVal -&gt; value.member</span></span>
+<span id="L1451"><span class="lineNum">    1451</span> <span class="tlaUNC">           0 :     is ErrorVal -&gt; value.member</span></span>
+<span id="L1452"><span class="lineNum">    1452</span> <span class="tlaUNC">           0 :     is StringVal -&gt; value.value</span></span>
+<span id="L1453"><span class="lineNum">    1453</span> <span class="tlaUNC">           0 :     else -&gt; value.toString()</span></span>
+<span id="L1454"><span class="lineNum">    1454</span> <span class="tlaGNC tlaBgGNC">           1 :   }</span></span>
         </pre>
               </td>
             </tr>
