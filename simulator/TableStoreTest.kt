@@ -204,6 +204,23 @@ class TableStoreTest {
       .setMeterConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(cir).setCburst(cburst))
       .build()
 
+  private fun withMeterCounterData(
+    entry: TableEntry,
+    packetCount: Long = 42,
+    byteCount: Long = 1000,
+  ): TableEntry =
+    entry
+      .toBuilder()
+      .setMeterCounterData(
+        P4RuntimeOuterClass.MeterCounterData.newBuilder()
+          .setGreen(
+            P4RuntimeOuterClass.CounterData.newBuilder()
+              .setPacketCount(packetCount)
+              .setByteCount(byteCount)
+          )
+      )
+      .build()
+
   private fun actionDecl(name: String, vararg body: Stmt): ActionDecl =
     ActionDecl.newBuilder().setName(name).addAllBody(body.toList()).build()
 
@@ -1910,10 +1927,35 @@ class TableStoreTest {
   }
 
   @Test
+  fun `insert rejects meter counter data for table without direct meter`() {
+    val entry =
+      withMeterCounterData(exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10))
+
+    val result = store.writeAndPublish(insertUpdate(entry))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertTrue(store.getTableEntries(TABLE_NAME).isEmpty())
+  }
+
+  @Test
   fun `modify rejects counter data for table without direct counter`() {
     val original = exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10)
     store.writeAndPublish(insertUpdate(original))
     val modified = withCounterData(withAction(original, actionId = 20))
+
+    val result = store.writeAndPublish(modifyUpdate(modified))
+
+    val entries = store.getTableEntries(TABLE_NAME)
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertEquals(1, entries.size)
+    assertEquals(10, entries[0].action.action.actionId)
+  }
+
+  @Test
+  fun `modify rejects meter counter data for table without direct meter`() {
+    val original = exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10)
+    store.writeAndPublish(insertUpdate(original))
+    val modified = withMeterCounterData(withAction(original, actionId = 20))
 
     val result = store.writeAndPublish(modifyUpdate(modified))
 
@@ -1940,6 +1982,17 @@ class TableStoreTest {
     store.writeAndPublish(insertUpdate(entry))
 
     val result = store.writeAndPublish(deleteUpdate(withMeterConfig(entry)))
+
+    assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
+    assertEquals(1, store.getTableEntries(TABLE_NAME).size)
+  }
+
+  @Test
+  fun `delete rejects meter counter data for table without direct meter`() {
+    val entry = exactEntry(fieldId = 1, value = byteArrayOf(100), actionId = 10)
+    store.writeAndPublish(insertUpdate(entry))
+
+    val result = store.writeAndPublish(deleteUpdate(withMeterCounterData(entry)))
 
     assertTrue("expected InvalidArgument", result is WriteResult.InvalidArgument)
     assertEquals(1, store.getTableEntries(TABLE_NAME).size)
