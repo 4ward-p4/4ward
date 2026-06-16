@@ -111,5 +111,5 @@ available to external tools:
 - Sending another packet overwrites the previous result (no history).
 - The Monaco editor requires an internet connection (loaded from CDN).
 
-See [LIMITATIONS.md](https://github.com/smolkaj/4ward/blob/main/docs/LIMITATIONS.md)
+See [LIMITATIONS.md]({{ config.repo_url }}/blob/main/docs/LIMITATIONS.md)
 for the full list.

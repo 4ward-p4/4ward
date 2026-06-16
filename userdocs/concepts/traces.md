@@ -5,7 +5,7 @@ description: "How 4ward trace trees capture every possible packet outcome — pa
 # Trace Trees
 
 Every packet 4ward processes produces a **trace tree**
-([`TraceTree`](https://github.com/smolkaj/4ward/blob/main/simulator/simulator.proto)
+([`TraceTree`]({{ config.repo_url }}/blob/main/simulator/simulator.proto)
 in `simulator.proto`) — a complete record of every decision the simulator
 made. Most packets take a single path through the
 pipeline and produce a linear trace. At non-deterministic choice points (action

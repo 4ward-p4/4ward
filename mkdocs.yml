@@ -13,6 +13,7 @@ plugins:
   - search
   - glightbox
   - meta
+  - macros
 
 extra:
   social:

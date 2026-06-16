@@ -18,7 +18,7 @@ all possible outcomes in a single pass.
 
 !!! tip "Prefer to get your hands dirty?"
 
-    Jump straight to the **[hands-on tutorial](https://github.com/smolkaj/4ward/blob/main/examples/tutorial.t)** — compile a P4 program, send packets, read traces, all from the terminal. Every command is CI-verified, so it always works.
+    Jump straight to the **[hands-on tutorial]({{ config.repo_url }}/blob/main/examples/tutorial.t)** — compile a P4 program, send packets, read traces, all from the terminal. Every command is CI-verified, so it always works.
 
 ## Pick your entry point
 
