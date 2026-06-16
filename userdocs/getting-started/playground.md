@@ -7,7 +7,7 @@ description: "Get started with the 4ward web playground: edit P4, install table 
 The playground is the fastest way to try 4ward — edit, compile, and trace P4
 programs in the browser.
 
-![4ward Web Playground]({{ repo | replace("github.com", "raw.githubusercontent.com") }}/main/docs/playground.gif)
+![4ward Web Playground]({{ repo_raw }}/main/docs/playground.gif)
 
 ## Start the server
 
