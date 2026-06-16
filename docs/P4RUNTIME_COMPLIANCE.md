@@ -242,7 +242,7 @@ UNIMPLEMENTED (rejection is tested), **N/A** = out of scope
 | 14.2 | PacketOut with table entries forwards correctly | Y | ConformanceTest #14 |
 | 14.3 | Multiple packets preserve ordering | Y | ConformanceTest #15 |
 | 14.4 | StreamError on invalid stream message | Y | ConformanceTest #67 |
-| 14.5 | Digest delivery | N/A | Out of scope — no real packet rates to trigger digests |
+| 14.5 | Digest delivery | N/A | Out of scope — no control-plane digest queue or stream-delivery model |
 | 14.6 | DigestListAck handling | N/A | Digests out of scope |
 | 14.7 | Idle timeout notifications | N/A | Out of scope — no wall-clock time in a reference simulator |
 | 14.8 | Architecture-specific `other` messages | Y | Rejected with StreamError; ConformanceTest #67 |

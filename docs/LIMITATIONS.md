@@ -76,10 +76,10 @@ guilt — just write it down so someone can find it later.
 - **Direct meters always return GREEN by design.** Direct meter configs can be
   written and read via P4Runtime, but `direct_meter.read()` does not consume or
   refill buckets. It always returns the default color (GREEN).
-- **No digests or idle timeouts (by design).** Both are inherently
-  time-dependent features that have no meaningful semantics in a reference
-  simulator: there are no real packet rates to trigger digests, and no
-  wall-clock time to expire idle entries. These are explicitly out of scope.
+- **No digest delivery or idle timeouts (by design).** Both need runtime
+  machinery that is outside the reference simulator: there is no control-plane
+  digest queue or stream-delivery model, and no wall-clock time to expire idle
+  entries. These are explicitly out of scope.
 ## Simulator
 
 - **Fork-point resume is v1model only.** When the trace tree forks (action
