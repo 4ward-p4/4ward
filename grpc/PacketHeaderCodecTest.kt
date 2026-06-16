@@ -308,6 +308,32 @@ class PacketHeaderCodecTest {
     assertArrayEquals(byteArrayOf(0xC3.toByte()), packetIn.payload.toByteArray())
   }
 
+  @Test
+  @Suppress("MagicNumber")
+  fun `decodePacketIn with no packet_in controller header returns the payload verbatim`() {
+    // A program that defines packet_out (so a codec exists) but no packet_in @controller_header —
+    // e.g. it accepts PacketOut but never punts to the controller. There is no header to strip and
+    // no metadata to parse, so the payload passes through untouched.
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+        )
+        .build()
+    // No behavioral config needed: the packet_out field carries its own bitwidth, and with no
+    // packet_in metadata there are zero packet_in fields regardless of the header types.
+    val codec = PacketHeaderCodec.create(p4info, BehavioralConfig.getDefaultInstance())!!
+    assertEquals(0, codec.packetInHeaderBits)
+
+    val payload = byteArrayOf(0xDE.toByte(), 0xAD.toByte(), 0xBE.toByte(), 0xEF.toByte())
+    val packetIn = codec.decodePacketIn(com.google.protobuf.ByteString.copyFrom(payload))
+
+    assertEquals(0, packetIn.metadataCount)
+    assertArrayEquals(payload, packetIn.payload.toByteArray())
+  }
+
   // =========================================================================
   // stripPacketInHeader
   // =========================================================================
