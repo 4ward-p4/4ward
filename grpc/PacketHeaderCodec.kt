@@ -32,7 +32,8 @@ sealed interface PortOverride {
 
 /**
  * Three-state configuration for the CPU port.
- * - [Auto]: derive from p4info (`2^portBits - 2`). This is the default.
+ * - [Auto]: derive from the architecture dataplane port width (`2^portBits - 2`). This is the
+ *   default.
  * - [Override]: use an explicit port value (dataplane integer or P4RT name).
  * - [Disabled]: no CPU port, even if the p4info has `ControllerPacketMetadata`. Packets egressing
  *   on what would have been the CPU port are treated as regular output; PacketOut is rejected.
@@ -70,7 +71,7 @@ private constructor(
   /** The CPU port for PacketOut packets (v1model convention: 2^portBits - 2). */
   val cpuPort: Int,
 ) {
-  data class FieldDef(val id: Int, val name: String, val bitWidth: Int)
+  data class FieldDef(val id: Int?, val name: String, val bitWidth: Int)
 
   private val packetOutHeaderBits: Int = packetOutFields.sumOf { it.bitWidth }
 
@@ -78,8 +79,7 @@ private constructor(
   val packetOutHeaderBytes: Int = (packetOutHeaderBits + 7) / 8
 
   /**
-   * Total bits of the serialized packet_in header, derived from p4info field widths. Correctness
-   * depends on p4info matching the behavioral config's `packet_in_header_t` type definition.
+   * Total bits of the serialized packet_in header, derived from @controller_header("packet_in").
    */
   val packetInHeaderBits: Int = packetInFields.sumOf { it.bitWidth }
 
@@ -125,24 +125,27 @@ private constructor(
 
   /** Packs PacketOut metadata into a bit-packed binary header. */
   fun serializePacketOut(metadata: List<PacketMetadata>): ByteArray {
+    validatePacketOutMetadata(metadata)
     val metadataById = metadata.associateBy { it.metadataId }
     return packFields(packetOutFields, metadataById)
   }
 
   /**
-   * Packs the PacketOut header and payload into a continuous bit stream. The header fields are
-   * packed at bit granularity followed immediately by the payload bits — no inter-field padding.
-   * This avoids the corruption that byte-concatenation causes for non-byte-aligned headers.
+   * Packs the PacketOut controller header followed immediately by the byte payload.
+   *
+   * The P4Runtime spec defines PacketOut metadata from the P4 header annotated
+   * `@controller_header("packet_out")`. The P4 parser extracts that header's declared fields, then
+   * continues at the next bit. Therefore fields present in the annotated header but absent from
+   * P4Info, such as `@padding` fields, are serialized as zero bits in their declared positions, and
+   * no extra byte-alignment gap is inserted before the payload.
    */
   @Suppress("MagicNumber")
   fun packPacketOut(metadata: List<PacketMetadata>, payload: ByteArray): ByteArray {
-    // When the header is byte-aligned, serializePacketOut produces exact-width bytes
-    // and byte-concatenation with the payload introduces no padding gap.
-    if (packetOutHeaderBits % 8 == 0) return serializePacketOut(metadata) + payload
+    validatePacketOutMetadata(metadata)
     val metadataById = metadata.associateBy { it.metadataId }
     val acc = BitAccumulator()
     for (field in packetOutFields) {
-      val raw = metadataById[field.id]?.value?.toByteArray() ?: ByteArray(0)
+      val raw = field.id?.let { metadataById[it]?.value?.toByteArray() } ?: ByteArray(0)
       var v = 0L
       for (b in raw) v = (v shl 8) or (b.toLong() and 0xFF)
       if (field.bitWidth < Long.SIZE_BITS) v = v and ((1L shl field.bitWidth) - 1)
@@ -150,6 +153,16 @@ private constructor(
     }
     acc.appendRawBytes(payload, 0, payload.size * 8)
     return acc.toByteArray()
+  }
+
+  private fun validatePacketOutMetadata(metadata: List<PacketMetadata>) {
+    val expected = packetOutFields.mapNotNull { it.id }.toSet()
+    val actual = metadata.map { it.metadataId }
+    require(actual.size == actual.toSet().size) { "duplicate packet_out metadata ID" }
+    require(actual.toSet() == expected) {
+      "packet_out metadata IDs must match P4Info: expected ${expected.sorted()}, " +
+        "got ${actual.sorted()}"
+    }
   }
 
   /** Number of meaningful packet bits in [packPacketOut]'s byte-aligned output. */
@@ -161,12 +174,11 @@ private constructor(
    * `@controller_header("packet_in")` bits into metadata fields and returns the remaining packet as
    * the payload.
    *
-   * The metadata is read positionally from the header bit stream according to each field's
-   * p4info-declared width — never reconstructed from simulator state or program-specific field
-   * names. This is the inverse of the deparser's controller-header emit, so the metadata reflects
-   * exactly what the P4 program assigned (e.g. a punted-but-dropped packet reports its intended
-   * egress port, not the CPU port it physically left on). Generic by construction: it works for any
-   * P4 program's `packet_in` layout.
+   * The metadata is read positionally from the annotated header bit stream. Fields omitted from
+   * P4Info, such as padding, are consumed but not reported. Values are never reconstructed from
+   * simulator state or program-specific field names, so PacketIn reflects exactly what the P4
+   * program assigned (e.g. a punted-but-dropped packet reports its intended egress port, not the
+   * CPU port it physically left on).
    */
   fun decodePacketIn(deparsedPayload: ByteString): PacketIn =
     PacketIn.newBuilder()
@@ -183,10 +195,11 @@ private constructor(
         "$packetInHeaderBits-bit packet_in controller header"
     }
     var bitOffset = 0
-    return packetInFields.map { field ->
+    return packetInFields.mapNotNull { field ->
       val value = readBits(bytes, bitOffset, field.bitWidth)
       bitOffset += field.bitWidth
-      PacketMetadata.newBuilder().setMetadataId(field.id).setValue(encodeMinWidth(value)).build()
+      val id = field.id ?: return@mapNotNull null
+      PacketMetadata.newBuilder().setMetadataId(id).setValue(encodeMinWidth(value)).build()
     }
   }
 
@@ -216,7 +229,7 @@ private constructor(
     var bits = 0L
     var totalBits = 0
     for (field in fields) {
-      val value = metadata[field.id]?.value?.toByteArray() ?: ByteArray(0)
+      val value = field.id?.let { metadata[it]?.value?.toByteArray() } ?: ByteArray(0)
       var v = 0L
       for (b in value) v = (v shl 8) or (b.toLong() and 0xFF)
       if (field.bitWidth < Long.SIZE_BITS) v = v and ((1L shl field.bitWidth) - 1)
@@ -251,51 +264,82 @@ private constructor(
       val packetOutMeta =
         p4info.controllerPacketMetadataList.find { it.preamble.name == "packet_out" } ?: return null
 
-      // Build header-type → field-name → bitwidth map from behavioral config.
-      val headerWidths = buildMap {
-        for (type in behavioral.typesList) {
-          if (type.hasHeader()) {
-            put(type.name, type.header.fieldsList.associate { it.name to bitWidth(it.type) })
-          }
-        }
+      val packetOutMetaByName = packetOutMeta.metadataList.associateBy { it.name }
+      val packetOutType = controllerHeaderLayout(behavioral, "packet_out")
+      val packetOutFieldNames = packetOutType.map { it.name }.toSet()
+      val unknownPacketOutMetadata =
+        packetOutMeta.metadataList.map { it.name } - packetOutFieldNames
+      require(unknownPacketOutMetadata.isEmpty()) {
+        "packet_out metadata field(s) not found in @controller_header(\"packet_out\"): " +
+          unknownPacketOutMetadata.joinToString()
       }
-
-      val packetOutType = headerWidths["packet_out_header_t"]
       val packetOutFields =
-        packetOutMeta.metadataList.map { meta ->
+        packetOutType.map { field ->
           FieldDef(
-            id = meta.id,
-            name = meta.name,
-            bitWidth =
-              if (meta.bitwidth > 0) meta.bitwidth
-              else
-                packetOutType?.get(meta.name)
-                  ?: error("cannot determine bitwidth for packet_out.${meta.name}"),
+            id = packetOutMetaByName[field.name]?.id,
+            name = field.name,
+            bitWidth = field.bitWidth,
           )
         }
 
-      // CPU port = 2^portBits - 2 (v1model convention; drop port is 2^W - 1).
-      val portBits =
-        packetOutFields.find { it.name == "egress_port" }?.bitWidth ?: DEFAULT_PORT_BITS
-      val cpuPort = cpuPortOverride ?: ((1 shl portBits) - 2)
+      val cpuPort = cpuPortOverride ?: deriveAutoCpuPort(architectureIngressPortBits(behavioral))
 
       val packetInMeta =
         p4info.controllerPacketMetadataList.find { it.preamble.name == "packet_in" }
-      val packetInType = headerWidths["packet_in_header_t"]
+      val packetInType = packetInMeta?.let { controllerHeaderLayout(behavioral, "packet_in") }
+      val packetInMetaByName = packetInMeta?.metadataList?.associateBy { it.name }
+      val packetInFieldNames = packetInType?.map { it.name }?.toSet() ?: emptySet()
+      val unknownPacketInMetadata =
+        packetInMeta?.metadataList?.map { it.name }?.minus(packetInFieldNames) ?: emptyList()
+      require(unknownPacketInMetadata.isEmpty()) {
+        "packet_in metadata field(s) not found in @controller_header(\"packet_in\"): " +
+          unknownPacketInMetadata.joinToString()
+      }
       val packetInFields =
-        packetInMeta?.metadataList?.map { meta ->
+        packetInType?.map { field ->
           FieldDef(
-            id = meta.id,
-            name = meta.name,
-            bitWidth =
-              if (meta.bitwidth > 0) meta.bitwidth else packetInType?.get(meta.name) ?: portBits,
+            id = packetInMetaByName?.get(field.name)?.id,
+            name = field.name,
+            bitWidth = field.bitWidth,
           )
         } ?: emptyList()
 
       return PacketHeaderCodec(packetOutFields, packetInFields, cpuPort)
     }
 
-    private const val DEFAULT_PORT_BITS = 9
+    private const val STANDARD_METADATA_TYPE = "standard_metadata_t"
+
+    private fun controllerHeaderLayout(
+      behavioral: BehavioralConfig,
+      controllerHeader: String,
+    ): List<FieldDef> {
+      val matches =
+        behavioral.typesList.filter {
+          it.hasHeader() && it.header.controllerHeader == controllerHeader
+        }
+      require(matches.size == 1) {
+        "expected exactly one header annotated @controller_header(\"$controllerHeader\"), " +
+          "found ${matches.size}"
+      }
+      return matches.single().header.fieldsList.map { FieldDef(null, it.name, bitWidth(it.type)) }
+    }
+
+    private fun architectureIngressPortBits(behavioral: BehavioralConfig): Int {
+      val standardMetadata =
+        behavioral.typesList.singleOrNull { it.name == STANDARD_METADATA_TYPE && it.hasStruct() }
+      require(standardMetadata != null) { "$STANDARD_METADATA_TYPE not found in behavioral IR" }
+      val ingressPort =
+        standardMetadata.struct.fieldsList.singleOrNull { it.name == "ingress_port" }
+      require(ingressPort != null) { "$STANDARD_METADATA_TYPE has no ingress_port field" }
+      return bitWidth(ingressPort.type)
+    }
+
+    private fun deriveAutoCpuPort(portBits: Int): Int {
+      require(portBits in 1..Int.SIZE_BITS) {
+        "automatic CPU port derivation requires a 1..32-bit dataplane port, got $portBits bits"
+      }
+      return BigInteger.ONE.shiftLeft(portBits).subtract(BigInteger.TWO).toInt()
+    }
 
     private fun bitWidth(type: Type): Int =
       when (type.kindCase) {

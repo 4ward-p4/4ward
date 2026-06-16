@@ -287,12 +287,13 @@ int main(int argc, char* const argv[]) {
     auto entries = *p4Runtime.entries;
     fixConstEntryPriorities(program, *p4Runtime.p4Info, &entries);
 
-    // Parse @p4runtime_translation_mappings annotations (not handled by the
-    // standard frontend) so extractTypeTranslations can read them as expression
-    // lists.  Must happen before the midend, which eliminates Type_Newtype.
+    // Parse annotations the backend reads directly. Must happen before the
+    // midend, which eliminates Type_Newtype and preserves header declarations
+    // for behavioral IR emission.
     P4::ParseAnnotations parseTranslationMappings(
         "FourWard", false,
-        {{"p4runtime_translation_mappings"_cs,
+        {PARSE("controller_header"_cs, StringLiteral),
+         {"p4runtime_translation_mappings"_cs,
           &P4::ParseAnnotations::parseExpressionList}});
     program = program->apply(parseTranslationMappings);
 

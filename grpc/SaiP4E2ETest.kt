@@ -1947,6 +1947,7 @@ class SaiP4E2ETest {
       config.p4Info.controllerPacketMetadataList.find { it.preamble.name == "packet_out" }!!
     val egressPortId = packetOutMeta.metadataList.find { it.name == "egress_port" }!!.id
     val submitToIngressId = packetOutMeta.metadataList.find { it.name == "submit_to_ingress" }!!.id
+    val unusedPadId = packetOutMeta.metadataList.find { it.name == "unused_pad" }!!.id
 
     return P4RuntimeOuterClass.PacketOut.newBuilder()
       .setPayload(
@@ -1961,6 +1962,11 @@ class SaiP4E2ETest {
         P4RuntimeOuterClass.PacketMetadata.newBuilder()
           .setMetadataId(submitToIngressId)
           .setValue(ByteString.copyFrom(byteArrayOf(if (submitToIngress) 1 else 0)))
+      )
+      .addMetadata(
+        P4RuntimeOuterClass.PacketMetadata.newBuilder()
+          .setMetadataId(unusedPadId)
+          .setValue(ByteString.copyFrom(byteArrayOf(0)))
       )
       .build()
   }

@@ -10,6 +10,7 @@ import fourward.BehavioralConfig
 import fourward.BitType
 import fourward.FieldDecl
 import fourward.HeaderDecl
+import fourward.StructDecl
 import fourward.Type
 import fourward.TypeDecl
 import fourward.simulator.BitAccumulator
@@ -18,6 +19,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import p4.config.v1.P4InfoOuterClass.ControllerPacketMetadata
 import p4.config.v1.P4InfoOuterClass.P4Info
@@ -55,6 +57,147 @@ class PacketHeaderCodecTest {
     assertEquals(510, codec.cpuPort)
   }
 
+  @Test
+  @Suppress("MagicNumber")
+  fun `create resolves packet io headers by controller_header annotation, not type name`() {
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+            .addMetadata(metaWithBitwidth(2, "submit_to_ingress", 1))
+        )
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_in"))
+            .addMetadata(metaWithBitwidth(3, "ingress_port", 5))
+            .addMetadata(metaWithBitwidth(4, "reason", 3))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("ArbitraryPacketOutName_t")
+            .setHeader(
+              controllerHeader(
+                "packet_out",
+                bitField("egress_port", 8),
+                bitField("submit_to_ingress", 1),
+                bitField("unused_pad", 7),
+              )
+            )
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("AnotherArbitraryPacketInName_t")
+            .setHeader(
+              controllerHeader("packet_in", bitField("ingress_port", 5), bitField("reason", 3))
+            )
+        )
+        .build()
+
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
+
+    assertEquals(2, codec.packetOutHeaderBytes)
+    assertEquals(1, codec.packetInHeaderBytes)
+    val packed =
+      codec.packPacketOut(
+        listOf(buildMetadata(1, byteArrayOf(0x12)), buildMetadata(2, byteArrayOf(1))),
+        byteArrayOf(0x34),
+      )
+    assertArrayEquals(byteArrayOf(0x12, 0x80.toByte(), 0x34), packed)
+  }
+
+  @Test
+  fun `create rejects packet_out metadata without packet_out controller header`() {
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("PacketOut_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+        )
+        .build()
+
+    assertThrows(IllegalArgumentException::class.java) {
+      PacketHeaderCodec.create(p4info, behavioral)
+    }
+  }
+
+  @Test
+  fun `create rejects packet_in metadata without packet_in controller header`() {
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+        )
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_in"))
+            .addMetadata(metaWithBitwidth(2, "ingress_port", 8))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("PacketOut_t")
+            .setHeader(controllerHeader("packet_out", bitField("egress_port", 8)))
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("PacketIn_t")
+            .setHeader(HeaderDecl.newBuilder().addFields(bitField("ingress_port", 8)))
+        )
+        .addTypes(standardMetadataType())
+        .build()
+
+    assertThrows(IllegalArgumentException::class.java) {
+      PacketHeaderCodec.create(p4info, behavioral)
+    }
+  }
+
+  @Test
+  fun `create rejects duplicate controller headers for one direction`() {
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("PacketOutA_t")
+            .setHeader(controllerHeader("packet_out", bitField("egress_port", 8)))
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("PacketOutB_t")
+            .setHeader(controllerHeader("packet_out", bitField("egress_port", 8)))
+        )
+        .build()
+
+    assertThrows(IllegalArgumentException::class.java) {
+      PacketHeaderCodec.create(p4info, behavioral)
+    }
+  }
+
   // =========================================================================
   // packPacketOut
   // =========================================================================
@@ -63,6 +206,7 @@ class PacketHeaderCodecTest {
   @Suppress("MagicNumber")
   fun `packPacketOut bit-packs non-byte-aligned header with payload`() {
     // 5-bit packet_out header (port=1 = 0b00001) + 2-byte payload (0xAA 0xBB).
+    // The annotated P4 header is 5 bits, so the payload begins immediately after bit 5.
     // Continuous bit stream: 00001_10101010_10111011_000
     // = 00001101 01010101 11011000
     // = 0x0D     0x55     0xD8
@@ -84,15 +228,15 @@ class PacketHeaderCodecTest {
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_out_header_t")
-            .setHeader(HeaderDecl.newBuilder().addFields(bitField("port", 5)))
+            .setHeader(controllerHeader("packet_out", bitField("port", 5)))
         )
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_in_header_t")
-            .setHeader(HeaderDecl.newBuilder().addFields(bitField("ingress_port", 8)))
+            .setHeader(controllerHeader("packet_in", bitField("ingress_port", 8)))
         )
         .build()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
 
     val metadata = listOf(buildMetadata(id = 1, value = byteArrayOf(1))) // port=1
     val payload = byteArrayOf(0xAA.toByte(), 0xBB.toByte())
@@ -100,6 +244,112 @@ class PacketHeaderCodecTest {
 
     assertEquals(3, packed.size)
     assertArrayEquals(byteArrayOf(0x0D, 0x55, 0xD8.toByte()), packed)
+    assertEquals(21, codec.packedPacketOutBitLength(payload.size))
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `packPacketOut includes behavioral padding fields omitted from p4info`() {
+    val (p4info, behavioral) = buildSaiLikeConfig()
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
+    val metadata =
+      listOf(
+        buildMetadata(id = 1, value = byteArrayOf(1)), // egress_port=1
+        buildMetadata(id = 2, value = byteArrayOf(1)), // submit_to_ingress=1
+      )
+    val payload = byteArrayOf(0x74, 0x65)
+
+    val packed = codec.packPacketOut(metadata, payload)
+
+    // Behavioral packet_out_header_t is 9 + 1 + 6 bits. The P4Info metadata omits unused_pad,
+    // but the parser still extracts those declared header bits before the Ethernet payload.
+    assertArrayEquals(byteArrayOf(0x00, 0xC0.toByte(), 0x74, 0x65), packed)
+    assertEquals(32, codec.packedPacketOutBitLength(payload.size))
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `packPacketOut includes 39-bit controller header before payload`() {
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 32))
+            .addMetadata(metaWithBitwidth(2, "submit_to_ingress", 1))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(
+              controllerHeader(
+                "packet_out",
+                bitField("egress_port", 32),
+                bitField("submit_to_ingress", 1),
+                bitField("unused_pad", 6),
+              )
+            )
+        )
+        .build()
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
+    val metadata =
+      listOf(
+        buildMetadata(id = 1, value = byteArrayOf(0, 0, 0, 1)),
+        buildMetadata(id = 2, value = byteArrayOf(1)),
+      )
+    val payload = byteArrayOf(0x74, 0x65)
+
+    val packed = codec.packPacketOut(metadata, payload)
+
+    assertArrayEquals(byteArrayOf(0, 0, 0, 1, 0x80.toByte(), 0xE8.toByte(), 0xCA.toByte()), packed)
+    assertEquals(55, codec.packedPacketOutBitLength(payload.size))
+  }
+
+  @Test
+  fun `packPacketOut rejects missing metadata field`() {
+    val (p4info, behavioral) = buildSaiLikeConfig()
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
+
+    assertThrows(IllegalArgumentException::class.java) {
+      codec.packPacketOut(listOf(buildMetadata(id = 1, value = byteArrayOf(1))), byteArrayOf())
+    }
+  }
+
+  @Test
+  fun `packPacketOut rejects unknown metadata field`() {
+    val (p4info, behavioral) = buildSaiLikeConfig()
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
+
+    assertThrows(IllegalArgumentException::class.java) {
+      codec.packPacketOut(
+        listOf(
+          buildMetadata(id = 1, value = byteArrayOf(1)),
+          buildMetadata(id = 2, value = byteArrayOf(0)),
+          buildMetadata(id = 99, value = byteArrayOf(0)),
+        ),
+        byteArrayOf(),
+      )
+    }
+  }
+
+  @Test
+  fun `packPacketOut rejects duplicate metadata field`() {
+    val (p4info, behavioral) = buildSaiLikeConfig()
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
+
+    assertThrows(IllegalArgumentException::class.java) {
+      codec.packPacketOut(
+        listOf(
+          buildMetadata(id = 1, value = byteArrayOf(1)),
+          buildMetadata(id = 1, value = byteArrayOf(2)),
+          buildMetadata(id = 2, value = byteArrayOf(0)),
+        ),
+        byteArrayOf(),
+      )
+    }
   }
 
   @Test
@@ -126,18 +376,20 @@ class PacketHeaderCodecTest {
           TypeDecl.newBuilder()
             .setName("packet_out_header_t")
             .setHeader(
-              HeaderDecl.newBuilder()
-                .addFields(bitField("egress_port", 8))
-                .addFields(bitField("submit_to_ingress", 8))
+              controllerHeader(
+                "packet_out",
+                bitField("egress_port", 8),
+                bitField("submit_to_ingress", 8),
+              )
             )
         )
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_in_header_t")
-            .setHeader(HeaderDecl.newBuilder().addFields(bitField("ingress_port", 8)))
+            .setHeader(controllerHeader("packet_in", bitField("ingress_port", 8)))
         )
         .build()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
 
     val metadata =
       listOf(
@@ -157,7 +409,7 @@ class PacketHeaderCodecTest {
   @Test
   fun `serializePacketOut packs all-zero fields correctly`() {
     val (p4info, behavioral) = buildSaiLikeConfig()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
 
     val metadata =
       listOf(
@@ -175,7 +427,7 @@ class PacketHeaderCodecTest {
   @Suppress("MagicNumber")
   fun `serializePacketOut packs egress_port=1 correctly`() {
     val (p4info, behavioral) = buildSaiLikeConfig()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
 
     val metadata =
       listOf(
@@ -193,7 +445,7 @@ class PacketHeaderCodecTest {
   @Suppress("MagicNumber")
   fun `serializePacketOut packs submit_to_ingress=1 correctly`() {
     val (p4info, behavioral) = buildSaiLikeConfig()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
 
     val metadata =
       listOf(
@@ -211,7 +463,7 @@ class PacketHeaderCodecTest {
   @Suppress("MagicNumber")
   fun `serializePacketOut packs both fields correctly`() {
     val (p4info, behavioral) = buildSaiLikeConfig()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
 
     val metadata =
       listOf(
@@ -233,7 +485,7 @@ class PacketHeaderCodecTest {
   @Suppress("MagicNumber")
   fun `decodePacketIn parses metadata from the deparsed header`() {
     val (p4info, behavioral) = buildSaiLikeConfig()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
 
     // Deparser output: packet_in header (ingress_port=7, target_egress_port=511) followed by a
     // 2-byte payload. target_egress_port=511 is the DROP port — distinct from any actual egress
@@ -281,17 +533,15 @@ class PacketHeaderCodecTest {
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_out_header_t")
-            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+            .setHeader(controllerHeader("packet_out", bitField("egress_port", 8)))
         )
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_in_header_t")
-            .setHeader(
-              HeaderDecl.newBuilder().addFields(bitField("foo", 5)).addFields(bitField("bar", 11))
-            )
+            .setHeader(controllerHeader("packet_in", bitField("foo", 5), bitField("bar", 11)))
         )
         .build()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
 
     // 16-bit header (foo=0x15, bar=0x2AB) + 1-byte payload.
     val acc = BitAccumulator()
@@ -310,6 +560,53 @@ class PacketHeaderCodecTest {
 
   @Test
   @Suppress("MagicNumber")
+  fun `decodePacketIn strips behavioral padding fields omitted from p4info`() {
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 8))
+        )
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_in"))
+            .addMetadata(metaWithBitwidth(2, "ingress_port", 9))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(controllerHeader("packet_out", bitField("egress_port", 8)))
+        )
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_in_header_t")
+            .setHeader(
+              controllerHeader("packet_in", bitField("ingress_port", 9), bitField("unused_pad", 7))
+            )
+        )
+        .build()
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
+
+    val acc = BitAccumulator()
+    acc.append(BigInteger.valueOf(7), 9) // ingress_port
+    acc.append(BigInteger.ZERO, 7) // unused_pad, not exposed in P4Info
+    acc.append(BigInteger.valueOf(0xBEEF), 16) // payload
+    val deparsed = com.google.protobuf.ByteString.copyFrom(acc.toByteArray())
+
+    val packetIn = codec.decodePacketIn(deparsed)
+
+    assertEquals(1, packetIn.metadataCount)
+    assertEquals(2, packetIn.getMetadata(0).metadataId)
+    assertEquals(7, bytesToInt(packetIn.getMetadata(0).value.toByteArray()))
+    assertArrayEquals(byteArrayOf(0xBE.toByte(), 0xEF.toByte()), packetIn.payload.toByteArray())
+  }
+
+  @Test
+  @Suppress("MagicNumber")
   fun `decodePacketIn with no packet_in controller header returns the payload verbatim`() {
     // A program that defines packet_out (so a codec exists) but no packet_in @controller_header —
     // e.g. it accepts PacketOut but never punts to the controller. There is no header to strip and
@@ -322,9 +619,15 @@ class PacketHeaderCodecTest {
             .addMetadata(metaWithBitwidth(1, "egress_port", 8))
         )
         .build()
-    // No behavioral config needed: the packet_out field carries its own bitwidth, and with no
-    // packet_in metadata there are zero packet_in fields regardless of the header types.
-    val codec = PacketHeaderCodec.create(p4info, BehavioralConfig.getDefaultInstance())!!
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(controllerHeader("packet_out", bitField("egress_port", 8)))
+        )
+        .build()
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
     assertEquals(0, codec.packetInHeaderBits)
 
     val payload = byteArrayOf(0xDE.toByte(), 0xAD.toByte(), 0xBE.toByte(), 0xEF.toByte())
@@ -361,19 +664,17 @@ class PacketHeaderCodecTest {
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_out_header_t")
-            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+            .setHeader(controllerHeader("packet_out", bitField("egress_port", 8)))
         )
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_in_header_t")
             .setHeader(
-              HeaderDecl.newBuilder()
-                .addFields(bitField("ingress_port", 8))
-                .addFields(bitField("egress_port", 8))
+              controllerHeader("packet_in", bitField("ingress_port", 8), bitField("egress_port", 8))
             )
         )
         .build()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
     // 16-bit header (2 bytes) + 4-byte payload = 6 bytes total.
     val deparsed =
       com.google.protobuf.ByteString.copyFrom(
@@ -417,19 +718,17 @@ class PacketHeaderCodecTest {
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_out_header_t")
-            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+            .setHeader(controllerHeader("packet_out", bitField("egress_port", 8)))
         )
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_in_header_t")
             .setHeader(
-              HeaderDecl.newBuilder()
-                .addFields(bitField("field_a", 5))
-                .addFields(bitField("field_b", 5))
+              controllerHeader("packet_in", bitField("field_a", 5), bitField("field_b", 5))
             )
         )
         .build()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
     assertEquals(10, codec.packetInHeaderBits)
 
     val deparsed =
@@ -470,15 +769,15 @@ class PacketHeaderCodecTest {
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_out_header_t")
-            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+            .setHeader(controllerHeader("packet_out", bitField("egress_port", 8)))
         )
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_in_header_t")
-            .setHeader(HeaderDecl.newBuilder().addFields(bitField("field_a", 6)))
+            .setHeader(controllerHeader("packet_in", bitField("field_a", 6)))
         )
         .build()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
 
     // Deparsed: 6 header bits (zeros) + 6 payload bits (0x3F = 0b111111) + 4 pad zeros
     // = 000000_11 1111_0000 = 0x03 0xF0
@@ -527,19 +826,17 @@ class PacketHeaderCodecTest {
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_out_header_t")
-            .setHeader(HeaderDecl.newBuilder().addFields(bitField("egress_port", 8)))
+            .setHeader(controllerHeader("packet_out", bitField("egress_port", 8)))
         )
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_in_header_t")
             .setHeader(
-              HeaderDecl.newBuilder()
-                .addFields(bitField("field_a", 5))
-                .addFields(bitField("field_b", 5))
+              controllerHeader("packet_in", bitField("field_a", 5), bitField("field_b", 5))
             )
         )
         .build()
-    val codec = PacketHeaderCodec.create(p4info, behavioral)!!
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = 510)!!
     assertEquals(10, codec.packetInHeaderBits)
 
     // Simulate deparser output: 10 zero header bits + 0xDEADBEEF payload.
@@ -582,7 +879,7 @@ class PacketHeaderCodecTest {
    * - Behavioral config with header types for field width resolution.
    */
   @Suppress("MagicNumber")
-  private fun buildSaiLikeConfig(): Pair<P4Info, BehavioralConfig> {
+  private fun buildSaiLikeConfig(portBits: Int = 9): Pair<P4Info, BehavioralConfig> {
     val p4info =
       P4Info.newBuilder()
         .addControllerPacketMetadata(
@@ -605,21 +902,26 @@ class PacketHeaderCodecTest {
           TypeDecl.newBuilder()
             .setName("packet_out_header_t")
             .setHeader(
-              HeaderDecl.newBuilder()
-                .addFields(bitField("egress_port", 9))
-                .addFields(bitField("submit_to_ingress", 1))
-                .addFields(bitField("unused_pad", 6))
+              controllerHeader(
+                "packet_out",
+                bitField("egress_port", 9),
+                bitField("submit_to_ingress", 1),
+                bitField("unused_pad", 6),
+              )
             )
         )
         .addTypes(
           TypeDecl.newBuilder()
             .setName("packet_in_header_t")
             .setHeader(
-              HeaderDecl.newBuilder()
-                .addFields(bitField("ingress_port", 9))
-                .addFields(bitField("target_egress_port", 9))
+              controllerHeader(
+                "packet_in",
+                bitField("ingress_port", 9),
+                bitField("target_egress_port", 9),
+              )
             )
         )
+        .addTypes(standardMetadataType(portBits))
         .build()
 
     return p4info to behavioral
@@ -645,6 +947,15 @@ class PacketHeaderCodecTest {
       .setType(Type.newBuilder().setBit(BitType.newBuilder().setWidth(width)))
       .build()
 
+  private fun controllerHeader(name: String, vararg fields: FieldDecl): HeaderDecl =
+    HeaderDecl.newBuilder().setControllerHeader(name).addAllFields(fields.toList()).build()
+
+  private fun standardMetadataType(portBits: Int = 9): TypeDecl =
+    TypeDecl.newBuilder()
+      .setName("standard_metadata_t")
+      .setStruct(StructDecl.newBuilder().addFields(bitField("ingress_port", portBits)))
+      .build()
+
   // =========================================================================
   // CPU port override
   // =========================================================================
@@ -664,6 +975,59 @@ class PacketHeaderCodecTest {
     assertNotNull(codec)
     // Default: 2^9 - 2 = 510
     assertEquals(510, codec!!.cpuPort)
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `auto cpu port derives from architecture port width, not packet_out metadata width`() {
+    val p4info =
+      P4Info.newBuilder()
+        .addControllerPacketMetadata(
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setName("packet_out"))
+            .addMetadata(metaWithBitwidth(1, "egress_port", 32))
+            .addMetadata(metaWithBitwidth(2, "submit_to_ingress", 1))
+        )
+        .build()
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTypes(
+          TypeDecl.newBuilder()
+            .setName("packet_out_header_t")
+            .setHeader(
+              controllerHeader(
+                "packet_out",
+                bitField("egress_port", 32),
+                bitField("submit_to_ingress", 1),
+              )
+            )
+        )
+        .addTypes(standardMetadataType(portBits = 9))
+        .build()
+
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = null)
+
+    assertEquals(510, codec!!.cpuPort)
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `auto cpu port supports 32-bit architecture ports`() {
+    val (p4info, behavioral) = buildSaiLikeConfig(portBits = 32)
+
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = null)
+
+    assertEquals(0xFFFF_FFFEu.toInt(), codec!!.cpuPort)
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `auto cpu port rejects architecture ports wider than dataplane port field`() {
+    val (p4info, behavioral) = buildSaiLikeConfig(portBits = 33)
+
+    assertThrows(IllegalArgumentException::class.java) {
+      PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = null)
+    }
   }
 
   // =========================================================================
