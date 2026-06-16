@@ -3,9 +3,11 @@ package fourward.grpc
 import com.google.protobuf.ByteString
 import fourward.TranslationEntry
 import fourward.TypeTranslation
+import java.math.BigInteger
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import p4.config.v1.P4InfoOuterClass
 import p4.config.v1.P4Types
@@ -842,6 +844,103 @@ class TypeTranslatorTest {
     val translatedIn = translator.translatePacketIn(packetIn)
     assertEquals(ByteString.copyFromUtf8("Ethernet0"), translatedIn.metadataList.first().value)
   }
+
+  @Test
+  fun `packet in metadata with no reverse mapping passes through unchanged`() {
+    val translator = buildP4InfoTranslatorWithStringPacketIO()
+
+    // No forward mapping was ever installed for dp value 7, so it has no SDN name. PacketIn must
+    // still be delivered — with the raw data-plane value — rather than throwing and tearing down
+    // the stream. This is how the drop port (and any program-computed, never-named port) reaches
+    // the controller on a punt.
+    val unmappedValue = ByteString.copyFrom(dpBytes(7))
+    val packetIn =
+      P4RuntimeOuterClass.PacketIn.newBuilder()
+        .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
+        .addMetadata(
+          P4RuntimeOuterClass.PacketMetadata.newBuilder()
+            .setMetadataId(PACKET_METADATA_ID)
+            .setValue(unmappedValue)
+        )
+        .build()
+
+    val translated = translator.translatePacketIn(packetIn)
+    assertEquals(unmappedValue, translated.metadataList.first().value)
+  }
+
+  @Test
+  fun `unmapped packet in metadata is logged once per distinct value`() {
+    val translator = buildP4InfoTranslatorWithStringPacketIO()
+
+    // Capture WARNING records from the translator's logger.
+    val warnings = mutableListOf<java.util.logging.LogRecord>()
+    val handler =
+      object : java.util.logging.Handler() {
+        override fun publish(record: java.util.logging.LogRecord) {
+          warnings.add(record)
+        }
+
+        override fun flush() = Unit
+
+        override fun close() = Unit
+      }
+    val logger = java.util.logging.Logger.getLogger("fourward.grpc.TypeTranslator")
+    logger.addHandler(handler)
+    try {
+      // Value 7 punted twice, value 8 once. A punt stream that keeps presenting the same unmapped
+      // port (e.g. the drop port) must not flood the log — one warning per distinct value.
+      translator.translatePacketIn(packetInWithMeta(dpBytes(7)))
+      translator.translatePacketIn(packetInWithMeta(dpBytes(7)))
+      translator.translatePacketIn(packetInWithMeta(dpBytes(8)))
+    } finally {
+      logger.removeHandler(handler)
+    }
+
+    assertEquals(2, warnings.size)
+    // The message names the type and includes both hex and decimal forms of the value.
+    assertEquals(java.util.logging.Level.WARNING, warnings[0].level)
+    assertTrue(
+      warnings.any { it.message.contains("0x07 (7)") && it.message.contains(STRING_TYPE_NAME) }
+    )
+    assertTrue(warnings.any { it.message.contains("0x08 (8)") })
+  }
+
+  @Test
+  fun `encodeMinWidth of BigInteger produces canonical shortest form`() {
+    // Zero → a single 0x00 byte (canonical form keeps one byte, not empty).
+    assertArrayEquals(byteArrayOf(0), encodeMinWidth(BigInteger.ZERO).toByteArray())
+    // High bit set: BigInteger.toByteArray() prepends a 0x00 sign byte; the canonical form drops
+    // it.
+    assertArrayEquals(
+      byteArrayOf(0x80.toByte()),
+      encodeMinWidth(BigInteger.valueOf(0x80)).toByteArray(),
+    )
+    // Multi-byte value with no leading zeros (e.g. the v1model drop port 511).
+    assertArrayEquals(
+      byteArrayOf(0x01, 0xFF.toByte()),
+      encodeMinWidth(BigInteger.valueOf(511)).toByteArray(),
+    )
+    // Wider than Long: 2^80 + 1 → 11 bytes, no truncation, no spurious sign byte.
+    val wide = BigInteger.ONE.shiftLeft(80).add(BigInteger.ONE)
+    val expected =
+      ByteArray(11).also {
+        it[0] = 0x01
+        it[10] = 0x01
+      }
+    assertArrayEquals(expected, encodeMinWidth(wide).toByteArray())
+    // Negative values are not representable as unsigned and are rejected.
+    assertThrows(IllegalArgumentException::class.java) { encodeMinWidth(BigInteger.valueOf(-1)) }
+  }
+
+  private fun packetInWithMeta(value: ByteArray): P4RuntimeOuterClass.PacketIn =
+    P4RuntimeOuterClass.PacketIn.newBuilder()
+      .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
+      .addMetadata(
+        P4RuntimeOuterClass.PacketMetadata.newBuilder()
+          .setMetadataId(PACKET_METADATA_ID)
+          .setValue(ByteString.copyFrom(value))
+      )
+      .build()
 
   @Test
   fun `non-translated packet metadata passes through unchanged`() {

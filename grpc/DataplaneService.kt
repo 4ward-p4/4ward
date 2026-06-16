@@ -282,7 +282,7 @@ private fun enrichResult(
     .addAllPossibleOutcomes(
       possibleOutcomes.map { world ->
         PacketSet.newBuilder()
-          .addAllPackets(world.map { it.toDualEncoded(translator, codec, ingressPort) })
+          .addAllPackets(world.map { it.toDualEncoded(translator, codec) })
           .build()
       }
     )
@@ -300,7 +300,6 @@ private fun enrichTrace(trace: TraceTree, translator: TypeTranslator?): TraceTre
 private fun OutputPacket.toDualEncoded(
   translator: TypeTranslator?,
   codec: PacketHeaderCodec?,
-  ingressPort: Int,
 ): OutputPacket {
   val rawPayload = payload
   val pt = translator?.portTranslator
@@ -313,11 +312,7 @@ private fun OutputPacket.toDualEncoded(
       // so a missing reverse mapping is expected — same as for ingress ports above.
       pt?.dataplaneToP4rt(dataplaneEgressPort)?.let { setP4RtEgressPort(it) }
       if (codec != null && dataplaneEgressPort == codec.cpuPort) {
-        val rawPacketIn =
-          p4.v1.P4RuntimeOuterClass.PacketIn.newBuilder()
-            .setPayload(codec.stripPacketInHeader(rawPayload))
-            .addAllMetadata(codec.buildPacketInMetadata(ingressPort, dataplaneEgressPort))
-            .build()
+        val rawPacketIn = codec.decodePacketIn(rawPayload)
         setPacketIn(translator?.translatePacketIn(rawPacketIn) ?: rawPacketIn)
       }
     }

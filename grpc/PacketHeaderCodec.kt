@@ -12,6 +12,7 @@ import fourward.Type
 import fourward.simulator.BitAccumulator
 import java.math.BigInteger
 import p4.config.v1.P4InfoOuterClass.P4Info
+import p4.v1.P4RuntimeOuterClass.PacketIn
 import p4.v1.P4RuntimeOuterClass.PacketMetadata
 
 /**
@@ -156,22 +157,59 @@ private constructor(
     packetOutHeaderBits + payloadBytes * Byte.SIZE_BITS
 
   /**
-   * Builds PacketIn metadata from ingress and egress port values.
+   * Decodes a deparsed payload into a [PacketIn]: parses the leading
+   * `@controller_header("packet_in")` bits into metadata fields and returns the remaining packet as
+   * the payload.
    *
-   * Metadata is constructed from the simulation context rather than parsed from the deparsed
-   * payload. The caller is responsible for stripping the `@controller_header("packet_in")` bytes
-   * from the payload (see [packetInHeaderBytes]).
+   * The metadata is read positionally from the header bit stream according to each field's
+   * p4info-declared width — never reconstructed from simulator state or program-specific field
+   * names. This is the inverse of the deparser's controller-header emit, so the metadata reflects
+   * exactly what the P4 program assigned (e.g. a punted-but-dropped packet reports its intended
+   * egress port, not the CPU port it physically left on). Generic by construction: it works for any
+   * P4 program's `packet_in` layout.
    */
-  fun buildPacketInMetadata(ingressPort: Int, egressPort: Int): List<PacketMetadata> =
-    packetInFields.map { field ->
-      val value =
-        when (field.name) {
-          "ingress_port" -> ingressPort
-          "target_egress_port" -> egressPort
-          else -> 0
-        }
+  fun decodePacketIn(deparsedPayload: ByteString): PacketIn =
+    PacketIn.newBuilder()
+      .setPayload(stripPacketInHeader(deparsedPayload))
+      .addAllMetadata(parsePacketInMetadata(deparsedPayload))
+      .build()
+
+  /** Reads the `packet_in` controller-header fields from the front of the deparsed [payload]. */
+  private fun parsePacketInMetadata(payload: ByteString): List<PacketMetadata> {
+    if (packetInFields.isEmpty()) return emptyList()
+    val bytes = payload.toByteArray()
+    require(bytes.size * 8 >= packetInHeaderBits) {
+      "deparsed payload (${bytes.size} bytes) is shorter than the " +
+        "$packetInHeaderBits-bit packet_in controller header"
+    }
+    var bitOffset = 0
+    return packetInFields.map { field ->
+      val value = readBits(bytes, bitOffset, field.bitWidth)
+      bitOffset += field.bitWidth
       PacketMetadata.newBuilder().setMetadataId(field.id).setValue(encodeMinWidth(value)).build()
     }
+  }
+
+  /**
+   * Reads [width] bits MSB-first from [bytes] starting at bit offset [bitOffset], as an unsigned.
+   */
+  @Suppress("MagicNumber")
+  private fun readBits(bytes: ByteArray, bitOffset: Int, width: Int): BigInteger {
+    var result = BigInteger.ZERO
+    var pos = bitOffset
+    var remaining = width
+    while (remaining > 0) {
+      val bitInByte = pos % 8
+      val available = 8 - bitInByte
+      val take = minOf(available, remaining)
+      val shift = available - take
+      val chunk = ((bytes[pos / 8].toInt() and 0xFF) ushr shift) and ((1 shl take) - 1)
+      result = result.shiftLeft(take).or(BigInteger.valueOf(chunk.toLong()))
+      pos += take
+      remaining -= take
+    }
+    return result
+  }
 
   @Suppress("MagicNumber")
   private fun packFields(fields: List<FieldDef>, metadata: Map<Int, PacketMetadata>): ByteArray {
