@@ -1523,8 +1523,8 @@ for a thorough writeup.</p>
   generic array storage.</li>
 <li><code>counter.count(index)</code> / <code>direct_counter.count()</code> increments a counter
   (fire-and-forget).</li>
-<li><code>meter.execute_meter(index, out color)</code> always returns GREEN — there are no
-  real packet rates in the simulator.</li>
+<li><code>meter.execute_meter(index, out color)</code> always returns GREEN — runtime meter
+  rate behavior is outside the simulator model.</li>
 </ul>
 <h2 id="psa">PSA<a class="headerlink" href="#psa" title="Permanent link">¶</a></h2>
 <p>The Portable Switch Architecture is a more modern design with a cleaner
@@ -1706,11 +1706,12 @@ forward a packet.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">¶</a></h2>
 <p>These limitations apply to all architectures:</p>
 <ul>
-<li><strong>Meters always return GREEN</strong> because the simulator has no real packet rates.</li>
+<li><strong>Meters always return GREEN</strong> because runtime meter rate behavior is outside
+  the simulator model.</li>
 <li><strong>Counters are fire-and-forget</strong> and can't be read from P4 logic (only via
   P4Runtime Read from the control plane).</li>
-<li><strong>Digest is a no-op</strong> because there's no control-plane receiver in the
-  simulator.</li>
+<li><strong>Digest is a no-op</strong> because asynchronous controller queues are outside the
+  simulator model.</li>
 </ul>
 <p>See <a href="https://github.com/smolkaj/4ward/blob/main/docs/LIMITATIONS.md">LIMITATIONS.md</a>
 for the full list.</p>
