@@ -1,12 +1,14 @@
 package fourward.grpc
 
-import com.google.protobuf.ByteString
 import fourward.e2e.compileInlineP4
+import fourward.grpc.FourwardTestHarness.Companion.buildMulticastGroup
+import fourward.simulator.BitAccumulator
+import java.math.BigInteger
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass
 
 class BitLevelSerializationTest {
 
@@ -805,83 +807,44 @@ class BitLevelSerializationTest {
     harness.use {
       it.loadPipeline(config)
 
-      // Install multicast group 1 with one replica on port "1".
-      it.installEntry(
-        P4RuntimeOuterClass.Entity.newBuilder()
-          .setPacketReplicationEngineEntry(
-            P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-              .setMulticastGroupEntry(
-                P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
-                  .setMulticastGroupId(1)
-                  .addReplicas(
-                    P4RuntimeOuterClass.Replica.newBuilder()
-                      .setPort(ByteString.copyFromUtf8("1"))
-                      .setInstance(1)
-                  )
-              )
-          )
-          .build()
-      )
+      it.installEntry(buildMulticastGroup(groupId = 1, ports = listOf(1)))
 
-      // Build the input: 7-bit header (port=0) bit-packed with a 14-byte Ethernet
-      // payload. The packed layout in 15 bytes:
-      //   bits[0..6]   = header = 0b0000000
-      //   bits[7..118] = Ethernet payload (14 bytes × 8 bits)
-      //   bit[119]     = trailing zero (padding to byte boundary)
-      //
       // The Ethernet frame uses a 0xFF/0x00 alternating pattern so a 1-bit shift
       // is immediately visible in the first output byte (0xFF correct, 0xFE shifted).
       val ethPayload =
         byteArrayOf(
           0xFF.toByte(),
-          0x00.toByte(), // dst_mac bytes 0-1
+          0, // dst_mac [0..1]
           0xFF.toByte(),
-          0x00.toByte(), // dst_mac bytes 2-3
+          0, // dst_mac [2..3]
           0xFF.toByte(),
-          0x00.toByte(), // dst_mac bytes 4-5
+          0, // dst_mac [4..5]
           0xFF.toByte(),
-          0x00.toByte(), // src_mac bytes 0-1
+          0, // src_mac [0..1]
           0xFF.toByte(),
-          0x00.toByte(), // src_mac bytes 2-3
+          0, // src_mac [2..3]
           0xFF.toByte(),
-          0x00.toByte(), // src_mac bytes 4-5
-          0x08.toByte(),
-          0x00.toByte(), // EtherType = IPv4
+          0, // src_mac [4..5]
+          0x08,
+          0, // EtherType = IPv4
         )
 
-      // Pack the 7-bit header (port=0, all zeros) followed by ethPayload into 15
-      // bytes.  Each ethPayload byte straddles two output bytes because of the
-      // 7-bit offset.
-      val packed = ByteArray(15)
-      for (i in ethPayload.indices) {
-        val b = ethPayload[i].toInt() and 0xFF
-        val bitPos = 7 + i * 8
-        val byteIdx = bitPos / 8
-        val shift = bitPos % 8
-        packed[byteIdx] = (packed[byteIdx].toInt() or (b ushr shift)).toByte()
-        if (shift > 0) {
-          packed[byteIdx + 1] = (packed[byteIdx + 1].toInt() or (b shl (8 - shift))).toByte()
-        }
-      }
+      // Pack the 7-bit header (port=0) followed by ethPayload into a continuous bit stream.
+      val acc = BitAccumulator()
+      acc.append(BigInteger.ZERO, 7)
+      acc.appendRawBytes(ethPayload, 0, ethPayload.size * 8)
+      val packed = acc.toByteArray()
 
       val result = it.simulatePacket(ingressPort = 0, payload = packed)
       val outputs = result.single().packetsList
       assertEquals("multicast group 1 should produce one replica", 1, outputs.size)
       val outputBytes = outputs.single().payload.toByteArray()
 
-      // The deparser emits nothing; the output is the unparsed remainder (bits 7
-      // onward from the packed input), which should be exactly the Ethernet payload.
-      // A 1-bit shift bug would produce 0xFE as the first byte instead of 0xFF.
+      // The deparser emits nothing; the output is the unparsed remainder starting at
+      // bit 7 (113 bits = 15 bytes with a trailing alignment byte). A 1-bit shift bug
+      // would produce 0xFE as the first byte instead of 0xFF.
       assertTrue("output should contain at least the Ethernet payload", outputBytes.size >= 14)
-      assertEquals(
-        "first Ethernet byte should be 0xFF (not 0xFE = 1-bit-shifted)",
-        0xFF.toByte(),
-        outputBytes[0],
-      )
-      assertEquals("second Ethernet byte should be 0x00", 0x00.toByte(), outputBytes[1])
-      assertEquals("third Ethernet byte should be 0xFF", 0xFF.toByte(), outputBytes[2])
-      assertEquals("EtherType high byte should be 0x08", 0x08.toByte(), outputBytes[12])
-      assertEquals("EtherType low byte should be 0x00", 0x00.toByte(), outputBytes[13])
+      assertArrayEquals(ethPayload, outputBytes.copyOfRange(0, 14))
     }
   }
 }
