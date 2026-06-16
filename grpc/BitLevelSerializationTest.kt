@@ -1,6 +1,10 @@
 package fourward.grpc
 
 import fourward.e2e.compileInlineP4
+import fourward.grpc.FourwardTestHarness.Companion.buildMulticastGroup
+import fourward.simulator.BitAccumulator
+import java.math.BigInteger
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -754,5 +758,93 @@ class BitLevelSerializationTest {
       "not_preserved field should have no field_list_ids",
       notPreserved.fieldListIdsList.isEmpty(),
     )
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `non-byte-aligned header does not shift payload on fork branches`() {
+    // Regression test for: https://github.com/4ward-p4/4ward/issues/779
+    //
+    // When the packet_out_header is non-byte-aligned, the parser leaves the cursor
+    // at a non-byte-aligned bit offset (e.g. 7 bits for a 7-bit header). The old
+    // fork mechanism recorded bytesConsumed = ceil(7/8) = 1 byte = 8 bits, which
+    // caused the multicast/clone branch to initialise its PacketContext 1 bit too
+    // late, shifting the entire unparsed payload by 1 bit in the output.
+    //
+    // The fix records bitsConsumed (exact bit count) and passes it as the initial
+    // bit offset when creating the branch PacketContext.
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      // 7-bit header: non-byte-aligned. After extraction, bitOffset=7.
+      @controller_header("packet_out")
+      header packet_out_t { bit<7> port; }
+
+      struct headers_t { packet_out_t pkt_out; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start {
+          pkt.extract(hdr.pkt_out);
+          transition accept; // rest of packet is left as unparsed remainder
+        }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply { sm.mcast_grp = 1; } // trigger MulticastFork
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) { apply {} }
+      control D(packet_out pkt, in headers_t h) { apply {} } // emit nothing; output = unparsed remainder
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val harness = FourwardTestHarness()
+    harness.use {
+      it.loadPipeline(config)
+
+      it.installEntry(buildMulticastGroup(groupId = 1, ports = listOf(1)))
+
+      // The Ethernet frame uses a 0xFF/0x00 alternating pattern so a 1-bit shift
+      // is immediately visible in the first output byte (0xFF correct, 0xFE shifted).
+      val ethPayload =
+        byteArrayOf(
+          0xFF.toByte(),
+          0, // dst_mac [0..1]
+          0xFF.toByte(),
+          0, // dst_mac [2..3]
+          0xFF.toByte(),
+          0, // dst_mac [4..5]
+          0xFF.toByte(),
+          0, // src_mac [0..1]
+          0xFF.toByte(),
+          0, // src_mac [2..3]
+          0xFF.toByte(),
+          0, // src_mac [4..5]
+          0x08,
+          0, // EtherType = IPv4
+        )
+
+      // Pack the 7-bit header (port=0) followed by ethPayload into a continuous bit stream.
+      val acc = BitAccumulator()
+      acc.append(BigInteger.ZERO, 7)
+      acc.appendRawBytes(ethPayload, 0, ethPayload.size * 8)
+      val packed = acc.toByteArray()
+
+      val result = it.simulatePacket(ingressPort = 0, payload = packed)
+      val outputs = result.single().packetsList
+      assertEquals("multicast group 1 should produce one replica", 1, outputs.size)
+      val outputBytes = outputs.single().payload.toByteArray()
+
+      // The deparser emits nothing; the output is the unparsed remainder starting at
+      // bit 7 (113 bits = 15 bytes with a trailing alignment byte). A 1-bit shift bug
+      // would produce 0xFE as the first byte instead of 0xFF.
+      assertTrue("output should contain at least the Ethernet payload", outputBytes.size >= 14)
+      assertArrayEquals(ethPayload, outputBytes.copyOfRange(0, 14))
+    }
   }
 }

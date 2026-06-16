@@ -1023,7 +1023,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
           result.members,
           packetCtx!!.getEvents(),
           env.deepCopy(),
-          packetCtx!!.bytesConsumed,
+          packetCtx!!.bitsConsumed,
           currentSourceInfo,
         )
       }
@@ -1596,8 +1596,8 @@ class ActionSelectorFork(
   eventsBeforeFork: List<TraceEvent>,
   /** Deep copy of the environment at the fork point — each branch restores from this. */
   val forkPointEnv: Environment,
-  /** Parser buffer position at the fork point. */
-  val bytesConsumed: Int,
+  /** Exact parser bit position at the fork point (not rounded to bytes). */
+  val bitsConsumed: Int,
   /** Source info at the fork point (the table apply statement), for trace events in branches. */
   val sourceInfo: fourward.SourceInfo? = null,
   /**
