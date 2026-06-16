@@ -108,9 +108,13 @@ cc_test(
 cc_test(
     name = "dataplane_client_e2e_test",
     srcs = ["dataplane_client_e2e_test.cc"],
-    data = ["//e2e_tests/passthrough:passthrough_p4runtime"],
+    data = [
+        "//e2e_tests/passthrough:passthrough_p4runtime",
+        "//e2e_tests/sai_p4:sai_middleblock_binpb",
+    ],
     local_defines = [
         'PASSTHROUGH_PIPELINE_RLOCATION=\\"$(rlocationpath //e2e_tests/passthrough:passthrough_p4runtime)\\"',
+        'SAI_PIPELINE_RLOCATION=\\"$(rlocationpath //e2e_tests/sai_p4:sai_middleblock_binpb)\\"',
     ],
     deps = [
         ":dataplane_client",
