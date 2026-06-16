@@ -180,7 +180,7 @@ source fragment) linking back to the P4 source.
 | **ActionExecution** | `action_name`, `params` (name → bytes) | When an action begins executing |
 | **Branch** | `control_name`, `taken` (true=then, false=else) | Every if/else branch |
 | **ExternCall** | `extern_instance_name`, `method` | Every extern method call |
-| **MarkToDrop** | `reason` | `mark_to_drop()` called |
+| **MarkToDrop** | — | `mark_to_drop()` called |
 | **Clone** | `session_id` | `clone()` / `clone3()` called |
 | **CloneSessionLookup** | `session_id`, `session_found`, `dataplane_egress_port` | Traffic manager resolves a clone session |
 | **LogMessage** | `message` | `log_msg()` called |

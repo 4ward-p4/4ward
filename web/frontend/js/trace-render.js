@@ -309,6 +309,7 @@ function formatForkReason(reason) {
 function formatDropReason(reason) {
   switch (reason) {
     case 'MARK_TO_DROP': return 'mark_to_drop';
+    case 'ASSERTION_FAILURE': return 'assertion failure';
     default: return reason || 'unknown';
   }
 }
