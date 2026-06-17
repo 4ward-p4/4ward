@@ -303,19 +303,17 @@ fun collectPossibleOutcomes(tree: TraceTree): List<List<OutputPacket>> {
     TraceTree.OutcomeCase.DROP,
     TraceTree.OutcomeCase.OUTCOME_NOT_SET,
     null -> listOf(emptyList())
-    TraceTree.OutcomeCase.REPLICATION -> {
-      val branchOutcomes = tree.replication.branchesList.map { collectPossibleOutcomes(it) }
-      if (branchOutcomes.isEmpty()) return listOf(emptyList())
+    TraceTree.OutcomeCase.REPLICATION ->
       // Cartesian product: for each combination of one world per branch, concatenate packets.
-      branchOutcomes.reduce { acc, next ->
-        acc.flatMap { world -> next.map { branchWorld -> world + branchWorld } }
-      }
-    }
-    TraceTree.OutcomeCase.CHOICE -> {
+      tree.replication.branchesList
+        .map { collectPossibleOutcomes(it) }
+        .reduceOrNull { acc, next ->
+          acc.flatMap { world -> next.map { branchWorld -> world + branchWorld } }
+        }
+        ?: listOf(emptyList())
+    TraceTree.OutcomeCase.CHOICE ->
       // Each branch is a separate possible world; union their outcomes.
-      val branchOutcomes = tree.choice.branchesList.map { collectPossibleOutcomes(it) }
-      if (branchOutcomes.isEmpty()) listOf(emptyList()) else branchOutcomes.flatten()
-    }
+      tree.choice.branchesList.flatMap { collectPossibleOutcomes(it) }.ifEmpty { listOf(emptyList()) }
     TraceTree.OutcomeCase.CONTINUATION -> collectPossibleOutcomes(tree.continuation.next)
   }
 }

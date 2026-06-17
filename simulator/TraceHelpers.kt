@@ -74,23 +74,30 @@ internal fun buildContinuationTree(
     .build()
 
 /**
- * Prepends [prefix] events to [tree], returning a new [TraceTree] with the same outcome. Used when
- * flattening sequential pipeline stages into a single node.
+ * Returns a copy of [tree] with its events replaced by [events], preserving the outcome. The single
+ * source of truth for "copy a TraceTree with different events" — avoids duplicating the exhaustive
+ * outcome dispatch in every caller.
  */
-internal fun prependEvents(tree: TraceTree, prefix: List<TraceEvent>): TraceTree {
-  if (prefix.isEmpty()) return tree
-  val b = TraceTree.newBuilder().addAllEvents(prefix).addAllEvents(tree.eventsList)
-  when (tree.outcomeCase) {
-    TraceTree.OutcomeCase.REPLICATION -> b.setReplication(tree.replication)
-    TraceTree.OutcomeCase.CHOICE -> b.setChoice(tree.choice)
-    TraceTree.OutcomeCase.CONTINUATION -> b.setContinuation(tree.continuation)
-    TraceTree.OutcomeCase.OUTPUT -> b.setOutput(tree.output)
-    TraceTree.OutcomeCase.DROP -> b.setDrop(tree.drop)
+internal fun TraceTree.withEvents(events: List<TraceEvent>): TraceTree {
+  val b = TraceTree.newBuilder().addAllEvents(events)
+  when (outcomeCase) {
+    TraceTree.OutcomeCase.REPLICATION -> b.setReplication(replication)
+    TraceTree.OutcomeCase.CHOICE -> b.setChoice(choice)
+    TraceTree.OutcomeCase.CONTINUATION -> b.setContinuation(continuation)
+    TraceTree.OutcomeCase.OUTPUT -> b.setOutput(output)
+    TraceTree.OutcomeCase.DROP -> b.setDrop(drop)
     TraceTree.OutcomeCase.OUTCOME_NOT_SET,
     null -> {}
   }
   return b.build()
 }
+
+/**
+ * Prepends [prefix] events to [tree], returning a new [TraceTree] with the same outcome. Used when
+ * flattening sequential pipeline stages into a single node.
+ */
+internal fun prependEvents(tree: TraceTree, prefix: List<TraceEvent>): TraceTree =
+  if (prefix.isEmpty()) tree else tree.withEvents(prefix + tree.eventsList)
 
 /** Creates a [TraceEvent] recording the packet's ingress port. */
 internal fun packetIngressEvent(ingressPort: DataplanePort): TraceEvent =

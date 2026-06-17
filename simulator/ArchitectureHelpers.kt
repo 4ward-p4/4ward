@@ -201,19 +201,8 @@ internal fun handleActionSelectorFork(
 }
 
 /** Returns a copy of [tree] with the first [count] events removed, preserving the outcome. */
-private fun dropPrefixEvents(tree: TraceTree, count: Int): TraceTree {
-  val b = TraceTree.newBuilder().addAllEvents(tree.eventsList.drop(count))
-  when (tree.outcomeCase) {
-    TraceTree.OutcomeCase.REPLICATION -> b.setReplication(tree.replication)
-    TraceTree.OutcomeCase.CHOICE -> b.setChoice(tree.choice)
-    TraceTree.OutcomeCase.CONTINUATION -> b.setContinuation(tree.continuation)
-    TraceTree.OutcomeCase.OUTPUT -> b.setOutput(tree.output)
-    TraceTree.OutcomeCase.DROP -> b.setDrop(tree.drop)
-    TraceTree.OutcomeCase.OUTCOME_NOT_SET,
-    null -> {}
-  }
-  return b.build()
-}
+private fun dropPrefixEvents(tree: TraceTree, count: Int): TraceTree =
+  tree.withEvents(tree.eventsList.drop(count))
 
 /**
  * Handles extern methods shared across PSA and PNA: Register, Random, Counter, Hash, Meter,
