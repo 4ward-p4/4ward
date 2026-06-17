@@ -8,7 +8,6 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.sync.Mutex
 
 /** Wraps a P4Runtime + Dataplane gRPC server backed by a 4ward [Simulator]. */
 class FourwardServer(
@@ -28,42 +27,22 @@ class FourwardServer(
    * The underlying simulator. Exposed for pre-configuration (loading pipelines, installing entries)
    * before the server starts accepting RPCs.
    */
-  val simulator = Simulator()
-  private val writeMutex = Mutex()
-  private val broker =
-    PacketBroker(
-      { ingressPort, packet -> simulator.processPacket(ingressPort, packet) },
-      writeMutex,
-    )
-  private val service =
-    P4RuntimeService(
-      simulator,
-      broker,
-      writeMutex = writeMutex,
-      deviceId = deviceId,
-      cpuPortConfig = cpuPortConfig,
-      dropPortConfig = dropPortOverride,
-      disableRefersToChecking = disableRefersToChecking,
-      disableP4ConstraintsChecking = disableP4ConstraintsChecking,
-    )
-  private val dataplaneService =
-    DataplaneService(broker) {
-      val config = simulator.pipelineConfig ?: return@DataplaneService null
-      val tableStore = simulator.tableStore ?: return@DataplaneService null
-      DataplaneService.PipelineSnapshot(
-        config,
-        tableStore,
-        service.typeTranslator,
-        service.packetHeaderCodec,
-      )
-    }
+  val simulator: Simulator
+    get() = registry.defaultDevice().simulator
 
-  init {
-    // Wire P4RuntimeService lambdas into the broker for hook support.
-    broker.readAllEntities = { service.readAllEntities() }
-    broker.readP4Info = { service.p4Info() }
-    broker.applyUpdates = { updates -> service.applyHookUpdates(updates) }
-  }
+  private val registry =
+    DeviceRegistry(
+      DeviceSettings(
+        dropPortConfig = dropPortOverride,
+        cpuPortConfig = cpuPortConfig,
+        disableRefersToChecking = disableRefersToChecking,
+        disableP4ConstraintsChecking = disableP4ConstraintsChecking,
+      ),
+      defaultDeviceId = deviceId,
+    )
+  private val p4RuntimeService = MultiDeviceP4RuntimeService(registry)
+  private val dataplaneService = MultiDeviceDataplaneService(registry, defaultDeviceId = deviceId)
+  private val managementService = ManagementService(registry)
 
   private lateinit var server: Server
 
@@ -81,8 +60,9 @@ class FourwardServer(
         .maxInboundMessageSize(inboundMessageSize)
         .permitKeepAliveWithoutCalls(permitKeepaliveWithoutCalls)
         .permitKeepAliveTime(permitKeepaliveTimeMs, TimeUnit.MILLISECONDS)
-        .addService(service)
+        .addService(p4RuntimeService)
         .addService(dataplaneService)
+        .addService(managementService)
         .build()
         .start()
     Runtime.getRuntime().addShutdownHook(Thread { stop() })
@@ -92,6 +72,8 @@ class FourwardServer(
   fun stop() {
     if (::server.isInitialized) {
       server.shutdown()
+      server.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+      registry.close()
     }
   }
 
@@ -107,6 +89,7 @@ class FourwardServer(
     const val DEFAULT_MAX_RECEIVE_MESSAGE_SIZE = -1 // unlimited
     const val DEFAULT_PERMIT_KEEPALIVE_WITHOUT_CALLS = true
     const val DEFAULT_PERMIT_KEEPALIVE_TIME_MS = 0L
+    private const val SHUTDOWN_TIMEOUT_SECONDS = 5L
   }
 }
 

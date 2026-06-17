@@ -40,6 +40,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "grpc/dataplane.grpc.pb.h"
+#include "grpc/management.grpc.pb.h"
 #include "grpcpp/channel.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 
@@ -88,7 +89,9 @@ struct CpuPort {
 };
 
 struct FourwardServerOptions {
-  // P4Runtime device ID exposed by the server (the `--device-id` flag).
+  // Default P4Runtime device ID exposed by the server (the `--device-id` flag).
+  // Leave this at 1 for ordinary single-device tests. Multi-device tests create
+  // additional device IDs through ManagementClient.
   uint64_t device_id = 1;
 
   // TCP port the server binds on. If unset, the kernel assigns an ephemeral
@@ -157,6 +160,10 @@ class FourwardServer {
   std::unique_ptr<fourward::Dataplane::Stub> NewDataplaneStub() const {
     return fourward::Dataplane::NewStub(channel_);
   }
+  std::unique_ptr<fourward::FourwardManagement::Stub> NewManagementStub()
+      const {
+    return fourward::FourwardManagement::NewStub(channel_);
+  }
 
   // Address suitable for grpc::CreateChannel, e.g. "localhost:42517".
   std::string Address() const { return absl::StrCat("localhost:", port_); }
@@ -164,7 +171,9 @@ class FourwardServer {
   // TCP port the server is listening on.
   int Port() const { return port_; }
 
-  // P4Runtime device ID exposed by the server.
+  // Default P4Runtime device ID exposed by the server. Single-device callers
+  // should use this value for P4Runtime requests and otherwise ignore device
+  // lifecycle APIs.
   uint64_t DeviceId() const { return device_id_; }
 
   // Escape hatches. Not needed to drive the server — reach for these when

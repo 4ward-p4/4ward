@@ -116,8 +116,18 @@ class DataplaneClient {
  public:
   explicit DataplaneClient(const FourwardServer &server,
                            absl::Duration default_timeout = absl::Seconds(10));
+  // Scopes 4ward-native dataplane RPCs to `device_id`. Single-device callers
+  // should use the constructor above, which targets the server's default
+  // device. Pass an explicit ID only after creating extra devices with
+  // ManagementClient.
+  DataplaneClient(const FourwardServer &server, uint64_t device_id,
+                  absl::Duration default_timeout = absl::Seconds(10));
   explicit DataplaneClient(std::unique_ptr<Dataplane::Stub> stub,
                            absl::Duration default_timeout = absl::Seconds(10));
+  // Same device-scoping behavior for callers that provide their own
+  // channel/stub.
+  DataplaneClient(std::unique_ptr<Dataplane::Stub> stub, uint64_t device_id,
+                  absl::Duration default_timeout = absl::Seconds(10));
 
   ~DataplaneClient();
   DataplaneClient(DataplaneClient &&);
@@ -157,6 +167,7 @@ class DataplaneClient {
 
  private:
   std::unique_ptr<Dataplane::Stub> stub_;
+  uint64_t device_id_ = 0;
   absl::Duration default_timeout_;
 };
 

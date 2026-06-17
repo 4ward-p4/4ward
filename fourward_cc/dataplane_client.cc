@@ -41,18 +41,20 @@ std::chrono::system_clock::time_point AbsoluteDeadline(
       std::chrono::system_clock::now() + absl::ToChronoNanoseconds(relative));
 }
 
-InjectPacketRequest MakeRequest(DataplanePort ingress_port,
+InjectPacketRequest MakeRequest(uint64_t device_id, DataplanePort ingress_port,
                                 std::string_view payload, Tag tag) {
   InjectPacketRequest req;
+  req.set_device_id(device_id);
   req.set_dataplane_ingress_port(ingress_port.port);
   req.set_payload(payload.data(), payload.size());
   req.set_tag(tag.value);
   return req;
 }
 
-InjectPacketRequest MakeRequest(P4RuntimePort ingress_port,
+InjectPacketRequest MakeRequest(uint64_t device_id, P4RuntimePort ingress_port,
                                 std::string_view payload, Tag tag) {
   InjectPacketRequest req;
+  req.set_device_id(device_id);
   req.set_p4rt_ingress_port(std::move(ingress_port.port));
   req.set_payload(payload.data(), payload.size());
   req.set_tag(tag.value);
@@ -65,11 +67,24 @@ InjectPacketRequest MakeRequest(P4RuntimePort ingress_port,
 
 DataplaneClient::DataplaneClient(const FourwardServer &server,
                                  absl::Duration default_timeout)
-    : DataplaneClient(server.NewDataplaneStub(), default_timeout) {}
+    : DataplaneClient(server.NewDataplaneStub(), server.DeviceId(),
+                      default_timeout) {}
+
+DataplaneClient::DataplaneClient(const FourwardServer &server,
+                                 uint64_t device_id,
+                                 absl::Duration default_timeout)
+    : DataplaneClient(server.NewDataplaneStub(), device_id, default_timeout) {}
 
 DataplaneClient::DataplaneClient(std::unique_ptr<Dataplane::Stub> stub,
                                  absl::Duration default_timeout)
-    : stub_(std::move(stub)), default_timeout_(default_timeout) {}
+    : DataplaneClient(std::move(stub), 0, default_timeout) {}
+
+DataplaneClient::DataplaneClient(std::unique_ptr<Dataplane::Stub> stub,
+                                 uint64_t device_id,
+                                 absl::Duration default_timeout)
+    : stub_(std::move(stub)),
+      device_id_(device_id),
+      default_timeout_(default_timeout) {}
 
 DataplaneClient::~DataplaneClient() = default;
 DataplaneClient::DataplaneClient(DataplaneClient &&) = default;
@@ -79,7 +94,7 @@ absl::StatusOr<InjectPacketResponse> DataplaneClient::InjectPacket(
     DataplanePort ingress_port, std::string_view payload, Tag tag) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(default_timeout_));
-  InjectPacketRequest req = MakeRequest(ingress_port, payload, tag);
+  InjectPacketRequest req = MakeRequest(device_id_, ingress_port, payload, tag);
   InjectPacketResponse resp;
   grpc::Status status = stub_->InjectPacket(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
@@ -90,7 +105,8 @@ absl::StatusOr<InjectPacketResponse> DataplaneClient::InjectPacket(
     P4RuntimePort ingress_port, std::string_view payload, Tag tag) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(default_timeout_));
-  InjectPacketRequest req = MakeRequest(std::move(ingress_port), payload, tag);
+  InjectPacketRequest req =
+      MakeRequest(device_id_, std::move(ingress_port), payload, tag);
   InjectPacketResponse resp;
   grpc::Status status = stub_->InjectPacket(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
@@ -101,7 +117,7 @@ absl::StatusOr<Reproducer> DataplaneClient::GetReproducer(
     DataplanePort ingress_port, std::string_view payload, Tag tag) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(default_timeout_));
-  InjectPacketRequest req = MakeRequest(ingress_port, payload, tag);
+  InjectPacketRequest req = MakeRequest(device_id_, ingress_port, payload, tag);
   Reproducer resp;
   grpc::Status status = stub_->GetReproducer(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
@@ -112,7 +128,8 @@ absl::StatusOr<Reproducer> DataplaneClient::GetReproducer(
     P4RuntimePort ingress_port, std::string_view payload, Tag tag) {
   grpc::ClientContext ctx;
   ctx.set_deadline(AbsoluteDeadline(default_timeout_));
-  InjectPacketRequest req = MakeRequest(std::move(ingress_port), payload, tag);
+  InjectPacketRequest req =
+      MakeRequest(device_id_, std::move(ingress_port), payload, tag);
   Reproducer resp;
   grpc::Status status = stub_->GetReproducer(&ctx, req, &resp);
   if (!status.ok()) return ToAbsl(status);
@@ -124,11 +141,24 @@ absl::StatusOr<Reproducer> DataplaneClient::GetReproducer(
 class PacketWriter::Impl {
  public:
   static std::unique_ptr<Impl> Create(
-      Dataplane::Stub *stub, std::unique_ptr<grpc::ClientContext> context) {
+      Dataplane::Stub *stub, uint64_t device_id,
+      std::unique_ptr<grpc::ClientContext> context) {
     std::unique_ptr<Impl> impl(new Impl);
+    impl->device_id_ = device_id;
     impl->context_ = std::move(context);
     impl->writer_ = stub->InjectPackets(impl->context_.get(), &impl->response_);
     return impl;
+  }
+
+  absl::Status Inject(DataplanePort ingress_port, std::string_view payload,
+                      Tag tag) {
+    return Inject(MakeRequest(device_id_, ingress_port, payload, tag));
+  }
+
+  absl::Status Inject(P4RuntimePort ingress_port, std::string_view payload,
+                      Tag tag) {
+    return Inject(
+        MakeRequest(device_id_, std::move(ingress_port), payload, tag));
   }
 
   absl::Status Inject(InjectPacketRequest req) {
@@ -165,6 +195,7 @@ class PacketWriter::Impl {
   std::unique_ptr<grpc::ClientContext> context_;
   InjectPacketsResponse response_;
   std::unique_ptr<grpc::ClientWriter<InjectPacketRequest>> writer_;
+  uint64_t device_id_ = 0;
   bool finished_ = false;
   int count_ = 0;
   absl::Status finished_status_;
@@ -178,8 +209,8 @@ PacketWriter DataplaneClient::InjectPackets(
   if (total_timeout.has_value()) {
     context->set_deadline(AbsoluteDeadline(*total_timeout));
   }
-  return PacketWriter(
-      PacketWriter::Impl::Create(stub_.get(), std::move(context)));
+  return PacketWriter(PacketWriter::Impl::Create(stub_.get(), device_id_,
+                                                 std::move(context)));
 }
 
 PacketWriter::~PacketWriter() {
@@ -192,12 +223,12 @@ PacketWriter::PacketWriter(std::unique_ptr<Impl> impl)
 
 absl::Status PacketWriter::Inject(DataplanePort ingress_port,
                                   std::string_view payload, Tag tag) {
-  return impl_->Inject(MakeRequest(ingress_port, payload, tag));
+  return impl_->Inject(ingress_port, payload, tag);
 }
 
 absl::Status PacketWriter::Inject(P4RuntimePort ingress_port,
                                   std::string_view payload, Tag tag) {
-  return impl_->Inject(MakeRequest(std::move(ingress_port), payload, tag));
+  return impl_->Inject(std::move(ingress_port), payload, tag);
 }
 
 absl::StatusOr<int> PacketWriter::Finish() { return impl_->Finish(); }
@@ -207,7 +238,8 @@ absl::StatusOr<int> PacketWriter::Finish() { return impl_->Finish(); }
 class ResultStream::Impl {
  public:
   static absl::StatusOr<std::unique_ptr<Impl>> Create(
-      Dataplane::Stub *stub, absl::Duration startup_timeout);
+      Dataplane::Stub *stub, uint64_t device_id,
+      absl::Duration startup_timeout);
 
   ~Impl();
 
@@ -242,10 +274,12 @@ class ResultStream::Impl {
 };
 
 absl::StatusOr<std::unique_ptr<ResultStream::Impl>> ResultStream::Impl::Create(
-    Dataplane::Stub *stub, absl::Duration startup_timeout) {
+    Dataplane::Stub *stub, uint64_t device_id,
+    absl::Duration startup_timeout) {
   std::unique_ptr<Impl> impl(new Impl);
   impl->context_ = std::make_unique<grpc::ClientContext>();
   SubscribeResultsRequest req;
+  req.set_device_id(device_id);
   impl->reader_ = stub->SubscribeResults(impl->context_.get(), req);
 
   Impl *raw = impl.get();
@@ -344,7 +378,7 @@ absl::StatusOr<ProcessPacketResult> ResultStream::Next(absl::Duration timeout) {
 absl::StatusOr<ResultStream> DataplaneClient::SubscribeResults(
     std::optional<absl::Duration> startup_timeout) {
   absl::StatusOr<std::unique_ptr<ResultStream::Impl>> impl =
-      ResultStream::Impl::Create(stub_.get(),
+      ResultStream::Impl::Create(stub_.get(), device_id_,
                                  startup_timeout.value_or(default_timeout_));
   if (!impl.ok()) return impl.status();
   return ResultStream(*std::move(impl));

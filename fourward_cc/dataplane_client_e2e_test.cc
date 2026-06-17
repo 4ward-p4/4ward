@@ -20,14 +20,15 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
+#include "fourward_cc/dataplane_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "grpc/dataplane.pb.h"
 #include "grpcpp/client_context.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
-#include "grpc/dataplane.pb.h"
-#include "fourward_cc/dataplane_matchers.h"
 #include "fourward_cc/fourward_server.h"
+#include "fourward_cc/management_client.h"
 #include "tools/cpp/runfiles/runfiles.h"
 
 #ifndef PASSTHROUGH_PIPELINE_RLOCATION
@@ -72,10 +73,10 @@ absl::StatusOr<std::string> ReadRunfile(const std::string& rlocation) {
                      std::istreambuf_iterator<char>());
 }
 
-absl::Status EstablishMasterArbitration(const FourwardServer& server,
+absl::Status EstablishMasterArbitration(uint64_t device_id,
                                         P4RuntimeStream* stream) {
   p4::v1::StreamMessageRequest arbitration;
-  arbitration.mutable_arbitration()->set_device_id(server.DeviceId());
+  arbitration.mutable_arbitration()->set_device_id(device_id);
   arbitration.mutable_arbitration()->mutable_election_id()->set_low(1);
   if (!stream->Write(arbitration)) {
     return absl::InternalError("failed to write arbitration request");
@@ -91,18 +92,19 @@ absl::Status EstablishMasterArbitration(const FourwardServer& server,
 // Pushes a ForwardingPipelineConfig to the server via the P4Runtime API.
 // Handles the arbitration handshake.
 absl::Status PushPipeline(const FourwardServer& server,
-                          const p4::v1::ForwardingPipelineConfig& config) {
+                          const p4::v1::ForwardingPipelineConfig& config,
+                          uint64_t device_id) {
   auto stub = server.NewP4RuntimeStub();
 
   grpc::ClientContext stream_ctx;
   auto stream = stub->StreamChannel(&stream_ctx);
-  absl::Status arbitration = EstablishMasterArbitration(server, stream.get());
+  absl::Status arbitration = EstablishMasterArbitration(device_id, stream.get());
   if (!arbitration.ok()) return arbitration;
 
   // Push pipeline.
   grpc::ClientContext set_ctx;
   p4::v1::SetForwardingPipelineConfigRequest req;
-  req.set_device_id(server.DeviceId());
+  req.set_device_id(device_id);
   req.mutable_election_id()->set_low(1);
   req.set_action(
       p4::v1::SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
@@ -114,6 +116,11 @@ absl::Status PushPipeline(const FourwardServer& server,
 
   stream_ctx.TryCancel();
   return absl::OkStatus();
+}
+
+absl::Status PushPipeline(const FourwardServer& server,
+                          const p4::v1::ForwardingPipelineConfig& config) {
+  return PushPipeline(server, config, server.DeviceId());
 }
 
 const p4::config::v1::Table* FindTable(const p4::config::v1::P4Info& p4info,
@@ -187,7 +194,8 @@ absl::Status WriteInsert(const FourwardServer& server,
 
   grpc::ClientContext stream_ctx;
   auto stream = stub->StreamChannel(&stream_ctx);
-  absl::Status arbitration = EstablishMasterArbitration(server, stream.get());
+  absl::Status arbitration =
+      EstablishMasterArbitration(server.DeviceId(), stream.get());
   if (!arbitration.ok()) return arbitration;
 
   p4::v1::WriteRequest req;
@@ -243,7 +251,8 @@ absl::Status SendPacketOut(const FourwardServer& server,
   grpc::ClientContext ctx;
   auto stream = stub->StreamChannel(&ctx);
 
-  absl::Status arbitration = EstablishMasterArbitration(server, stream.get());
+  absl::Status arbitration =
+      EstablishMasterArbitration(server.DeviceId(), stream.get());
   if (!arbitration.ok()) return arbitration;
 
   p4::v1::StreamMessageRequest request;
@@ -384,6 +393,36 @@ TEST_F(DataplaneClientE2ETest, InjectPacketsBurstCanBeDrainedAfterInjection) {
     ASSERT_TRUE(result.ok()) << "result " << i << ": " << result.status();
     EXPECT_THAT(*result, ForwardsTo(1));
   }
+}
+
+TEST_F(DataplaneClientE2ETest, ExplicitDeviceIdScopesStreamingDataplaneRpc) {
+  constexpr uint64_t kSecondDeviceId = 2;
+  ManagementClient management(*server_);
+  ASSERT_TRUE(
+      management.CreateDevices({.first_device_id = kSecondDeviceId, .count = 1}).ok());
+
+  absl::StatusOr<std::string> binpb =
+      ReadRunfile(PASSTHROUGH_PIPELINE_RLOCATION);
+  ASSERT_TRUE(binpb.ok()) << binpb.status();
+  p4::v1::ForwardingPipelineConfig config;
+  ASSERT_TRUE(config.ParseFromString(*binpb))
+      << "failed to parse ForwardingPipelineConfig";
+  ASSERT_TRUE(PushPipeline(*server_, config, kSecondDeviceId).ok());
+
+  DataplaneClient client(*server_, kSecondDeviceId);
+  absl::StatusOr<ResultStream> stream = client.SubscribeResults();
+  ASSERT_TRUE(stream.ok()) << stream.status();
+
+  PacketWriter writer = client.InjectPackets();
+  ASSERT_TRUE(writer.Inject(DataplanePort{7}, MakeEthernetFrame()).ok());
+  absl::StatusOr<int> count = writer.Finish();
+  ASSERT_TRUE(count.ok()) << count.status();
+  ASSERT_EQ(*count, 1);
+
+  absl::StatusOr<ProcessPacketResult> result = stream->Next();
+  ASSERT_TRUE(result.ok()) << result.status();
+  EXPECT_THAT(*result, ForwardsTo(1));
+  EXPECT_THAT(*result, HasIngress(7));
 }
 
 TEST_F(DataplaneClientE2ETest,

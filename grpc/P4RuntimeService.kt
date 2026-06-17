@@ -17,6 +17,7 @@ import io.grpc.Status
 import io.grpc.StatusException
 import java.io.Closeable
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
@@ -76,7 +77,7 @@ class P4RuntimeService(
    * with [PacketBroker] so that pre-packet hook updates are atomic with other writes.
    */
   private val writeMutex: Mutex = Mutex(),
-  private val deviceId: Long = DEFAULT_DEVICE_ID,
+  val deviceId: Long = DEFAULT_DEVICE_ID,
   private val cpuPortConfig: CpuPortConfig = CpuPortConfig.Auto,
   private val dropPortConfig: PortOverride? = null,
   private val disableRefersToChecking: Boolean = false,
@@ -129,6 +130,7 @@ class P4RuntimeService(
 
   private val arbitrationMutex = Mutex()
   private val controllers = mutableMapOf<Any, ControllerStream>()
+  private val streamClosers = CopyOnWriteArrayList<(StatusException) -> Unit>()
 
   // Per-role election state: key is role name (empty = default role).
   // Modified under arbitrationMutex, but read without it by requirePrimaryOrNoArbitration
@@ -625,6 +627,8 @@ class P4RuntimeService(
     channelFlow {
       val streamId = Any()
       val notifications = Channel<StreamMessageResponse>(Channel.UNLIMITED)
+      val streamCloser: (StatusException) -> Unit = { close(it) }
+      streamClosers.add(streamCloser)
 
       // Forward async notifications (demotion/promotion) to the stream output.
       launch { for (msg in notifications) send(msg) }
@@ -684,6 +688,7 @@ class P4RuntimeService(
           }
         }
       } finally {
+        streamClosers.remove(streamCloser)
         packetInHandle.unsubscribe()
         notifications.close()
         // Disconnect cleanup must complete even if the stream coroutine is being cancelled —
@@ -862,6 +867,7 @@ class P4RuntimeService(
     arbitration: MasterArbitrationUpdate,
     notifications: SendChannel<StreamMessageResponse>,
   ): StreamMessageResponse {
+    requireDeviceId(arbitration.deviceId)
     // P4Runtime spec §15: Role.config is target-specific policy we don't support.
     if (arbitration.role.hasConfig()) {
       throw Status.UNIMPLEMENTED.withDescription(ROLE_CONFIG_NOT_SUPPORTED).asException()
@@ -983,6 +989,9 @@ class P4RuntimeService(
 
   /** Rejects requests targeting a different device (P4Runtime spec §6.3). */
   private fun requireDeviceId(requestDeviceId: Long) {
+    if (requestDeviceId == 0L) {
+      throw Status.INVALID_ARGUMENT.withDescription("device_id must be nonzero").asException()
+    }
     if (requestDeviceId != deviceId) {
       throw Status.NOT_FOUND.withDescription(
           "unknown device_id $requestDeviceId (this device is $deviceId)"
@@ -1146,6 +1155,12 @@ class P4RuntimeService(
     savedPipeline?.constraintValidator?.close()
   }
 
+  fun closeStreams(cause: StatusException) {
+    for (closeStream in streamClosers) {
+      closeStream(cause)
+    }
+  }
+
   /**
    * Resolves a [PortOverride] to a dataplane port number. [PortOverride.Dataplane] passes through;
    * [PortOverride.P4rt] looks up the name in the port translator's explicit mappings (no
@@ -1184,7 +1199,7 @@ class P4RuntimeService(
     private const val INGRESS_PORT_METADATA_ID = 1
 
     // Matches the p4runtime proto version declared in MODULE.bazel.
-    private const val P4RUNTIME_API_VERSION = "1.5.0"
+    internal const val P4RUNTIME_API_VERSION = "1.5.0"
 
     private const val NO_PIPELINE_MESSAGE =
       "no pipeline loaded; call SetForwardingPipelineConfig first"
