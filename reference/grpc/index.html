@@ -845,6 +845,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#management-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Management service
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#data-plane-performance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1421,6 +1432,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#management-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Management service
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#data-plane-performance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1480,7 +1502,8 @@
 
 
 <h1 id="grpc-api-reference">gRPC API Reference<a class="headerlink" href="#grpc-api-reference" title="Permanent link">¶</a></h1>
-<p>4ward exposes two gRPC services on the same port (default: <strong>9559</strong>).</p>
+<p>4ward exposes P4Runtime, dataplane, and management gRPC services on the same
+port (default: <strong>9559</strong>).</p>
 <h2 id="server">Server<a class="headerlink" href="#server" title="Permanent link">¶</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>bazel<span class="w"> </span>run<span class="w"> </span>//grpc:fourward_server<span class="w"> </span>--<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span>
 </code></pre></div>
@@ -1501,7 +1524,7 @@
 <tr>
 <td><code>--device-id</code></td>
 <td>1</td>
-<td>P4Runtime device ID</td>
+<td>Default P4Runtime device ID. Leave this at <code>1</code> unless integrating with a controller that expects a different ID.</td>
 </tr>
 <tr>
 <td><code>--drop-port</code></td>
@@ -1523,6 +1546,10 @@
 <h2 id="p4runtime-service">P4Runtime service<a class="headerlink" href="#p4runtime-service" title="Permanent link">¶</a></h2>
 <p>Standard <a href="https://p4lang.github.io/p4runtime/spec/v1.5.0/P4Runtime-Spec.html">P4Runtime</a> gRPC API (reports version
 <strong>1.5.0</strong>). All six RPCs are implemented:</p>
+<p>Every normal P4Runtime request has a required nonzero <code>device_id</code>. In the
+usual one-device setup, use <code>1</code> (or the value passed to <code>--device-id</code>) and
+ignore device lifecycle APIs. Device IDs matter only when one 4ward server is
+hosting multiple logical devices.</p>
 <table>
 <thead>
 <tr>
@@ -1587,16 +1614,22 @@ become primary for a role. The highest <code>election_id</code> wins.</p>
 <h2 id="dataplane-service">Dataplane service<a class="headerlink" href="#dataplane-service" title="Permanent link">¶</a></h2>
 <p>Defined in <a href="https://github.com/4ward-p4/4ward/blob/main/grpc/dataplane.proto"><code>dataplane.proto</code></a>.
 For packet injection and result observation — not part of the P4Runtime spec.</p>
+<p>Native dataplane requests can target a logical 4ward device with
+<code>device_id</code>. Unset or <code>0</code> means the server's default device, which keeps
+single-device clients simple. This convention is specific to 4ward-native
+dataplane RPCs; P4Runtime control-plane RPCs still require a nonzero
+<code>device_id</code> and reject <code>0</code>.</p>
 <h3 id="injectpacket"><code>InjectPacket</code><a class="headerlink" href="#injectpacket" title="Permanent link">¶</a></h3>
 <p>Inject a single packet and get the result inline.</p>
 <p><strong>Request:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kd">message</span><span class="w"> </span><span class="nc">InjectPacketRequest</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="k">oneof</span><span class="w"> </span><span class="n">ingress_port</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="kt">uint32</span><span class="w"> </span><span class="na">dataplane_ingress_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">  </span><span class="c1">// e.g., 0</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="kt">bytes</span><span class="w"> </span><span class="na">p4rt_ingress_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">        </span><span class="c1">// e.g., "Ethernet0"</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="kt">bytes</span><span class="w"> </span><span class="na">payload</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">}</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="kt">uint64</span><span class="w"> </span><span class="na">device_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w">  </span><span class="c1">// optional; unset/0 means the default device</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="k">oneof</span><span class="w"> </span><span class="n">ingress_port</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="kt">uint32</span><span class="w"> </span><span class="na">dataplane_ingress_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">  </span><span class="c1">// e.g., 0</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="kt">bytes</span><span class="w"> </span><span class="na">p4rt_ingress_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">        </span><span class="c1">// e.g., "Ethernet0"</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="kt">bytes</span><span class="w"> </span><span class="na">payload</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
 </code></pre></div>
 <p>The <code>p4rt_ingress_port</code> variant requires a loaded pipeline with
 <a href="../../concepts/type-translation/"><code>@p4runtime_translation</code></a> on the port type.</p>
@@ -1637,16 +1670,20 @@ packet.</p>
 <h3 id="subscriberesults"><code>SubscribeResults</code><a class="headerlink" href="#subscriberesults" title="Permanent link">¶</a></h3>
 <p>Server-streaming RPC that delivers results from all packet sources
 (InjectPacket, InjectPackets, PacketOut, etc.).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">// First message confirms the subscription.</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">SubscribeResultsResponse</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">active</span><span class="o">:</span><span class="w"> </span><span class="p">{}</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1">// Subsequent messages carry results.</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">SubscribeResultsResponse</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="n">result</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="n">input_packet</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">...</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="n">trace</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">...</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="n">possible_outcomes</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">packets</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="o">...</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">SubscribeResultsRequest</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="n">device_id</span><span class="o">:</span><span class="w"> </span><span class="mi">0</span><span class="w">  </span><span class="c1">// optional; unset/0 means the default device</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p">}</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1">// First message confirms the subscription.</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">SubscribeResultsResponse</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">active</span><span class="o">:</span><span class="w"> </span><span class="p">{}</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1">// Subsequent messages carry results.</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">SubscribeResultsResponse</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="n">result</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="n">input_packet</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">...</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="n">trace</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">...</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="n">possible_outcomes</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">packets</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="o">...</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="matching-results-to-injected-packets">Matching results to injected packets<a class="headerlink" href="#matching-results-to-injected-packets" title="Permanent link">¶</a></h3>
 <p>Each <code>ProcessPacketResult</code> in the <code>SubscribeResults</code> stream includes the
@@ -1693,6 +1730,29 @@ many PacketIns to expect.</p>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="kt">bytes</span><span class="w"> </span><span class="na">payload</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
 </code></pre></div>
+<h2 id="management-service">Management service<a class="headerlink" href="#management-service" title="Permanent link">¶</a></h2>
+<p>Defined in <a href="https://github.com/4ward-p4/4ward/blob/main/grpc/management.proto"><code>management.proto</code></a>.
+Use this 4ward-native service only when one server should host multiple
+logical devices. Single-device users can ignore it: the server starts with one
+default device.</p>
+<p>This is useful for network-scale tests: a controller can manage many
+independent 4ward switches through one JVM instead of starting one 4ward process
+per switch. Each switch has separate pipeline and table state and is selected
+with the P4Runtime <code>device_id</code> field. The one-JVM-per-switch approach does not
+scale well because every switch pays fixed JVM and OS process overhead.</p>
+<p><code>CreateDevices</code> and <code>DeleteDevices</code> operate on contiguous ranges:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">message</span><span class="w"> </span><span class="nc">CreateDevicesRequest</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="kt">uint64</span><span class="w"> </span><span class="na">first_device_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">  </span><span class="c1">// must be nonzero</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">            </span><span class="c1">// number of contiguous devices</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="p">}</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="kd">message</span><span class="w"> </span><span class="nc">DeleteDevicesRequest</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="kt">uint64</span><span class="w"> </span><span class="na">first_device_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">}</span>
+</code></pre></div>
+<p>New devices start empty. Program each device through standard P4Runtime by
+setting that device's <code>device_id</code> on <code>SetForwardingPipelineConfig</code> and <code>Write</code>.</p>
 <h2 id="data-plane-performance">Data plane performance<a class="headerlink" href="#data-plane-performance" title="Permanent link">¶</a></h2>
 <p>The numbers below cover <strong>data plane</strong> throughput (packet processing).
 Control plane operations (table writes, pipeline loading) have not been
