@@ -1032,6 +1032,21 @@ class PacketHeaderCodecTest {
     }
   }
 
+  @Test
+  @Suppress("MagicNumber")
+  fun `cpu port override accepts uint32 port with high bit set`() {
+    // Regression: the Int bridge previously used .toLong() which sign-extends a high-bit Int
+    // to a negative Long, causing fromUnsignedLong to throw. fromProto preserves the raw bits.
+    val (p4info, behavioral) = buildSaiLikeConfig()
+    val highBitPort = 0xFFFF_FFFE.toInt() // -2 as signed Int, 4294967294 as uint32
+
+    val codec = PacketHeaderCodec.create(p4info, behavioral, cpuPortOverride = highBitPort)
+
+    assertNotNull(codec)
+    assertEquals(highBitPort, codec!!.cpuPort.protoValue)
+    assertEquals(0xFFFF_FFFEL, codec.cpuPort.unsignedLong)
+  }
+
   // =========================================================================
   // CpuPortConfig.fromFlag
   // =========================================================================

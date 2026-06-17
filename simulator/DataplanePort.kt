@@ -54,6 +54,7 @@ private constructor(
       return DataplanePort(parsed.toLong().toInt())
     }
 
+    /** Constructs a port from an unsigned [Long] in `0..0xFFFF_FFFF`; throws if out of range. */
     fun fromUnsignedLong(value: Long): DataplanePort {
       require(value in 0..UINT32_MASK) { "dataplane port out of uint32 range: $value" }
       return DataplanePort(value.toInt())
