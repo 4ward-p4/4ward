@@ -160,7 +160,14 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
     // === Traffic Manager: I2E clone + multicast/unicast ===
     val i2eCloneBranches = buildI2ECloneBranches(pipeline, packet, ingress.output, selectorMembers)
-    val originalTree = buildOriginalEgressPath(pipeline, ingress, depth, selectorMembers)
+    val originalTree =
+      buildOriginalEgressPath(
+        pipeline,
+        ingress,
+        depth,
+        selectorMembers,
+        firstEventId = ingress.nextEventId,
+      )
 
     if (i2eCloneBranches.isNotEmpty()) {
       val causeId = ingress.cloneLookupEventId
@@ -177,13 +184,21 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     ingress: IngressResult,
     depth: Int,
     selectorMembers: Map<String, Int> = emptyMap(),
+    firstEventId: Long = 1L,
   ): TraceTree {
     val egressState = EgressState(pipeline, ingress.output)
     val multicastGroup =
       (ingress.output?.fields?.get("multicast_group") as? BitVal)?.bits?.value?.toInt() ?: 0
 
     if (multicastGroup != 0) {
-      return multicastEgressTree(egressState, ingress, multicastGroup, depth, selectorMembers)
+      return multicastEgressTree(
+        egressState,
+        ingress,
+        multicastGroup,
+        depth,
+        selectorMembers,
+        firstEventId,
+      )
     }
 
     val egressPort =
@@ -197,6 +212,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       PACKET_PATH_NORMAL_UNICAST,
       depth,
       selectorMembers,
+      firstEventId,
     )
   }
 
@@ -216,6 +232,10 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val cloneLookupEventId: Long = 0L,
     /** Id of the ContinuationEvent when resubmit was requested, or 0 if none. */
     val continuationEventId: Long = 0L,
+    /**
+     * First event id the egress pipeline should use, to avoid collisions when events are merged.
+     */
+    val nextEventId: Long = 1L,
   )
 
   private fun runIngressPipeline(
@@ -265,6 +285,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
           byteArrayOf(),
           dropped = true,
           dropTriggerId = ctx.lastEventIdWhere { it.hasMarkToDrop() },
+          nextEventId = ctx.peekNextEventId(),
         )
       }
 
@@ -278,6 +299,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         byteArrayOf(),
         dropped = true,
         dropTriggerId = ctx.lastEventIdWhere { it.hasAssertion() },
+        nextEventId = ctx.peekNextEventId(),
       )
     }
 
@@ -299,6 +321,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       dropped = false,
       cloneLookupEventId = cloneLookupId,
       continuationEventId = if (resubmit) ctx.lastEventId() else 0L,
+      nextEventId = ctx.peekNextEventId(),
     )
   }
 
@@ -313,20 +336,28 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     multicastGroup: Int,
     depth: Int,
     selectorMembers: Map<String, Int> = emptyMap(),
+    firstEventId: Long = 1L,
   ): TraceTree {
     val group = egressState.pipeline.tableStore.getMulticastGroup(multicastGroup)
     if (group == null) {
       // Multicast to unconfigured group — the lookup miss is the trigger for the drop.
-      // cause = 0 here because this event is added directly (not through PacketContext).
+      val missEvent =
+        multicastGroupMissEvent(multicastGroup).toBuilder().setId(firstEventId).build()
       return TraceTree.newBuilder()
-        .addEvents(multicastGroupMissEvent(multicastGroup))
-        .setDrop(fourward.Drop.newBuilder())
+        .addEvents(missEvent)
+        .setDrop(fourward.Drop.newBuilder().setTrigger(firstEventId))
         .build()
     }
 
+    val hitEvent =
+      multicastGroupLookupEvent(multicastGroup, group.replicasCount)
+        .toBuilder()
+        .setId(firstEventId)
+        .build()
     val branches =
       group.replicasList.map { replica ->
         val port = replicaPort(replica)
+        // Each replica runs its own independent egress pass — ids start at 1 in each branch node.
         runEgressWithPostProcessing(
           egressState,
           ingress.deparsedBytes,
@@ -337,10 +368,11 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
           selectorMembers,
         )
       }
-    // cause = 0: the lookup event is added inline (not via PacketContext), so its id isn't stamped.
     return TraceTree.newBuilder()
-      .addEvents(multicastGroupLookupEvent(multicastGroup, group.replicasCount))
-      .setReplication(fourward.Replication.newBuilder().addAllBranches(branches))
+      .addEvents(hitEvent)
+      .setReplication(
+        fourward.Replication.newBuilder().setCause(firstEventId).addAllBranches(branches)
+      )
       .build()
   }
 
@@ -363,6 +395,8 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val dropTriggerId: Long = 0L,
     /** Id of the CloneSessionLookupEvent for E2E clone, or 0 if none. */
     val cloneLookupEventId: Long = 0L,
+    /** Next event id after the last egress event (for appending continuation events). */
+    val nextEventId: Long = 1L,
   )
 
   /**
@@ -377,6 +411,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     packetPath: String,
     depth: Int,
     selectorMembers: Map<String, Int> = emptyMap(),
+    firstEventId: Long = 1L,
   ): TraceTree {
     val core: EgressCoreResult
     try {
@@ -388,6 +423,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
           instance,
           packetPath,
           selectorMembers,
+          firstEventId,
         )
     } catch (fork: ActionSelectorFork) {
       return handleActionSelectorFork(fork, selectorMembers) { newSelectors ->
@@ -399,6 +435,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
           packetPath,
           depth,
           newSelectors,
+          firstEventId,
         )
       }
     }
@@ -420,7 +457,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val isRecirculate = egressPort.toUInt().toLong() == PSA_PORT_RECIRCULATE_LONG
     val outputTree =
       if (isRecirculate) {
-        val contEventId = (core.events.maxOfOrNull { it.id } ?: 0L) + 1L
+        val contEventId = core.nextEventId
         val contEvent =
           continuationTriggerEvent(ContinuationEvent.Kind.RECIRCULATE)
             .toBuilder()
@@ -457,9 +494,10 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     instance: Int,
     packetPath: String,
     selectorMembers: Map<String, Int> = emptyMap(),
+    firstEventId: Long = 1L,
   ): EgressCoreResult {
     val p = state.pipeline
-    val egressCtx = PacketContext(packet)
+    val egressCtx = PacketContext(packet, firstEventId = firstEventId)
     val egressEnv = Environment()
     val egressValues = createDefaultValues(p.config, p.typesByName)
 
@@ -489,6 +527,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         byteArrayOf(),
         egressOutput,
         dropTriggerId = egressCtx.lastEventIdWhere { it.hasAssertion() },
+        nextEventId = egressCtx.peekNextEventId(),
       )
     }
 
@@ -508,6 +547,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       outputBytes,
       egressOutput,
       dropTriggerId,
+      nextEventId = egressCtx.peekNextEventId(),
     )
   }
 

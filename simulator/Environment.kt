@@ -80,7 +80,7 @@ class Environment {
  * Holds the input packet buffer, the output (emit) buffer, and the execution trace. Created once
  * per packet in the architecture's [processPacket] and threaded through the interpreter.
  */
-class PacketContext(packet: PacketBits, initialBitOffset: Int = 0) {
+class PacketContext(packet: PacketBits, initialBitOffset: Int = 0, firstEventId: Long = 1L) {
 
   constructor(
     payload: ByteArray,
@@ -150,13 +150,16 @@ class PacketContext(packet: PacketBits, initialBitOffset: Int = 0) {
   // -------------------------------------------------------------------------
 
   private val traceEvents: MutableList<TraceEvent> = mutableListOf()
-  private var nextEventId: Long = 1L
+  private var nextEventId: Long = firstEventId
 
   fun addTraceEvent(event: TraceEvent) {
     traceEvents.add(event.toBuilder().setId(nextEventId++).build())
   }
 
   fun getEvents(): List<TraceEvent> = traceEvents.toList()
+
+  /** Returns the id that will be assigned to the next event added. */
+  fun peekNextEventId(): Long = nextEventId
 
   /** Returns the id of the last added event, or 0 if no events have been added. */
   fun lastEventId(): Long = nextEventId - 1L

@@ -1,0 +1,312 @@
+events {
+  packet_ingress {
+  }
+  id: 1
+}
+events {
+  pipeline_stage {
+    stage_name: "parser"
+    stage_kind: PARSER
+    direction: ENTER
+  }
+  id: 2
+}
+events {
+  parser_transition {
+    parser_name: "MyParser"
+    from_state: "start"
+    to_state: "accept"
+  }
+  id: 3
+  source_info {
+    file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+    line: 29
+    column: 10
+    source_fragment: "start"
+  }
+}
+events {
+  pipeline_stage {
+    stage_name: "parser"
+    stage_kind: PARSER
+    direction: EXIT
+  }
+  id: 4
+}
+events {
+  pipeline_stage {
+    stage_name: "verify_checksum"
+    stage_kind: CONTROL
+    direction: ENTER
+    dataplane_port: 0
+  }
+  id: 5
+}
+events {
+  pipeline_stage {
+    stage_name: "verify_checksum"
+    stage_kind: CONTROL
+    direction: EXIT
+    dataplane_port: 0
+  }
+  id: 6
+}
+events {
+  pipeline_stage {
+    stage_name: "ingress"
+    stage_kind: CONTROL
+    direction: ENTER
+    dataplane_port: 0
+  }
+  id: 7
+}
+events {
+  assignment {
+    target: "smeta.egress_spec"
+  }
+  id: 8
+  source_info {
+    file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+    line: 41
+    column: 26
+    source_fragment: "smeta.egress_spec = 9w1"
+  }
+  result_value: "1"
+}
+events {
+  branch {
+    control_name: "MyIngress"
+    taken: true
+  }
+  id: 9
+  source_info {
+    file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+    line: 42
+    column: 12
+    source_fragment: "smeta.instance_type == 0"
+  }
+  variable_values {
+    key: "smeta.instance_type"
+    value: "0"
+  }
+  result_value: "true"
+}
+events {
+  assignment {
+    target: "meta.tag"
+  }
+  id: 10
+  source_info {
+    file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+    line: 43
+    column: 21
+    source_fragment: "meta.tag = 16w0xbeef"
+  }
+  result_value: "48879 (0xbeef)"
+}
+events {
+  pipeline_stage {
+    stage_name: "ingress"
+    stage_kind: CONTROL
+    direction: EXIT
+    dataplane_port: 0
+  }
+  id: 11
+}
+events {
+  id: 12
+  continuation_trigger {
+    kind: RESUBMIT
+    preserved_fields {
+      key: "tag"
+      value: "48879"
+    }
+  }
+}
+continuation {
+  cause: 12
+  next {
+    events {
+      packet_ingress {
+      }
+      id: 1
+    }
+    events {
+      pipeline_stage {
+        stage_name: "parser"
+        stage_kind: PARSER
+        direction: ENTER
+      }
+      id: 2
+    }
+    events {
+      parser_transition {
+        parser_name: "MyParser"
+        from_state: "start"
+        to_state: "accept"
+      }
+      id: 3
+      source_info {
+        file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+        line: 29
+        column: 10
+        source_fragment: "start"
+      }
+    }
+    events {
+      pipeline_stage {
+        stage_name: "parser"
+        stage_kind: PARSER
+        direction: EXIT
+      }
+      id: 4
+    }
+    events {
+      pipeline_stage {
+        stage_name: "verify_checksum"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 0
+      }
+      id: 5
+    }
+    events {
+      pipeline_stage {
+        stage_name: "verify_checksum"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 0
+      }
+      id: 6
+    }
+    events {
+      pipeline_stage {
+        stage_name: "ingress"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 0
+      }
+      id: 7
+    }
+    events {
+      assignment {
+        target: "smeta.egress_spec"
+      }
+      id: 8
+      source_info {
+        file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+        line: 41
+        column: 26
+        source_fragment: "smeta.egress_spec = 9w1"
+      }
+      result_value: "1"
+    }
+    events {
+      branch {
+        control_name: "MyIngress"
+        taken: false
+      }
+      id: 9
+      source_info {
+        file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+        line: 42
+        column: 12
+        source_fragment: "smeta.instance_type == 0"
+      }
+      variable_values {
+        key: "smeta.instance_type"
+        value: "6"
+      }
+      result_value: "false"
+    }
+    events {
+      assignment {
+        target: "hdr.ethernet.etherType"
+      }
+      id: 10
+      source_info {
+        file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+        line: 47
+        column: 35
+        source_fragment: "hdr.ethernet.etherType = meta.tag"
+      }
+      variable_values {
+        key: "meta.tag"
+        value: "48879 (0xbeef)"
+      }
+      result_value: "48879 (0xbeef)"
+    }
+    events {
+      pipeline_stage {
+        stage_name: "ingress"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 0
+      }
+      id: 11
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 1
+      }
+      id: 12
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 1
+      }
+      id: 13
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 1
+      }
+      id: 14
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 1
+      }
+      id: 15
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: ENTER
+      }
+      id: 16
+    }
+    events {
+      deparser_emit {
+        header_type: "ethernet_t"
+        byte_length: 14
+      }
+      id: 17
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: EXIT
+      }
+      id: 18
+    }
+    output {
+      dataplane_egress_port: 1
+      payload: "\377\377\377\377\377\377\000\000\000\000\000\001\276\357"
+    }
+  }
+}

@@ -57,7 +57,7 @@ complexity:
   # case without introducing opaque intermediate objects.
   # writeIndexedExtern() has 7 params (generic validation: type, name, id, index, info, storage, value).
   LongParameterList:
-    functionThreshold: 8
+    functionThreshold: 9
     constructorThreshold: 12
     excludes: ['**/test/**', '**/*Test.kt']
 
