@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-17 07:18:32</td>
+            <td class="headerValue">2026-06-17 08:27:19</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">94.6&nbsp;%</td>
@@ -434,7 +434,7 @@
 <span id="L372"><span class="lineNum">     372</span> <span class="tlaGNC">           1 :     val missCtx = eval.lastTableMiss() ?: error(&quot;add_entry called but no table miss has occurred&quot;)</span></span>
 <span id="L373"><span class="lineNum">     373</span> <span class="tlaGNC">           1 :     val actionAlias = (eval.evalArg(0) as StringVal).value</span></span>
 <span id="L374"><span class="lineNum">     374</span> <span class="tlaGNC">           1 :     val actionName =</span></span>
-<span id="L375"><span class="lineNum">     375</span> <span class="tlaGNC">           1 :       pipeline.tableStore.resolveActionByAlias(actionAlias)</span></span>
+<span id="L375"><span class="lineNum">     375</span> <span class="tlaGNC">           1 :       pipeline.tableStore.resolveActionForTable(missCtx.tableName, actionAlias)</span></span>
 <span id="L376"><span class="lineNum">     376</span> <span class="tlaUNC tlaBgUNC">           0 :         ?: error(&quot;add_entry: unknown action '$actionAlias'&quot;)</span></span>
 <span id="L377"><span class="lineNum">     377</span>              : </span>
 <span id="L378"><span class="lineNum">     378</span>              :     // The action_params argument (arg 1) is either a single value (one-param actions)</span>
@@ -508,8 +508,8 @@
 <span id="L446"><span class="lineNum">     446</span>              :     /**</span>
 <span id="L447"><span class="lineNum">     447</span>              :      * Maps PNA_HashAlgorithm_t enum members to the internal algorithm names used by Hash.kt.</span>
 <span id="L448"><span class="lineNum">     448</span>              :      *</span>
-<span id="L449"><span class="lineNum">     449</span>              :      * PNA's hash algorithm enum has the same values as PSA's, plus TARGET_DEFAULT which we map to</span>
-<span id="L450"><span class="lineNum">     450</span>              :      * identity as a safe fallback.</span>
+<span id="L449"><span class="lineNum">     449</span>              :      * PNA's hash algorithm enum has the same values as PSA's, plus TARGET_DEFAULT. The simulator</span>
+<span id="L450"><span class="lineNum">     450</span>              :      * treats TARGET_DEFAULT as identity because it has no target-specific hash pipeline.</span>
 <span id="L451"><span class="lineNum">     451</span>              :      */</span>
 <span id="L452"><span class="lineNum">     452</span> <span class="tlaUNC tlaBgUNC">           0 :     val PNA_HASH_ALGORITHMS =</span></span>
 <span id="L453"><span class="lineNum">     453</span> <span class="tlaGNC tlaBgGNC">           1 :       mapOf(</span></span>
