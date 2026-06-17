@@ -88,6 +88,16 @@ object TraceFormatter {
         val result = if (ml.groupFound) "${ml.replicaCount} replicas" else "not found"
         appendLine("${prefix}multicast group ${ml.multicastGroupId}: $result")
       }
+      TraceEvent.EventCase.CONTINUATION_TRIGGER -> {
+        val ct = event.continuationTrigger
+        val kind = ct.kind.name.lowercase()
+        if (ct.preservedFieldsCount > 0) {
+          val fields = ct.preservedFieldsMap.entries.joinToString(", ") { "${it.key}=${it.value}" }
+          appendLine("${prefix}$kind (preserved: $fields)")
+        } else {
+          appendLine("${prefix}$kind")
+        }
+      }
       TraceEvent.EventCase.PACKET_INGRESS,
       TraceEvent.EventCase.PIPELINE_STAGE,
       TraceEvent.EventCase.CLONE_SESSION_LOOKUP,

@@ -3,6 +3,7 @@ package fourward.simulator
 import fourward.BehavioralConfig
 import fourward.CloneEvent
 import fourward.CloneSessionLookupEvent
+import fourward.ContinuationEvent
 import fourward.DropReason
 import fourward.LogMessageEvent
 import fourward.MarkToDropEvent
@@ -494,7 +495,10 @@ class V1ModelArchitecture(
         preservedMetadata = fork.preservedMetadata,
       )
     val next = buildTraceTree(ctx, decisions).trace
-    return PipelineResult(buildContinuationTree(fork.eventsBeforeFork, next = next))
+    val causeId = fork.eventsBeforeFork.lastOrNull()?.id ?: 0L
+    return PipelineResult(
+      buildContinuationTree(fork.eventsBeforeFork, cause = causeId, next = next)
+    )
   }
 
   /** Recirculate: the deparsed packet re-enters the pipeline — modeled as a Continuation. */
@@ -511,7 +515,10 @@ class V1ModelArchitecture(
       )
     val next =
       buildTraceTree(ctx.copy(packet = PacketBits.ofBytes(fork.deparsedBytes)), decisions).trace
-    return PipelineResult(buildContinuationTree(fork.eventsBeforeFork, next = next))
+    val causeId = fork.eventsBeforeFork.lastOrNull()?.id ?: 0L
+    return PipelineResult(
+      buildContinuationTree(fork.eventsBeforeFork, cause = causeId, next = next)
+    )
   }
 
   /**
@@ -731,11 +738,14 @@ class V1ModelArchitecture(
     val outputBytes = truncateOutput(s.packetCtx.deparsedPayload(), s.pendingOps.truncateBytes)
 
     if (s.pendingOps.recirculate) {
-      throw RecirculateFork(
-        outputBytes,
-        s.packetCtx.getEvents(),
-        snapshotPreservedMetadata(s, s.pendingOps.recirculateFieldListId),
+      val preservedMeta = snapshotPreservedMetadata(s, s.pendingOps.recirculateFieldListId)
+      s.packetCtx.addTraceEvent(
+        continuationTriggerEvent(
+          ContinuationEvent.Kind.RECIRCULATE,
+          formatPreservedMeta(preservedMeta),
+        )
       )
+      throw RecirculateFork(outputBytes, s.packetCtx.getEvents(), preservedMeta)
     }
 
     val egressPort =
@@ -823,10 +833,14 @@ class V1ModelArchitecture(
       }
     }
     if (s.pendingOps.resubmit) {
-      throw ResubmitFork(
-        s.packetCtx.getEvents(),
-        snapshotPreservedMetadata(s, s.pendingOps.resubmitFieldListId),
+      val preservedMeta = snapshotPreservedMetadata(s, s.pendingOps.resubmitFieldListId)
+      s.packetCtx.addTraceEvent(
+        continuationTriggerEvent(
+          ContinuationEvent.Kind.RESUBMIT,
+          formatPreservedMeta(preservedMeta),
+        )
       )
+      throw ResubmitFork(s.packetCtx.getEvents(), preservedMeta)
     }
     val mcastGrp = (s.standardMetadata.fields["mcast_grp"] as? BitVal)?.bits?.value?.toInt() ?: 0
     if (mcastGrp != 0) {
@@ -907,6 +921,19 @@ class V1ModelArchitecture(
         .mapNotNull { decl -> allFields[decl.name]?.let { decl.name to it } }
         .toMap()
     return preserved.ifEmpty { null }
+  }
+
+  /** Converts a [Value] snapshot to a string for [ContinuationEvent.preserved_fields]. */
+  private fun formatPreservedMeta(meta: Map<String, Value>?): Map<String, String> {
+    if (meta == null) return emptyMap()
+    return meta.mapValues { (_, v) ->
+      when (v) {
+        is BitVal -> v.bits.value.toString()
+        is BoolVal -> v.value.toString()
+        is EnumVal -> v.member
+        else -> v.toString()
+      }
+    }
   }
 
   /** Post-egress drop check: mark_to_drop() in egress sets egress_spec to drop port. */

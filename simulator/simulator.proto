@@ -151,6 +151,10 @@ message TraceEvent {
 
     // Packet fate.
     MarkToDropEvent mark_to_drop = 6;
+    // Fired immediately before the packet re-enters the pipeline (resubmit or
+    // recirculate). Anchors the Continuation node's cause field and carries the
+    // preserved field snapshot.
+    ContinuationEvent continuation_trigger = 17;
 
     // Deparser.
     DeparserEmitEvent deparser_emit = 13;
@@ -221,6 +225,22 @@ message ExternCallEvent {
 // fate — the actual drop is represented by Drop in PacketOutcome.
 message MarkToDropEvent {
   DropReason reason = 1;
+}
+
+// Fired immediately before the packet re-enters the pipeline (resubmit or
+// recirculate). Anchors Continuation.cause — consumers can resolve the
+// triggering call site from this event.
+message ContinuationEvent {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    RESUBMIT = 1;
+    RECIRCULATE = 2;
+  }
+  Kind kind = 1;
+  // Metadata fields preserved across the loop: field path → formatted value.
+  // Only populated for v1model, where field lists explicitly name preserved
+  // fields. PSA and PNA pass metadata implicitly through the deparser/parser.
+  map<string, string> preserved_fields = 2;
 }
 
 // Fired when the P4 program calls clone().

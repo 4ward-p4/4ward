@@ -309,11 +309,12 @@ fun collectPossibleOutcomes(tree: TraceTree): List<List<OutputPacket>> {
         .map { collectPossibleOutcomes(it) }
         .reduceOrNull { acc, next ->
           acc.flatMap { world -> next.map { branchWorld -> world + branchWorld } }
-        }
-        ?: listOf(emptyList())
+        } ?: listOf(emptyList())
     TraceTree.OutcomeCase.CHOICE ->
       // Each branch is a separate possible world; union their outcomes.
-      tree.choice.branchesList.flatMap { collectPossibleOutcomes(it) }.ifEmpty { listOf(emptyList()) }
+      tree.choice.branchesList
+        .flatMap { collectPossibleOutcomes(it) }
+        .ifEmpty { listOf(emptyList()) }
     TraceTree.OutcomeCase.CONTINUATION -> collectPossibleOutcomes(tree.continuation.next)
   }
 }

@@ -2,6 +2,7 @@ package fourward.simulator
 
 import fourward.Choice
 import fourward.Continuation
+import fourward.ContinuationEvent
 import fourward.Drop
 import fourward.MulticastGroupLookupEvent
 import fourward.OutputPacket
@@ -131,6 +132,20 @@ internal fun multicastGroupLookupEvent(groupId: Int, replicaCount: Int): TraceEv
         .setMulticastGroupId(groupId)
         .setGroupFound(true)
         .setReplicaCount(replicaCount)
+    )
+    .build()
+
+/**
+ * Creates a [TraceEvent] recording a resubmit or recirculate call — fired immediately before the
+ * packet re-enters the pipeline. Anchors [Continuation.cause].
+ */
+internal fun continuationTriggerEvent(
+  kind: ContinuationEvent.Kind,
+  preservedFields: Map<String, String> = emptyMap(),
+): TraceEvent =
+  TraceEvent.newBuilder()
+    .setContinuationTrigger(
+      ContinuationEvent.newBuilder().setKind(kind).putAllPreservedFields(preservedFields)
     )
     .build()
 

@@ -159,7 +159,14 @@ events {
   }
   id: 17
 }
+events {
+  id: 18
+  continuation_trigger {
+    kind: RECIRCULATE
+  }
+}
 continuation {
+  cause: 18
   next {
     events {
       packet_ingress {
