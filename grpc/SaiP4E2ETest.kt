@@ -632,32 +632,32 @@ class SaiP4E2ETest {
       harness.openStream().use { session ->
         session.arbitrate()
         session.sendPacketOut(packetOut, timeoutMs = FourwardTestHarness.NO_RESPONSE_TIMEOUT_MS)
-      }
 
-      val msg = withTimeout(5000) { results.receive() }
-      assertTrue("should be a result", msg.hasResult())
-      val outputs = msg.result.possibleOutcomesList.single().packetsList
-      assertEquals(
-        "submit_to_ingress=0 should bypass ingress (ACL drop) and exit on egress_port",
-        1,
-        outputs.size,
-      )
-      assertEquals(
-        "should exit on the PacketOut's egress_port",
-        "Ethernet1",
-        outputs[0].p4RtEgressPort.toStringUtf8(),
-      )
-      val expectedPayload = packetOut.payload.toByteArray()
-      val actualPayload = outputs[0].payload.toByteArray()
-      assertEquals(
-        "PacketOut controller header bits must not leak into output payload",
-        expectedPayload.size,
-        actualPayload.size,
-      )
-      assertBytesEqual("dst_mac", UNICAST_MAC, actualPayload, 0)
-      assertBytesEqual("src_mac", SRC_MAC, actualPayload, MAC_LEN)
-      assertBytesEqual("src_ip", SRC_IP, actualPayload, SRC_IP_OFFSET)
-      assertBytesEqual("dst_ip", DST_IP, actualPayload, DST_IP_OFFSET)
+        val msg = withTimeout(5000) { results.receive() }
+        assertTrue("should be a result", msg.hasResult())
+        val outputs = msg.result.possibleOutcomesList.single().packetsList
+        assertEquals(
+          "submit_to_ingress=0 should bypass ingress (ACL drop) and exit on egress_port",
+          1,
+          outputs.size,
+        )
+        assertEquals(
+          "should exit on the PacketOut's egress_port",
+          "Ethernet1",
+          outputs[0].p4RtEgressPort.toStringUtf8(),
+        )
+        val expectedPayload = packetOut.payload.toByteArray()
+        val actualPayload = outputs[0].payload.toByteArray()
+        assertEquals(
+          "PacketOut controller header bits must not leak into output payload",
+          expectedPayload.size,
+          actualPayload.size,
+        )
+        assertBytesEqual("dst_mac", UNICAST_MAC, actualPayload, 0)
+        assertBytesEqual("src_mac", SRC_MAC, actualPayload, MAC_LEN)
+        assertBytesEqual("src_ip", SRC_IP, actualPayload, SRC_IP_OFFSET)
+        assertBytesEqual("dst_ip", DST_IP, actualPayload, DST_IP_OFFSET)
+      }
 
       job.cancel()
     }

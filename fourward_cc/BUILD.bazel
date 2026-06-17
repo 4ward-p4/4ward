@@ -32,6 +32,8 @@ cc_library(
         ":output_capture",
         "//grpc:dataplane_cc_grpc",
         "//grpc:dataplane_cc_proto",
+        "//grpc:management_cc_grpc",
+        "//grpc:management_cc_proto",
         "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/log",
         "@abseil-cpp//absl/status",
@@ -43,6 +45,22 @@ cc_library(
         "@grpc//:grpc++",
         "@p4runtime//proto/p4/v1:p4runtime_cc_grpc",
         "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+    ],
+)
+
+cc_library(
+    name = "management_client",
+    srcs = ["management_client.cc"],
+    hdrs = ["management_client.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":fourward_server",
+        "//grpc:management_cc_grpc",
+        "//grpc:management_cc_proto",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/time",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -106,6 +124,20 @@ cc_test(
 )
 
 cc_test(
+    name = "management_client_test",
+    srcs = ["management_client_test.cc"],
+    deps = [
+        ":fourward_server",
+        ":management_client",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "dataplane_client_e2e_test",
     srcs = ["dataplane_client_e2e_test.cc"],
     data = [
@@ -120,6 +152,7 @@ cc_test(
         ":dataplane_client",
         ":dataplane_matchers",
         ":fourward_server",
+        ":management_client",
         "//grpc:dataplane_cc_proto",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:statusor",

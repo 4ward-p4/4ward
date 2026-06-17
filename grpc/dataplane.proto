@@ -61,6 +61,13 @@ service Dataplane {
 message InjectPacketsResponse {}
 
 message InjectPacketRequest {
+  // 4ward logical device ID for this native dataplane request.
+  //
+  // Unlike P4Runtime control-plane RPCs, this 4ward-native API accepts
+  // unset/0 as "use the server's default device" so single-device clients do
+  // not need to know about device IDs.
+  uint64 device_id = 5;
+
   oneof ingress_port {
     // Dataplane port number (e.g. 0, 1, 510).
     uint32 dataplane_ingress_port = 1;
@@ -120,7 +127,14 @@ message ProcessPacketResult {
   repeated PacketSet possible_outcomes = 3;
 }
 
-message SubscribeResultsRequest {}
+message SubscribeResultsRequest {
+  // 4ward logical device ID for this native dataplane subscription.
+  //
+  // Unlike P4Runtime control-plane RPCs, this 4ward-native API accepts
+  // unset/0 as "use the server's default device" so single-device clients do
+  // not need to know about device IDs.
+  uint64 device_id = 1;
+}
 
 message SubscribeResultsResponse {
   oneof event {

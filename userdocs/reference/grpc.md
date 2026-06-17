@@ -4,7 +4,8 @@ description: "4ward gRPC API reference: P4Runtime and Dataplane service RPCs, co
 
 # gRPC API Reference
 
-4ward exposes two gRPC services on the same port (default: **9559**).
+4ward exposes P4Runtime, dataplane, and management gRPC services on the same
+port (default: **9559**).
 
 ## Server
 
@@ -15,7 +16,7 @@ bazel run //grpc:fourward_server -- [flags]
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--port` | 9559 | gRPC listen port (use `0` to let the kernel assign an ephemeral port; pair with `--port-file` to discover it) |
-| `--device-id` | 1 | P4Runtime device ID |
+| `--device-id` | 1 | Default P4Runtime device ID. Leave this at `1` unless integrating with a controller that expects a different ID. |
 | `--drop-port` | `2^N - 1` | Override drop port (e.g., 511 for 9-bit ports) |
 | `--cpu-port` | `2^N - 2` | Override CPU port (e.g., 510 for 9-bit ports; auto-enabled when `@controller_header` is present) |
 | `--port-file` | — | After binding, atomically write the listening port to this path. File-exists ≡ ready to serve. Intended for embedders — see [Embedding in C++](embedding-cc.md). |
@@ -24,6 +25,11 @@ bazel run //grpc:fourward_server -- [flags]
 
 Standard [P4Runtime](https://p4lang.github.io/p4runtime/spec/v1.5.0/P4Runtime-Spec.html) gRPC API (reports version
 **1.5.0**). All six RPCs are implemented:
+
+Every normal P4Runtime request has a required nonzero `device_id`. In the
+usual one-device setup, use `1` (or the value passed to `--device-id`) and
+ignore device lifecycle APIs. Device IDs matter only when one 4ward server is
+hosting multiple logical devices.
 
 | RPC | Description |
 |-----|-------------|
@@ -53,6 +59,12 @@ become primary for a role. The highest `election_id` wins.
 Defined in [`dataplane.proto`]({{ config.repo_url }}/blob/main/grpc/dataplane.proto).
 For packet injection and result observation — not part of the P4Runtime spec.
 
+Native dataplane requests can target a logical 4ward device with
+`device_id`. Unset or `0` means the server's default device, which keeps
+single-device clients simple. This convention is specific to 4ward-native
+dataplane RPCs; P4Runtime control-plane RPCs still require a nonzero
+`device_id` and reject `0`.
+
 ### `InjectPacket`
 
 Inject a single packet and get the result inline.
@@ -61,6 +73,7 @@ Inject a single packet and get the result inline.
 
 ```protobuf
 message InjectPacketRequest {
+  uint64 device_id = 5;  // optional; unset/0 means the default device
   oneof ingress_port {
     uint32 dataplane_ingress_port = 1;  // e.g., 0
     bytes p4rt_ingress_port = 2;        // e.g., "Ethernet0"
@@ -121,6 +134,10 @@ Server-streaming RPC that delivers results from all packet sources
 (InjectPacket, InjectPackets, PacketOut, etc.).
 
 ```protobuf
+SubscribeResultsRequest {
+  device_id: 0  // optional; unset/0 means the default device
+}
+
 // First message confirms the subscription.
 SubscribeResultsResponse { active: {} }
 // Subsequent messages carry results.
@@ -185,6 +202,36 @@ message OutputPacket {
   bytes payload = 2;
 }
 ```
+
+## Management service
+
+Defined in [`management.proto`]({{ config.repo_url }}/blob/main/grpc/management.proto).
+Use this 4ward-native service only when one server should host multiple
+logical devices. Single-device users can ignore it: the server starts with one
+default device.
+
+This is useful for network-scale tests: a controller can manage many
+independent 4ward switches through one JVM instead of starting one 4ward process
+per switch. Each switch has separate pipeline and table state and is selected
+with the P4Runtime `device_id` field. The one-JVM-per-switch approach does not
+scale well because every switch pays fixed JVM and OS process overhead.
+
+`CreateDevices` and `DeleteDevices` operate on contiguous ranges:
+
+```protobuf
+message CreateDevicesRequest {
+  uint64 first_device_id = 1;  // must be nonzero
+  uint32 count = 2;            // number of contiguous devices
+}
+
+message DeleteDevicesRequest {
+  uint64 first_device_id = 1;
+  uint32 count = 2;
+}
+```
+
+New devices start empty. Program each device through standard P4Runtime by
+setting that device's `device_id` on `SetForwardingPipelineConfig` and `Write`.
 
 ## Data plane performance
 

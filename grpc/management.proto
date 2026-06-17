@@ -1,0 +1,47 @@
+// 4ward-native management service for logical device lifecycle.
+//
+// A normal single-device 4ward server starts with one default device and does
+// not require this API. Use this service only when one server should emulate
+// multiple independent P4Runtime devices.
+
+syntax = "proto3";
+
+package fourward;
+
+option java_package = "fourward";
+option java_outer_classname = "ManagementProto";
+option java_multiple_files = true;
+
+service FourwardManagement {
+  rpc CreateDevices(CreateDevicesRequest) returns (CreateDevicesResponse);
+  rpc DeleteDevices(DeleteDevicesRequest) returns (DeleteDevicesResponse);
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+}
+
+message CreateDevicesRequest {
+  // First logical device ID to create. Device IDs are the same IDs used in
+  // P4Runtime requests; they must be nonzero because P4Runtime reserves 0 as
+  // the proto3 unset value for normal control-plane RPCs.
+  uint64 first_device_id = 1;
+  // Number of contiguous device IDs to create.
+  uint32 count = 2;
+}
+
+message CreateDevicesResponse {}
+
+message DeleteDevicesRequest {
+  // First logical device ID to delete.
+  uint64 first_device_id = 1;
+  // Number of contiguous device IDs to delete.
+  uint32 count = 2;
+}
+
+message DeleteDevicesResponse {}
+
+message ListDevicesRequest {}
+
+message ListDevicesResponse {
+  // Live logical devices. Single-device users should normally see only the
+  // default device, currently 1 unless the server was started with --device-id.
+  repeated uint64 device_ids = 1;
+}

@@ -1,6 +1,10 @@
 # Multi-Device Server
 
-**Status: proposed**
+**Status: implemented in PR #788**
+
+Revision note: PR #788 implements the first version of this design. It keeps
+per-device state independent, adds the management API, routes P4Runtime by
+`device_id`, and keeps single-device use on the default device.
 
 ## Problem
 
@@ -28,16 +32,28 @@ roughly 1k-10k entries per device and 100-200 GB of memory available.
 
 6. **Simplicity.** Keep the design as simple as the requirements allow.
 
-## Assumptions to validate
+## Scale Validation
 
-Implementation should measure these early:
+PR #788 validated the main scale assumptions with `MultiDeviceScaleBenchmark`.
+
+| Workload | Result |
+|----------|--------|
+| 10k devices, SAI middleblock loaded, no table entries | Passed; 8.3 GiB incremental heap, about 0.88 MiB/device. |
+| 1k devices, SAI middleblock loaded, 1k IPv6 routes/device | Passed; 1.2 GiB incremental heap, about 1.3 MiB/device. |
+| 1k devices, SAI middleblock loaded, 10k IPv6 routes/device | Passed; 4.9 GiB incremental heap, about 5.3 MiB/device. |
+
+These measurements support the first target and the 10k mostly-idle stretch
+target. The benchmark uses real P4Runtime writes against SAI P4 and installs
+IPv6 LPM route entries plus the prerequisite SAI objects required by
+`@refers_to`. We did not run the full extrapolated 10k devices x 10k routes
+case because it would install 100 million entries; the measured heap/device
+stays well inside the 100-200 GB memory target, while write throughput is the
+practical caveat.
+
+Remaining design assumptions:
 
 - The naive design, N independent 4ward processes with one JVM each, does not
   meet the target workload.
-- One JVM and one gRPC server remove enough fixed overhead to make the first
-  target practical before any state-sharing optimization.
-- 10k mostly idle devices fit in 100-200 GB when each device owns independent
-  runtime state and 1k-10k table entries.
 - Contiguous device IDs are natural for the target network-emulation workflow.
 - Most multi-device runs use homogeneous server-level options. Per-device CPU
   port, drop port, or validation settings are not needed in the first API.
@@ -220,10 +236,15 @@ An ergonomic wrapper mirrors the gRPC API:
 ```cc
 class ManagementClient {
  public:
+  struct DeviceRange {
+    uint64_t first_device_id;
+    uint32_t count;
+  };
+
   explicit ManagementClient(const FourwardServer& server);
 
-  absl::Status CreateDevices(uint64_t first_device_id, uint32_t count);
-  absl::Status DeleteDevices(uint64_t first_device_id, uint32_t count);
+  absl::Status CreateDevices(DeviceRange devices);
+  absl::Status DeleteDevices(DeviceRange devices);
   absl::StatusOr<std::vector<uint64_t>> ListDevices();
 };
 ```
@@ -269,7 +290,8 @@ Tests should cover the design contracts, not every implementation detail:
 - P4Runtime routing and error behavior by `device_id`
 - Dataplane default-device and explicit-device routing
 - deletion behavior for active and future streams
-- a scale smoke test that creates and lists 10k empty devices in one RPC
+- a scale benchmark that creates 10k devices and installs SAI IPv6 route entries
+  through P4Runtime
 
 ## Future work
 
@@ -283,5 +305,3 @@ Other possible extensions:
 - arbitrary repeated device IDs for sparse bulk operations
 - per-device creation options
 - paginated or range-compressed `ListDevices`
-- a benchmark that reports heap per empty device and heap per programmed table
-  entry
