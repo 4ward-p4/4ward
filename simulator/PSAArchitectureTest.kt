@@ -3,6 +3,7 @@ package fourward.simulator
 import com.google.protobuf.ByteString
 import fourward.Architecture
 import fourward.AssignmentStmt
+import fourward.ContinuationEvent
 import fourward.BehavioralConfig
 import fourward.BinaryOp
 import fourward.BinaryOperator
@@ -502,6 +503,11 @@ class PSAArchitectureTest {
     // Branches are in replica order; each outputs to its assigned port.
     assertEquals(2, result.trace.replication.branchesList[0].output.dataplaneEgressPort)
     assertEquals(3, result.trace.replication.branchesList[1].output.dataplaneEgressPort)
+    // Replication.cause should reference the multicast group lookup event by id.
+    val causeId = result.trace.replication.cause
+    assertTrue("Replication.cause should be non-zero", causeId > 0)
+    val lookupEvent = result.trace.eventsList.single { it.id == causeId }
+    assertTrue(lookupEvent.hasMulticastGroupLookup())
   }
 
   @Test
@@ -1117,8 +1123,10 @@ class PSAArchitectureTest {
     // Packet recirculates once, then forwards on port 5.
     assertEquals(1, outputs.size)
     assertEquals(5, outputs[0].dataplaneEgressPort)
-    // Trace should show a CONTINUATION (recirculate loops back to ingress).
-    assertTrue(result.trace.hasContinuation())
+    // Trace should show a CONTINUATION anchored by a RECIRCULATE ContinuationEvent.
+    val contEvent = result.trace.eventsList.single { it.hasContinuationTrigger() }
+    assertEquals(ContinuationEvent.Kind.RECIRCULATE, contEvent.continuationTrigger.kind)
+    assertEquals(contEvent.id, result.trace.continuation.cause)
   }
 
   @Test
@@ -1182,8 +1190,10 @@ class PSAArchitectureTest {
 
     assertEquals(1, outputs.size)
     assertEquals(7, outputs[0].dataplaneEgressPort)
-    // Resubmit is a Continuation: the same packet re-enters ingress.
-    assertTrue(result.trace.hasContinuation())
+    // Resubmit is a Continuation anchored by a RESUBMIT ContinuationEvent.
+    val contEvent = result.trace.eventsList.single { it.hasContinuationTrigger() }
+    assertEquals(ContinuationEvent.Kind.RESUBMIT, contEvent.continuationTrigger.kind)
+    assertEquals(contEvent.id, result.trace.continuation.cause)
   }
 
   @Test
@@ -1245,7 +1255,9 @@ class PSAArchitectureTest {
     // Resubmit wins: packet loops back, then exits on port 5. No clone on port 9.
     assertEquals(1, outputs.size)
     assertEquals(5, outputs[0].dataplaneEgressPort)
-    assertTrue(result.trace.hasContinuation())
+    val contEvent = result.trace.eventsList.single { it.hasContinuationTrigger() }
+    assertEquals(ContinuationEvent.Kind.RESUBMIT, contEvent.continuationTrigger.kind)
+    assertEquals(contEvent.id, result.trace.continuation.cause)
   }
 
   @Test

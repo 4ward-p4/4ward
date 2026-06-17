@@ -5,6 +5,7 @@ import fourward.Architecture
 import fourward.BehavioralConfig
 import fourward.BinaryOp
 import fourward.BinaryOperator
+import fourward.ContinuationEvent
 import fourward.ControlDecl
 import fourward.EnumDecl
 import fourward.Expr
@@ -452,6 +453,33 @@ class PNAArchitectureTest {
     } catch (e: IllegalStateException) {
       assertTrue(e.message!!.contains("recirculation depth exceeded"))
     }
+  }
+
+  @Test
+  fun `recirculate emits ContinuationEvent and anchors Continuation cause`() {
+    // First pass (loopedback=false): call recirculate().
+    // Second pass (loopedback=true): send to port 5.
+    val boolType = Type.newBuilder().setBoolean(true).build()
+    val loopedback = fieldAccess(nameRef("istd"), "loopedback", boolType)
+    val config =
+      pnaConfig(
+        mainControlStmts =
+          listOf(
+            ifStmt(
+              condition = loopedback,
+              thenStmts = listOf(sendToPort(5)),
+              elseStmts = listOf(recirculate()),
+            )
+          )
+      )
+    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte()), TableStore())
+
+    // Trace should show a CONTINUATION anchored by a RECIRCULATE ContinuationEvent.
+    val contEvent = result.trace.eventsList.single { it.hasContinuationTrigger() }
+    assertEquals(ContinuationEvent.Kind.RECIRCULATE, contEvent.continuationTrigger.kind)
+    assertEquals(contEvent.id, result.trace.continuation.cause)
+    // Second pass exits on port 5.
+    assertEquals(5, result.possibleOutcomes.single().single().dataplaneEgressPort)
   }
 
   @Test

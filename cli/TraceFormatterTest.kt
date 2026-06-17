@@ -9,6 +9,8 @@ import fourward.LogMessageEvent
 import fourward.MarkToDropEvent
 import fourward.OutputPacket
 import fourward.ParserTransitionEvent
+import fourward.Continuation
+import fourward.ContinuationEvent
 import fourward.Replication
 import fourward.TableLookupEvent
 import fourward.TraceEvent
@@ -207,6 +209,68 @@ class TraceFormatterTest {
       """
       |assert: FAILED
       |drop
+      |"""
+        .trimMargin(),
+      TraceFormatter.format(tree),
+    )
+  }
+
+  @Test
+  fun continuationTriggerResubmit() {
+    val tree =
+      TraceTree.newBuilder()
+        .addEvents(
+          TraceEvent.newBuilder()
+            .setContinuationTrigger(
+              ContinuationEvent.newBuilder().setKind(ContinuationEvent.Kind.RESUBMIT)
+            )
+        )
+        .setContinuation(
+          Continuation.newBuilder()
+            .setNext(
+              TraceTree.newBuilder()
+                .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY))
+            )
+        )
+        .build()
+
+    assertEquals(
+      """
+      |resubmit
+      |continuation
+      |  output port 1, 0 bytes
+      |"""
+        .trimMargin(),
+      TraceFormatter.format(tree),
+    )
+  }
+
+  @Test
+  fun continuationTriggerWithPreservedFields() {
+    val tree =
+      TraceTree.newBuilder()
+        .addEvents(
+          TraceEvent.newBuilder()
+            .setContinuationTrigger(
+              ContinuationEvent.newBuilder()
+                .setKind(ContinuationEvent.Kind.RESUBMIT)
+                .putPreservedFields("tag", "48879")
+            )
+        )
+        .setContinuation(
+          Continuation.newBuilder()
+            .setNext(
+              TraceTree.newBuilder()
+                .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY))
+            )
+        )
+        .build()
+
+    assertEquals(
+      """
+      |resubmit (preserved: tag=48879)
+      |continuation
+      |  output port 1, 0 bytes
       |"""
         .trimMargin(),
       TraceFormatter.format(tree),
