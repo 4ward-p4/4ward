@@ -393,10 +393,8 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val output: StructVal?,
     /** Id of the event that caused a drop, or 0 if none. */
     val dropTriggerId: Long = 0L,
-    /** Id of the CloneSessionLookupEvent for E2E clone, or 0 if none. */
-    val cloneLookupEventId: Long = 0L,
-    /** Next event id after the last egress event (for appending continuation events). */
-    val nextEventId: Long = 1L,
+    /** Id of the ContinuationEvent when recirculate was requested, or 0 if none. */
+    val recirculateCauseId: Long = 0L,
   )
 
   /**
@@ -442,27 +440,19 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
     // E2E clone: uses deparsed bytes from this egress pass. Independent of drop decision.
     val e2eCloneBranches = buildE2ECloneBranches(state.pipeline, core, selectorMembers)
-    val cloneLookupId = core.cloneLookupEventId
 
     if (core.dropped) {
       if (e2eCloneBranches.isNotEmpty()) {
-        return buildReplicationTree(core.events, cloneLookupId, e2eCloneBranches)
+        // PSA E2E clone sessions don't emit a CloneSessionLookupEvent in the current impl.
+        return buildReplicationTree(core.events, 0L, e2eCloneBranches)
       }
       return buildDropTrace(core.events, core.dropTriggerId)
     }
 
     // Recirculate: the same packet loops back to ingress — modeled as a Continuation.
-    // PSA recirculate is port-based (not an explicit call), so we append a ContinuationEvent with
-    // a manually computed id — the PacketContext is no longer live at this point.
-    val isRecirculate = egressPort.toUInt().toLong() == PSA_PORT_RECIRCULATE_LONG
+    // runEgressCore already emitted the ContinuationEvent and stored its id in recirculateCauseId.
     val outputTree =
-      if (isRecirculate) {
-        val contEventId = core.nextEventId
-        val contEvent =
-          continuationTriggerEvent(ContinuationEvent.Kind.RECIRCULATE)
-            .toBuilder()
-            .setId(contEventId)
-            .build()
+      if (core.recirculateCauseId != 0L) {
         val recircTree =
           processPacketRecursive(
             state.pipeline,
@@ -471,13 +461,14 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
             PACKET_PATH_RECIRCULATE,
             depth = depth + 1,
           )
-        buildContinuationTree(core.events + contEvent, cause = contEventId, next = recircTree)
+        buildContinuationTree(core.events, cause = core.recirculateCauseId, next = recircTree)
       } else {
         buildOutputTrace(core.events, egressPort, core.deparsedBytes)
       }
 
     if (e2eCloneBranches.isNotEmpty()) {
-      return buildReplicationTree(emptyList(), cloneLookupId, listOf(outputTree) + e2eCloneBranches)
+      // PSA E2E clone sessions don't emit a CloneSessionLookupEvent in the current impl.
+      return buildReplicationTree(emptyList(), 0L, listOf(outputTree) + e2eCloneBranches)
     }
 
     return outputTree
@@ -527,7 +518,6 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         byteArrayOf(),
         egressOutput,
         dropTriggerId = egressCtx.lastEventIdWhere { it.hasAssertion() },
-        nextEventId = egressCtx.peekNextEventId(),
       )
     }
 
@@ -540,15 +530,16 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
     val outputBytes = egressCtx.deparsedPayload()
     val dropTriggerId = if (dropped) egressCtx.lastEventIdWhere { it.hasMarkToDrop() } else 0L
-    // PSA E2E clone sessions don't emit a CloneSessionLookupEvent in the current impl.
-    return EgressCoreResult(
-      egressCtx.getEvents(),
-      dropped,
-      outputBytes,
-      egressOutput,
-      dropTriggerId,
-      nextEventId = egressCtx.peekNextEventId(),
-    )
+
+    // PSA recirculate is port-based. Emit the ContinuationEvent here while ctx is still live,
+    // so all event emission goes through PacketContext.addTraceEvent uniformly.
+    val recirculateCauseId =
+      if (!dropped && egressPort.toUInt().toLong() == PSA_PORT_RECIRCULATE_LONG) {
+        egressCtx.addTraceEvent(continuationTriggerEvent(ContinuationEvent.Kind.RECIRCULATE))
+        egressCtx.lastEventId()
+      } else 0L
+
+    return EgressCoreResult(egressCtx.getEvents(), dropped, outputBytes, egressOutput, dropTriggerId, recirculateCauseId)
   }
 
   // ---------------------------------------------------------------------------

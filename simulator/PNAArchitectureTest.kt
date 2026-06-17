@@ -472,7 +472,7 @@ class PNAArchitectureTest {
             )
           )
       )
-    val result = PNAArchitecture(config).processPacket(0u, byteArrayOf(0xAA.toByte()), TableStore())
+    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0xAA.toByte()), TableStore())
 
     // Trace should show a CONTINUATION anchored by a RECIRCULATE ContinuationEvent.
     val contEvent = result.trace.eventsList.single { it.hasContinuationTrigger() }
