@@ -31,18 +31,18 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">91.9&nbsp;%</td>
+            <td class="headerCovTableEntryHi">95.9&nbsp;%</td>
             <td class="headerCovTableEntry">172</td>
-            <td class="headerCovTableEntry">158</td>
+            <td class="headerCovTableEntry">165</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-17 05:18:31</td>
+            <td class="headerValue">2026-06-17 07:18:32</td>
             <td></td>
             <td class="headerItem">Functions:</td>
-            <td class="headerCovTableEntryHi">91.4&nbsp;%</td>
+            <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
             <td class="headerCovTableEntry">35</td>
-            <td class="headerCovTableEntry">32</td>
+            <td class="headerCovTableEntry">35</td>
           </tr>
                   <tr><td><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
                 </table>
@@ -197,15 +197,15 @@
 <span id="L135"><span class="lineNum">     135</span>              :   }</span>
 <span id="L136"><span class="lineNum">     136</span>              : </span>
 <span id="L137"><span class="lineNum">     137</span>              :   override suspend fun injectPackets(requests: Flow&lt;InjectPacketRequest&gt;): InjectPacketsResponse {</span>
-<span id="L138"><span class="lineNum">     138</span> <span class="tlaUNC tlaBgUNC">           0 :     val translator = pipelineSnapshot()?.typeTranslator</span></span>
-<span id="L139"><span class="lineNum">     139</span> <span class="tlaUNC">           0 :     broker.withHookOnce { processPacket -&gt;</span></span>
-<span id="L140"><span class="lineNum">     140</span> <span class="tlaUNC">           0 :       requests.collect { request -&gt;</span></span>
-<span id="L141"><span class="lineNum">     141</span> <span class="tlaUNC">           0 :         val port = resolveIngressPort(request, translator)</span></span>
-<span id="L142"><span class="lineNum">     142</span> <span class="tlaUNC">           0 :         val payload = request.payload.toByteArray()</span></span>
-<span id="L143"><span class="lineNum">     143</span> <span class="tlaUNC">           0 :         val tag = request.tag</span></span>
-<span id="L144"><span class="lineNum">     144</span> <span class="tlaUNC">           0 :         processPacket(port, payload, tag)</span></span>
-<span id="L145"><span class="lineNum">     145</span> <span class="tlaUNC">           0 :       }</span></span>
-<span id="L146"><span class="lineNum">     146</span> <span class="tlaUNC">           0 :     }</span></span>
+<span id="L138"><span class="lineNum">     138</span> <span class="tlaGNC">           1 :     val translator = pipelineSnapshot()?.typeTranslator</span></span>
+<span id="L139"><span class="lineNum">     139</span> <span class="tlaGNC">           1 :     broker.withHookOnce { processPacket -&gt;</span></span>
+<span id="L140"><span class="lineNum">     140</span> <span class="tlaUNC tlaBgUNC">           0 :       requests.collect { request -&gt;</span></span>
+<span id="L141"><span class="lineNum">     141</span> <span class="tlaGNC tlaBgGNC">           1 :         val port = resolveIngressPort(request, translator)</span></span>
+<span id="L142"><span class="lineNum">     142</span> <span class="tlaGNC">           1 :         val payload = request.payload.toByteArray()</span></span>
+<span id="L143"><span class="lineNum">     143</span> <span class="tlaGNC">           1 :         val tag = request.tag</span></span>
+<span id="L144"><span class="lineNum">     144</span> <span class="tlaGNC">           1 :         processPacket(port, payload, tag)</span></span>
+<span id="L145"><span class="lineNum">     145</span> <span class="tlaGNC">           1 :       }</span></span>
+<span id="L146"><span class="lineNum">     146</span> <span class="tlaUNC tlaBgUNC">           0 :     }</span></span>
 <span id="L147"><span class="lineNum">     147</span> <span class="tlaUNC">           0 :     return InjectPacketsResponse.getDefaultInstance()</span></span>
 <span id="L148"><span class="lineNum">     148</span>              :   }</span>
 <span id="L149"><span class="lineNum">     149</span>              : </span>
