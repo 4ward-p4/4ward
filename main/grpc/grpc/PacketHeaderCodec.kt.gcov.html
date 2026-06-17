@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">92.0&nbsp;%</td>
-            <td class="headerCovTableEntry">176</td>
-            <td class="headerCovTableEntry">162</td>
+            <td class="headerCovTableEntryHi">91.9&nbsp;%</td>
+            <td class="headerCovTableEntry">172</td>
+            <td class="headerCovTableEntry">158</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-16 20:05:26</td>
+            <td class="headerValue">2026-06-17 04:16:24</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">97.1&nbsp;%</td>
@@ -329,113 +329,109 @@
 <span id="L267"><span class="lineNum">     267</span>              :       behavioral: BehavioralConfig,</span>
 <span id="L268"><span class="lineNum">     268</span> <span class="tlaGNC">           1 :       cpuPortOverride: Int? = null,</span></span>
 <span id="L269"><span class="lineNum">     269</span>              :     ): PacketHeaderCodec? =</span>
-<span id="L270"><span class="lineNum">     270</span> <span class="tlaGNC">           1 :       createWithCpuPort(</span></span>
-<span id="L271"><span class="lineNum">     271</span> <span class="tlaGNC">           1 :         p4info,</span></span>
-<span id="L272"><span class="lineNum">     272</span> <span class="tlaGNC">           1 :         behavioral,</span></span>
-<span id="L273"><span class="lineNum">     273</span> <span class="tlaGNC">           1 :         cpuPortOverride?.toLong()?.let(DataplanePort::fromUnsignedLong),</span></span>
-<span id="L274"><span class="lineNum">     274</span> <span class="tlaGNC">           1 :       )</span></span>
-<span id="L275"><span class="lineNum">     275</span>              : </span>
-<span id="L276"><span class="lineNum">     276</span> <span class="tlaUNC tlaBgUNC">           0 :     fun createWithCpuPort(</span></span>
-<span id="L277"><span class="lineNum">     277</span>              :       p4info: P4Info,</span>
-<span id="L278"><span class="lineNum">     278</span>              :       behavioral: BehavioralConfig,</span>
-<span id="L279"><span class="lineNum">     279</span> <span class="tlaUNC">           0 :       cpuPortOverride: DataplanePort? = null,</span></span>
-<span id="L280"><span class="lineNum">     280</span>              :     ): PacketHeaderCodec? {</span>
-<span id="L281"><span class="lineNum">     281</span> <span class="tlaGNC tlaBgGNC">           1 :       val packetOutMeta =</span></span>
-<span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC">           1 :         p4info.controllerPacketMetadataList.find { it.preamble.name == &quot;packet_out&quot; } ?: return null</span></span>
-<span id="L283"><span class="lineNum">     283</span>              : </span>
-<span id="L284"><span class="lineNum">     284</span> <span class="tlaGNC">           1 :       val packetOutMetaByName = packetOutMeta.metadataList.associateBy { it.name }</span></span>
-<span id="L285"><span class="lineNum">     285</span> <span class="tlaGNC">           1 :       val packetOutType = controllerHeaderLayout(behavioral, &quot;packet_out&quot;)</span></span>
-<span id="L286"><span class="lineNum">     286</span> <span class="tlaGNC">           1 :       val packetOutFieldNames = packetOutType.map { it.name }.toSet()</span></span>
-<span id="L287"><span class="lineNum">     287</span> <span class="tlaGNC">           1 :       val unknownPacketOutMetadata =</span></span>
-<span id="L288"><span class="lineNum">     288</span> <span class="tlaGNC">           1 :         packetOutMeta.metadataList.map { it.name } - packetOutFieldNames</span></span>
-<span id="L289"><span class="lineNum">     289</span> <span class="tlaGNC">           1 :       require(unknownPacketOutMetadata.isEmpty()) {</span></span>
-<span id="L290"><span class="lineNum">     290</span> <span class="tlaUNC tlaBgUNC">           0 :         &quot;packet_out metadata field(s) not found in @controller_header(\&quot;packet_out\&quot;): &quot; +</span></span>
-<span id="L291"><span class="lineNum">     291</span> <span class="tlaUNC">           0 :           unknownPacketOutMetadata.joinToString()</span></span>
-<span id="L292"><span class="lineNum">     292</span>              :       }</span>
-<span id="L293"><span class="lineNum">     293</span> <span class="tlaGNC tlaBgGNC">           1 :       val packetOutFields =</span></span>
-<span id="L294"><span class="lineNum">     294</span> <span class="tlaGNC">           1 :         packetOutType.map { field -&gt;</span></span>
-<span id="L295"><span class="lineNum">     295</span> <span class="tlaGNC">           1 :           FieldDef(</span></span>
-<span id="L296"><span class="lineNum">     296</span> <span class="tlaGNC">           1 :             id = packetOutMetaByName[field.name]?.id,</span></span>
-<span id="L297"><span class="lineNum">     297</span> <span class="tlaGNC">           1 :             name = field.name,</span></span>
-<span id="L298"><span class="lineNum">     298</span> <span class="tlaGNC">           1 :             bitWidth = field.bitWidth,</span></span>
-<span id="L299"><span class="lineNum">     299</span> <span class="tlaGNC">           1 :           )</span></span>
-<span id="L300"><span class="lineNum">     300</span>              :         }</span>
-<span id="L301"><span class="lineNum">     301</span>              : </span>
-<span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :       val cpuPort = cpuPortOverride ?: deriveAutoCpuPort(architectureIngressPortBits(behavioral))</span></span>
-<span id="L303"><span class="lineNum">     303</span>              : </span>
-<span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :       val packetInMeta =</span></span>
-<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :         p4info.controllerPacketMetadataList.find { it.preamble.name == &quot;packet_in&quot; }</span></span>
-<span id="L306"><span class="lineNum">     306</span> <span class="tlaGNC">           1 :       val packetInType = packetInMeta?.let { controllerHeaderLayout(behavioral, &quot;packet_in&quot;) }</span></span>
-<span id="L307"><span class="lineNum">     307</span> <span class="tlaGNC">           1 :       val packetInMetaByName = packetInMeta?.metadataList?.associateBy { it.name }</span></span>
-<span id="L308"><span class="lineNum">     308</span> <span class="tlaGNC">           1 :       val packetInFieldNames = packetInType?.map { it.name }?.toSet() ?: emptySet()</span></span>
-<span id="L309"><span class="lineNum">     309</span> <span class="tlaGNC">           1 :       val unknownPacketInMetadata =</span></span>
-<span id="L310"><span class="lineNum">     310</span> <span class="tlaGNC">           1 :         packetInMeta?.metadataList?.map { it.name }?.minus(packetInFieldNames) ?: emptyList()</span></span>
-<span id="L311"><span class="lineNum">     311</span> <span class="tlaGNC">           1 :       require(unknownPacketInMetadata.isEmpty()) {</span></span>
-<span id="L312"><span class="lineNum">     312</span> <span class="tlaUNC tlaBgUNC">           0 :         &quot;packet_in metadata field(s) not found in @controller_header(\&quot;packet_in\&quot;): &quot; +</span></span>
-<span id="L313"><span class="lineNum">     313</span> <span class="tlaUNC">           0 :           unknownPacketInMetadata.joinToString()</span></span>
-<span id="L314"><span class="lineNum">     314</span>              :       }</span>
-<span id="L315"><span class="lineNum">     315</span> <span class="tlaGNC tlaBgGNC">           1 :       val packetInFields =</span></span>
-<span id="L316"><span class="lineNum">     316</span> <span class="tlaGNC">           1 :         packetInType?.map { field -&gt;</span></span>
-<span id="L317"><span class="lineNum">     317</span> <span class="tlaGNC">           1 :           FieldDef(</span></span>
-<span id="L318"><span class="lineNum">     318</span> <span class="tlaGNC">           1 :             id = packetInMetaByName?.get(field.name)?.id,</span></span>
-<span id="L319"><span class="lineNum">     319</span> <span class="tlaGNC">           1 :             name = field.name,</span></span>
-<span id="L320"><span class="lineNum">     320</span> <span class="tlaGNC">           1 :             bitWidth = field.bitWidth,</span></span>
-<span id="L321"><span class="lineNum">     321</span> <span class="tlaGNC">           1 :           )</span></span>
-<span id="L322"><span class="lineNum">     322</span> <span class="tlaGNC">           1 :         } ?: emptyList()</span></span>
-<span id="L323"><span class="lineNum">     323</span>              : </span>
-<span id="L324"><span class="lineNum">     324</span> <span class="tlaGNC">           1 :       return PacketHeaderCodec(packetOutFields, packetInFields, cpuPort)</span></span>
-<span id="L325"><span class="lineNum">     325</span>              :     }</span>
-<span id="L326"><span class="lineNum">     326</span>              : </span>
-<span id="L327"><span class="lineNum">     327</span>              :     private const val STANDARD_METADATA_TYPE = &quot;standard_metadata_t&quot;</span>
-<span id="L328"><span class="lineNum">     328</span>              : </span>
-<span id="L329"><span class="lineNum">     329</span>              :     private fun controllerHeaderLayout(</span>
-<span id="L330"><span class="lineNum">     330</span>              :       behavioral: BehavioralConfig,</span>
-<span id="L331"><span class="lineNum">     331</span>              :       controllerHeader: String,</span>
-<span id="L332"><span class="lineNum">     332</span>              :     ): List&lt;FieldDef&gt; {</span>
-<span id="L333"><span class="lineNum">     333</span> <span class="tlaGNC">           1 :       val matches =</span></span>
-<span id="L334"><span class="lineNum">     334</span> <span class="tlaGNC">           1 :         behavioral.typesList.filter {</span></span>
-<span id="L335"><span class="lineNum">     335</span> <span class="tlaGNC">           1 :           it.hasHeader() &amp;&amp; it.header.controllerHeader == controllerHeader</span></span>
-<span id="L336"><span class="lineNum">     336</span>              :         }</span>
-<span id="L337"><span class="lineNum">     337</span> <span class="tlaGNC">           1 :       require(matches.size == 1) {</span></span>
-<span id="L338"><span class="lineNum">     338</span> <span class="tlaGNC">           1 :         &quot;expected exactly one header annotated @controller_header(\&quot;$controllerHeader\&quot;), &quot; +</span></span>
-<span id="L339"><span class="lineNum">     339</span> <span class="tlaGNC">           1 :           &quot;found ${matches.size}&quot;</span></span>
-<span id="L340"><span class="lineNum">     340</span>              :       }</span>
-<span id="L341"><span class="lineNum">     341</span> <span class="tlaGNC">           1 :       return matches.single().header.fieldsList.map { FieldDef(null, it.name, bitWidth(it.type)) }</span></span>
-<span id="L342"><span class="lineNum">     342</span>              :     }</span>
-<span id="L343"><span class="lineNum">     343</span>              : </span>
-<span id="L344"><span class="lineNum">     344</span>              :     private fun architectureIngressPortBits(behavioral: BehavioralConfig): Int {</span>
-<span id="L345"><span class="lineNum">     345</span> <span class="tlaGNC">           1 :       val standardMetadata =</span></span>
-<span id="L346"><span class="lineNum">     346</span> <span class="tlaGNC">           1 :         behavioral.typesList.singleOrNull { it.name == STANDARD_METADATA_TYPE &amp;&amp; it.hasStruct() }</span></span>
-<span id="L347"><span class="lineNum">     347</span> <span class="tlaGNC">           1 :       require(standardMetadata != null) { &quot;$STANDARD_METADATA_TYPE not found in behavioral IR&quot; }</span></span>
-<span id="L348"><span class="lineNum">     348</span> <span class="tlaGNC">           1 :       val ingressPort =</span></span>
-<span id="L349"><span class="lineNum">     349</span> <span class="tlaGNC">           1 :         standardMetadata.struct.fieldsList.singleOrNull { it.name == &quot;ingress_port&quot; }</span></span>
-<span id="L350"><span class="lineNum">     350</span> <span class="tlaGNC">           1 :       require(ingressPort != null) { &quot;$STANDARD_METADATA_TYPE has no ingress_port field&quot; }</span></span>
-<span id="L351"><span class="lineNum">     351</span> <span class="tlaGNC">           1 :       return bitWidth(ingressPort.type)</span></span>
-<span id="L352"><span class="lineNum">     352</span>              :     }</span>
-<span id="L353"><span class="lineNum">     353</span>              : </span>
-<span id="L354"><span class="lineNum">     354</span>              :     private fun deriveAutoCpuPort(portBits: Int): DataplanePort {</span>
-<span id="L355"><span class="lineNum">     355</span> <span class="tlaGNC">           1 :       require(portBits in 1..Int.SIZE_BITS) {</span></span>
-<span id="L356"><span class="lineNum">     356</span> <span class="tlaGNC">           1 :         &quot;automatic CPU port derivation requires a 1..32-bit dataplane port, got $portBits bits&quot;</span></span>
-<span id="L357"><span class="lineNum">     357</span>              :       }</span>
-<span id="L358"><span class="lineNum">     358</span> <span class="tlaGNC">           1 :       return DataplanePort.fromUnsignedLong(</span></span>
-<span id="L359"><span class="lineNum">     359</span> <span class="tlaGNC">           1 :         BigInteger.ONE.shiftLeft(portBits).subtract(BigInteger.TWO).toLong()</span></span>
-<span id="L360"><span class="lineNum">     360</span>              :       )</span>
-<span id="L361"><span class="lineNum">     361</span>              :     }</span>
-<span id="L362"><span class="lineNum">     362</span>              : </span>
-<span id="L363"><span class="lineNum">     363</span>              :     private fun bitWidth(type: Type): Int =</span>
-<span id="L364"><span class="lineNum">     364</span> <span class="tlaGNC">           1 :       when (type.kindCase) {</span></span>
-<span id="L365"><span class="lineNum">     365</span> <span class="tlaGNC">           1 :         Type.KindCase.BIT -&gt; type.bit.width</span></span>
-<span id="L366"><span class="lineNum">     366</span> <span class="tlaUNC tlaBgUNC">           0 :         Type.KindCase.SIGNED_INT -&gt; type.signedInt.width</span></span>
-<span id="L367"><span class="lineNum">     367</span> <span class="tlaUNC">           0 :         Type.KindCase.BOOLEAN -&gt; 1</span></span>
-<span id="L368"><span class="lineNum">     368</span>              :         Type.KindCase.VARBIT,</span>
-<span id="L369"><span class="lineNum">     369</span>              :         Type.KindCase.NAMED,</span>
-<span id="L370"><span class="lineNum">     370</span>              :         Type.KindCase.HEADER_STACK,</span>
-<span id="L371"><span class="lineNum">     371</span>              :         Type.KindCase.ERROR,</span>
-<span id="L372"><span class="lineNum">     372</span>              :         Type.KindCase.KIND_NOT_SET,</span>
-<span id="L373"><span class="lineNum">     373</span> <span class="tlaUNC">           0 :         null -&gt; error(&quot;unsupported type in packet header: $type&quot;)</span></span>
-<span id="L374"><span class="lineNum">     374</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
-<span id="L375"><span class="lineNum">     375</span>              :   }</span>
-<span id="L376"><span class="lineNum">     376</span>              : }</span>
+<span id="L270"><span class="lineNum">     270</span> <span class="tlaGNC">           1 :       createWithCpuPort(p4info, behavioral, cpuPortOverride?.let(DataplanePort::fromProto))</span></span>
+<span id="L271"><span class="lineNum">     271</span>              : </span>
+<span id="L272"><span class="lineNum">     272</span> <span class="tlaUNC tlaBgUNC">           0 :     fun createWithCpuPort(</span></span>
+<span id="L273"><span class="lineNum">     273</span>              :       p4info: P4Info,</span>
+<span id="L274"><span class="lineNum">     274</span>              :       behavioral: BehavioralConfig,</span>
+<span id="L275"><span class="lineNum">     275</span> <span class="tlaUNC">           0 :       cpuPortOverride: DataplanePort? = null,</span></span>
+<span id="L276"><span class="lineNum">     276</span>              :     ): PacketHeaderCodec? {</span>
+<span id="L277"><span class="lineNum">     277</span> <span class="tlaGNC tlaBgGNC">           1 :       val packetOutMeta =</span></span>
+<span id="L278"><span class="lineNum">     278</span> <span class="tlaGNC">           1 :         p4info.controllerPacketMetadataList.find { it.preamble.name == &quot;packet_out&quot; } ?: return null</span></span>
+<span id="L279"><span class="lineNum">     279</span>              : </span>
+<span id="L280"><span class="lineNum">     280</span> <span class="tlaGNC">           1 :       val packetOutMetaByName = packetOutMeta.metadataList.associateBy { it.name }</span></span>
+<span id="L281"><span class="lineNum">     281</span> <span class="tlaGNC">           1 :       val packetOutType = controllerHeaderLayout(behavioral, &quot;packet_out&quot;)</span></span>
+<span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC">           1 :       val packetOutFieldNames = packetOutType.map { it.name }.toSet()</span></span>
+<span id="L283"><span class="lineNum">     283</span> <span class="tlaGNC">           1 :       val unknownPacketOutMetadata =</span></span>
+<span id="L284"><span class="lineNum">     284</span> <span class="tlaGNC">           1 :         packetOutMeta.metadataList.map { it.name } - packetOutFieldNames</span></span>
+<span id="L285"><span class="lineNum">     285</span> <span class="tlaGNC">           1 :       require(unknownPacketOutMetadata.isEmpty()) {</span></span>
+<span id="L286"><span class="lineNum">     286</span> <span class="tlaUNC tlaBgUNC">           0 :         &quot;packet_out metadata field(s) not found in @controller_header(\&quot;packet_out\&quot;): &quot; +</span></span>
+<span id="L287"><span class="lineNum">     287</span> <span class="tlaUNC">           0 :           unknownPacketOutMetadata.joinToString()</span></span>
+<span id="L288"><span class="lineNum">     288</span>              :       }</span>
+<span id="L289"><span class="lineNum">     289</span> <span class="tlaGNC tlaBgGNC">           1 :       val packetOutFields =</span></span>
+<span id="L290"><span class="lineNum">     290</span> <span class="tlaGNC">           1 :         packetOutType.map { field -&gt;</span></span>
+<span id="L291"><span class="lineNum">     291</span> <span class="tlaGNC">           1 :           FieldDef(</span></span>
+<span id="L292"><span class="lineNum">     292</span> <span class="tlaGNC">           1 :             id = packetOutMetaByName[field.name]?.id,</span></span>
+<span id="L293"><span class="lineNum">     293</span> <span class="tlaGNC">           1 :             name = field.name,</span></span>
+<span id="L294"><span class="lineNum">     294</span> <span class="tlaGNC">           1 :             bitWidth = field.bitWidth,</span></span>
+<span id="L295"><span class="lineNum">     295</span> <span class="tlaGNC">           1 :           )</span></span>
+<span id="L296"><span class="lineNum">     296</span>              :         }</span>
+<span id="L297"><span class="lineNum">     297</span>              : </span>
+<span id="L298"><span class="lineNum">     298</span> <span class="tlaGNC">           1 :       val cpuPort = cpuPortOverride ?: deriveAutoCpuPort(architectureIngressPortBits(behavioral))</span></span>
+<span id="L299"><span class="lineNum">     299</span>              : </span>
+<span id="L300"><span class="lineNum">     300</span> <span class="tlaGNC">           1 :       val packetInMeta =</span></span>
+<span id="L301"><span class="lineNum">     301</span> <span class="tlaGNC">           1 :         p4info.controllerPacketMetadataList.find { it.preamble.name == &quot;packet_in&quot; }</span></span>
+<span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :       val packetInType = packetInMeta?.let { controllerHeaderLayout(behavioral, &quot;packet_in&quot;) }</span></span>
+<span id="L303"><span class="lineNum">     303</span> <span class="tlaGNC">           1 :       val packetInMetaByName = packetInMeta?.metadataList?.associateBy { it.name }</span></span>
+<span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :       val packetInFieldNames = packetInType?.map { it.name }?.toSet() ?: emptySet()</span></span>
+<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :       val unknownPacketInMetadata =</span></span>
+<span id="L306"><span class="lineNum">     306</span> <span class="tlaGNC">           1 :         packetInMeta?.metadataList?.map { it.name }?.minus(packetInFieldNames) ?: emptyList()</span></span>
+<span id="L307"><span class="lineNum">     307</span> <span class="tlaGNC">           1 :       require(unknownPacketInMetadata.isEmpty()) {</span></span>
+<span id="L308"><span class="lineNum">     308</span> <span class="tlaUNC tlaBgUNC">           0 :         &quot;packet_in metadata field(s) not found in @controller_header(\&quot;packet_in\&quot;): &quot; +</span></span>
+<span id="L309"><span class="lineNum">     309</span> <span class="tlaUNC">           0 :           unknownPacketInMetadata.joinToString()</span></span>
+<span id="L310"><span class="lineNum">     310</span>              :       }</span>
+<span id="L311"><span class="lineNum">     311</span> <span class="tlaGNC tlaBgGNC">           1 :       val packetInFields =</span></span>
+<span id="L312"><span class="lineNum">     312</span> <span class="tlaGNC">           1 :         packetInType?.map { field -&gt;</span></span>
+<span id="L313"><span class="lineNum">     313</span> <span class="tlaGNC">           1 :           FieldDef(</span></span>
+<span id="L314"><span class="lineNum">     314</span> <span class="tlaGNC">           1 :             id = packetInMetaByName?.get(field.name)?.id,</span></span>
+<span id="L315"><span class="lineNum">     315</span> <span class="tlaGNC">           1 :             name = field.name,</span></span>
+<span id="L316"><span class="lineNum">     316</span> <span class="tlaGNC">           1 :             bitWidth = field.bitWidth,</span></span>
+<span id="L317"><span class="lineNum">     317</span> <span class="tlaGNC">           1 :           )</span></span>
+<span id="L318"><span class="lineNum">     318</span> <span class="tlaGNC">           1 :         } ?: emptyList()</span></span>
+<span id="L319"><span class="lineNum">     319</span>              : </span>
+<span id="L320"><span class="lineNum">     320</span> <span class="tlaGNC">           1 :       return PacketHeaderCodec(packetOutFields, packetInFields, cpuPort)</span></span>
+<span id="L321"><span class="lineNum">     321</span>              :     }</span>
+<span id="L322"><span class="lineNum">     322</span>              : </span>
+<span id="L323"><span class="lineNum">     323</span>              :     private const val STANDARD_METADATA_TYPE = &quot;standard_metadata_t&quot;</span>
+<span id="L324"><span class="lineNum">     324</span>              : </span>
+<span id="L325"><span class="lineNum">     325</span>              :     private fun controllerHeaderLayout(</span>
+<span id="L326"><span class="lineNum">     326</span>              :       behavioral: BehavioralConfig,</span>
+<span id="L327"><span class="lineNum">     327</span>              :       controllerHeader: String,</span>
+<span id="L328"><span class="lineNum">     328</span>              :     ): List&lt;FieldDef&gt; {</span>
+<span id="L329"><span class="lineNum">     329</span> <span class="tlaGNC">           1 :       val matches =</span></span>
+<span id="L330"><span class="lineNum">     330</span> <span class="tlaGNC">           1 :         behavioral.typesList.filter {</span></span>
+<span id="L331"><span class="lineNum">     331</span> <span class="tlaGNC">           1 :           it.hasHeader() &amp;&amp; it.header.controllerHeader == controllerHeader</span></span>
+<span id="L332"><span class="lineNum">     332</span>              :         }</span>
+<span id="L333"><span class="lineNum">     333</span> <span class="tlaGNC">           1 :       require(matches.size == 1) {</span></span>
+<span id="L334"><span class="lineNum">     334</span> <span class="tlaGNC">           1 :         &quot;expected exactly one header annotated @controller_header(\&quot;$controllerHeader\&quot;), &quot; +</span></span>
+<span id="L335"><span class="lineNum">     335</span> <span class="tlaGNC">           1 :           &quot;found ${matches.size}&quot;</span></span>
+<span id="L336"><span class="lineNum">     336</span>              :       }</span>
+<span id="L337"><span class="lineNum">     337</span> <span class="tlaGNC">           1 :       return matches.single().header.fieldsList.map { FieldDef(null, it.name, bitWidth(it.type)) }</span></span>
+<span id="L338"><span class="lineNum">     338</span>              :     }</span>
+<span id="L339"><span class="lineNum">     339</span>              : </span>
+<span id="L340"><span class="lineNum">     340</span>              :     private fun architectureIngressPortBits(behavioral: BehavioralConfig): Int {</span>
+<span id="L341"><span class="lineNum">     341</span> <span class="tlaGNC">           1 :       val standardMetadata =</span></span>
+<span id="L342"><span class="lineNum">     342</span> <span class="tlaGNC">           1 :         behavioral.typesList.singleOrNull { it.name == STANDARD_METADATA_TYPE &amp;&amp; it.hasStruct() }</span></span>
+<span id="L343"><span class="lineNum">     343</span> <span class="tlaGNC">           1 :       require(standardMetadata != null) { &quot;$STANDARD_METADATA_TYPE not found in behavioral IR&quot; }</span></span>
+<span id="L344"><span class="lineNum">     344</span> <span class="tlaGNC">           1 :       val ingressPort =</span></span>
+<span id="L345"><span class="lineNum">     345</span> <span class="tlaGNC">           1 :         standardMetadata.struct.fieldsList.singleOrNull { it.name == &quot;ingress_port&quot; }</span></span>
+<span id="L346"><span class="lineNum">     346</span> <span class="tlaGNC">           1 :       require(ingressPort != null) { &quot;$STANDARD_METADATA_TYPE has no ingress_port field&quot; }</span></span>
+<span id="L347"><span class="lineNum">     347</span> <span class="tlaGNC">           1 :       return bitWidth(ingressPort.type)</span></span>
+<span id="L348"><span class="lineNum">     348</span>              :     }</span>
+<span id="L349"><span class="lineNum">     349</span>              : </span>
+<span id="L350"><span class="lineNum">     350</span>              :     private fun deriveAutoCpuPort(portBits: Int): DataplanePort {</span>
+<span id="L351"><span class="lineNum">     351</span> <span class="tlaGNC">           1 :       require(portBits in 1..Int.SIZE_BITS) {</span></span>
+<span id="L352"><span class="lineNum">     352</span> <span class="tlaGNC">           1 :         &quot;automatic CPU port derivation requires a 1..32-bit dataplane port, got $portBits bits&quot;</span></span>
+<span id="L353"><span class="lineNum">     353</span>              :       }</span>
+<span id="L354"><span class="lineNum">     354</span> <span class="tlaGNC">           1 :       return DataplanePort.fromUnsignedLong(</span></span>
+<span id="L355"><span class="lineNum">     355</span> <span class="tlaGNC">           1 :         BigInteger.ONE.shiftLeft(portBits).subtract(BigInteger.TWO).toLong()</span></span>
+<span id="L356"><span class="lineNum">     356</span>              :       )</span>
+<span id="L357"><span class="lineNum">     357</span>              :     }</span>
+<span id="L358"><span class="lineNum">     358</span>              : </span>
+<span id="L359"><span class="lineNum">     359</span>              :     private fun bitWidth(type: Type): Int =</span>
+<span id="L360"><span class="lineNum">     360</span> <span class="tlaGNC">           1 :       when (type.kindCase) {</span></span>
+<span id="L361"><span class="lineNum">     361</span> <span class="tlaGNC">           1 :         Type.KindCase.BIT -&gt; type.bit.width</span></span>
+<span id="L362"><span class="lineNum">     362</span> <span class="tlaUNC tlaBgUNC">           0 :         Type.KindCase.SIGNED_INT -&gt; type.signedInt.width</span></span>
+<span id="L363"><span class="lineNum">     363</span> <span class="tlaUNC">           0 :         Type.KindCase.BOOLEAN -&gt; 1</span></span>
+<span id="L364"><span class="lineNum">     364</span>              :         Type.KindCase.VARBIT,</span>
+<span id="L365"><span class="lineNum">     365</span>              :         Type.KindCase.NAMED,</span>
+<span id="L366"><span class="lineNum">     366</span>              :         Type.KindCase.HEADER_STACK,</span>
+<span id="L367"><span class="lineNum">     367</span>              :         Type.KindCase.ERROR,</span>
+<span id="L368"><span class="lineNum">     368</span>              :         Type.KindCase.KIND_NOT_SET,</span>
+<span id="L369"><span class="lineNum">     369</span> <span class="tlaUNC">           0 :         null -&gt; error(&quot;unsupported type in packet header: $type&quot;)</span></span>
+<span id="L370"><span class="lineNum">     370</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
+<span id="L371"><span class="lineNum">     371</span>              :   }</span>
+<span id="L372"><span class="lineNum">     372</span>              : }</span>
         </pre>
               </td>
             </tr>

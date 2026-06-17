@@ -2164,17 +2164,17 @@ FN:270,fourward/grpc/PacketHeaderCodec$Companion::create (Lp4/config/v1/P4InfoOu
 FNDA:1,fourward/grpc/PacketHeaderCodec$Companion::create (Lp4/config/v1/P4InfoOuterClass$P4Info;Lfourward/BehavioralConfig;Ljava/lang/Integer;)Lfourward/grpc/PacketHeaderCodec;
 FN:265,fourward/grpc/PacketHeaderCodec$Companion::create$default (Lfourward/grpc/PacketHeaderCodec$Companion;Lp4/config/v1/P4InfoOuterClass$P4Info;Lfourward/BehavioralConfig;Ljava/lang/Integer;ILjava/lang/Object;)Lfourward/grpc/PacketHeaderCodec;
 FNDA:1,fourward/grpc/PacketHeaderCodec$Companion::create$default (Lfourward/grpc/PacketHeaderCodec$Companion;Lp4/config/v1/P4InfoOuterClass$P4Info;Lfourward/BehavioralConfig;Ljava/lang/Integer;ILjava/lang/Object;)Lfourward/grpc/PacketHeaderCodec;
-FN:281,fourward/grpc/PacketHeaderCodec$Companion::createWithCpuPort-FwspBZY (Lp4/config/v1/P4InfoOuterClass$P4Info;Lfourward/BehavioralConfig;Lfourward/simulator/DataplanePort;)Lfourward/grpc/PacketHeaderCodec;
+FN:277,fourward/grpc/PacketHeaderCodec$Companion::createWithCpuPort-FwspBZY (Lp4/config/v1/P4InfoOuterClass$P4Info;Lfourward/BehavioralConfig;Lfourward/simulator/DataplanePort;)Lfourward/grpc/PacketHeaderCodec;
 FNDA:1,fourward/grpc/PacketHeaderCodec$Companion::createWithCpuPort-FwspBZY (Lp4/config/v1/P4InfoOuterClass$P4Info;Lfourward/BehavioralConfig;Lfourward/simulator/DataplanePort;)Lfourward/grpc/PacketHeaderCodec;
-FN:276,fourward/grpc/PacketHeaderCodec$Companion::createWithCpuPort-FwspBZY$default (Lfourward/grpc/PacketHeaderCodec$Companion;Lp4/config/v1/P4InfoOuterClass$P4Info;Lfourward/BehavioralConfig;Lfourward/simulator/DataplanePort;ILjava/lang/Object;)Lfourward/grpc/PacketHeaderCodec;
+FN:272,fourward/grpc/PacketHeaderCodec$Companion::createWithCpuPort-FwspBZY$default (Lfourward/grpc/PacketHeaderCodec$Companion;Lp4/config/v1/P4InfoOuterClass$P4Info;Lfourward/BehavioralConfig;Lfourward/simulator/DataplanePort;ILjava/lang/Object;)Lfourward/grpc/PacketHeaderCodec;
 FNDA:0,fourward/grpc/PacketHeaderCodec$Companion::createWithCpuPort-FwspBZY$default (Lfourward/grpc/PacketHeaderCodec$Companion;Lp4/config/v1/P4InfoOuterClass$P4Info;Lfourward/BehavioralConfig;Lfourward/simulator/DataplanePort;ILjava/lang/Object;)Lfourward/grpc/PacketHeaderCodec;
-FN:333,fourward/grpc/PacketHeaderCodec$Companion::controllerHeaderLayout (Lfourward/BehavioralConfig;Ljava/lang/String;)Ljava/util/List;
+FN:329,fourward/grpc/PacketHeaderCodec$Companion::controllerHeaderLayout (Lfourward/BehavioralConfig;Ljava/lang/String;)Ljava/util/List;
 FNDA:1,fourward/grpc/PacketHeaderCodec$Companion::controllerHeaderLayout (Lfourward/BehavioralConfig;Ljava/lang/String;)Ljava/util/List;
-FN:345,fourward/grpc/PacketHeaderCodec$Companion::architectureIngressPortBits (Lfourward/BehavioralConfig;)I
+FN:341,fourward/grpc/PacketHeaderCodec$Companion::architectureIngressPortBits (Lfourward/BehavioralConfig;)I
 FNDA:1,fourward/grpc/PacketHeaderCodec$Companion::architectureIngressPortBits (Lfourward/BehavioralConfig;)I
-FN:355,fourward/grpc/PacketHeaderCodec$Companion::deriveAutoCpuPort-bBs0snY (I)I
+FN:351,fourward/grpc/PacketHeaderCodec$Companion::deriveAutoCpuPort-bBs0snY (I)I
 FNDA:1,fourward/grpc/PacketHeaderCodec$Companion::deriveAutoCpuPort-bBs0snY (I)I
-FN:364,fourward/grpc/PacketHeaderCodec$Companion::bitWidth (Lfourward/Type;)I
+FN:360,fourward/grpc/PacketHeaderCodec$Companion::bitWidth (Lfourward/Type;)I
 FNDA:1,fourward/grpc/PacketHeaderCodec$Companion::bitWidth (Lfourward/Type;)I
 FN:76,fourward/grpc/PacketHeaderCodec$FieldDef::<init> (Ljava/lang/Integer;Ljava/lang/String;I)V
 FNDA:1,fourward/grpc/PacketHeaderCodec$FieldDef::<init> (Ljava/lang/Integer;Ljava/lang/String;I)V
@@ -2268,78 +2268,78 @@ BRDA:241,0,0,1
 BRDA:241,0,1,0
 BRDA:251,0,0,1
 BRDA:251,0,1,1
-BRDA:273,0,0,1
-BRDA:273,0,1,1
-BRDA:282,0,0,1
-BRDA:282,0,1,1
-BRDA:282,0,2,1
-BRDA:282,0,3,1
-BRDA:282,0,4,1
-BRDA:282,0,5,1
-BRDA:289,0,0,0
-BRDA:289,0,1,1
-BRDA:296,0,0,1
-BRDA:296,0,1,1
+BRDA:270,0,0,1
+BRDA:270,0,1,1
+BRDA:278,0,0,1
+BRDA:278,0,1,1
+BRDA:278,0,2,1
+BRDA:278,0,3,1
+BRDA:278,0,4,1
+BRDA:278,0,5,1
+BRDA:285,0,0,0
+BRDA:285,0,1,1
+BRDA:292,0,0,1
+BRDA:292,0,1,1
+BRDA:298,0,0,1
+BRDA:298,0,1,1
+BRDA:301,0,0,1
+BRDA:301,0,1,1
+BRDA:301,0,2,1
+BRDA:301,0,3,1
 BRDA:302,0,0,1
 BRDA:302,0,1,1
-BRDA:305,0,0,1
-BRDA:305,0,1,1
-BRDA:305,0,2,1
-BRDA:305,0,3,1
+BRDA:303,0,0,1
+BRDA:303,0,1,1
+BRDA:303,0,2,1
+BRDA:303,0,3,1
+BRDA:304,0,0,1
+BRDA:304,0,1,1
+BRDA:304,0,2,1
+BRDA:304,0,3,1
 BRDA:306,0,0,1
 BRDA:306,0,1,1
-BRDA:307,0,0,1
+BRDA:306,0,2,1
+BRDA:306,0,3,1
+BRDA:306,0,4,1
+BRDA:306,0,5,1
+BRDA:307,0,0,0
 BRDA:307,0,1,1
-BRDA:307,0,2,1
-BRDA:307,0,3,1
-BRDA:308,0,0,1
-BRDA:308,0,1,1
-BRDA:308,0,2,1
-BRDA:308,0,3,1
-BRDA:310,0,0,1
-BRDA:310,0,1,1
-BRDA:310,0,2,1
-BRDA:310,0,3,1
-BRDA:310,0,4,1
-BRDA:310,0,5,1
-BRDA:311,0,0,0
-BRDA:311,0,1,1
-BRDA:316,0,0,1
-BRDA:316,0,1,1
-BRDA:318,0,0,1
-BRDA:318,0,1,1
-BRDA:318,0,2,1
-BRDA:318,0,3,1
-BRDA:335,0,0,1
-BRDA:335,0,1,1
-BRDA:335,0,2,1
-BRDA:335,0,3,1
-BRDA:337,0,0,1
-BRDA:337,0,1,1
-BRDA:337,0,2,1
-BRDA:337,0,3,1
+BRDA:312,0,0,1
+BRDA:312,0,1,1
+BRDA:314,0,0,1
+BRDA:314,0,1,1
+BRDA:314,0,2,1
+BRDA:314,0,3,1
+BRDA:331,0,0,1
+BRDA:331,0,1,1
+BRDA:331,0,2,1
+BRDA:331,0,3,1
+BRDA:333,0,0,1
+BRDA:333,0,1,1
+BRDA:333,0,2,1
+BRDA:333,0,3,1
+BRDA:342,0,0,1
+BRDA:342,0,1,1
+BRDA:342,0,2,1
+BRDA:342,0,3,0
+BRDA:343,0,0,1
+BRDA:343,0,1,0
+BRDA:343,0,2,0
+BRDA:343,0,3,1
 BRDA:346,0,0,1
-BRDA:346,0,1,1
-BRDA:346,0,2,1
-BRDA:346,0,3,0
-BRDA:347,0,0,1
-BRDA:347,0,1,0
-BRDA:347,0,2,0
-BRDA:347,0,3,1
-BRDA:350,0,0,1
-BRDA:350,0,1,0
-BRDA:350,0,2,0
-BRDA:350,0,3,1
-BRDA:355,0,0,1
-BRDA:355,0,1,0
-BRDA:355,0,2,1
-BRDA:355,0,3,1
-BRDA:355,0,4,1
-BRDA:355,0,5,1
-BRDA:364,0,0,0
-BRDA:364,0,1,0
-BRDA:364,0,2,1
-BRDA:364,0,3,0
+BRDA:346,0,1,0
+BRDA:346,0,2,0
+BRDA:346,0,3,1
+BRDA:351,0,0,1
+BRDA:351,0,1,0
+BRDA:351,0,2,1
+BRDA:351,0,3,1
+BRDA:351,0,4,1
+BRDA:351,0,5,1
+BRDA:360,0,0,0
+BRDA:360,0,1,0
+BRDA:360,0,2,1
+BRDA:360,0,3,0
 BRDA:31,0,0,1
 BRDA:31,0,1,1
 DA:24,1
@@ -2451,75 +2451,71 @@ DA:255,1
 DA:265,1
 DA:268,1
 DA:270,1
-DA:271,1
-DA:272,1
-DA:273,1
-DA:274,1
-DA:276,0
-DA:279,0
+DA:272,0
+DA:275,0
+DA:277,1
+DA:278,1
+DA:280,1
 DA:281,1
 DA:282,1
+DA:283,1
 DA:284,1
 DA:285,1
-DA:286,1
-DA:287,1
-DA:288,1
+DA:286,0
+DA:287,0
 DA:289,1
-DA:290,0
-DA:291,0
+DA:290,1
+DA:291,1
+DA:292,1
 DA:293,1
 DA:294,1
 DA:295,1
-DA:296,1
-DA:297,1
 DA:298,1
-DA:299,1
+DA:300,1
+DA:301,1
 DA:302,1
+DA:303,1
 DA:304,1
 DA:305,1
 DA:306,1
 DA:307,1
-DA:308,1
-DA:309,1
-DA:310,1
+DA:308,0
+DA:309,0
 DA:311,1
-DA:312,0
-DA:313,0
+DA:312,1
+DA:313,1
+DA:314,1
 DA:315,1
 DA:316,1
 DA:317,1
 DA:318,1
-DA:319,1
 DA:320,1
-DA:321,1
-DA:322,1
-DA:324,1
+DA:329,1
+DA:330,1
+DA:331,1
 DA:333,1
 DA:334,1
 DA:335,1
 DA:337,1
-DA:338,1
-DA:339,1
 DA:341,1
+DA:342,1
+DA:343,1
+DA:344,1
 DA:345,1
 DA:346,1
 DA:347,1
-DA:348,1
-DA:349,1
-DA:350,1
 DA:351,1
+DA:352,1
+DA:354,1
 DA:355,1
-DA:356,1
-DA:358,1
-DA:359,1
-DA:364,1
-DA:365,1
-DA:366,0
-DA:367,0
-DA:373,0
-DA:374,1
-LH:162
-LF:176
+DA:360,1
+DA:361,1
+DA:362,0
+DA:363,0
+DA:369,0
+DA:370,1
+LH:158
+LF:172
 end_of_record
 SF:grpc/ReferenceValidator.kt
 FN:21,fourward/grpc/ReferenceValidator::<init> (Ljava/util/Map;Ljava/util/Map;)V
@@ -4844,7 +4840,7 @@ FN:38,fourward/simulator/DataplanePort$Companion::fromProto-bBs0snY (I)I
 FNDA:1,fourward/simulator/DataplanePort$Companion::fromProto-bBs0snY (I)I
 FN:47,fourward/simulator/DataplanePort$Companion::fromUnsignedLiteralOrNull-9HmCjho (Ljava/lang/String;)Lfourward/simulator/DataplanePort;
 FNDA:1,fourward/simulator/DataplanePort$Companion::fromUnsignedLiteralOrNull-9HmCjho (Ljava/lang/String;)Lfourward/simulator/DataplanePort;
-FN:58,fourward/simulator/DataplanePort$Companion::fromUnsignedLong-bBs0snY (J)I
+FN:59,fourward/simulator/DataplanePort$Companion::fromUnsignedLong-bBs0snY (J)I
 FNDA:1,fourward/simulator/DataplanePort$Companion::fromUnsignedLong-bBs0snY (J)I
 BRDA:49,0,0,1
 BRDA:49,0,1,1
@@ -4854,12 +4850,12 @@ BRDA:53,0,0,1
 BRDA:53,0,1,0
 BRDA:53,0,2,0
 BRDA:53,0,3,1
-BRDA:58,0,0,1
-BRDA:58,0,1,0
-BRDA:58,0,2,1
-BRDA:58,0,3,0
-BRDA:58,0,4,0
-BRDA:58,0,5,1
+BRDA:59,0,0,1
+BRDA:59,0,1,0
+BRDA:59,0,2,1
+BRDA:59,0,3,0
+BRDA:59,0,4,0
+BRDA:59,0,5,1
 DA:24,1
 DA:27,1
 DA:29,0
@@ -4874,8 +4870,8 @@ DA:50,1
 DA:51,1
 DA:53,1
 DA:54,1
-DA:58,1
 DA:59,1
+DA:60,1
 LH:15
 LF:16
 end_of_record
