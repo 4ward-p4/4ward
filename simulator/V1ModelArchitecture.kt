@@ -174,7 +174,7 @@ class V1ModelArchitecture(
         fork.members.map(buildBranch)
       }
 
-    val causeId = fork.eventsBeforeFork.lastOrNull()?.id ?: 0L
+    val causeId = fork.eventsBeforeFork.lastOrNull()?.id
     return PipelineResult(buildChoiceTree(fork.eventsBeforeFork, causeId, traces))
   }
 
@@ -337,7 +337,7 @@ class V1ModelArchitecture(
       } else {
         fork.replicas.map(buildBranch)
       }
-    val causeId = fork.eventsBeforeFork.lastOrNull()?.id ?: 0L
+    val causeId = fork.eventsBeforeFork.lastOrNull()?.id
     return PipelineResult(buildReplicationTree(fork.eventsBeforeFork, causeId, branches))
   }
 
@@ -478,7 +478,7 @@ class V1ModelArchitecture(
         add(original)
         addAll(clones)
       }
-    val causeId = eventsBeforeFork.lastOrNull()?.id ?: 0L
+    val causeId = eventsBeforeFork.lastOrNull()?.id
     return PipelineResult(buildReplicationTree(eventsBeforeFork, causeId, branches))
   }
 
@@ -495,7 +495,7 @@ class V1ModelArchitecture(
         preservedMetadata = fork.preservedMetadata,
       )
     val next = buildTraceTree(ctx, decisions).trace
-    val causeId = fork.eventsBeforeFork.lastOrNull()?.id ?: 0L
+    val causeId = fork.eventsBeforeFork.lastOrNull()?.id
     return PipelineResult(
       buildContinuationTree(fork.eventsBeforeFork, cause = causeId, next = next)
     )
@@ -515,7 +515,7 @@ class V1ModelArchitecture(
       )
     val next =
       buildTraceTree(ctx.copy(packet = PacketBits.ofBytes(fork.deparsedBytes)), decisions).trace
-    val causeId = fork.eventsBeforeFork.lastOrNull()?.id ?: 0L
+    val causeId = fork.eventsBeforeFork.lastOrNull()?.id
     return PipelineResult(
       buildContinuationTree(fork.eventsBeforeFork, cause = causeId, next = next)
     )

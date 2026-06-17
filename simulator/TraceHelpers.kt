@@ -14,8 +14,8 @@ import fourward.TraceEvent
 import fourward.TraceTree
 
 /** Builds a [TraceTree] representing a dropped packet with the given trace events. */
-internal fun buildDropTrace(events: List<TraceEvent>, triggerId: Long = 0L): TraceTree {
-  val drop = Drop.newBuilder().also { if (triggerId != 0L) it.setTrigger(triggerId) }.build()
+internal fun buildDropTrace(events: List<TraceEvent>, triggerId: Long? = null): TraceTree {
+  val drop = Drop.newBuilder().also { if (triggerId != null) it.setTrigger(triggerId) }.build()
   return TraceTree.newBuilder().addAllEvents(events).setDrop(drop).build()
 }
 
@@ -31,16 +31,19 @@ internal fun buildOutputTrace(events: List<TraceEvent>, port: Int, payload: Byte
 
 /**
  * Builds a [TraceTree] where all branches execute simultaneously (clone, multicast). [cause] is the
- * id of the CloneSessionLookupEvent or MulticastGroupLookupEvent that triggered the replication.
+ * id of the CloneSessionLookupEvent or MulticastGroupLookupEvent that triggered the replication, or
+ * null when there is no triggering event (e.g. PNA mirror_packet).
  */
 internal fun buildReplicationTree(
   events: List<TraceEvent>,
-  cause: Long,
+  cause: Long? = null,
   branches: List<TraceTree>,
 ): TraceTree =
   TraceTree.newBuilder()
     .addAllEvents(events)
-    .setReplication(Replication.newBuilder().setCause(cause).addAllBranches(branches))
+    .setReplication(
+      Replication.newBuilder().also { if (cause != null) it.setCause(cause) }.addAllBranches(branches)
+    )
     .build()
 
 /**
@@ -49,28 +52,28 @@ internal fun buildReplicationTree(
  */
 internal fun buildChoiceTree(
   events: List<TraceEvent>,
-  cause: Long,
+  cause: Long?,
   branches: List<TraceTree>,
 ): TraceTree =
   TraceTree.newBuilder()
     .addAllEvents(events)
-    .setChoice(Choice.newBuilder().setCause(cause).addAllBranches(branches))
+    .setChoice(Choice.newBuilder().also { if (cause != null) it.setCause(cause) }.addAllBranches(branches))
     .build()
 
 /**
  * Builds a [TraceTree] where the same packet continues as another pass. Used for resubmit,
  * recirculate, and forward stage transitions. [cause] is the id of the event that triggered the
- * re-parse; 0 when absent (forward transitions).
+ * re-parse; null when absent (forward transitions).
  */
 internal fun buildContinuationTree(
   events: List<TraceEvent>,
-  cause: Long = 0L,
+  cause: Long? = null,
   next: TraceTree,
 ): TraceTree =
   TraceTree.newBuilder()
     .addAllEvents(events)
     .setContinuation(
-      Continuation.newBuilder().also { if (cause != 0L) it.setCause(cause) }.setNext(next)
+      Continuation.newBuilder().also { if (cause != null) it.setCause(cause) }.setNext(next)
     )
     .build()
 

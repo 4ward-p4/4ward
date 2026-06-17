@@ -226,12 +226,12 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val output: StructVal?,
     val deparsedBytes: ByteArray,
     val dropped: Boolean,
-    /** Id of the event that caused a drop (MarkToDropEvent or AssertionEvent), or 0 if none. */
-    val dropTriggerId: Long = 0L,
-    /** Id of the CloneSessionLookupEvent when an I2E clone was requested, or 0 if none. */
-    val cloneLookupEventId: Long = 0L,
-    /** Id of the ContinuationEvent when resubmit was requested, or 0 if none. */
-    val continuationEventId: Long = 0L,
+    /** Id of the event that caused a drop (MarkToDropEvent or AssertionEvent), or null if none. */
+    val dropTriggerId: Long? = null,
+    /** Id of the CloneSessionLookupEvent when an I2E clone was requested, or null if none. */
+    val cloneLookupEventId: Long? = null,
+    /** Id of the ContinuationEvent when resubmit was requested, or null if none. */
+    val continuationEventId: Long? = null,
     /**
      * First event id the egress pipeline should use, to avoid collisions when events are merged.
      */
@@ -320,7 +320,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       deparsedBytes,
       dropped = false,
       cloneLookupEventId = cloneLookupId,
-      continuationEventId = if (resubmit) ctx.lastEventId() else 0L,
+      continuationEventId = if (resubmit) ctx.lastEventId() else null,
       nextEventId = ctx.peekNextEventId(),
     )
   }
@@ -391,10 +391,10 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val dropped: Boolean,
     val deparsedBytes: ByteArray,
     val output: StructVal?,
-    /** Id of the event that caused a drop, or 0 if none. */
-    val dropTriggerId: Long = 0L,
-    /** Id of the ContinuationEvent when recirculate was requested, or 0 if none. */
-    val recirculateCauseId: Long = 0L,
+    /** Id of the event that caused a drop, or null if none. */
+    val dropTriggerId: Long? = null,
+    /** Id of the ContinuationEvent when recirculate was requested, or null if none. */
+    val recirculateCauseId: Long? = null,
   )
 
   /**
@@ -452,7 +452,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     // Recirculate: the same packet loops back to ingress — modeled as a Continuation.
     // runEgressCore already emitted the ContinuationEvent and stored its id in recirculateCauseId.
     val outputTree =
-      if (core.recirculateCauseId != 0L) {
+      if (core.recirculateCauseId != null) {
         val recircTree =
           processPacketRecursive(
             state.pipeline,
@@ -537,7 +537,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       if (!dropped && egressPort.toUInt().toLong() == PSA_PORT_RECIRCULATE_LONG) {
         egressCtx.addTraceEvent(continuationTriggerEvent(ContinuationEvent.Kind.RECIRCULATE))
         egressCtx.lastEventId()
-      } else 0L
+      } else null
 
     return EgressCoreResult(egressCtx.getEvents(), dropped, outputBytes, egressOutput, dropTriggerId, recirculateCauseId)
   }

@@ -191,7 +191,7 @@ internal fun handleActionSelectorFork(
 ): TraceTree {
   val prefixLength = fork.eventsBeforeFork.size
   // The last event in eventsBeforeFork is the TableLookupEvent for the selector — it's the cause.
-  val causeId = fork.eventsBeforeFork.lastOrNull()?.id ?: 0L
+  val causeId = fork.eventsBeforeFork.lastOrNull()?.id
   val branches =
     fork.members.map { member ->
       val newSelectors = currentSelectors + (fork.tableName to member.memberId)
