@@ -306,6 +306,19 @@ class TableStore : TableDataReader {
     val idByName: Map<String, Int>,
   )
 
+  private data class ControlPlaneNameIndex(
+    val tableNameById: Map<Int, String>,
+    val tableAliasByName: Map<String, String>,
+    val tableNameByAlias: Map<String, String>,
+    val actionNameById: Map<Int, String>,
+    val actionAliasByName: Map<String, String>,
+    val actionIdByName: Map<String, Int>,
+    val tableIdByName: Map<String, Int>,
+    val actionParamInfo: Map<String, List<P4InfoOuterClass.Action.Param>>,
+    val tableMatchFields: Map<String, List<P4InfoOuterClass.MatchField>>,
+    val counterMappings: CounterMappings,
+  )
+
   internal data class StatefulExternCheckpoint(
     val directCounters: Map<TableEntry, LongArray>,
     val indirectCounters: Map<Int, Map<Int, LongArray>>,
@@ -443,7 +456,7 @@ class TableStore : TableDataReader {
   fun populatedTableAliases(): Set<String> =
     writeState.tables.entries
       .filter { (_, entries) -> entries.isNotEmpty() }
-      .mapNotNull { (behavioralName, _) -> tableAliasByName[behavioralName] }
+      .mapNotNull { (simulatorName, _) -> tableAliasByName[simulatorName] }
       .toSet()
 
   /**
@@ -502,6 +515,7 @@ class TableStore : TableDataReader {
   private var directCounterActionsByTable: Map<String, Set<String>> = emptyMap()
   private var directMeterActionsByTable: Map<String, Set<String>> = emptyMap()
   private var tableActionOverrides: Map<String, Map<String, String>> = emptyMap()
+  private var tableLocalActionNames: Map<String, Map<String, String>> = emptyMap()
   private var initialDefaultActions: Map<String, DefaultAction> = emptyMap()
 
   // For unit tests: makes lookup() return hit=true with this action rather than searching entries.
@@ -559,9 +573,9 @@ class TableStore : TableDataReader {
   /**
    * Initialises the store for a loaded pipeline and clears all mutable state.
    *
-   * Resolves p4info IDs to behavioral IR names (which may differ from p4info aliases for inlined
-   * controls — e.g. behavioral "c_t" vs p4info alias "t"). When [device] has no behavioral config,
-   * p4info aliases are used directly (convenient for tests).
+   * Resolves p4info IDs to behavioral IR names. Compiled behavioral configs must carry explicit
+   * compiler-emitted bindings; P4Info-only tests use p4info aliases directly because there is no
+   * behavioral symbol space.
    *
    * Also installs default actions and static table entries from [p4info] and [device].
    *
@@ -571,85 +585,25 @@ class TableStore : TableDataReader {
     p4info: P4InfoOuterClass.P4Info = P4InfoOuterClass.P4Info.getDefaultInstance(),
     device: DeviceConfig = DeviceConfig.getDefaultInstance(),
   ) {
-    // Extract behavioral names from the IR. The behavioral IR uses its own table/action
-    // names (e.g. inlined "c_t" vs p4info alias "t"). When the device config is empty
-    // (e.g. unit tests), resolveName falls through to the p4info alias itself.
     val behavioral = device.behavioral
-    val behavioralTableNames = behavioral.tablesList.map { it.name }
-    val behavioralActionNames =
-      (behavioral.actionsList + behavioral.controlsList.flatMap { it.localActionsList }).flatMap {
-        action ->
-        listOfNotNull(action.name, action.currentName.ifEmpty { null })
-      }
-
-    fun resolveName(alias: String, candidates: List<String>): String {
-      // p4info aliases use dots for nested controls (e.g. "ct.ipv4_da"), while
-      // the behavioral IR uses underscores (e.g. "ct_ipv4_da"). When two tables
-      // share a short name, p4c disambiguates with a control prefix
-      // (e.g. "MainControlImpl.ipv4_da" for behavioral "ipv4_da"). Try multiple
-      // forms to handle all cases.
-      val underscored = alias.replace('.', '_')
-      val afterFirstDot = if ('.' in alias) alias.substringAfter('.') else null
-      val afterFirstDotUnderscored = afterFirstDot?.replace('.', '_')
-      return candidates.find { it == alias }
-        ?: candidates.find { it.endsWith("_$alias") }
-        ?: candidates.find { it == underscored }
-        ?: candidates.find { it.endsWith("_$underscored") }
-        ?: afterFirstDotUnderscored?.let { suffix ->
-          candidates.find { it == suffix } ?: candidates.find { it.endsWith("_$suffix") }
-        }
-        ?: alias
-    }
-
-    // Build both forward (id → behavioral name) and reverse (behavioral name → alias) maps
-    // in a single pass per list.
-    val tableById = mutableMapOf<Int, String>()
-    val tableByName = mutableMapOf<String, String>()
-    for (table in p4info.tablesList) {
-      val alias = table.preamble.alias.ifEmpty { table.preamble.name }
-      val behavioral = resolveName(alias, behavioralTableNames)
-      tableById[table.preamble.id] = behavioral
-      tableByName[behavioral] = alias
-    }
-    this.tableNameById = tableById
-    this.tableAliasByName = tableByName
-    this.tableNameByAlias = tableByName.entries.associate { (name, alias) -> alias to name }
-
-    val actionById = mutableMapOf<Int, String>()
-    val actionByName = mutableMapOf<String, String>()
-    for (action in p4info.actionsList) {
-      val alias = action.preamble.alias.ifEmpty { action.preamble.name }
-      val behavioral = resolveName(alias, behavioralActionNames)
-      actionById[action.preamble.id] = behavioral
-      actionByName[behavioral] = alias
-    }
-    this.actionNameById = actionById
-    this.actionAliasByName = actionByName
-    this.actionIdByName = actionById.entries.associate { (id, name) -> name to id }
-    this.tableIdByName = tableById.entries.associate { (id, name) -> name to id }
-    this.actionParamInfo =
-      p4info.actionsList
-        .mapNotNull { action ->
-          val name = actionById[action.preamble.id] ?: return@mapNotNull null
-          name to action.paramsList
-        }
-        .toMap()
-    this.tableMatchFields =
-      p4info.tablesList
-        .mapNotNull { table ->
-          val name = tableById[table.preamble.id] ?: return@mapNotNull null
-          name to table.matchFieldsList
-        }
-        .toMap()
+    val nameIndex = buildControlPlaneNameIndex(p4info, device)
+    this.tableNameById = nameIndex.tableNameById
+    this.tableAliasByName = nameIndex.tableAliasByName
+    this.tableNameByAlias = nameIndex.tableNameByAlias
+    this.actionNameById = nameIndex.actionNameById
+    this.actionAliasByName = nameIndex.actionAliasByName
+    this.actionIdByName = nameIndex.actionIdByName
+    this.tableIdByName = nameIndex.tableIdByName
+    this.actionParamInfo = nameIndex.actionParamInfo
+    this.tableMatchFields = nameIndex.tableMatchFields
     this.registerInfoById =
       p4info.registersList.associate { reg ->
         val bitwidth = reg.typeSpec.bitstring.bit.bitwidth
         reg.preamble.id to RegisterInfo(reg.preamble.name, bitwidth, reg.size)
       }
     this.registerInfoByName = registerInfoById.entries.associate { it.value.name to it.toPair() }
-    val counterMappings = buildCounterMappings(p4info, behavioral, ::resolveName)
-    this.counterInfoById = counterMappings.infoById
-    this.counterIdByName = counterMappings.idByName
+    this.counterInfoById = nameIndex.counterMappings.infoById
+    this.counterIdByName = nameIndex.counterMappings.idByName
     this.meterInfoById =
       p4info.metersList.associate { it.preamble.id to IndexedExternInfo(it.size.toInt()) }
     this.valueSetInfoById =
@@ -662,6 +616,7 @@ class TableStore : TableDataReader {
     this.directMeterTables =
       p4info.directMetersList.mapNotNull { tableNameById[it.directTableId] }.toSet()
     tableActionOverrides = behavioral.tablesList.associate { it.name to it.actionOverridesMap }
+    tableLocalActionNames = buildTableLocalActionNames(p4info)
     val directResourceActions =
       deriveDirectResourceActions(
         behavioral,
@@ -747,27 +702,175 @@ class TableStore : TableDataReader {
     publishSnapshot()
   }
 
+  private fun buildControlPlaneNameIndex(
+    p4info: P4InfoOuterClass.P4Info,
+    device: DeviceConfig,
+  ): ControlPlaneNameIndex {
+    val behavioral = device.behavioral
+    val behavioralTableNames = behavioral.tablesList.map { it.name }.toSet()
+    val behavioralActionNames =
+      (behavioral.actionsList + behavioral.controlsList.flatMap { it.localActionsList })
+        .flatMap { action -> listOfNotNull(action.name, action.currentName.ifEmpty { null }) }
+        .toSet()
+
+    val tableBindings = bindingMap("table", device.controlPlaneBindings.tablesList)
+    val actionBindings = bindingMap("action", device.controlPlaneBindings.actionsList)
+    val externBindings = bindingMap("extern", device.controlPlaneBindings.externsList)
+
+    val tableById = mutableMapOf<Int, String>()
+    val tableByName = mutableMapOf<String, String>()
+    val requireTableBindings = behavioralTableNames.isNotEmpty()
+    for (table in p4info.tablesList) {
+      val alias = table.preamble.alias.ifEmpty { table.preamble.name }
+      val runtimeName =
+        if (requireTableBindings) requireBinding("table", table.preamble.name, tableBindings)
+        else alias
+      if (requireTableBindings) {
+        require(runtimeName in behavioralTableNames) {
+          "table binding for '${table.preamble.name}' points to unknown behavioral table " +
+            "'$runtimeName'"
+        }
+      }
+      tableById[table.preamble.id] = runtimeName
+      tableByName[runtimeName] = alias
+    }
+
+    val actionById = mutableMapOf<Int, String>()
+    val actionByName = mutableMapOf<String, String>()
+    val requireActionBindings = behavioralActionNames.isNotEmpty()
+    for (action in p4info.actionsList) {
+      val alias = action.preamble.alias.ifEmpty { action.preamble.name }
+      val runtimeName =
+        if (requireActionBindings) requireBinding("action", action.preamble.name, actionBindings)
+        else alias
+      if (requireActionBindings) {
+        require(runtimeName == action.preamble.name || runtimeName in behavioralActionNames) {
+          "action binding for '${action.preamble.name}' points to unknown simulator action " +
+            "'$runtimeName'"
+        }
+      }
+      actionById[action.preamble.id] = runtimeName
+      actionByName[runtimeName] = alias
+    }
+
+    return ControlPlaneNameIndex(
+      tableNameById = tableById,
+      tableAliasByName = tableByName,
+      tableNameByAlias = tableByName.entries.associate { (name, alias) -> alias to name },
+      actionNameById = actionById,
+      actionAliasByName = actionByName,
+      actionIdByName = actionById.entries.associate { (id, name) -> name to id },
+      tableIdByName = tableById.entries.associate { (id, name) -> name to id },
+      actionParamInfo =
+        p4info.actionsList
+          .mapNotNull { action ->
+            val name = actionById[action.preamble.id] ?: return@mapNotNull null
+            name to action.paramsList
+          }
+          .toMap(),
+      tableMatchFields =
+        p4info.tablesList
+          .mapNotNull { table ->
+            val name = tableById[table.preamble.id] ?: return@mapNotNull null
+            name to table.matchFieldsList
+          }
+          .toMap(),
+      counterMappings = buildCounterMappings(p4info, behavioral, externBindings),
+    )
+  }
+
+  private fun bindingMap(
+    kind: String,
+    bindings: List<fourward.ControlPlaneBinding>,
+  ): Map<String, String> {
+    val result = mutableMapOf<String, String>()
+    for (binding in bindings) {
+      require(binding.p4InfoName.isNotEmpty()) { "$kind binding has empty p4info_name" }
+      require(binding.simulatorName.isNotEmpty()) { "$kind binding has empty simulator_name" }
+      val previous = result.put(binding.p4InfoName, binding.simulatorName)
+      require(previous == null || previous == binding.simulatorName) {
+        "conflicting $kind binding for '${binding.p4InfoName}': " +
+          "'$previous' vs '${binding.simulatorName}'"
+      }
+    }
+    return result
+  }
+
+  private fun requireBinding(
+    kind: String,
+    p4infoName: String,
+    bindings: Map<String, String>,
+  ): String =
+    bindings[p4infoName]
+      ?: error(
+        "compiled behavioral config is missing $kind binding for '$p4infoName'; " +
+          "recompile with the current p4c-4ward"
+      )
+
   private fun buildCounterMappings(
     p4info: P4InfoOuterClass.P4Info,
     behavioral: BehavioralConfig,
-    resolveName: (String, List<String>) -> String,
+    externBindings: Map<String, String>,
   ): CounterMappings {
     val externInstanceNames =
       (behavioral.parsersList.flatMap { it.externInstancesList } +
           behavioral.controlsList.flatMap { it.externInstancesList })
         .map { it.name }
+    val requireExternBindings = externInstanceNames.isNotEmpty()
     val countersById = mutableMapOf<Int, IndexedExternInfo>()
     val countersByName = mutableMapOf<String, Int>()
     for (counter in p4info.countersList) {
       val alias = counter.preamble.alias.ifEmpty { counter.preamble.name }
-      val behavioralName = resolveName(alias, externInstanceNames)
+      val runtimeName =
+        if (requireExternBindings) {
+          externBindings[counter.preamble.name]
+            ?: error(
+              "compiled behavioral config is missing extern binding for " +
+                "'${counter.preamble.name}'; recompile with the current p4c-4ward"
+            )
+        } else alias
+      if (requireExternBindings) {
+        require(runtimeName in externInstanceNames) {
+          "extern binding for '${counter.preamble.name}' points to unknown behavioral extern " +
+            "'$runtimeName'"
+        }
+      }
       countersById[counter.preamble.id] = IndexedExternInfo(counter.size.toInt())
-      countersByName[behavioralName] = counter.preamble.id
+      countersByName[runtimeName] = counter.preamble.id
       countersByName[alias] = counter.preamble.id
       if (counter.preamble.name.isNotEmpty())
         countersByName[counter.preamble.name] = counter.preamble.id
     }
     return CounterMappings(countersById, countersByName)
+  }
+
+  private fun buildTableLocalActionNames(
+    p4info: P4InfoOuterClass.P4Info
+  ): Map<String, Map<String, String>> {
+    val actionById = p4info.actionsList.associateBy { it.preamble.id }
+    return p4info.tablesList
+      .mapNotNull { table ->
+        val tableName = tableNameById[table.preamble.id] ?: return@mapNotNull null
+        val namespace = table.preamble.name.substringBeforeLast('.', missingDelimiterValue = "")
+        val localNames = mutableMapOf<String, String>()
+        for (actionRef in table.actionRefsList) {
+          val action = actionById[actionRef.id] ?: continue
+          val actionName = actionNameById[actionRef.id] ?: continue
+          val localName =
+            if (namespace.isNotEmpty() && action.preamble.name.startsWith("$namespace.")) {
+              action.preamble.name.removePrefix("$namespace.")
+            } else {
+              action.preamble.name
+            }
+          val previous = localNames.put(localName, actionName)
+          require(previous == null || previous == actionName) {
+            "table '$tableName' has ambiguous local action name '$localName': " +
+              "'$previous' and '$actionName'"
+          }
+        }
+        tableName to localNames
+      }
+      .toMap()
   }
 
   fun setDefaultAction(
@@ -913,10 +1016,10 @@ class TableStore : TableDataReader {
     displayName: String,
     snapshot: ForwardingSnapshot,
   ): P4RuntimeOuterClass.Entity? {
-    val behavioralName = tableNameByAlias[displayName] ?: displayName
-    if (behavioralName !in snapshot.modifiedDefaults) return null
-    val default = snapshot.defaultActions[behavioralName] ?: return null
-    val tableId = tableIdByName[behavioralName] ?: return null
+    val simulatorName = tableNameByAlias[displayName] ?: displayName
+    if (simulatorName !in snapshot.modifiedDefaults) return null
+    val default = snapshot.defaultActions[simulatorName] ?: return null
+    val tableId = tableIdByName[simulatorName] ?: return null
     val actionId = actionIdByName[default.name] ?: return null
     return P4RuntimeOuterClass.Entity.newBuilder()
       .setTableEntry(
@@ -2033,37 +2136,32 @@ class TableStore : TableDataReader {
           })})"
       )
 
-  /** Resolves an action name (alias or behavioral) to its behavioral name. */
-  fun resolveActionByAlias(name: String): String? {
+  /** Resolves a table-scoped action name to the runtime action key for [tableName]. */
+  fun resolveActionForTable(tableName: String, name: String): String? {
     if (name in actionIdByName) return name
-    // Exact alias match.
-    actionAliasByName.entries
-      .find { it.value == name }
+    tableActionOverrides[tableName]
+      ?.entries
+      ?.find { it.value == name }
       ?.let {
         return it.key
       }
-    // Fuzzy match: nested controls use underscored behavioral names for dotted aliases.
-    val candidates = actionIdByName.keys.toList()
-    val underscored = name.replace('.', '_')
-    candidates
-      .find { it.endsWith("_$name") || it.endsWith("_$underscored") }
-      ?.let {
-        return it
-      }
+    tableLocalActionNames[tableName]?.get(name)?.let {
+      return it
+    }
     return null
   }
 
-  /** Returns the short p4info alias for a behavioral action name, or the name itself if unknown. */
-  fun actionDisplayName(behavioralName: String): String =
-    actionAliasByName[behavioralName] ?: behavioralName
+  /** Returns the short p4info alias for a simulator action name, or the name itself if unknown. */
+  fun actionDisplayName(simulatorName: String): String =
+    actionAliasByName[simulatorName] ?: simulatorName
 
-  /** Returns the short p4info alias for a behavioral table name, or the name itself if unknown. */
-  fun tableDisplayName(behavioralName: String): String =
-    tableAliasByName[behavioralName] ?: behavioralName
+  /** Returns the short p4info alias for a simulator table name, or the name itself if unknown. */
+  fun tableDisplayName(simulatorName: String): String =
+    tableAliasByName[simulatorName] ?: simulatorName
 
-  /** Returns the short p4info alias for a behavioral name (table or action), or the name itself. */
-  fun displayName(behavioralName: String): String =
-    tableAliasByName[behavioralName] ?: actionAliasByName[behavioralName] ?: behavioralName
+  /** Returns the short p4info alias for a simulator name (table or action), or the name itself. */
+  fun displayName(simulatorName: String): String =
+    tableAliasByName[simulatorName] ?: actionAliasByName[simulatorName] ?: simulatorName
 
   /**
    * Scores an entry against [keyByFieldId]. Returns null if the entry does not match. Returns a

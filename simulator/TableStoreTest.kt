@@ -89,7 +89,7 @@ class TableStoreTest {
     constDefaultActionId: Int = 0,
   ): P4InfoOuterClass.Table =
     P4InfoOuterClass.Table.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setAlias(name))
+      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name).setAlias(name))
       .setSize(size)
       .setImplementationId(implementationId)
       .setConstDefaultActionId(constDefaultActionId)
@@ -247,9 +247,24 @@ class TableStoreTest {
     DeviceConfig.newBuilder()
       .setBehavioral(
         BehavioralConfig.newBuilder()
-          .addTables(TableBehavior.newBuilder().setName(TABLE_NAME))
+          .addTables(
+            TableBehavior.newBuilder()
+              .setName(TABLE_NAME)
+              .putAllActionOverrides(ACTION_IDS.associate { "action$it" to "action$it" })
+          )
           .addAllActions(actions.toList())
       )
+      .setControlPlaneBindings(
+        fourward.ControlPlaneBindings.newBuilder()
+          .addTables(binding(TABLE_NAME, TABLE_NAME))
+          .addAllActions(ACTION_IDS.map { binding("action$it", "action$it") })
+      )
+      .build()
+
+  private fun binding(p4infoName: String, simulatorName: String): fourward.ControlPlaneBinding =
+    fourward.ControlPlaneBinding.newBuilder()
+      .setP4InfoName(p4infoName)
+      .setSimulatorName(simulatorName)
       .build()
 
   private fun write(entry: TableEntry) {
@@ -1232,147 +1247,6 @@ class TableStoreTest {
     store.loadMappings(p4info = BASE_P4INFO)
 
     assertEquals("NoAction", store.lookup(TABLE_NAME, emptyList()).actionName)
-  }
-
-  // ---------------------------------------------------------------------------
-  // Dotted alias resolution for nested controls
-  // ---------------------------------------------------------------------------
-
-  @Test
-  fun `loadMappings resolves dotted aliases to underscored behavioral names`() {
-    // Simulate inlined nested controls: p4info uses dotted aliases (e.g. "ct.t"),
-    // while behavioral IR uses underscored names (e.g. "ct_t").
-    val nestedTableId = 3
-    val nestedActionId = 30
-    val p4info =
-      buildP4Info(
-        tables =
-          listOf(
-            P4InfoOuterClass.Table.newBuilder()
-              .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
-                  .setId(nestedTableId)
-                  .setAlias("inner.myTable")
-              )
-              .setConstDefaultActionId(nestedActionId)
-              .build()
-          ),
-        actions =
-          listOf(
-            P4InfoOuterClass.Action.newBuilder()
-              .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
-                  .setId(nestedActionId)
-                  .setAlias("inner.myAction")
-              )
-              .build()
-          ),
-      )
-    val device =
-      fourward.DeviceConfig.newBuilder()
-        .setBehavioral(
-          fourward.BehavioralConfig.newBuilder()
-            .addTables(fourward.TableBehavior.newBuilder().setName("inner_myTable"))
-            .addActions(fourward.ActionDecl.newBuilder().setName("inner_myAction"))
-        )
-        .build()
-    val s = TableStore()
-    s.loadMappings(p4info = p4info, device = device)
-    // The dotted alias "inner.myTable" should resolve to behavioral "inner_myTable",
-    // and the default action "inner.myAction" should resolve to "inner_myAction".
-    val result = s.lookup("inner_myTable", emptyList())
-    assertEquals("inner_myAction", result.actionName)
-  }
-
-  @Test
-  fun `loadMappings resolves control-prefixed aliases to short behavioral names`() {
-    // When two tables share a short name, p4c disambiguates with the control prefix
-    // (e.g. alias "MainControl.t" for behavioral name "t").
-    val tableId = 4
-    val actionId = 40
-    val p4info =
-      buildP4Info(
-        tables =
-          listOf(
-            P4InfoOuterClass.Table.newBuilder()
-              .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
-                  .setId(tableId)
-                  .setAlias("MainControl.myTable")
-              )
-              .setConstDefaultActionId(actionId)
-              .build()
-          ),
-        actions =
-          listOf(
-            P4InfoOuterClass.Action.newBuilder()
-              .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
-                  .setId(actionId)
-                  .setAlias("MainControl.myAction")
-              )
-              .build()
-          ),
-      )
-    val device =
-      fourward.DeviceConfig.newBuilder()
-        .setBehavioral(
-          fourward.BehavioralConfig.newBuilder()
-            .addTables(fourward.TableBehavior.newBuilder().setName("myTable"))
-            .addActions(fourward.ActionDecl.newBuilder().setName("myAction"))
-        )
-        .build()
-    val s = TableStore()
-    s.loadMappings(p4info = p4info, device = device)
-    // "MainControl.myTable" should resolve to "myTable" by stripping the control prefix.
-    val result = s.lookup("myTable", emptyList())
-    assertEquals("myAction", result.actionName)
-  }
-
-  @Test
-  fun `loadMappings resolves dotted counter aliases to underscored extern names`() {
-    val counterId = 5
-    val p4info =
-      buildP4Info(
-        counters =
-          listOf(
-            P4InfoOuterClass.Counter.newBuilder()
-              .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder().setId(counterId).setAlias("inner.pktCounter")
-              )
-              .setSize(4)
-              .build()
-          )
-      )
-    val device =
-      fourward.DeviceConfig.newBuilder()
-        .setBehavioral(
-          fourward.BehavioralConfig.newBuilder()
-            .addControls(
-              fourward.ControlDecl.newBuilder()
-                .addExternInstances(
-                  fourward.ExternInstanceDecl.newBuilder()
-                    .setTypeName("Counter")
-                    .setName("inner_pktCounter")
-                )
-            )
-        )
-        .build()
-    val s = TableStore()
-    s.loadMappings(p4info = p4info, device = device)
-
-    s.counterIncrement("inner_pktCounter", index = 2, byteCount = 9)
-
-    val results =
-      s.readCounterEntries(
-        P4RuntimeOuterClass.CounterEntry.newBuilder()
-          .setCounterId(counterId)
-          .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(2))
-          .build()
-      )
-    assertEquals(1, results.size)
-    assertEquals(1, results[0].counterEntry.data.packetCount)
-    assertEquals(9, results[0].counterEntry.data.byteCount)
   }
 
   // ---------------------------------------------------------------------------
@@ -3463,7 +3337,12 @@ class TableStoreTest {
     private val ACTION_LIST: List<P4InfoOuterClass.Action> =
       ACTION_IDS.map { id ->
         P4InfoOuterClass.Action.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setAlias("action$id"))
+          .setPreamble(
+            P4InfoOuterClass.Preamble.newBuilder()
+              .setId(id)
+              .setName("action$id")
+              .setAlias("action$id")
+          )
           .build()
       }
 
@@ -3473,7 +3352,10 @@ class TableStoreTest {
         .addTables(
           P4InfoOuterClass.Table.newBuilder()
             .setPreamble(
-              P4InfoOuterClass.Preamble.newBuilder().setId(TABLE_ID).setAlias(TABLE_NAME)
+              P4InfoOuterClass.Preamble.newBuilder()
+                .setId(TABLE_ID)
+                .setName(TABLE_NAME)
+                .setAlias(TABLE_NAME)
             )
         )
         .addAllActions(ACTION_LIST)

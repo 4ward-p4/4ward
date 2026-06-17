@@ -623,13 +623,24 @@ class P4RuntimeConformanceTest {
   // =========================================================================
 
   /**
-   * Builds a synthetic multi-table config by injecting additional tables with ternary, LPM, range,
-   * and optional match types into the basic_table p4info.
+   * Builds a synthetic multi-table config by injecting additional ternary and LPM tables into the
+   * basic_table pipeline.
    */
   private fun loadMultiTableConfig(): PipelineConfig {
     val base = loadBasicTableConfig()
     val dropId = FourwardTestHarness.findAction(base, "drop").preamble.id
     val p4InfoBuilder = base.p4Info.toBuilder()
+    val deviceBuilder = base.device.toBuilder()
+    val behavioralBuilder = base.device.behavioral.toBuilder()
+    val bindingsBuilder = base.device.controlPlaneBindings.toBuilder()
+
+    fun addSyntheticTableBinding(name: String) {
+      behavioralBuilder.addTables(fourward.TableBehavior.newBuilder().setName(name))
+      bindingsBuilder.addTables(
+        fourward.ControlPlaneBinding.newBuilder().setP4InfoName(name).setSimulatorName(name)
+      )
+    }
+
     // Add a ternary table.
     p4InfoBuilder.addTables(
       p4.config.v1.P4InfoOuterClass.Table.newBuilder()
@@ -648,6 +659,7 @@ class P4RuntimeConformanceTest {
         )
         .addActionRefs(p4.config.v1.P4InfoOuterClass.ActionRef.newBuilder().setId(dropId))
     )
+    addSyntheticTableBinding("ternary_table")
     // Add an LPM table.
     p4InfoBuilder.addTables(
       p4.config.v1.P4InfoOuterClass.Table.newBuilder()
@@ -666,7 +678,15 @@ class P4RuntimeConformanceTest {
         )
         .addActionRefs(p4.config.v1.P4InfoOuterClass.ActionRef.newBuilder().setId(dropId))
     )
-    return base.toBuilder().setP4Info(p4InfoBuilder).build()
+    addSyntheticTableBinding("lpm_table")
+
+    return base
+      .toBuilder()
+      .setP4Info(p4InfoBuilder)
+      .setDevice(
+        deviceBuilder.setBehavioral(behavioralBuilder).setControlPlaneBindings(bindingsBuilder)
+      )
+      .build()
   }
 
   @Test

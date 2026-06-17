@@ -80,6 +80,13 @@ class FourWardBackend : public Inspector {
   void emitAction(const IR::P4Action* action, fourward::ActionDecl* out);
   void emitTable(const IR::P4Table* table);
   void emitArchitecture(const IR::ToplevelBlock* toplevel);
+  const p4::config::v1::Table* findP4InfoTable(const IR::P4Table* table) const;
+  const p4::config::v1::Action* findP4InfoAction(
+      const IR::P4Action& action) const;
+  const IR::P4Action* resolveActionListElement(
+      const IR::ActionListElement* actionListElement) const;
+  const p4::config::v1::Action* findP4InfoActionRef(
+      const p4::config::v1::Table& table, const IR::P4Action& action) const;
 
   // IR-to-proto converters. These are member functions so they can access
   // refMap_ (needed to resolve PathExpression declarations for table apply

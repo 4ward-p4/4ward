@@ -16,19 +16,81 @@
 
 #include "p4c_backend/backend.h"
 
+#include <algorithm>
 #include <array>
+#include <cstdint>
 #include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "absl/container/btree_map.h"
+#include "absl/container/flat_hash_map.h"
 #include "frontends/p4/coreLibrary.h"
 #include "frontends/p4/enumInstance.h"
+#include "google/protobuf/io/coded_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/text_format.h"
 #include "lib/error.h"
 #include "lib/log.h"
 
 namespace P4::FourWard {
+
+// Bindings are emitted via IR traversal order, which is non-deterministic when
+// nodes are stored in hash maps. Sort before writing so two invocations on the
+// same source produce identical bytes.
+static void sortBindings(
+    google::protobuf::RepeatedPtrField<fourward::ControlPlaneBinding>*
+        bindings) {
+  std::vector<fourward::ControlPlaneBinding> sorted(bindings->begin(),
+                                                    bindings->end());
+  std::sort(sorted.begin(), sorted.end(),
+            [](const fourward::ControlPlaneBinding& a,
+               const fourward::ControlPlaneBinding& b) {
+              if (a.p4info_name() != b.p4info_name())
+                return a.p4info_name() < b.p4info_name();
+              return a.simulator_name() < b.simulator_name();
+            });
+  bindings->Clear();
+  for (const auto& binding : sorted) *bindings->Add() = binding;
+}
+
+static fourward::PipelineConfig canonicalPipelineConfig(
+    fourward::PipelineConfig config) {
+  auto* b = config.mutable_device()->mutable_control_plane_bindings();
+  sortBindings(b->mutable_tables());
+  sortBindings(b->mutable_actions());
+  sortBindings(b->mutable_externs());
+  return config;
+}
+
+static void addBinding(
+    google::protobuf::RepeatedPtrField<fourward::ControlPlaneBinding>* bindings,
+    const std::string& p4infoName, const std::string& simulatorName) {
+  for (const auto& binding : *bindings) {
+    if (binding.p4info_name() == p4infoName) {
+      if (binding.simulator_name() != simulatorName) {
+        // clang-format off
+        BUG("conflicting 4ward control-plane binding for %1%: %2% vs %3%",
+            p4infoName, binding.simulator_name(), simulatorName);
+        // clang-format on
+      }
+      return;
+    }
+  }
+  auto* binding = bindings->Add();
+  binding->set_p4info_name(p4infoName);
+  binding->set_simulator_name(simulatorName);
+}
+
+static std::string stripLeadingDot(std::string name) {
+  if (!name.empty() && name[0] == '.') return name.substr(1);
+  return name;
+}
+
+static std::string p4RuntimeName(const IR::P4Action& action) {
+  return stripLeadingDot(std::string(action.controlPlaneName().c_str()));
+}
 
 // =============================================================================
 // Type emission
@@ -101,9 +163,11 @@ fourward::Type FourWardBackend::emitType(const IR::Type* type) {
 // =============================================================================
 
 // Returns true if `expr` is a PathExpression referring to a P4Table, and if so
-// sets `*tableName` to the table's original (pre-midend-rename) name.
+// sets `*tableName` to the table's original (pre-midend-rename) name and
+// `*table` to the resolved IR table.
 static bool isTableApply(const IR::Expression* expr, const ReferenceMap& refMap,
-                         std::string* tableName) {
+                         std::string* tableName,
+                         const IR::P4Table** table = nullptr) {
   const auto* mc = expr->to<IR::MethodCallExpression>();
   if (mc == nullptr) return false;
   const auto* mem = mc->method->to<IR::Member>();
@@ -112,8 +176,9 @@ static bool isTableApply(const IR::Expression* expr, const ReferenceMap& refMap,
   if (pe == nullptr) return false;
   const auto* decl = refMap.getDeclaration(pe->path);
   if (decl == nullptr || !decl->is<IR::P4Table>()) return false;
-  if (tableName != nullptr)
-    *tableName = decl->to<IR::P4Table>()->name.originalName.c_str();
+  const auto* tableDecl = decl->to<IR::P4Table>();
+  if (tableName != nullptr) *tableName = tableDecl->name.originalName.c_str();
+  if (table != nullptr) *table = tableDecl;
   return true;
 }
 
@@ -432,6 +497,20 @@ fourward::Stmt FourWardBackend::emitStmt(const IR::StatOrDecl* node) {
       // Action_run switch on a table apply result.
       auto* s = out.mutable_switch_stmt();
       *s->mutable_subject() = emitExpr(sw->expression);
+      const IR::P4Table* switchTable = nullptr;
+      if (const auto* member = sw->expression->to<IR::Member>()) {
+        if (member->member == "action_run") {
+          isTableApply(member->expr, refMap_, nullptr, &switchTable);
+        }
+      }
+      const p4::config::v1::Table* p4Table =
+          switchTable != nullptr ? findP4InfoTable(switchTable) : nullptr;
+      if (p4Table == nullptr) {
+        // clang-format off
+        BUG("action_run switch is not attached to a known p4info table: %1%",
+            sw->expression);
+        // clang-format on
+      }
       for (const auto* c : sw->cases) {
         if (c->label->is<IR::DefaultExpression>()) {
           if (const auto* b = c->statement->to<IR::BlockStatement>()) {
@@ -440,9 +519,24 @@ fourward::Stmt FourWardBackend::emitStmt(const IR::StatOrDecl* node) {
         } else {
           auto* sc = s->add_cases();
           if (const auto* pe = c->label->to<IR::PathExpression>()) {
-            // Use the original (pre-rename) action name to match p4info
-            // aliases.
-            sc->set_action_name(pe->path->name.originalName.c_str());
+            const auto* declaration = refMap_.getDeclaration(pe->path, false);
+            const auto* actionDecl = declaration != nullptr
+                                         ? declaration->to<IR::P4Action>()
+                                         : nullptr;
+            if (actionDecl == nullptr) {
+              // clang-format off
+              BUG("action_run case %1% does not resolve to a P4 action",
+                  pe->path->name.originalName);
+              // clang-format on
+            }
+            const auto* p4Action = findP4InfoActionRef(*p4Table, *actionDecl);
+            if (p4Action == nullptr) {
+              // clang-format off
+              BUG("no p4info action found for action_run case %1% in %2%",
+                  p4RuntimeName(*actionDecl), p4Table->preamble().name());
+              // clang-format on
+            }
+            sc->set_action_name(p4Action->preamble().name());
           }
           if (c->statement != nullptr) {
             if (const auto* b = c->statement->to<IR::BlockStatement>()) {
@@ -784,6 +878,23 @@ void FourWardBackend::emitControl(const IR::P4Control* control) {
           ei->set_type_name(base->path->name.name.c_str());
         }
       }
+      const std::array<std::string, 3> candidates = {
+          controlName_ + "." + std::string(inst->name.originalName.c_str()),
+          std::string(inst->name.originalName.c_str()),
+          stripLeadingDot(std::string(inst->externalName().c_str())),
+      };
+      for (const auto& counter : pipelineConfig_.p4info().counters()) {
+        for (const auto& candidate : candidates) {
+          if (counter.preamble().name() == candidate ||
+              counter.preamble().alias() == candidate) {
+            addBinding(pipelineConfig_.mutable_device()
+                           ->mutable_control_plane_bindings()
+                           ->mutable_externs(),
+                       counter.preamble().name(), inst->name.name.c_str());
+            break;
+          }
+        }
+      }
       for (const auto* arg : *inst->arguments) {
         *ei->add_constructor_args() = emitExpr(arg->expression);
       }
@@ -797,8 +908,15 @@ void FourWardBackend::emitControl(const IR::P4Control* control) {
 
 void FourWardBackend::emitAction(const IR::P4Action* action,
                                  fourward::ActionDecl* out) {
-  // Use the original (pre-midend) name as the canonical key so it matches the
-  // p4info alias and allows table-dispatch lookups to succeed.
+  if (const auto* p4Action = findP4InfoAction(*action); p4Action != nullptr) {
+    addBinding(pipelineConfig_.mutable_device()
+                   ->mutable_control_plane_bindings()
+                   ->mutable_actions(),
+               p4Action->preamble().name(), p4Action->preamble().name());
+  }
+
+  // Keep the original source name for direct references. Table dispatch uses
+  // TableBehavior.action_overrides for per-table midend specializations.
   out->set_name(action->name.originalName.c_str());
   // If the midend renamed this action (e.g. "do_thing" → "do_thing_1"), also
   // record the current name so the interpreter can resolve direct call sites
@@ -816,70 +934,136 @@ void FourWardBackend::emitAction(const IR::P4Action* action,
   }
 }
 
+const p4::config::v1::Table* FourWardBackend::findP4InfoTable(
+    const IR::P4Table* table) const {
+  const std::string tableName = table->name.originalName.c_str();
+  const std::array<std::string, 2> candidates = {
+      controlName_ + "." + tableName,
+      stripLeadingDot(std::string(table->externalName().c_str())),
+  };
+  for (const auto& p4Table : pipelineConfig_.p4info().tables()) {
+    for (const auto& candidate : candidates) {
+      if (p4Table.preamble().name() == candidate) return &p4Table;
+    }
+  }
+  return nullptr;
+}
+
+const p4::config::v1::Action* FourWardBackend::findP4InfoAction(
+    const IR::P4Action& action) const {
+  const std::string actionName = p4RuntimeName(action);
+  for (const auto& p4Action : pipelineConfig_.p4info().actions()) {
+    if (p4Action.preamble().name() == actionName) return &p4Action;
+  }
+  return nullptr;
+}
+
+const IR::P4Action* FourWardBackend::resolveActionListElement(
+    const IR::ActionListElement* actionListElement) const {
+  const auto* declaration =
+      refMap_.getDeclaration(actionListElement->getPath(), false);
+  if (declaration == nullptr) return nullptr;
+  return declaration->to<IR::P4Action>();
+}
+
+const p4::config::v1::Action* FourWardBackend::findP4InfoActionRef(
+    const p4::config::v1::Table& table, const IR::P4Action& action) const {
+  absl::flat_hash_map<uint32_t, const p4::config::v1::Action*> actionById;
+  for (const auto& action : pipelineConfig_.p4info().actions()) {
+    actionById[action.preamble().id()] = &action;
+  }
+
+  const std::string actionName = p4RuntimeName(action);
+  for (const auto& actionRef : table.action_refs()) {
+    const auto actionIt = actionById.find(actionRef.id());
+    if (actionIt == actionById.end()) continue;
+    const auto* candidateAction = actionIt->second;
+    if (candidateAction->preamble().name() == actionName)
+      return candidateAction;
+  }
+  return nullptr;
+}
+
 void FourWardBackend::emitTable(const IR::P4Table* table) {
   // originalName matches the p4info alias (e.g. "port_table" from
   // "MyIngress.port_table").
   const std::string tableName = table->name.originalName.c_str();
 
-  // Look up the p4info table by qualified name to retrieve match field IDs.
-  // Try multiple strategies: (1) controlName.originalName for simple tables,
-  // (2) externalName() for tables from inlined sub-controls (where p4info uses
-  // dot-separated hierarchy like "ingress.c.t" but originalName has underscores
-  // like "c_t").
-  const p4::config::v1::Table* p4Table = nullptr;
-  {
-    std::array<std::string, 2> candidates = {
-        controlName_ + "." + tableName,
-        std::string(table->externalName().c_str()),
-    };
-    // externalName() may have a leading dot for fully-qualified names.
-    for (auto& c : candidates) {
-      if (!c.empty() && c[0] == '.') c = c.substr(1);
-    }
-    for (const auto& t : pipelineConfig_.p4info().tables()) {
-      for (const auto& c : candidates) {
-        if (t.preamble().name() == c) {
-          p4Table = &t;
-          break;
-        }
-      }
-      if (p4Table != nullptr) break;
-    }
-  }
+  const p4::config::v1::Table* p4Table = findP4InfoTable(table);
   if (p4Table == nullptr) {
     // clang-format off
-    LOG1("WARNING: no p4info table found for " << tableName << "; skipping emitTable");
+    BUG("no p4info table found for %1%", tableName);
     // clang-format on
-    return;
   }
 
   auto* tb = behavioral_->add_tables();
   tb->set_name(tableName);
+  addBinding(pipelineConfig_.mutable_device()
+                 ->mutable_control_plane_bindings()
+                 ->mutable_tables(),
+             p4Table->preamble().name(), tableName);
 
   // Emit one TableKey per match field. The field_name is the p4info match
   // field ID as a string; this is what TableStore.lookup compares against
   // FieldMatch.fieldId from P4Runtime write requests.
   const IR::Key* key = table->getKey();
-  if (key == nullptr) return;
-  int keyIdx = 0;
-  for (const auto* keyElem : key->keyElements) {
-    if (keyIdx >= p4Table->match_fields_size()) break;
-    auto* tk = tb->add_keys();
-    tk->set_field_name(std::to_string(p4Table->match_fields(keyIdx).id()));
-    *tk->mutable_expr() = emitExpr(keyElem->expression);
-    ++keyIdx;
+  if (key != nullptr) {
+    int keyIdx = 0;
+    for (const auto* keyElem : key->keyElements) {
+      if (keyIdx >= p4Table->match_fields_size()) break;
+      auto* tk = tb->add_keys();
+      tk->set_field_name(std::to_string(p4Table->match_fields(keyIdx).id()));
+      *tk->mutable_expr() = emitExpr(keyElem->expression);
+      ++keyIdx;
+    }
   }
 
-  // Record per-table action specializations so the interpreter can resolve
-  // the correct midend copy when the p4info returns a single original name.
+  // Record per-table action specializations so the interpreter resolves each
+  // P4Info action ID through this table's executable midend action name. Some
+  // architectures add IR-only helper actions to the table action list; those
+  // are intentionally outside p4info.table.action_refs and therefore outside
+  // the control-plane binding contract.
   const auto* actionList = table->getActionList();
   if (actionList != nullptr) {
-    for (const auto* ale : actionList->actionList) {
-      auto id = ale->getName();
-      if (id.name != id.originalName) {
-        (*tb->mutable_action_overrides())[id.originalName.c_str()] =
-            id.name.c_str();
+    absl::flat_hash_map<uint32_t, const p4::config::v1::Action*> actionById;
+    for (const auto& action : pipelineConfig_.p4info().actions()) {
+      actionById[action.preamble().id()] = &action;
+    }
+
+    absl::btree_map<std::string, std::string> actionOverrides;
+    for (const auto& actionRef : p4Table->action_refs()) {
+      const auto actionIt = actionById.find(actionRef.id());
+      if (actionIt == actionById.end()) {
+        // clang-format off
+        BUG("p4info table %1% references unknown action id %2%",
+            p4Table->preamble().name(), actionRef.id());
+        // clang-format on
       }
+      const auto* p4Action = actionIt->second;
+      std::string executableName;
+      for (const auto* ale : actionList->actionList) {
+        const auto* actionDecl = resolveActionListElement(ale);
+        if (actionDecl == nullptr) {
+          // clang-format off
+          BUG("table action list entry %1% does not resolve to a P4 action",
+              ale);
+          // clang-format on
+        }
+        if (p4Action->preamble().name() == p4RuntimeName(*actionDecl)) {
+          executableName = ale->getName().name.c_str();
+          break;
+        }
+      }
+      if (executableName.empty()) {
+        // clang-format off
+        BUG("no executable table action found for p4info action %1% in %2%",
+            p4Action->preamble().name(), p4Table->preamble().name());
+        // clang-format on
+      }
+      actionOverrides[p4Action->preamble().name()] = executableName;
+    }
+    for (const auto& [p4infoName, executableName] : actionOverrides) {
+      (*tb->mutable_action_overrides())[p4infoName] = executableName;
     }
   }
 }
@@ -1034,6 +1218,15 @@ namespace {
 // time we reach `writeProto` the suffix is guaranteed to be one of the two.
 bool isBinary(const std::string& path) { return path.ends_with(".binpb"); }
 
+bool serialiseDeterministic(const google::protobuf::Message& msg,
+                            std::string* out) {
+  out->clear();
+  google::protobuf::io::StringOutputStream stream(out);
+  google::protobuf::io::CodedOutputStream coded(&stream);
+  coded.SetSerializationDeterministic(true);
+  return msg.SerializeToCodedStream(&coded) && !coded.HadError();
+}
+
 bool writeProto(const google::protobuf::Message& msg, const std::string& path,
                 const char* protoFile, const char* protoMessage) {
   // Serialise into a string in full, then write the bytes all at once. Avoids
@@ -1045,7 +1238,7 @@ bool writeProto(const google::protobuf::Message& msg, const std::string& path,
   // google3 as 201-byte truncated files for ~130 KB DeviceConfigs.
   std::string serialised;
   if (isBinary(path)) {
-    if (!msg.SerializeToString(&serialised)) {
+    if (!serialiseDeterministic(msg, &serialised)) {
       ::P4::error("4ward: failed to serialise %1% to '%2%'", protoMessage,
                   path);
       return false;
@@ -1086,30 +1279,39 @@ bool writeProto(const google::protobuf::Message& msg, const std::string& path,
 }  // namespace
 
 bool FourWardBackend::writeOutputs() const {
+  const fourward::PipelineConfig outputConfig =
+      canonicalPipelineConfig(pipelineConfig_);
   if (options_.outputFile.has_value()) {
     if (options_.format == FourWardOptions::Format::kP4runtime) {
       p4::v1::ForwardingPipelineConfig fpc;
-      *fpc.mutable_p4info() = pipelineConfig_.p4info();
-      fpc.set_p4_device_config(pipelineConfig_.device().SerializeAsString());
+      *fpc.mutable_p4info() = outputConfig.p4info();
+      std::string deviceConfig;
+      if (!serialiseDeterministic(outputConfig.device(), &deviceConfig)) {
+        ::P4::error("4ward: failed to serialise fourward.DeviceConfig");
+        return false;
+      }
+      fpc.set_p4_device_config(deviceConfig);
       if (!writeProto(fpc, *options_.outputFile,
                       "@p4runtime//p4/v1/p4runtime.proto",
                       "p4.v1.ForwardingPipelineConfig")) {
         return false;
       }
-    } else if (!writeProto(pipelineConfig_, *options_.outputFile,
-                           "@fourward//simulator/ir.proto",
-                           "fourward.PipelineConfig")) {
-      return false;
+    } else {
+      if (!writeProto(outputConfig, *options_.outputFile,
+                      "@fourward//simulator/ir.proto",
+                      "fourward.PipelineConfig")) {
+        return false;
+      }
     }
   }
   if (options_.outP4Info.has_value() &&
-      !writeProto(pipelineConfig_.p4info(), *options_.outP4Info,
+      !writeProto(outputConfig.p4info(), *options_.outP4Info,
                   "@p4runtime//p4/config/v1/p4info.proto",
                   "p4.config.v1.P4Info")) {
     return false;
   }
   if (options_.outP4DeviceConfig.has_value() &&
-      !writeProto(pipelineConfig_.device(), *options_.outP4DeviceConfig,
+      !writeProto(outputConfig.device(), *options_.outP4DeviceConfig,
                   "@fourward//simulator/ir.proto", "fourward.DeviceConfig")) {
     return false;
   }

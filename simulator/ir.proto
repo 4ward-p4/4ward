@@ -62,6 +62,12 @@ message DeviceConfig {
   // Type translation mappings for @p4runtime_translation-annotated types.
   // Keyed by URI. When absent for a translated type, auto-allocation is used.
   repeated TypeTranslation translations = 3;
+
+  // Exact names that connect p4info's control-plane surface to this
+  // behavioral IR. The p4c backend emits these while both symbol spaces are in
+  // scope; the simulator treats them as required whenever a compiled
+  // behavioral config contains the corresponding kind of symbol.
+  ControlPlaneBindings control_plane_bindings = 4;
 }
 
 // Behavioral IR: the execution semantics of a compiled P4 program.
@@ -75,6 +81,24 @@ message BehavioralConfig {
   // Supplements p4info's table descriptions with key expressions to evaluate.
   // One entry per table; name matches p4info table preamble name.
   repeated TableBehavior tables = 6;
+}
+
+message ControlPlaneBindings {
+  repeated ControlPlaneBinding tables = 1;
+  repeated ControlPlaneBinding actions = 2;
+  repeated ControlPlaneBinding externs = 3;
+}
+
+message ControlPlaneBinding {
+  // Fully qualified p4info preamble.name, e.g.
+  // "ingress.routing_lookup.ipv4_table".
+  string p4info_name = 1;
+
+  // The runtime name consumed by the simulator. For tables and externs this is
+  // the IR declaration name. For actions this is the fully qualified p4info
+  // action name; TableBehavior.action_overrides resolves it to the executable
+  // midend action copy for each table.
+  string simulator_name = 2;
 }
 
 // =============================================================================
@@ -379,20 +403,22 @@ message ExternInstanceDecl {
 }
 
 message ActionDecl {
-  // Semantic name: matches the p4info alias and originalName (used for table
-  // dispatch).
+  // Source-level action name from p4c's originalName. The interpreter indexes
+  // actions under this name and current_name; table dispatch uses
+  // TableBehavior.action_overrides to select one of those executable names from
+  // the fully qualified p4info action name.
   string name = 1;
   repeated ParamDecl params = 2;
   repeated Stmt body = 3;
   // Post-midend name if renamed (e.g. "do_thing_1" when "do_thing" was
   // duplicated). Populated only when different from name. The interpreter
-  // indexes actions under both name and current_name so both table dispatch and
-  // inline calls resolve.
+  // indexes actions under both name and current_name so table dispatch and
+  // inline calls can resolve to the executable body p4c selected.
   string current_name = 4;
 }
 
 // Supplements the p4info table description with key expressions.
-// Name must match p4info table.preamble.name.
+// Name is the behavioral table name used by the interpreter.
 message TableBehavior {
   string name = 1;
 
@@ -400,10 +426,10 @@ message TableBehavior {
   // expression to produce the lookup key.
   repeated TableKey keys = 2;
 
-  // Maps original action name → midend-specialized name for this table.
-  // When p4c duplicates an action for per-table specialization (e.g.
-  // "setbyte" → "setbyte_1"), the p4info still uses the single original
-  // action ID. This map lets the interpreter resolve the correct copy.
+  // Maps fully qualified p4info action name → executable behavioral action name
+  // for this table. This is intentionally table-scoped: the same p4info alias
+  // can appear in multiple controls, and the midend can also duplicate an
+  // action for per-table specialization.
   map<string, string> action_overrides = 3;
 }
 
