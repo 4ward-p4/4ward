@@ -108,7 +108,6 @@ private fun collectFromEvent(
     TraceEvent.EventCase.ASSERTION,
     TraceEvent.EventCase.CLONE,
     TraceEvent.EventCase.MARK_TO_DROP,
-    TraceEvent.EventCase.CONTINUATION_TRIGGER,
     TraceEvent.EventCase.DEPARSER_EMIT,
     TraceEvent.EventCase.EVENT_NOT_SET,
     null -> {}

@@ -1,7 +1,7 @@
 package fourward.simulator
 
 import fourward.BehavioralConfig
-import fourward.ContinuationEvent
+import fourward.Continuation
 import fourward.ExternInstanceDecl
 import fourward.PipelineStage
 import fourward.TraceEvent
@@ -153,7 +153,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         )
       return buildContinuationTree(
         ingress.events,
-        cause = ingress.continuationEventId,
+        kind = Continuation.Kind.RESUBMIT,
         next = resubmitTree,
       )
     }
@@ -230,8 +230,6 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val dropTriggerId: Long? = null,
     /** Id of the CloneSessionLookupEvent when an I2E clone was requested, or null if none. */
     val cloneLookupEventId: Long? = null,
-    /** Id of the ContinuationEvent when resubmit was requested, or null if none. */
-    val continuationEventId: Long? = null,
     /**
      * First event id the egress pipeline should use, to avoid collisions when events are merged.
      */
@@ -308,19 +306,12 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       ctx.lastEventIdWhere { it.hasCloneSessionLookup() && it.cloneSessionLookup.sessionFound }
     val deparsedBytes = ctx.deparsedPayload()
 
-    // Emit continuation event if resubmit was requested — must happen after the deparser so the
-    // event appears at the end of the ingress trace and can anchor Continuation.cause.
-    val resubmit = (output?.fields?.get("resubmit") as? BoolVal)?.value == true
-    if (resubmit) {
-      ctx.addTraceEvent(continuationTriggerEvent(ContinuationEvent.Kind.RESUBMIT))
-    }
     return IngressResult(
       ctx.getEvents(),
       output,
       deparsedBytes,
       dropped = false,
       cloneLookupEventId = cloneLookupId,
-      continuationEventId = if (resubmit) ctx.lastEventId() else null,
       nextEventId = ctx.peekNextEventId(),
     )
   }
@@ -393,8 +384,8 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val output: StructVal?,
     /** Id of the event that caused a drop, or null if none. */
     val dropTriggerId: Long? = null,
-    /** Id of the ContinuationEvent when recirculate was requested, or null if none. */
-    val recirculateCauseId: Long? = null,
+    /** Whether this egress pass should recirculate. */
+    val recirculate: Boolean = false,
   )
 
   /**
@@ -444,15 +435,14 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     if (core.dropped) {
       if (e2eCloneBranches.isNotEmpty()) {
         // PSA E2E clone sessions don't emit a CloneSessionLookupEvent in the current impl.
-        return buildReplicationTree(core.events, 0L, e2eCloneBranches)
+        return buildReplicationTree(core.events, branches = e2eCloneBranches)
       }
       return buildDropTrace(core.events, core.dropTriggerId)
     }
 
     // Recirculate: the same packet loops back to ingress — modeled as a Continuation.
-    // runEgressCore already emitted the ContinuationEvent and stored its id in recirculateCauseId.
     val outputTree =
-      if (core.recirculateCauseId != null) {
+      if (core.recirculate) {
         val recircTree =
           processPacketRecursive(
             state.pipeline,
@@ -461,14 +451,14 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
             PACKET_PATH_RECIRCULATE,
             depth = depth + 1,
           )
-        buildContinuationTree(core.events, cause = core.recirculateCauseId, next = recircTree)
+        buildContinuationTree(core.events, kind = Continuation.Kind.RECIRCULATE, next = recircTree)
       } else {
         buildOutputTrace(core.events, egressPort, core.deparsedBytes)
       }
 
     if (e2eCloneBranches.isNotEmpty()) {
       // PSA E2E clone sessions don't emit a CloneSessionLookupEvent in the current impl.
-      return buildReplicationTree(emptyList(), 0L, listOf(outputTree) + e2eCloneBranches)
+      return buildReplicationTree(emptyList(), branches = listOf(outputTree) + e2eCloneBranches)
     }
 
     return outputTree
@@ -529,17 +519,16 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     runControlStage(egressInterpreter, egressCtx, egressEnv, p.egressDeparser)
 
     val outputBytes = egressCtx.deparsedPayload()
-    val dropTriggerId = if (dropped) egressCtx.lastEventIdWhere { it.hasMarkToDrop() } else 0L
-
-    // PSA recirculate is port-based. Emit the ContinuationEvent here while ctx is still live,
-    // so all event emission goes through PacketContext.addTraceEvent uniformly.
-    val recirculateCauseId =
-      if (!dropped && egressPort.toUInt().toLong() == PSA_PORT_RECIRCULATE_LONG) {
-        egressCtx.addTraceEvent(continuationTriggerEvent(ContinuationEvent.Kind.RECIRCULATE))
-        egressCtx.lastEventId()
-      } else null
-
-    return EgressCoreResult(egressCtx.getEvents(), dropped, outputBytes, egressOutput, dropTriggerId, recirculateCauseId)
+    val dropTriggerId = if (dropped) egressCtx.lastEventIdWhere { it.hasMarkToDrop() } else null
+    val recirculate = !dropped && egressPort.toUInt().toLong() == PSA_PORT_RECIRCULATE_LONG
+    return EgressCoreResult(
+      egressCtx.getEvents(),
+      dropped,
+      outputBytes,
+      egressOutput,
+      dropTriggerId,
+      recirculate,
+    )
   }
 
   // ---------------------------------------------------------------------------

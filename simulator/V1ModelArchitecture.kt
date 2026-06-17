@@ -3,8 +3,7 @@ package fourward.simulator
 import fourward.BehavioralConfig
 import fourward.CloneEvent
 import fourward.CloneSessionLookupEvent
-import fourward.ContinuationEvent
-import fourward.DropReason
+import fourward.Continuation
 import fourward.LogMessageEvent
 import fourward.MarkToDropEvent
 import fourward.PipelineStage
@@ -495,9 +494,13 @@ class V1ModelArchitecture(
         preservedMetadata = fork.preservedMetadata,
       )
     val next = buildTraceTree(ctx, decisions).trace
-    val causeId = fork.eventsBeforeFork.lastOrNull()?.id
     return PipelineResult(
-      buildContinuationTree(fork.eventsBeforeFork, cause = causeId, next = next)
+      buildContinuationTree(
+        fork.eventsBeforeFork,
+        kind = Continuation.Kind.RESUBMIT,
+        preservedFields = formatPreservedMeta(fork.preservedMetadata),
+        next = next,
+      )
     )
   }
 
@@ -515,9 +518,13 @@ class V1ModelArchitecture(
       )
     val next =
       buildTraceTree(ctx.copy(packet = PacketBits.ofBytes(fork.deparsedBytes)), decisions).trace
-    val causeId = fork.eventsBeforeFork.lastOrNull()?.id
     return PipelineResult(
-      buildContinuationTree(fork.eventsBeforeFork, cause = causeId, next = next)
+      buildContinuationTree(
+        fork.eventsBeforeFork,
+        kind = Continuation.Kind.RECIRCULATE,
+        preservedFields = formatPreservedMeta(fork.preservedMetadata),
+        next = next,
+      )
     )
   }
 
@@ -739,12 +746,6 @@ class V1ModelArchitecture(
 
     if (s.pendingOps.recirculate) {
       val preservedMeta = snapshotPreservedMetadata(s, s.pendingOps.recirculateFieldListId)
-      s.packetCtx.addTraceEvent(
-        continuationTriggerEvent(
-          ContinuationEvent.Kind.RECIRCULATE,
-          formatPreservedMeta(preservedMeta),
-        )
-      )
       throw RecirculateFork(outputBytes, s.packetCtx.getEvents(), preservedMeta)
     }
 
@@ -834,12 +835,6 @@ class V1ModelArchitecture(
     }
     if (s.pendingOps.resubmit) {
       val preservedMeta = snapshotPreservedMetadata(s, s.pendingOps.resubmitFieldListId)
-      s.packetCtx.addTraceEvent(
-        continuationTriggerEvent(
-          ContinuationEvent.Kind.RESUBMIT,
-          formatPreservedMeta(preservedMeta),
-        )
-      )
       throw ResubmitFork(s.packetCtx.getEvents(), preservedMeta)
     }
     val mcastGrp = (s.standardMetadata.fields["mcast_grp"] as? BitVal)?.bits?.value?.toInt() ?: 0
@@ -923,7 +918,7 @@ class V1ModelArchitecture(
     return preserved.ifEmpty { null }
   }
 
-  /** Converts a [Value] snapshot to a string for [ContinuationEvent.preserved_fields]. */
+  /** Converts a [Value] snapshot to a string for [Continuation.preserved_fields]. */
   private fun formatPreservedMeta(meta: Map<String, Value>?): Map<String, String> =
     meta?.mapValues { (_, v) -> formatValue(v) } ?: emptyMap()
 
@@ -1058,10 +1053,7 @@ class V1ModelArchitecture(
       // mark_to_drop(standard_metadata): sets egress_spec to the drop port.
       "mark_to_drop" -> {
         eval.addTraceEvent(
-          eval
-            .traceEventBuilder()
-            .setMarkToDrop(MarkToDropEvent.newBuilder().setReason(DropReason.MARK_TO_DROP))
-            .build()
+          eval.traceEventBuilder().setMarkToDrop(MarkToDropEvent.newBuilder()).build()
         )
         val smeta = eval.evalArg(0) as StructVal
         smeta.fields["egress_spec"] = BitVal(dropPort, smeta.bitWidth("egress_spec"))

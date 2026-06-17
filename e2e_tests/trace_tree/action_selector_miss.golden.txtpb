@@ -92,7 +92,6 @@ events {
 }
 events {
   mark_to_drop {
-    reason: MARK_TO_DROP
   }
   id: 10
   source_info {

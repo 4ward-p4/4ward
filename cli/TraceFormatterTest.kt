@@ -3,14 +3,12 @@ package fourward.cli
 import com.google.protobuf.ByteString
 import fourward.ActionExecutionEvent
 import fourward.AssertionEvent
+import fourward.Continuation
 import fourward.Drop
-import fourward.DropReason
 import fourward.LogMessageEvent
 import fourward.MarkToDropEvent
 import fourward.OutputPacket
 import fourward.ParserTransitionEvent
-import fourward.Continuation
-import fourward.ContinuationEvent
 import fourward.Replication
 import fourward.TableLookupEvent
 import fourward.TraceEvent
@@ -96,10 +94,7 @@ class TraceFormatterTest {
   fun dropWithMarkToDrop() {
     val tree =
       TraceTree.newBuilder()
-        .addEvents(
-          TraceEvent.newBuilder()
-            .setMarkToDrop(MarkToDropEvent.newBuilder().setReason(DropReason.MARK_TO_DROP))
-        )
+        .addEvents(TraceEvent.newBuilder().setMarkToDrop(MarkToDropEvent.newBuilder()))
         .setDrop(Drop.getDefaultInstance())
         .build()
 
@@ -219,17 +214,14 @@ class TraceFormatterTest {
   fun continuationTriggerResubmit() {
     val tree =
       TraceTree.newBuilder()
-        .addEvents(
-          TraceEvent.newBuilder()
-            .setContinuationTrigger(
-              ContinuationEvent.newBuilder().setKind(ContinuationEvent.Kind.RESUBMIT)
-            )
-        )
         .setContinuation(
           Continuation.newBuilder()
+            .setKind(Continuation.Kind.RESUBMIT)
             .setNext(
               TraceTree.newBuilder()
-                .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY))
+                .setOutput(
+                  OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY)
+                )
             )
         )
         .build()
@@ -237,7 +229,6 @@ class TraceFormatterTest {
     assertEquals(
       """
       |resubmit
-      |continuation
       |  output port 1, 0 bytes
       |"""
         .trimMargin(),
@@ -249,19 +240,15 @@ class TraceFormatterTest {
   fun continuationTriggerWithPreservedFields() {
     val tree =
       TraceTree.newBuilder()
-        .addEvents(
-          TraceEvent.newBuilder()
-            .setContinuationTrigger(
-              ContinuationEvent.newBuilder()
-                .setKind(ContinuationEvent.Kind.RESUBMIT)
-                .putPreservedFields("tag", "48879")
-            )
-        )
         .setContinuation(
           Continuation.newBuilder()
+            .setKind(Continuation.Kind.RESUBMIT)
+            .putPreservedFields("tag", "48879")
             .setNext(
               TraceTree.newBuilder()
-                .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY))
+                .setOutput(
+                  OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY)
+                )
             )
         )
         .build()
@@ -269,7 +256,6 @@ class TraceFormatterTest {
     assertEquals(
       """
       |resubmit (preserved: tag=48879)
-      |continuation
       |  output port 1, 0 bytes
       |"""
         .trimMargin(),

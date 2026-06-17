@@ -1,5 +1,6 @@
 package fourward.cli
 
+import fourward.Continuation
 import fourward.TraceEvent
 import fourward.TraceTree
 
@@ -26,8 +27,21 @@ object TraceFormatter {
         }
       }
       TraceTree.OutcomeCase.CONTINUATION -> {
-        appendLine("${pad(indent)}continuation")
-        appendTree(tree.continuation.next, indent + 1)
+        val cont = tree.continuation
+        val label =
+          when (cont.kind) {
+            Continuation.Kind.RESUBMIT -> "resubmit"
+            Continuation.Kind.RECIRCULATE -> "recirculate"
+            else -> "continuation"
+          }
+        if (cont.preservedFieldsCount > 0) {
+          val fields =
+            cont.preservedFieldsMap.entries.joinToString(", ") { "${it.key}=${it.value}" }
+          appendLine("${pad(indent)}$label (preserved: $fields)")
+        } else {
+          appendLine("${pad(indent)}$label")
+        }
+        appendTree(cont.next, indent + 1)
       }
       TraceTree.OutcomeCase.OUTPUT -> {
         val out = tree.output
@@ -87,16 +101,6 @@ object TraceFormatter {
         val ml = event.multicastGroupLookup
         val result = if (ml.groupFound) "${ml.replicaCount} replicas" else "not found"
         appendLine("${prefix}multicast group ${ml.multicastGroupId}: $result")
-      }
-      TraceEvent.EventCase.CONTINUATION_TRIGGER -> {
-        val ct = event.continuationTrigger
-        val kind = ct.kind.name.lowercase()
-        if (ct.preservedFieldsCount > 0) {
-          val fields = ct.preservedFieldsMap.entries.joinToString(", ") { "${it.key}=${it.value}" }
-          appendLine("${prefix}$kind (preserved: $fields)")
-        } else {
-          appendLine("${prefix}$kind")
-        }
       }
       TraceEvent.EventCase.PACKET_INGRESS,
       TraceEvent.EventCase.PIPELINE_STAGE,

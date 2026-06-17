@@ -5,7 +5,7 @@ import fourward.Architecture
 import fourward.BehavioralConfig
 import fourward.BinaryOp
 import fourward.BinaryOperator
-import fourward.ContinuationEvent
+import fourward.Continuation
 import fourward.ControlDecl
 import fourward.EnumDecl
 import fourward.Expr
@@ -456,7 +456,7 @@ class PNAArchitectureTest {
   }
 
   @Test
-  fun `recirculate emits ContinuationEvent and anchors Continuation cause`() {
+  fun `recirculate emits Continuation with RECIRCULATE kind`() {
     // First pass (loopedback=false): call recirculate().
     // Second pass (loopedback=true): send to port 5.
     val boolType = Type.newBuilder().setBoolean(true).build()
@@ -472,12 +472,11 @@ class PNAArchitectureTest {
             )
           )
       )
-    val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0xAA.toByte()), TableStore())
+    val result =
+      PNAArchitecture(config).processPacket(port(0), byteArrayOf(0xAA.toByte()), TableStore())
 
-    // Trace should show a CONTINUATION anchored by a RECIRCULATE ContinuationEvent.
-    val contEvent = result.trace.eventsList.single { it.hasContinuationTrigger() }
-    assertEquals(ContinuationEvent.Kind.RECIRCULATE, contEvent.continuationTrigger.kind)
-    assertEquals(contEvent.id, result.trace.continuation.cause)
+    // Trace should show a CONTINUATION with RECIRCULATE kind.
+    assertEquals(Continuation.Kind.RECIRCULATE, result.trace.continuation.kind)
     // Second pass exits on port 5.
     assertEquals(5, result.possibleOutcomes.single().single().dataplaneEgressPort)
   }

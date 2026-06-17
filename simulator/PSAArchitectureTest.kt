@@ -3,10 +3,10 @@ package fourward.simulator
 import com.google.protobuf.ByteString
 import fourward.Architecture
 import fourward.AssignmentStmt
-import fourward.ContinuationEvent
 import fourward.BehavioralConfig
 import fourward.BinaryOp
 import fourward.BinaryOperator
+import fourward.Continuation
 import fourward.ControlDecl
 import fourward.EnumDecl
 import fourward.Expr
@@ -1123,10 +1123,8 @@ class PSAArchitectureTest {
     // Packet recirculates once, then forwards on port 5.
     assertEquals(1, outputs.size)
     assertEquals(5, outputs[0].dataplaneEgressPort)
-    // Trace should show a CONTINUATION anchored by a RECIRCULATE ContinuationEvent.
-    val contEvent = result.trace.eventsList.single { it.hasContinuationTrigger() }
-    assertEquals(ContinuationEvent.Kind.RECIRCULATE, contEvent.continuationTrigger.kind)
-    assertEquals(contEvent.id, result.trace.continuation.cause)
+    // Trace should show a CONTINUATION with RECIRCULATE kind.
+    assertEquals(Continuation.Kind.RECIRCULATE, result.trace.continuation.kind)
   }
 
   @Test
@@ -1190,10 +1188,8 @@ class PSAArchitectureTest {
 
     assertEquals(1, outputs.size)
     assertEquals(7, outputs[0].dataplaneEgressPort)
-    // Resubmit is a Continuation anchored by a RESUBMIT ContinuationEvent.
-    val contEvent = result.trace.eventsList.single { it.hasContinuationTrigger() }
-    assertEquals(ContinuationEvent.Kind.RESUBMIT, contEvent.continuationTrigger.kind)
-    assertEquals(contEvent.id, result.trace.continuation.cause)
+    // Resubmit is a Continuation with RESUBMIT kind.
+    assertEquals(Continuation.Kind.RESUBMIT, result.trace.continuation.kind)
   }
 
   @Test
@@ -1255,9 +1251,7 @@ class PSAArchitectureTest {
     // Resubmit wins: packet loops back, then exits on port 5. No clone on port 9.
     assertEquals(1, outputs.size)
     assertEquals(5, outputs[0].dataplaneEgressPort)
-    val contEvent = result.trace.eventsList.single { it.hasContinuationTrigger() }
-    assertEquals(ContinuationEvent.Kind.RESUBMIT, contEvent.continuationTrigger.kind)
-    assertEquals(contEvent.id, result.trace.continuation.cause)
+    assertEquals(Continuation.Kind.RESUBMIT, result.trace.continuation.kind)
   }
 
   @Test

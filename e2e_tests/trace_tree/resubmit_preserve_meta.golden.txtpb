@@ -113,18 +113,8 @@ events {
   }
   id: 11
 }
-events {
-  id: 12
-  continuation_trigger {
-    kind: RESUBMIT
-    preserved_fields {
-      key: "tag"
-      value: "48879"
-    }
-  }
-}
 continuation {
-  cause: 12
+  kind: RESUBMIT
   next {
     events {
       packet_ingress {
@@ -308,5 +298,9 @@ continuation {
       dataplane_egress_port: 1
       payload: "\377\377\377\377\377\377\000\000\000\000\000\001\276\357"
     }
+  }
+  preserved_fields {
+    key: "tag"
+    value: "48879"
   }
 }

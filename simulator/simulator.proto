@@ -59,8 +59,6 @@ message OutputPacket {
 // Shared prefix events live in the parent node; per-branch events in subtrees.
 message TraceTree {
   repeated TraceEvent events = 1;
-  reserved 2,
-      3;  // formerly fork_outcome (Fork) and packet_outcome (PacketOutcome)
   oneof outcome {
     // All branches happen simultaneously; outputs are the union.
     // Cause: clone session or multicast group lookup that triggered the copies.
@@ -71,8 +69,7 @@ message TraceTree {
     Choice choice = 5;
 
     // The same packet continues as another parser-to-deparser pass.
-    // Cause: the resubmit/recirculate primitive (absent for forward
-    // transitions).
+    // Kind: RESUBMIT, RECIRCULATE, or absent for forward transitions.
     Continuation continuation = 6;
 
     // Terminal: packet emitted on a port.
@@ -84,9 +81,9 @@ message TraceTree {
 }
 
 // All branches execute; their output packets are the union.
-// Used for clone (I2E/E2E) and multicast replication.
-// `cause` references the CloneSessionLookupEvent or MulticastGroupLookupEvent
-// whose id is in the enclosing node's events stream.
+// Used for any mechanism that sends copies to multiple ports (clone, multicast,
+// mirror). `cause` references the lookup event that triggered the copies, if
+// any.
 message Replication {
   uint64 cause = 1;                 // id of the typed event that triggered this
   repeated TraceTree branches = 2;  // ≥ 1 branch
@@ -102,27 +99,35 @@ message Choice {
 
 // The same packet continues as another parser-to-deparser pass.
 // Used for resubmit, recirculate, and forward stage transitions.
-// `cause` is absent for normal forward transitions; present for backward ones
-// when a specific event recorded the primitive (e.g. a recirculate/resubmit).
 message Continuation {
-  optional uint64 cause = 1;  // id of the event that triggered the re-parse
-  TraceTree next = 2;         // exactly one successor
+  enum Kind {
+    KIND_UNSPECIFIED = 0;  // normal forward transition (e.g. ingress → egress)
+    RESUBMIT = 1;
+    RECIRCULATE = 2;
+  }
+  Kind kind = 1;
+  TraceTree next = 2;
+  // Metadata fields preserved across the loop: field path → formatted value.
+  // Only populated for v1model @field_list snapshots; other architectures pass
+  // metadata implicitly through the deparser/parser.
+  map<string, string> preserved_fields = 3;
 }
 
 // A packet that was dropped.  `trigger` is absent when the packet fell off the
 // end of the pipeline with no forwarding decision (the implicit default).
 // When present, the referenced event's type identifies the cause:
-//   MarkToDropEvent  → explicit mark_to_drop() call
-//   AssertionEvent   → assert()/assume() failure
-//   MulticastGroupLookupEvent with group_found=false → multicast to empty group
+//   MarkToDropEvent                                    → explicit
+//   mark_to_drop() call AssertionEvent                                     →
+//   assert()/assume() failure MulticastGroupLookupEvent with group_found=false
+//   → multicast to empty group
 message Drop {
   optional uint64 trigger = 1;  // id of the event that caused the drop, if any
 }
 
 message TraceEvent {
   // Trace-global identifier, assigned by the simulator in emission order.
-  // Referenced by Replication.cause, Choice.cause, Continuation.cause, and
-  // Drop.trigger to identify which event triggered each outcome.
+  // Referenced by Replication.cause, Choice.cause, and Drop.trigger to
+  // identify which event triggered each outcome.
   uint64 id = 16;
 
   oneof event {
@@ -151,10 +156,6 @@ message TraceEvent {
 
     // Packet fate.
     MarkToDropEvent mark_to_drop = 6;
-    // Fired immediately before the packet re-enters the pipeline (resubmit or
-    // recirculate). Anchors the Continuation node's cause field and carries the
-    // preserved field snapshot.
-    ContinuationEvent continuation_trigger = 17;
 
     // Deparser.
     DeparserEmitEvent deparser_emit = 13;
@@ -223,25 +224,7 @@ message ExternCallEvent {
 
 // Fired when mark_to_drop() is called. Records the call site, not the packet
 // fate — the actual drop is represented by Drop in PacketOutcome.
-message MarkToDropEvent {
-  DropReason reason = 1;
-}
-
-// Fired immediately before the packet re-enters the pipeline (resubmit or
-// recirculate). Anchors Continuation.cause — consumers can resolve the
-// triggering call site from this event.
-message ContinuationEvent {
-  enum Kind {
-    KIND_UNSPECIFIED = 0;
-    RESUBMIT = 1;
-    RECIRCULATE = 2;
-  }
-  Kind kind = 1;
-  // Metadata fields preserved across the loop: field path → formatted value.
-  // Only populated for v1model, where field lists explicitly name preserved
-  // fields. PSA and PNA pass metadata implicitly through the deparser/parser.
-  map<string, string> preserved_fields = 2;
-}
+message MarkToDropEvent {}
 
 // Fired when the P4 program calls clone().
 message CloneEvent {
@@ -321,11 +304,4 @@ message DeparserEmitEvent {
 // in TraceEvent.variable_values and TraceEvent.result_value.
 message AssignmentEvent {
   string target = 1;  // LHS field path (e.g. "standard_metadata.egress_spec")
-}
-
-// Used only by MarkToDropEvent to classify the call site.
-// Drop.trigger identifies the cause by referencing the event directly.
-enum DropReason {
-  DROP_REASON_UNSPECIFIED = 0;
-  MARK_TO_DROP = 1;  // explicit mark_to_drop()
 }

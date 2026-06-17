@@ -100,14 +100,8 @@ events {
   }
   id: 10
 }
-events {
-  id: 11
-  continuation_trigger {
-    kind: RESUBMIT
-  }
-}
 continuation {
-  cause: 11
+  kind: RESUBMIT
   next {
     events {
       packet_ingress {

@@ -2,7 +2,6 @@ package fourward.simulator
 
 import fourward.Choice
 import fourward.Continuation
-import fourward.ContinuationEvent
 import fourward.Drop
 import fourward.MulticastGroupLookupEvent
 import fourward.OutputPacket
@@ -42,7 +41,9 @@ internal fun buildReplicationTree(
   TraceTree.newBuilder()
     .addAllEvents(events)
     .setReplication(
-      Replication.newBuilder().also { if (cause != null) it.setCause(cause) }.addAllBranches(branches)
+      Replication.newBuilder()
+        .also { if (cause != null) it.setCause(cause) }
+        .addAllBranches(branches)
     )
     .build()
 
@@ -57,23 +58,26 @@ internal fun buildChoiceTree(
 ): TraceTree =
   TraceTree.newBuilder()
     .addAllEvents(events)
-    .setChoice(Choice.newBuilder().also { if (cause != null) it.setCause(cause) }.addAllBranches(branches))
+    .setChoice(
+      Choice.newBuilder().also { if (cause != null) it.setCause(cause) }.addAllBranches(branches)
+    )
     .build()
 
 /**
  * Builds a [TraceTree] where the same packet continues as another pass. Used for resubmit,
- * recirculate, and forward stage transitions. [cause] is the id of the event that triggered the
- * re-parse; null when absent (forward transitions).
+ * recirculate, and forward stage transitions. [kind] is absent (KIND_UNSPECIFIED) for forward
+ * transitions; RESUBMIT or RECIRCULATE for backward ones.
  */
 internal fun buildContinuationTree(
   events: List<TraceEvent>,
-  cause: Long? = null,
+  kind: Continuation.Kind = Continuation.Kind.KIND_UNSPECIFIED,
+  preservedFields: Map<String, String> = emptyMap(),
   next: TraceTree,
 ): TraceTree =
   TraceTree.newBuilder()
     .addAllEvents(events)
     .setContinuation(
-      Continuation.newBuilder().also { if (cause != null) it.setCause(cause) }.setNext(next)
+      Continuation.newBuilder().setKind(kind).putAllPreservedFields(preservedFields).setNext(next)
     )
     .build()
 
@@ -135,20 +139,6 @@ internal fun multicastGroupLookupEvent(groupId: Int, replicaCount: Int): TraceEv
         .setMulticastGroupId(groupId)
         .setGroupFound(true)
         .setReplicaCount(replicaCount)
-    )
-    .build()
-
-/**
- * Creates a [TraceEvent] recording a resubmit or recirculate call — fired immediately before the
- * packet re-enters the pipeline. Anchors [Continuation.cause].
- */
-internal fun continuationTriggerEvent(
-  kind: ContinuationEvent.Kind,
-  preservedFields: Map<String, String> = emptyMap(),
-): TraceEvent =
-  TraceEvent.newBuilder()
-    .setContinuationTrigger(
-      ContinuationEvent.newBuilder().setKind(kind).putAllPreservedFields(preservedFields)
     )
     .build()
 

@@ -1,7 +1,7 @@
 package fourward.simulator
 
 import fourward.BehavioralConfig
-import fourward.ContinuationEvent
+import fourward.Continuation
 import fourward.ExternInstanceDecl
 import fourward.PipelineStage
 import fourward.TraceTree
@@ -209,7 +209,6 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     }
 
     if (forwardingState.recirculate) {
-      val recircCauseId = ctx.lastEventIdWhere { it.hasContinuationTrigger() }
       val recircTree =
         processPacketRecursive(
           pipeline,
@@ -221,14 +220,19 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
         )
       // Mirror is independent of recirculation — emit both if requested.
       return if (mirrorTrees.isEmpty()) {
-        buildContinuationTree(ctx.getEvents(), cause = recircCauseId, next = recircTree)
-      } else {
-        val continuationBranch = buildContinuationTree(emptyList(), next = recircTree)
-        buildReplicationTree(
+        buildContinuationTree(
           ctx.getEvents(),
-          cause = recircCauseId,
-          listOf(continuationBranch) + mirrorTrees,
+          kind = Continuation.Kind.RECIRCULATE,
+          next = recircTree,
         )
+      } else {
+        val continuationBranch =
+          buildContinuationTree(
+            emptyList(),
+            kind = Continuation.Kind.RECIRCULATE,
+            next = recircTree,
+          )
+        buildReplicationTree(ctx.getEvents(), branches = listOf(continuationBranch) + mirrorTrees)
       }
     }
 
@@ -338,7 +342,6 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
         UnitVal
       }
       "recirculate" -> {
-        eval.addTraceEvent(continuationTriggerEvent(ContinuationEvent.Kind.RECIRCULATE))
         forwardingState.recirculate = true
         UnitVal
       }

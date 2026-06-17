@@ -1,7 +1,6 @@
 package fourward.simulator
 
 import fourward.BehavioralConfig
-import fourward.DropReason
 import fourward.Expr
 import fourward.MarkToDropEvent
 import fourward.MethodCall
@@ -49,12 +48,7 @@ class InterpreterTraceEventTest {
     require(call is ExternCall.FreeFunction && call.name == "mark_to_drop") {
       "unexpected extern: $call"
     }
-    eval.addTraceEvent(
-      eval
-        .traceEventBuilder()
-        .setMarkToDrop(MarkToDropEvent.newBuilder().setReason(DropReason.MARK_TO_DROP))
-        .build()
-    )
+    eval.addTraceEvent(eval.traceEventBuilder().setMarkToDrop(MarkToDropEvent.newBuilder()).build())
     val smeta = eval.evalArg(0) as StructVal
     val portBits = smeta.bitWidth("egress_spec")
     smeta.fields["egress_spec"] = BitVal((1L shl portBits) - 1, portBits)
@@ -93,7 +87,7 @@ class InterpreterTraceEventTest {
   // ---------------------------------------------------------------------------
 
   @Test
-  fun `mark_to_drop emits MarkToDropEvent with MARK_TO_DROP reason`() {
+  fun `mark_to_drop emits MarkToDropEvent`() {
     val config = controlConfig("MyIngress", markToDropStmt())
     val env = standardMetadataEnv()
     val pktCtx = PacketContext(byteArrayOf())
@@ -102,7 +96,6 @@ class InterpreterTraceEventTest {
 
     val markToDropEvents = pktCtx.getEvents().filter { it.hasMarkToDrop() }
     assertEquals("expected exactly one MarkToDropEvent", 1, markToDropEvents.size)
-    assertEquals(DropReason.MARK_TO_DROP, markToDropEvents[0].markToDrop.reason)
   }
 
   // ---------------------------------------------------------------------------

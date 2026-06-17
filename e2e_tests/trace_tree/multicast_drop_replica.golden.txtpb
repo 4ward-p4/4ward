@@ -205,7 +205,6 @@ replication {
     }
     events {
       mark_to_drop {
-        reason: MARK_TO_DROP
       }
       id: 3
       source_info {
