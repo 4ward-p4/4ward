@@ -5,6 +5,8 @@ import fourward.ActionDecl
 import fourward.Architecture
 import fourward.BehavioralConfig
 import fourward.ControlDecl
+import fourward.ControlPlaneBinding
+import fourward.ControlPlaneBindings
 import fourward.DeviceConfig
 import fourward.Expr
 import fourward.ExternInstanceDecl
@@ -321,7 +323,7 @@ class DirectResourceUsageTest {
   }
 
   @Test
-  fun `suffix match does not cross-contaminate counters on different tables`() {
+  fun `explicit bindings keep direct counters on different tables isolated`() {
     val tableAId = 1
     val tableBId = 2
     val store = TableStore()
@@ -331,7 +333,10 @@ class DirectResourceUsageTest {
           .addTables(
             P4InfoOuterClass.Table.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder().setId(tableAId).setAlias("tableA")
+                P4InfoOuterClass.Preamble.newBuilder()
+                  .setId(tableAId)
+                  .setName("tableA")
+                  .setAlias("tableA")
               )
               .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_10_ID))
               .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_20_ID))
@@ -339,7 +344,10 @@ class DirectResourceUsageTest {
           .addTables(
             P4InfoOuterClass.Table.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder().setId(tableBId).setAlias("tableB")
+                P4InfoOuterClass.Preamble.newBuilder()
+                  .setId(tableBId)
+                  .setName("tableB")
+                  .setAlias("tableB")
               )
               .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_10_ID))
               .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_20_ID))
@@ -371,8 +379,8 @@ class DirectResourceUsageTest {
         DeviceConfig.newBuilder()
           .setBehavioral(
             BehavioralConfig.newBuilder()
-              .addTables(TableBehavior.newBuilder().setName("tableA"))
-              .addTables(TableBehavior.newBuilder().setName("tableB"))
+              .addTables(tableBehavior("tableA"))
+              .addTables(tableBehavior("tableB"))
               .addActions(
                 ActionDecl.newBuilder()
                   .setName("action10")
@@ -398,6 +406,7 @@ class DirectResourceUsageTest {
                   )
               )
           )
+          .setControlPlaneBindings(controlPlaneBindings("tableA", "tableB"))
           .build(),
     )
 
@@ -548,17 +557,18 @@ class DirectResourceUsageTest {
       .setBehavioral(
         BehavioralConfig.newBuilder()
           .setArchitecture(Architecture.newBuilder().setName("v1model"))
-          .addTables(TableBehavior.newBuilder().setName(TABLE_NAME))
+          .addTables(tableBehavior(TABLE_NAME))
           .addActions(ActionDecl.newBuilder().setName("action10"))
           .addActions(ActionDecl.newBuilder().setName("action20"))
       )
+      .setControlPlaneBindings(controlPlaneBindings(TABLE_NAME))
       .build()
 
   private fun deviceWithDirectCounterAction(counterInstanceName: String = "dc"): DeviceConfig =
     DeviceConfig.newBuilder()
       .setBehavioral(
         BehavioralConfig.newBuilder()
-          .addTables(TableBehavior.newBuilder().setName(TABLE_NAME))
+          .addTables(tableBehavior(TABLE_NAME))
           .addActions(
             ActionDecl.newBuilder()
               .setName("action10")
@@ -575,13 +585,14 @@ class DirectResourceUsageTest {
               )
           )
       )
+      .setControlPlaneBindings(controlPlaneBindings(TABLE_NAME))
       .build()
 
   private fun deviceWithDirectMeterAction(): DeviceConfig =
     DeviceConfig.newBuilder()
       .setBehavioral(
         BehavioralConfig.newBuilder()
-          .addTables(TableBehavior.newBuilder().setName(TABLE_NAME))
+          .addTables(tableBehavior(TABLE_NAME))
           .addActions(
             ActionDecl.newBuilder()
               .setName("action10")
@@ -589,6 +600,27 @@ class DirectResourceUsageTest {
           )
           .addActions(ActionDecl.newBuilder().setName("action20"))
       )
+      .setControlPlaneBindings(controlPlaneBindings(TABLE_NAME))
+      .build()
+
+  private fun tableBehavior(name: String): TableBehavior =
+    TableBehavior.newBuilder()
+      .setName(name)
+      .putActionOverrides("action10", "action10")
+      .putActionOverrides("action20", "action20")
+      .build()
+
+  private fun controlPlaneBindings(vararg tableNames: String): ControlPlaneBindings =
+    ControlPlaneBindings.newBuilder()
+      .addAllTables(tableNames.map { binding(it, it) })
+      .addActions(binding("action10", "action10"))
+      .addActions(binding("action20", "action20"))
+      .build()
+
+  private fun binding(p4infoName: String, simulatorName: String): ControlPlaneBinding =
+    ControlPlaneBinding.newBuilder()
+      .setP4InfoName(p4infoName)
+      .setSimulatorName(simulatorName)
       .build()
 
   private fun directResourceCall(instance: String, externType: String, method: String): Stmt =
@@ -683,7 +715,12 @@ class DirectResourceUsageTest {
     P4InfoOuterClass.P4Info.newBuilder()
       .addTables(
         P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(TABLE_ID).setAlias(TABLE_NAME))
+          .setPreamble(
+            P4InfoOuterClass.Preamble.newBuilder()
+              .setId(TABLE_ID)
+              .setName(TABLE_NAME)
+              .setAlias(TABLE_NAME)
+          )
           .setImplementationId(implementationId)
           .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_10_ID))
           .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_20_ID))
@@ -693,7 +730,7 @@ class DirectResourceUsageTest {
 
   private fun action(id: Int, name: String): P4InfoOuterClass.Action =
     P4InfoOuterClass.Action.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setAlias(name))
+      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name).setAlias(name))
       .build()
 
   companion object {

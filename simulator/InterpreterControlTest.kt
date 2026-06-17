@@ -428,6 +428,81 @@ class InterpreterControlTest {
     assertEquals(BitVal(2, 8), env.lookup("x"))
   }
 
+  @Test
+  fun `table miss default action side effects are visible to later statements`() {
+    val ts =
+      TableStore().also {
+        it.setDefaultAction("route", "drop")
+        it.publishSnapshot()
+      }
+    val applyRoute =
+      Stmt.newBuilder()
+        .setAssignment(
+          AssignmentStmt.newBuilder()
+            .setLhs(
+              fieldAccess(nameRef("meta"), "route_hit", Type.newBuilder().setBoolean(true).build())
+            )
+            .setRhs(
+              Expr.newBuilder()
+                .setTableApply(
+                  TableApplyExpr.newBuilder()
+                    .setTableName("route")
+                    .setAccessKind(TableApplyExpr.AccessKind.HIT)
+                )
+                .setType(Type.newBuilder().setBoolean(true))
+            )
+        )
+        .build()
+    val config =
+      BehavioralConfig.newBuilder()
+        .addTables(TableBehavior.newBuilder().setName("route"))
+        .addTables(TableBehavior.newBuilder().setName("resolution"))
+        .addActions(
+          ActionDecl.newBuilder()
+            .setName("drop")
+            .addBody(
+              assign(
+                fieldAccess(nameRef("meta"), "drop", Type.newBuilder().setBoolean(true).build()),
+                boolLit(true),
+              )
+            )
+        )
+        .addActions(ActionDecl.newBuilder().setName("NoAction"))
+        .addControls(
+          ControlDecl.newBuilder()
+            .setName("MyControl")
+            .addApplyBody(applyRoute)
+            .addApplyBody(
+              ifStmt(
+                fieldAccess(nameRef("meta"), "drop", Type.newBuilder().setBoolean(true).build()),
+                thenStmts = emptyList(),
+                elseStmts =
+                  listOf(
+                    Stmt.newBuilder()
+                      .setMethodCall(
+                        MethodCallStmt.newBuilder()
+                          .setCall(
+                            Expr.newBuilder()
+                              .setTableApply(TableApplyExpr.newBuilder().setTableName("resolution"))
+                          )
+                      )
+                      .build()
+                  ),
+              )
+            )
+        )
+        .build()
+    val env = emptyEnv
+    env.define(
+      "meta",
+      StructVal("meta_t", mutableMapOf("drop" to BoolVal(false), "route_hit" to BoolVal(true))),
+    )
+    interp(config, ts).runControl("MyControl", env)
+    val meta = env.lookup("meta") as StructVal
+    assertEquals(BoolVal(true), meta.fields["drop"])
+    assertEquals(BoolVal(false), meta.fields["route_hit"])
+  }
+
   // ---------------------------------------------------------------------------
   // Per-table action override resolution
   // ---------------------------------------------------------------------------

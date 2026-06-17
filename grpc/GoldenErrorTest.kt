@@ -1233,7 +1233,20 @@ class GoldenErrorTest(private val testName: String) {
             )
         )
         .build()
-    val patched = config.toBuilder().setP4Info(patchedP4Info).build()
+    val patchedDevice =
+      config.device
+        .toBuilder()
+        .setControlPlaneBindings(
+          config.device.controlPlaneBindings
+            .toBuilder()
+            .addActions(
+              fourward.ControlPlaneBinding.newBuilder()
+                .setP4InfoName("fake_action")
+                .setSimulatorName("fake_action")
+            )
+        )
+        .build()
+    val patched = config.toBuilder().setP4Info(patchedP4Info).setDevice(patchedDevice).build()
     harness.loadPipeline(patched)
     val table = patched.p4Info.tablesList.first()
     val entity =
@@ -1478,7 +1491,20 @@ class GoldenErrorTest(private val testName: String) {
             ),
         )
         .build()
-    val patched = config.toBuilder().setP4Info(patchedP4Info).build()
+    val patchedDevice =
+      config.device
+        .toBuilder()
+        .setControlPlaneBindings(
+          config.device.controlPlaneBindings
+            .toBuilder()
+            .addActions(
+              fourward.ControlPlaneBinding.newBuilder()
+                .setP4InfoName("set_multicast")
+                .setSimulatorName("set_multicast")
+            )
+        )
+        .build()
+    val patched = config.toBuilder().setP4Info(patchedP4Info).setDevice(patchedDevice).build()
     harness.loadPipeline(patched)
     // INSERT with a multicast group ID that doesn't exist in the PRE.
     val entity =

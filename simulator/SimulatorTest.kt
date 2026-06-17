@@ -18,6 +18,8 @@ import fourward.ActionDecl
 import fourward.Architecture
 import fourward.BehavioralConfig
 import fourward.ControlDecl
+import fourward.ControlPlaneBinding
+import fourward.ControlPlaneBindings
 import fourward.DeviceConfig
 import fourward.ParamDecl
 import fourward.ParserDecl
@@ -38,9 +40,9 @@ import p4.config.v1.P4InfoOuterClass
 /**
  * Unit tests for [Simulator] — name resolution, default action handling, and error responses.
  *
- * These test the Simulator's pipeline-loading logic (p4info alias→behavioral name resolution) which
- * is a common source of bugs: p4info aliases don't always match behavioral IR names due to control
- * inlining (e.g. p4info alias "t" vs behavioral "c_t").
+ * These test the Simulator's pipeline-loading logic. Compiled behavioral configs use explicit
+ * p4info-to-runtime bindings because p4info aliases don't always match behavioral IR names due to
+ * control inlining.
  */
 class SimulatorTest {
 
@@ -67,10 +69,27 @@ class SimulatorTest {
         .addStages(PipelineStage.newBuilder().setKind(StageKind.CONTROL).setBlockName("eg"))
         .addStages(PipelineStage.newBuilder().setKind(StageKind.DEPARSER).setBlockName("dep"))
         .build()
+    val tableBindings =
+      p4infoTables.zip(behavioralTableNames).map { (table, runtimeName) ->
+        binding(table.preamble.name, runtimeName)
+      }
+    val actionBindings =
+      p4infoActions.map { action -> binding(action.preamble.name, action.preamble.name) }
+    val actionOverrideTargets =
+      p4infoActions.zip(behavioralActionNames).associate { (action, runtimeName) ->
+        action.preamble.name to runtimeName
+      }
     val behavioral =
       BehavioralConfig.newBuilder()
         .setArchitecture(arch)
-        .addAllTables(behavioralTableNames.map { TableBehavior.newBuilder().setName(it).build() })
+        .addAllTables(
+          behavioralTableNames.map { tableName ->
+            TableBehavior.newBuilder()
+              .setName(tableName)
+              .putAllActionOverrides(actionOverrideTargets)
+              .build()
+          }
+        )
         .addAllActions(behavioralActionNames.map { ActionDecl.newBuilder().setName(it).build() })
         .build()
     val p4info =
@@ -79,19 +98,33 @@ class SimulatorTest {
         .addAllActions(p4infoActions)
         .build()
     return PipelineConfig.newBuilder()
-      .setDevice(DeviceConfig.newBuilder().setBehavioral(behavioral))
+      .setDevice(
+        DeviceConfig.newBuilder()
+          .setBehavioral(behavioral)
+          .setControlPlaneBindings(
+            ControlPlaneBindings.newBuilder()
+              .addAllTables(tableBindings)
+              .addAllActions(actionBindings)
+          )
+      )
       .setP4Info(p4info)
       .build()
   }
 
+  private fun binding(p4infoName: String, simulatorName: String): ControlPlaneBinding =
+    ControlPlaneBinding.newBuilder()
+      .setP4InfoName(p4infoName)
+      .setSimulatorName(simulatorName)
+      .build()
+
   private fun p4infoTable(id: Int, alias: String): P4InfoOuterClass.Table =
     P4InfoOuterClass.Table.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setAlias(alias))
+      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(alias).setAlias(alias))
       .build()
 
   private fun p4infoAction(id: Int, alias: String): P4InfoOuterClass.Action =
     P4InfoOuterClass.Action.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setAlias(alias))
+      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(alias).setAlias(alias))
       .build()
 
   @Test
@@ -109,10 +142,7 @@ class SimulatorTest {
   }
 
   @Test
-  fun `load pipeline resolves alias via suffix fallback`() {
-    // p4info alias "t" should match behavioral "c_t" via endsWith("_t").
-    // We verify this indirectly: if resolution failed, the table store would
-    // use the wrong key and a subsequent packet wouldn't find the table.
+  fun `load pipeline succeeds with distinct p4info and behavioral names`() {
     val config =
       pipelineConfig(
         p4infoTables = listOf(p4infoTable(1, "t")),

@@ -372,7 +372,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     val missCtx = eval.lastTableMiss() ?: error("add_entry called but no table miss has occurred")
     val actionAlias = (eval.evalArg(0) as StringVal).value
     val actionName =
-      pipeline.tableStore.resolveActionByAlias(actionAlias)
+      pipeline.tableStore.resolveActionForTable(missCtx.tableName, actionAlias)
         ?: error("add_entry: unknown action '$actionAlias'")
 
     // The action_params argument (arg 1) is either a single value (one-param actions)
@@ -446,8 +446,8 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     /**
      * Maps PNA_HashAlgorithm_t enum members to the internal algorithm names used by Hash.kt.
      *
-     * PNA's hash algorithm enum has the same values as PSA's, plus TARGET_DEFAULT which we map to
-     * identity as a safe fallback.
+     * PNA's hash algorithm enum has the same values as PSA's, plus TARGET_DEFAULT. The simulator
+     * treats TARGET_DEFAULT as identity because it has no target-specific hash pipeline.
      */
     val PNA_HASH_ALGORITHMS =
       mapOf(
