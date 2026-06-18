@@ -1,0 +1,30 @@
+diff --git a/src/main/starlark/core/options/opts.kotlinc.bzl b/src/main/starlark/core/options/opts.kotlinc.bzl
+index 7ba20530..630d012b 100644
+--- a/src/main/starlark/core/options/opts.kotlinc.bzl
++++ b/src/main/starlark/core/options/opts.kotlinc.bzl
+@@ -423,6 +423,25 @@
+             True: ["-Xreport-perf"],
+         },
+     ),
++    "x_return_value_checker": struct(
++        flag = "-Xreturn-value-checker",
++        args = dict(
++            default = "check",
++            doc = """Set improved unused return value checker mode.
++
++Options:
++- 'disable': Disable the unused return value checker.
++- 'check': Report ignored results from marked functions.
++- 'full': Also enable automatic annotation insertion.""",
++            values = ["disable", "check", "full"],
++        ),
++        type = attr.string,
++        value_to_flag = {
++            "check": ["-Xreturn-value-checker=check"],
++            "disable": ["-Xreturn-value-checker=disable"],
++            "full": ["-Xreturn-value-checker=full"],
++        },
++    ),
+     "x_sam_conversions": struct(
+         flag = "-Xsam-conversions",
+         args = dict(

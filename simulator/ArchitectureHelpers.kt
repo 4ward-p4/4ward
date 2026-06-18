@@ -100,14 +100,18 @@ internal fun createDefaultValues(
   for (parser in config.parsersList) {
     for (param in parser.paramsList) {
       if (param.type.hasNamed() && param.type.named !in IO_TYPES) {
-        values.getOrPut(param.type.named) { defaultValue(param.type.named, typesByName) }
+        if (!values.containsKey(param.type.named)) {
+          values[param.type.named] = defaultValue(param.type.named, typesByName)
+        }
       }
     }
   }
   for (control in config.controlsList) {
     for (param in control.paramsList) {
       if (param.type.hasNamed() && param.type.named !in IO_TYPES) {
-        values.getOrPut(param.type.named) { defaultValue(param.type.named, typesByName) }
+        if (!values.containsKey(param.type.named)) {
+          values[param.type.named] = defaultValue(param.type.named, typesByName)
+        }
       }
     }
   }
