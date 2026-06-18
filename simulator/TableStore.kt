@@ -461,8 +461,9 @@ class TableStore : TableDataReader {
     }
 
     private fun addFieldValues(tableName: String, entry: TableEntry) {
+      val counts = tableFieldValueCounts.getOrPut(tableName) { mutableMapOf() }
       for (fieldValue in referencedFieldValues(entry)) {
-        tableFieldValueCounts.getOrPut(tableName) { mutableMapOf() }.merge(fieldValue, 1, Int::plus)
+        counts.merge(fieldValue, 1, Int::plus)
       }
     }
 
@@ -482,6 +483,8 @@ class TableStore : TableDataReader {
             ReferencedFieldValue(match.fieldId, match.exact.value)
           P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL ->
             ReferencedFieldValue(match.fieldId, match.optional.value)
+          // @refers_to applies only to point values; range-like match types cannot be used as
+          // reference targets, so they don't participate in the field-value index.
           P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY,
           P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM,
           P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE,
