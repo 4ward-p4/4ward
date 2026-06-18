@@ -31,18 +31,18 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryLo">72.4&nbsp;%</td>
-            <td class="headerCovTableEntry">29</td>
-            <td class="headerCovTableEntry">21</td>
+            <td class="headerCovTableEntryLo">73.3&nbsp;%</td>
+            <td class="headerCovTableEntry">30</td>
+            <td class="headerCovTableEntry">22</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-18 07:26:02</td>
+            <td class="headerValue">2026-06-18 07:35:36</td>
             <td></td>
             <td class="headerItem">Functions:</td>
-            <td class="headerCovTableEntryLo">69.2&nbsp;%</td>
-            <td class="headerCovTableEntry">13</td>
-            <td class="headerCovTableEntry">9</td>
+            <td class="headerCovTableEntryLo">73.3&nbsp;%</td>
+            <td class="headerCovTableEntry">15</td>
+            <td class="headerCovTableEntry">11</td>
           </tr>
                   <tr><td><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
                 </table>
@@ -125,31 +125,33 @@
 <span id="L63"><span class="lineNum">      63</span> <span class="tlaUNC">           0 :       &quot;validBitLength=$validBitLength)&quot;</span></span>
 <span id="L64"><span class="lineNum">      64</span>              : </span>
 <span id="L65"><span class="lineNum">      65</span>              :   companion object {</span>
-<span id="L66"><span class="lineNum">      66</span> <span class="tlaGNC tlaBgGNC">           1 :     fun ofBytes(bytes: ByteArray): PacketBits = PacketBits(bytes, bytes.size * Byte.SIZE_BITS)</span></span>
+<span id="L66"><span class="lineNum">      66</span> <span class="tlaGNC tlaBgGNC">           1 :     val EMPTY: PacketBits = PacketBits(byteArrayOf(), 0)</span></span>
 <span id="L67"><span class="lineNum">      67</span>              : </span>
-<span id="L68"><span class="lineNum">      68</span>              :     /**</span>
-<span id="L69"><span class="lineNum">      69</span>              :      * Builds a packet from a byte buffer whose final byte may contain transport padding.</span>
-<span id="L70"><span class="lineNum">      70</span>              :      *</span>
-<span id="L71"><span class="lineNum">      71</span>              :      * Padding bits need not be zero. Use [copySemanticBytes] when converting back to a byte-only</span>
-<span id="L72"><span class="lineNum">      72</span>              :      * packet view.</span>
-<span id="L73"><span class="lineNum">      73</span>              :      */</span>
-<span id="L74"><span class="lineNum">      74</span>              :     fun ofPaddedBytes(bytes: ByteArray, validBitLength: Int): PacketBits =</span>
-<span id="L75"><span class="lineNum">      75</span> <span class="tlaGNC">           1 :       PacketBits(bytes, validBitLength)</span></span>
-<span id="L76"><span class="lineNum">      76</span>              :   }</span>
-<span id="L77"><span class="lineNum">      77</span>              : }</span>
-<span id="L78"><span class="lineNum">      78</span>              : </span>
-<span id="L79"><span class="lineNum">      79</span>              : /**</span>
-<span id="L80"><span class="lineNum">      80</span>              :  * Clears transport padding bits from the final semantic packet byte.</span>
-<span id="L81"><span class="lineNum">      81</span>              :  *</span>
-<span id="L82"><span class="lineNum">      82</span>              :  * Packet bit order is MSB-first, so the non-packet bits in a partial final byte are the low bits.</span>
-<span id="L83"><span class="lineNum">      83</span>              :  */</span>
-<span id="L84"><span class="lineNum">      84</span>              : internal fun maskFinalPacketByteInPlace(bytes: ByteArray, validBitLength: Int) {</span>
-<span id="L85"><span class="lineNum">      85</span> <span class="tlaGNC">           1 :   val finalPaddingBits = (Byte.SIZE_BITS - validBitLength % Byte.SIZE_BITS) % Byte.SIZE_BITS</span></span>
-<span id="L86"><span class="lineNum">      86</span> <span class="tlaGNC">           1 :   if (bytes.isNotEmpty() &amp;&amp; finalPaddingBits != 0) {</span></span>
-<span id="L87"><span class="lineNum">      87</span> <span class="tlaGNC">           1 :     val finalByteMask = 0xFF shl finalPaddingBits</span></span>
-<span id="L88"><span class="lineNum">      88</span> <span class="tlaGNC">           1 :     bytes[bytes.lastIndex] = (bytes.last().toInt() and finalByteMask).toByte()</span></span>
-<span id="L89"><span class="lineNum">      89</span>              :   }</span>
-<span id="L90"><span class="lineNum">      90</span> <span class="tlaGNC">           1 : }</span></span>
+<span id="L68"><span class="lineNum">      68</span> <span class="tlaGNC">           1 :     fun ofBytes(bytes: ByteArray): PacketBits = PacketBits(bytes, bytes.size * Byte.SIZE_BITS)</span></span>
+<span id="L69"><span class="lineNum">      69</span>              : </span>
+<span id="L70"><span class="lineNum">      70</span>              :     /**</span>
+<span id="L71"><span class="lineNum">      71</span>              :      * Builds a packet from a byte buffer whose final byte may contain transport padding.</span>
+<span id="L72"><span class="lineNum">      72</span>              :      *</span>
+<span id="L73"><span class="lineNum">      73</span>              :      * Padding bits need not be zero. Use [copySemanticBytes] when converting back to a byte-only</span>
+<span id="L74"><span class="lineNum">      74</span>              :      * packet view.</span>
+<span id="L75"><span class="lineNum">      75</span>              :      */</span>
+<span id="L76"><span class="lineNum">      76</span>              :     fun ofPaddedBytes(bytes: ByteArray, validBitLength: Int): PacketBits =</span>
+<span id="L77"><span class="lineNum">      77</span> <span class="tlaGNC">           1 :       PacketBits(bytes, validBitLength)</span></span>
+<span id="L78"><span class="lineNum">      78</span>              :   }</span>
+<span id="L79"><span class="lineNum">      79</span>              : }</span>
+<span id="L80"><span class="lineNum">      80</span>              : </span>
+<span id="L81"><span class="lineNum">      81</span>              : /**</span>
+<span id="L82"><span class="lineNum">      82</span>              :  * Clears transport padding bits from the final semantic packet byte.</span>
+<span id="L83"><span class="lineNum">      83</span>              :  *</span>
+<span id="L84"><span class="lineNum">      84</span>              :  * Packet bit order is MSB-first, so the non-packet bits in a partial final byte are the low bits.</span>
+<span id="L85"><span class="lineNum">      85</span>              :  */</span>
+<span id="L86"><span class="lineNum">      86</span>              : internal fun maskFinalPacketByteInPlace(bytes: ByteArray, validBitLength: Int) {</span>
+<span id="L87"><span class="lineNum">      87</span> <span class="tlaGNC">           1 :   val finalPaddingBits = (Byte.SIZE_BITS - validBitLength % Byte.SIZE_BITS) % Byte.SIZE_BITS</span></span>
+<span id="L88"><span class="lineNum">      88</span> <span class="tlaGNC">           1 :   if (bytes.isNotEmpty() &amp;&amp; finalPaddingBits != 0) {</span></span>
+<span id="L89"><span class="lineNum">      89</span> <span class="tlaGNC">           1 :     val finalByteMask = 0xFF shl finalPaddingBits</span></span>
+<span id="L90"><span class="lineNum">      90</span> <span class="tlaGNC">           1 :     bytes[bytes.lastIndex] = (bytes.last().toInt() and finalByteMask).toByte()</span></span>
+<span id="L91"><span class="lineNum">      91</span>              :   }</span>
+<span id="L92"><span class="lineNum">      92</span> <span class="tlaGNC">           1 : }</span></span>
         </pre>
               </td>
             </tr>
