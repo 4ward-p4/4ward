@@ -514,6 +514,42 @@ class TableStoreTest {
     assertEquals("action99", result.actionName)
   }
 
+  @Test
+  fun `delete keeps later entries addressable by match key`() {
+    val first = exactEntry(fieldId = 1, value = byteArrayOf(0x01), actionId = 10)
+    val second = exactEntry(fieldId = 1, value = byteArrayOf(0x02), actionId = 20)
+    val third = exactEntry(fieldId = 1, value = byteArrayOf(0x03), actionId = 30)
+    write(first)
+    write(second)
+    write(third)
+
+    assertEquals(
+      WriteResult.Success,
+      store.writeAndPublish(
+        Update.newBuilder()
+          .setType(Update.Type.DELETE)
+          .setEntity(Entity.newBuilder().setTableEntry(first))
+          .build()
+      ),
+    )
+    assertEquals(
+      WriteResult.Success,
+      store.writeAndPublish(
+        Update.newBuilder()
+          .setType(Update.Type.MODIFY)
+          .setEntity(Entity.newBuilder().setTableEntry(withAction(third, actionId = 99)))
+          .build()
+      ),
+    )
+
+    val secondResult = store.lookup(TABLE_NAME, listOf("1" to BitVal(2, 8)))
+    assertTrue(secondResult.hit)
+    assertEquals("action20", secondResult.actionName)
+    val thirdResult = store.lookup(TABLE_NAME, listOf("1" to BitVal(3, 8)))
+    assertTrue(thirdResult.hit)
+    assertEquals("action99", thirdResult.actionName)
+  }
+
   // P4Runtime spec §9.1: INSERT of a duplicate entry must return ALREADY_EXISTS.
   @Test
   fun `insert duplicate entry returns AlreadyExists`() {

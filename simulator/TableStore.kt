@@ -264,6 +264,14 @@ private fun matchBig(bits: BigInteger, width: Int, match: P4RuntimeOuterClass.Fi
 fun TableEntry.sameKey(other: TableEntry): Boolean =
   tableId == other.tableId && priority == other.priority && matchList == other.matchList
 
+private data class TableEntryKey(
+  val tableId: Int,
+  val priority: Int,
+  val match: List<P4RuntimeOuterClass.FieldMatch>,
+)
+
+private fun TableEntry.key(): TableEntryKey = TableEntryKey(tableId, priority, matchList)
+
 /** Default action state for a table: action name and optional parameters. */
 data class DefaultAction(
   val name: String,
@@ -344,7 +352,9 @@ class TableStore : TableDataReader {
    * need copying.
    */
   class ForwardingSnapshot internal constructor() {
-    internal val tables: MutableMap<String, MutableList<TableEntry>> = mutableMapOf()
+    private val tableEntriesByName: MutableMap<String, MutableList<TableEntry>> = mutableMapOf()
+    private val tableEntryIndexes: MutableMap<String, MutableMap<TableEntryKey, Int>> =
+      mutableMapOf()
     internal val directMeterData: MutableMap<TableEntry, P4RuntimeOuterClass.MeterConfig> =
       mutableMapOf()
     internal val defaultActions: MutableMap<String, DefaultAction> = mutableMapOf()
@@ -367,10 +377,72 @@ class TableStore : TableDataReader {
     internal val valueSets: MutableMap<String, MutableList<P4RuntimeOuterClass.ValueSetMember>> =
       mutableMapOf()
 
+    internal fun tableEntries(tableName: String): List<TableEntry> =
+      tableEntriesByName[tableName] ?: emptyList()
+
+    internal fun tableEntriesByTable(): Map<String, List<TableEntry>> = tableEntriesByName
+
+    internal fun populatedTableNames(): Set<String> =
+      tableEntriesByName.entries
+        .filter { (_, entries) -> entries.isNotEmpty() }
+        .mapTo(mutableSetOf()) { (tableName, _) -> tableName }
+
+    internal fun tableEntryCount(tableName: String): Int = tableEntriesByName[tableName]?.size ?: 0
+
+    internal fun hasTableEntries(tableName: String): Boolean =
+      tableEntriesByName[tableName]?.isNotEmpty() ?: false
+
+    internal fun tableEntryIndex(tableName: String, entry: TableEntry): Int =
+      tableEntryIndexes[tableName]?.get(entry.key()) ?: -1
+
+    internal fun tableEntry(tableName: String, entry: TableEntry): TableEntry? =
+      tableEntryIndex(tableName, entry)
+        .takeIf { it >= 0 }
+        ?.let { tableEntriesByName[tableName]?.getOrNull(it) }
+
+    internal fun tableEntryAt(tableName: String, index: Int): TableEntry? =
+      tableEntriesByName[tableName]?.getOrNull(index)
+
+    internal fun setTableEntries(tableName: String, entries: List<TableEntry>) {
+      tableEntriesByName[tableName] = entries.toMutableList()
+      rebuildTableEntryIndex(tableName)
+    }
+
+    internal fun addTableEntry(tableName: String, entry: TableEntry) {
+      val entries = tableEntriesByName.getOrPut(tableName) { mutableListOf() }
+      entries.add(entry)
+      tableEntryIndexes.getOrPut(tableName) { mutableMapOf() }[entry.key()] = entries.lastIndex
+    }
+
+    internal fun replaceTableEntry(tableName: String, index: Int, entry: TableEntry) {
+      val entries = tableEntriesByName[tableName] ?: error("unknown table '$tableName'")
+      val old = entries[index]
+      entries[index] = entry
+      tableEntryIndexes
+        .getOrPut(tableName) { mutableMapOf() }
+        .let { indexByKey ->
+          indexByKey.remove(old.key())
+          indexByKey[entry.key()] = index
+        }
+    }
+
+    internal fun removeTableEntry(tableName: String, index: Int): TableEntry {
+      val entries = tableEntriesByName[tableName] ?: error("unknown table '$tableName'")
+      val removed = entries.removeAt(index)
+      rebuildTableEntryIndex(tableName)
+      return removed
+    }
+
+    private fun rebuildTableEntryIndex(tableName: String) {
+      val entries = tableEntriesByName[tableName] ?: return
+      tableEntryIndexes[tableName] =
+        entries.withIndex().associateTo(mutableMapOf()) { (index, entry) -> entry.key() to index }
+    }
+
     /** Creates a structural copy. Protobuf entries are shared; only containers are copied. */
     fun deepCopy(): ForwardingSnapshot =
       ForwardingSnapshot().also { copy ->
-        for ((k, v) in tables) copy.tables[k] = v.toMutableList()
+        for ((k, v) in tableEntriesByName) copy.setTableEntries(k, v)
         copy.directMeterData.putAll(directMeterData)
         copy.defaultActions.putAll(defaultActions)
         copy.modifiedDefaults.addAll(modifiedDefaults)
@@ -454,9 +526,9 @@ class TableStore : TableDataReader {
    * control-plane write mutex. Must only be called from the control-plane write path.
    */
   fun populatedTableAliases(): Set<String> =
-    writeState.tables.entries
-      .filter { (_, entries) -> entries.isNotEmpty() }
-      .mapNotNull { (simulatorName, _) -> tableAliasByName[simulatorName] }
+    writeState
+      .populatedTableNames()
+      .mapNotNull { simulatorName -> tableAliasByName[simulatorName] }
       .toSet()
 
   /**
@@ -470,11 +542,11 @@ class TableStore : TableDataReader {
     // Reverse of tableAliasByName: p4info alias → new behavioral name.
     val newNameByAlias = tableAliasByName.entries.associate { (name, alias) -> alias to name }
 
-    for ((oldName, entries) in oldSnapshot.tables) {
+    for ((oldName, entries) in oldSnapshot.tableEntriesByTable()) {
       if (entries.isEmpty()) continue
       val alias = oldAliasByName[oldName] ?: continue
       val newName = newNameByAlias[alias] ?: continue
-      writeState.tables[newName] = entries.toMutableList()
+      writeState.setTableEntries(newName, entries)
       for (entry in entries) {
         oldSnapshot.directMeterData[entry]?.let { writeState.directMeterData[entry] = it }
         // Direct counters (AtomicLongArray in directCounterData) are not restored — they
@@ -958,16 +1030,14 @@ class TableStore : TableDataReader {
     // synchronized(this) serializes with control-plane writes (which also synchronize on
     // this TableStore instance via the @Synchronized write/publishSnapshot methods).
     return synchronized(this) {
-      val entries = writeState.tables.getOrPut(tableName) { mutableListOf() }
-
       // If an entry with the same key already exists, the add_entry is a no-op (returns true
       // per PNA spec -- the existing entry is retained).
-      if (entries.any { it.sameKey(entry) }) return@synchronized true
+      if (writeState.tableEntryIndex(tableName, entry) >= 0) return@synchronized true
 
       val limit = tableSizeLimit[tableName]
-      if (limit != null && entries.size >= limit) return@synchronized false
+      if (limit != null && writeState.tableEntryCount(tableName) >= limit) return@synchronized false
 
-      entries.add(entry)
+      writeState.addTableEntry(tableName, entry)
       publishSnapshot()
       true
     }
@@ -997,7 +1067,7 @@ class TableStore : TableDataReader {
   // -------------------------------------------------------------------------
 
   override fun getTableEntries(tableName: String): List<TableEntry> =
-    snapshot.tables[tableName] ?: emptyList()
+    snapshot.tableEntries(tableName)
 
   override fun getDefaultAction(tableName: String): DefaultAction? =
     snapshot.defaultActions[tableName]
@@ -1379,11 +1449,11 @@ class TableStore : TableDataReader {
       update(defaultDirectResourceEntry(tableEntry.tableId))
       return WriteResult.Success
     }
-    val entries =
-      writeState.tables[tableName]
-        ?: return WriteResult.NotFound("no entries in table '$tableName'")
+    if (!writeState.hasTableEntries(tableName)) {
+      return WriteResult.NotFound("no entries in table '$tableName'")
+    }
     val stored =
-      entries.find { it.sameKey(tableEntry) }
+      writeState.tableEntry(tableName, tableEntry)
         ?: return WriteResult.NotFound("no matching entry in table '$tableName'")
     update(stored)
     return WriteResult.Success
@@ -1576,14 +1646,13 @@ class TableStore : TableDataReader {
               "'${it.value}' (${it.key})"
             })})"
         )
-    val entries = writeState.tables.getOrPut(tableName) { mutableListOf() }
-    val existingIndex = entries.indexOfFirst { it.sameKey(rawEntry) }
+    val existingIndex = writeState.tableEntryIndex(tableName, rawEntry)
     val resolvedWrite =
       resolveTableWrite(
         rawEntry,
         update.type,
         tableName,
-        entries.getOrNull(existingIndex),
+        writeState.tableEntryAt(tableName, existingIndex),
         initialDefaultActions,
         actionIdByName,
       )
@@ -1646,10 +1715,10 @@ class TableStore : TableDataReader {
           )
         } else {
           val limit = tableSizeLimit[tableName]
-          if (limit != null && entries.size >= limit) {
+          if (limit != null && writeState.tableEntryCount(tableName) >= limit) {
             WriteResult.ResourceExhausted("table '$tableName' is full ($limit entries)")
           } else {
-            entries.add(entry)
+            writeState.addTableEntry(tableName, entry)
             applyInlineDirectResources(
               rawEntry,
               entry,
@@ -1668,8 +1737,10 @@ class TableStore : TableDataReader {
           // Transfer direct counter/meter data from old entry object to new one.
           // NOTE: if a third direct extern type is added, add a transfer line here and
           // a remove in the DELETE branch below.
-          val old = entries[existingIndex]
-          entries[existingIndex] = entry
+          val old =
+            writeState.tableEntryAt(tableName, existingIndex)
+              ?: error("missing indexed entry in table '$tableName'")
+          writeState.replaceTableEntry(tableName, existingIndex, entry)
           applyInlineDirectResources(rawEntry, entry, old, tableName, directResourceContext)
           WriteResult.Success
         }
@@ -1678,7 +1749,7 @@ class TableStore : TableDataReader {
         if (existingIndex < 0) {
           WriteResult.NotFound("table '$tableName' has no entry with the given match key")
         } else {
-          val removed = entries.removeAt(existingIndex)
+          val removed = writeState.removeTableEntry(tableName, existingIndex)
           directCounterData.remove(removed)
           writeState.directMeterData.remove(removed)
           WriteResult.Success
@@ -1948,10 +2019,10 @@ class TableStore : TableDataReader {
     tableName: String,
     matchFilter: P4RuntimeOuterClass.TableEntry?,
   ): List<P4RuntimeOuterClass.TableEntry> {
-    val entries = snapshot.tables[tableName] ?: return emptyList()
+    val entries = snapshot.tableEntries(tableName)
     if (matchFilter == null) return entries
     // P4Runtime spec §9.1: match key + priority uniquely identify an entry.
-    return listOfNotNull(entries.find { it.sameKey(matchFilter) })
+    return listOfNotNull(snapshot.tableEntry(tableName, matchFilter))
   }
 
   /**
@@ -2001,7 +2072,7 @@ class TableStore : TableDataReader {
    */
   fun hasEntryWithFieldValue(tableId: Int, fieldId: Int, value: ByteString): Boolean {
     val tableName = tableNameById[tableId] ?: return false
-    return writeState.tables[tableName]?.any { entry ->
+    return writeState.tableEntries(tableName).any { entry ->
       entry.matchList.any { fm ->
         fm.fieldId == fieldId &&
           when (fm.fieldMatchTypeCase) {
@@ -2015,7 +2086,7 @@ class TableStore : TableDataReader {
             null -> false
           }
       }
-    } ?: false
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -2048,7 +2119,7 @@ class TableStore : TableDataReader {
       return LookupResult(true, null, it)
     }
 
-    val entries = snapshot.tables[tableName] ?: emptyList<TableEntry>()
+    val entries = snapshot.tableEntries(tableName)
     val default = snapshot.defaultActions[tableName] ?: DefaultAction("NoAction")
 
     // Index key values by field ID for O(1) array lookup in scoreEntry.

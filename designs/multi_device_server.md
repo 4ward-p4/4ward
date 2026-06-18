@@ -40,15 +40,14 @@ PR #788 validated the main scale assumptions with `MultiDeviceScaleBenchmark`.
 |----------|--------|
 | 10k devices, SAI middleblock loaded, no table entries | Passed; 8.3 GiB incremental heap, about 0.88 MiB/device. |
 | 1k devices, SAI middleblock loaded, 1k IPv6 routes/device | Passed; 1.2 GiB incremental heap, about 1.3 MiB/device. |
-| 1k devices, SAI middleblock loaded, 10k IPv6 routes/device | Passed; 4.9 GiB incremental heap, about 5.3 MiB/device. |
+| 1k devices, SAI middleblock loaded, 10k IPv6 routes/device | Passed; 8.4 GiB populated heap, about 8.6 MiB/device, populated in 25s. |
 
 These measurements support the first target and the 10k mostly-idle stretch
 target. The benchmark uses real P4Runtime writes against SAI P4 and installs
 IPv6 LPM route entries plus the prerequisite SAI objects required by
 `@refers_to`. We did not run the full extrapolated 10k devices x 10k routes
 case because it would install 100 million entries; the measured heap/device
-stays well inside the 100-200 GB memory target, while write throughput is the
-practical caveat.
+stays well inside the 100-200 GB memory target.
 
 Remaining design assumptions:
 
