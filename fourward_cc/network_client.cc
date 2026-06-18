@@ -3,7 +3,6 @@
 
 #include "fourward_cc/network_client.h"
 
-#include <chrono>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -14,6 +13,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
+#include "fourward_cc/grpc_util.h"
 #include "grpc/network.grpc.pb.h"
 #include "grpc/network.pb.h"
 #include "grpcpp/client_context.h"
@@ -21,18 +21,6 @@
 
 namespace fourward {
 namespace {
-
-absl::Status ToAbsl(const grpc::Status& s) {
-  if (s.ok()) return absl::OkStatus();
-  return absl::Status(static_cast<absl::StatusCode>(s.error_code()),
-                      s.error_message());
-}
-
-std::chrono::system_clock::time_point AbsoluteDeadline(
-    absl::Duration relative) {
-  return std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-      std::chrono::system_clock::now() + absl::ToChronoNanoseconds(relative));
-}
 
 NetworkPort ToProto(const NetworkEndpoint& endpoint) {
   NetworkPort proto;
