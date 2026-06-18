@@ -58,8 +58,16 @@ class TraceTreeConsistencyTest(private val testName: String) {
   private fun verifyConsistency(result: ProcessPacketResult) {
     val trace = result.trace
     val leafTrees = collectLeafOutcomes(trace)
+    val eventIdCounts = collectEventIdCounts(trace)
 
     assertTrue("Trace tree for $testName has no leaf outcomes", leafTrees.isNotEmpty())
+    val duplicateIds = eventIdCounts.filterValues { it > 1 }.keys.sorted()
+    assertTrue(
+      "Trace event ids must be unique for $testName; duplicate ids: $duplicateIds.\n" +
+        "Trace:\n${TextFormat.printer().printToString(trace)}",
+      duplicateIds.isEmpty(),
+    )
+    assertCausesResolveOnce(trace, eventIdCounts)
 
     // Verify possibleOutcomes is consistent with the trace tree: flattening all worlds
     // should produce the same outputs as collecting all leaf outputs from the tree.
@@ -94,4 +102,58 @@ class TraceTreeConsistencyTest(private val testName: String) {
       TraceTree.OutcomeCase.OUTCOME_NOT_SET,
       null -> emptyList()
     }
+
+  /** Recursively counts all [TraceEvent.id] values from a trace tree. */
+  private fun collectEventIdCounts(tree: TraceTree): Map<Long, Int> {
+    val counts = mutableMapOf<Long, Int>()
+    fun collect(node: TraceTree) {
+      for (event in node.eventsList) counts[event.id] = counts.getOrDefault(event.id, 0) + 1
+      when (node.outcomeCase) {
+        TraceTree.OutcomeCase.REPLICATION -> node.replication.branchesList.forEach { collect(it) }
+        TraceTree.OutcomeCase.CHOICE -> node.choice.branchesList.forEach { collect(it) }
+        TraceTree.OutcomeCase.CONTINUATION -> collect(node.continuation.next)
+        TraceTree.OutcomeCase.OUTPUT,
+        TraceTree.OutcomeCase.DROP,
+        TraceTree.OutcomeCase.OUTCOME_NOT_SET,
+        null -> {}
+      }
+    }
+    collect(tree)
+    return counts
+  }
+
+  private fun assertCausesResolveOnce(tree: TraceTree, eventIdCounts: Map<Long, Int>) {
+    val cause =
+      when (tree.outcomeCase) {
+        TraceTree.OutcomeCase.REPLICATION ->
+          if (tree.replication.hasCause()) tree.replication.cause else null
+        TraceTree.OutcomeCase.CHOICE -> if (tree.choice.hasCause()) tree.choice.cause else null
+        TraceTree.OutcomeCase.DROP -> if (tree.drop.hasCause()) tree.drop.cause else null
+        TraceTree.OutcomeCase.CONTINUATION,
+        TraceTree.OutcomeCase.OUTPUT,
+        TraceTree.OutcomeCase.OUTCOME_NOT_SET,
+        null -> null
+      }
+    if (cause != null) {
+      assertEquals(
+        "Trace outcome cause $cause must resolve to exactly one event for $testName.\n" +
+          "Trace:\n${TextFormat.printer().printToString(tree)}",
+        1,
+        eventIdCounts[cause] ?: 0,
+      )
+    }
+
+    when (tree.outcomeCase) {
+      TraceTree.OutcomeCase.REPLICATION ->
+        tree.replication.branchesList.forEach { assertCausesResolveOnce(it, eventIdCounts) }
+      TraceTree.OutcomeCase.CHOICE ->
+        tree.choice.branchesList.forEach { assertCausesResolveOnce(it, eventIdCounts) }
+      TraceTree.OutcomeCase.CONTINUATION ->
+        assertCausesResolveOnce(tree.continuation.next, eventIdCounts)
+      TraceTree.OutcomeCase.OUTPUT,
+      TraceTree.OutcomeCase.DROP,
+      TraceTree.OutcomeCase.OUTCOME_NOT_SET,
+      null -> {}
+    }
+  }
 }

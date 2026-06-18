@@ -165,7 +165,7 @@ continuation {
     events {
       packet_ingress {
       }
-      id: 1
+      id: 18
     }
     events {
       pipeline_stage {
@@ -173,7 +173,7 @@ continuation {
         stage_kind: PARSER
         direction: ENTER
       }
-      id: 2
+      id: 19
     }
     events {
       parser_transition {
@@ -181,7 +181,7 @@ continuation {
         from_state: "start"
         to_state: "accept"
       }
-      id: 3
+      id: 20
       source_info {
         file: "e2e_tests/trace_tree/recirculate.p4"
         line: 22
@@ -195,7 +195,7 @@ continuation {
         stage_kind: PARSER
         direction: EXIT
       }
-      id: 4
+      id: 21
     }
     events {
       pipeline_stage {
@@ -204,7 +204,7 @@ continuation {
         direction: ENTER
         dataplane_port: 0
       }
-      id: 5
+      id: 22
     }
     events {
       pipeline_stage {
@@ -213,7 +213,7 @@ continuation {
         direction: EXIT
         dataplane_port: 0
       }
-      id: 6
+      id: 23
     }
     events {
       pipeline_stage {
@@ -222,13 +222,13 @@ continuation {
         direction: ENTER
         dataplane_port: 0
       }
-      id: 7
+      id: 24
     }
     events {
       assignment {
         target: "smeta.egress_spec"
       }
-      id: 8
+      id: 25
       source_info {
         file: "e2e_tests/trace_tree/recirculate.p4"
         line: 33
@@ -244,7 +244,7 @@ continuation {
         direction: EXIT
         dataplane_port: 0
       }
-      id: 9
+      id: 26
     }
     events {
       pipeline_stage {
@@ -253,14 +253,14 @@ continuation {
         direction: ENTER
         dataplane_port: 1
       }
-      id: 10
+      id: 27
     }
     events {
       branch {
         control_name: "MyEgress"
         taken: false
       }
-      id: 11
+      id: 28
       source_info {
         file: "e2e_tests/trace_tree/recirculate.p4"
         line: 39
@@ -280,7 +280,7 @@ continuation {
         direction: EXIT
         dataplane_port: 1
       }
-      id: 12
+      id: 29
     }
     events {
       pipeline_stage {
@@ -289,7 +289,7 @@ continuation {
         direction: ENTER
         dataplane_port: 1
       }
-      id: 13
+      id: 30
     }
     events {
       pipeline_stage {
@@ -298,7 +298,7 @@ continuation {
         direction: EXIT
         dataplane_port: 1
       }
-      id: 14
+      id: 31
     }
     events {
       pipeline_stage {
@@ -306,14 +306,14 @@ continuation {
         stage_kind: DEPARSER
         direction: ENTER
       }
-      id: 15
+      id: 32
     }
     events {
       deparser_emit {
         header_type: "ethernet_t"
         byte_length: 14
       }
-      id: 16
+      id: 33
     }
     events {
       pipeline_stage {
@@ -321,7 +321,7 @@ continuation {
         stage_kind: DEPARSER
         direction: EXIT
       }
-      id: 17
+      id: 34
     }
     output {
       dataplane_egress_port: 1

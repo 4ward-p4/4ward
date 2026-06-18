@@ -113,7 +113,7 @@ replication {
         direction: ENTER
         dataplane_port: 2
       }
-      id: 1
+      id: 12
     }
     events {
       table_lookup {
@@ -136,7 +136,7 @@ replication {
         }
         action_name: "tag_original"
       }
-      id: 2
+      id: 13
       source_info {
         file: "e2e_tests/trace_tree/clone_with_egress.p4"
         line: 55
@@ -152,7 +152,7 @@ replication {
       action_execution {
         action_name: "tag_original"
       }
-      id: 3
+      id: 14
       source_info {
         file: "e2e_tests/trace_tree/clone_with_egress.p4"
         line: 55
@@ -164,7 +164,7 @@ replication {
       assignment {
         target: "hdr.ethernet.dstAddr"
       }
-      id: 4
+      id: 15
       source_info {
         file: "e2e_tests/trace_tree/clone_with_egress.p4"
         line: 43
@@ -180,7 +180,7 @@ replication {
         direction: EXIT
         dataplane_port: 2
       }
-      id: 5
+      id: 16
     }
     events {
       pipeline_stage {
@@ -189,7 +189,7 @@ replication {
         direction: ENTER
         dataplane_port: 2
       }
-      id: 6
+      id: 17
     }
     events {
       pipeline_stage {
@@ -198,7 +198,7 @@ replication {
         direction: EXIT
         dataplane_port: 2
       }
-      id: 7
+      id: 18
     }
     events {
       pipeline_stage {
@@ -206,14 +206,14 @@ replication {
         stage_kind: DEPARSER
         direction: ENTER
       }
-      id: 8
+      id: 19
     }
     events {
       deparser_emit {
         header_type: "ethernet_t"
         byte_length: 14
       }
-      id: 9
+      id: 20
     }
     events {
       pipeline_stage {
@@ -221,7 +221,7 @@ replication {
         stage_kind: DEPARSER
         direction: EXIT
       }
-      id: 10
+      id: 21
     }
     output {
       dataplane_egress_port: 2
@@ -236,7 +236,7 @@ replication {
         direction: ENTER
         dataplane_port: 3
       }
-      id: 1
+      id: 22
     }
     events {
       table_lookup {
@@ -259,7 +259,7 @@ replication {
         }
         action_name: "tag_clone"
       }
-      id: 2
+      id: 23
       source_info {
         file: "e2e_tests/trace_tree/clone_with_egress.p4"
         line: 55
@@ -275,7 +275,7 @@ replication {
       action_execution {
         action_name: "tag_clone"
       }
-      id: 3
+      id: 24
       source_info {
         file: "e2e_tests/trace_tree/clone_with_egress.p4"
         line: 55
@@ -287,7 +287,7 @@ replication {
       assignment {
         target: "hdr.ethernet.srcAddr"
       }
-      id: 4
+      id: 25
       source_info {
         file: "e2e_tests/trace_tree/clone_with_egress.p4"
         line: 44
@@ -303,7 +303,7 @@ replication {
         direction: EXIT
         dataplane_port: 3
       }
-      id: 5
+      id: 26
     }
     events {
       pipeline_stage {
@@ -312,7 +312,7 @@ replication {
         direction: ENTER
         dataplane_port: 3
       }
-      id: 6
+      id: 27
     }
     events {
       pipeline_stage {
@@ -321,7 +321,7 @@ replication {
         direction: EXIT
         dataplane_port: 3
       }
-      id: 7
+      id: 28
     }
     events {
       pipeline_stage {
@@ -329,14 +329,14 @@ replication {
         stage_kind: DEPARSER
         direction: ENTER
       }
-      id: 8
+      id: 29
     }
     events {
       deparser_emit {
         header_type: "ethernet_t"
         byte_length: 14
       }
-      id: 9
+      id: 30
     }
     events {
       pipeline_stage {
@@ -344,7 +344,7 @@ replication {
         stage_kind: DEPARSER
         direction: EXIT
       }
-      id: 10
+      id: 31
     }
     output {
       dataplane_egress_port: 3
