@@ -204,7 +204,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
       return if (mirrorTrees.isEmpty()) {
         buildDropTrace(ctx.getEvents())
       } else {
-        buildReplicationTree(ctx.getEvents(), branches = mirrorTrees)
+        buildReplicationTree(ctx.getEvents(), mirrorTrees)
       }
     }
 
@@ -232,7 +232,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
             kind = Continuation.Kind.RECIRCULATE,
             next = recircTree,
           )
-        buildReplicationTree(ctx.getEvents(), branches = listOf(continuationBranch) + mirrorTrees)
+        buildReplicationTree(ctx.getEvents(), listOf(continuationBranch) + mirrorTrees)
       }
     }
 
@@ -240,7 +240,7 @@ class PNAArchitecture(private val config: BehavioralConfig) : Architecture {
     return if (mirrorTrees.isEmpty()) {
       originalTree
     } else {
-      buildReplicationTree(emptyList(), branches = listOf(originalTree) + mirrorTrees)
+      buildReplicationTree(emptyList(), listOf(originalTree) + mirrorTrees)
     }
   }
 

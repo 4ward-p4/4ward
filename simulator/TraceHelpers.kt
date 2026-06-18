@@ -35,8 +35,8 @@ internal fun buildOutputTrace(events: List<TraceEvent>, port: Int, payload: Byte
  */
 internal fun buildReplicationTree(
   events: List<TraceEvent>,
-  cause: Long? = null,
   branches: List<TraceTree>,
+  cause: Long? = null,
 ): TraceTree =
   TraceTree.newBuilder()
     .addAllEvents(events)

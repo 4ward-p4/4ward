@@ -337,7 +337,7 @@ class V1ModelArchitecture(
         fork.replicas.map(buildBranch)
       }
     val causeId = fork.eventsBeforeFork.lastOrNull()?.id
-    return PipelineResult(buildReplicationTree(fork.eventsBeforeFork, causeId, branches))
+    return PipelineResult(buildReplicationTree(fork.eventsBeforeFork, branches, causeId))
   }
 
   /**
@@ -478,7 +478,7 @@ class V1ModelArchitecture(
         addAll(clones)
       }
     val causeId = eventsBeforeFork.lastOrNull()?.id
-    return PipelineResult(buildReplicationTree(eventsBeforeFork, causeId, branches))
+    return PipelineResult(buildReplicationTree(eventsBeforeFork, branches, causeId))
   }
 
   /** Resubmit: the same packet re-enters the pipeline — modeled as a Continuation. */

@@ -69,7 +69,8 @@ message TraceTree {
     Choice choice = 5;
 
     // The same packet continues as another parser-to-deparser pass.
-    // Kind: RESUBMIT, RECIRCULATE, or absent for forward transitions.
+    // Kind: RESUBMIT or RECIRCULATE; KIND_UNSPECIFIED is the proto default
+    // but not emitted by any architecture.
     Continuation continuation = 6;
 
     // Terminal: packet emitted on a port.
@@ -98,10 +99,10 @@ message Choice {
 }
 
 // The same packet continues as another parser-to-deparser pass.
-// Used for resubmit, recirculate, and forward stage transitions.
+// Used for resubmit and recirculate.
 message Continuation {
   enum Kind {
-    KIND_UNSPECIFIED = 0;  // normal forward transition (e.g. ingress → egress)
+    KIND_UNSPECIFIED = 0;  // proto3 required default; not emitted by any architecture
     RESUBMIT = 1;
     RECIRCULATE = 2;
   }

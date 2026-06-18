@@ -161,9 +161,6 @@ class PacketContext(packet: PacketBits, initialBitOffset: Int = 0, firstEventId:
   /** Returns the id that will be assigned to the next event added. */
   fun peekNextEventId(): Long = nextEventId
 
-  /** Returns the id of the last added event, or 0 if no events have been added. */
-  fun lastEventId(): Long = nextEventId - 1L
-
   /** Returns the id of the last added event matching [predicate], or null if none. */
   fun lastEventIdWhere(predicate: (TraceEvent) -> Boolean): Long? =
     traceEvents.lastOrNull(predicate)?.id

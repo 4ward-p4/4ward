@@ -135,7 +135,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         buildI2ECloneBranches(pipeline, packet, ingress.output, selectorMembers)
       if (i2eCloneBranches.isNotEmpty()) {
         val causeId = ingress.cloneLookupEventId
-        return buildReplicationTree(ingress.events, causeId, i2eCloneBranches)
+        return buildReplicationTree(ingress.events, i2eCloneBranches, causeId)
       }
       return buildDropTrace(ingress.events, ingress.dropTriggerId)
     }
@@ -171,7 +171,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
     if (i2eCloneBranches.isNotEmpty()) {
       val causeId = ingress.cloneLookupEventId
-      return buildReplicationTree(ingress.events, causeId, listOf(originalTree) + i2eCloneBranches)
+      return buildReplicationTree(ingress.events, listOf(originalTree) + i2eCloneBranches, causeId)
     }
 
     // No I2E clone: flatten ingress + original egress into a single trace.
@@ -435,7 +435,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     if (core.dropped) {
       if (e2eCloneBranches.isNotEmpty()) {
         // PSA E2E clone sessions don't emit a CloneSessionLookupEvent in the current impl.
-        return buildReplicationTree(core.events, branches = e2eCloneBranches)
+        return buildReplicationTree(core.events, e2eCloneBranches)
       }
       return buildDropTrace(core.events, core.dropTriggerId)
     }
@@ -458,7 +458,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
 
     if (e2eCloneBranches.isNotEmpty()) {
       // PSA E2E clone sessions don't emit a CloneSessionLookupEvent in the current impl.
-      return buildReplicationTree(emptyList(), branches = listOf(outputTree) + e2eCloneBranches)
+      return buildReplicationTree(emptyList(), listOf(outputTree) + e2eCloneBranches)
     }
 
     return outputTree
