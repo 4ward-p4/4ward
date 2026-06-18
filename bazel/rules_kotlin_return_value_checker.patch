@@ -9,7 +9,7 @@ index 7ba20530..630d012b 100644
 +    "x_return_value_checker": struct(
 +        flag = "-Xreturn-value-checker",
 +        args = dict(
-+            default = "disable",
++            default = "check",
 +            doc = """Set improved unused return value checker mode.
 +
 +Options:
@@ -21,7 +21,7 @@ index 7ba20530..630d012b 100644
 +        type = attr.string,
 +        value_to_flag = {
 +            "check": ["-Xreturn-value-checker=check"],
-+            "disable": None,
++            "disable": ["-Xreturn-value-checker=disable"],
 +            "full": ["-Xreturn-value-checker=full"],
 +        },
 +    ),
