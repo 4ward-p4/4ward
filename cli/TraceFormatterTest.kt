@@ -94,19 +94,27 @@ class TraceFormatterTest {
   fun dropWithMarkToDrop() {
     val tree =
       TraceTree.newBuilder()
-        .addEvents(TraceEvent.newBuilder().setMarkToDrop(MarkToDropEvent.newBuilder()))
-        .setDrop(Drop.getDefaultInstance())
+        .addEvents(TraceEvent.newBuilder().setMarkToDrop(MarkToDropEvent.newBuilder()).setId(1))
+        .setDrop(Drop.newBuilder().setCause(1))
         .build()
 
     val output = TraceFormatter.format(tree)
     assertEquals(
       """
       |mark_to_drop()
-      |drop
+      |drop (mark_to_drop)
       |"""
         .trimMargin(),
       output,
     )
+  }
+
+  @Test
+  fun dropWithNoCause() {
+    // Parser-reject and execution-limit drops have no cause event.
+    val tree = TraceTree.newBuilder().setDrop(Drop.getDefaultInstance()).build()
+
+    assertEquals("drop\n", TraceFormatter.format(tree))
   }
 
   @Test
@@ -195,15 +203,17 @@ class TraceFormatterTest {
     val tree =
       TraceTree.newBuilder()
         .addEvents(
-          TraceEvent.newBuilder().setAssertion(AssertionEvent.newBuilder().setPassed(false))
+          TraceEvent.newBuilder()
+            .setAssertion(AssertionEvent.newBuilder().setPassed(false))
+            .setId(1)
         )
-        .setDrop(Drop.getDefaultInstance())
+        .setDrop(Drop.newBuilder().setCause(1))
         .build()
 
     assertEquals(
       """
       |assert: FAILED
-      |drop
+      |drop (assertion failed)
       |"""
         .trimMargin(),
       TraceFormatter.format(tree),
