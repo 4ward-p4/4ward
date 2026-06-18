@@ -64,13 +64,12 @@ internal fun buildChoiceTree(
     .build()
 
 /**
- * Builds a [TraceTree] where the same packet continues as another pass. Used for resubmit,
- * recirculate, and forward stage transitions. [kind] is absent (KIND_UNSPECIFIED) for forward
- * transitions; RESUBMIT or RECIRCULATE for backward ones.
+ * Builds a [TraceTree] where the same packet continues as another pass. Used for resubmit and
+ * recirculate. [kind] must be RESUBMIT or RECIRCULATE.
  */
 internal fun buildContinuationTree(
   events: List<TraceEvent>,
-  kind: Continuation.Kind = Continuation.Kind.KIND_UNSPECIFIED,
+  kind: Continuation.Kind,
   preservedFields: Map<String, String> = emptyMap(),
   next: TraceTree,
 ): TraceTree =

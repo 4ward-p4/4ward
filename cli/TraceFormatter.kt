@@ -32,7 +32,9 @@ object TraceFormatter {
           when (cont.kind) {
             Continuation.Kind.RESUBMIT -> "resubmit"
             Continuation.Kind.RECIRCULATE -> "recirculate"
-            else -> "continuation"
+            Continuation.Kind.KIND_UNSPECIFIED,
+            Continuation.Kind.UNRECOGNIZED,
+            null -> error("unexpected continuation kind: ${cont.kind}")
           }
         if (cont.preservedFieldsCount > 0) {
           val fields =

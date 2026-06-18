@@ -472,11 +472,7 @@ class V1ModelArchitecture(
     original: TraceTree,
     clones: List<TraceTree>,
   ): PipelineResult {
-    val branches =
-      buildList(clones.size + 1) {
-        add(original)
-        addAll(clones)
-      }
+    val branches = listOf(original) + clones
     val causeId = eventsBeforeFork.lastOrNull()?.id
     return PipelineResult(buildReplicationTree(eventsBeforeFork, branches, causeId))
   }

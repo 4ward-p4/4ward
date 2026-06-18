@@ -334,10 +334,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
       // Multicast to unconfigured group — the lookup miss is the trigger for the drop.
       val missEvent =
         multicastGroupMissEvent(multicastGroup).toBuilder().setId(firstEventId).build()
-      return TraceTree.newBuilder()
-        .addEvents(missEvent)
-        .setDrop(fourward.Drop.newBuilder().setCause(firstEventId))
-        .build()
+      return buildDropTrace(listOf(missEvent), causeId = firstEventId)
     }
 
     val hitEvent =
@@ -359,12 +356,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
           selectorMembers,
         )
       }
-    return TraceTree.newBuilder()
-      .addEvents(hitEvent)
-      .setReplication(
-        fourward.Replication.newBuilder().setCause(firstEventId).addAllBranches(branches)
-      )
-      .build()
+    return buildReplicationTree(listOf(hitEvent), branches, cause = firstEventId)
   }
 
   // ---------------------------------------------------------------------------
