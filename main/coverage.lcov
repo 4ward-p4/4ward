@@ -1142,7 +1142,7 @@ FNDA:1,fourward/grpc/MultiDeviceDataplaneService::injectPacket (Lfourward/Inject
 FN:26,fourward/grpc/MultiDeviceDataplaneService::getReproducer (Lfourward/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 FNDA:0,fourward/grpc/MultiDeviceDataplaneService::getReproducer (Lfourward/InjectPacketRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 FN:29,fourward/grpc/MultiDeviceDataplaneService::injectPackets (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-FNDA:0,fourward/grpc/MultiDeviceDataplaneService::injectPackets (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+FNDA:1,fourward/grpc/MultiDeviceDataplaneService::injectPackets (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 FN:53,fourward/grpc/MultiDeviceDataplaneService::subscribeResults (Lfourward/SubscribeResultsRequest;)Lkotlinx/coroutines/flow/Flow;
 FNDA:0,fourward/grpc/MultiDeviceDataplaneService::subscribeResults (Lfourward/SubscribeResultsRequest;)Lkotlinx/coroutines/flow/Flow;
 FN:60,fourward/grpc/MultiDeviceDataplaneService::registerPrePacketHook (Lkotlinx/coroutines/flow/Flow;)Lkotlinx/coroutines/flow/Flow;
@@ -1187,12 +1187,12 @@ DA:44,1
 DA:46,0
 DA:48,0
 DA:49,0
-DA:50,0
+DA:50,1
 DA:53,0
 DA:60,0
 DA:63,1
 DA:66,1
-LH:21
+LH:22
 LF:29
 end_of_record
 SF:grpc/MultiDeviceP4RuntimeService.kt
@@ -4383,17 +4383,18 @@ FN:35,fourward/simulator/Architecture$DefaultImpls::processPacket-QEiwco0 (Lfour
 FNDA:1,fourward/simulator/Architecture$DefaultImpls::processPacket-QEiwco0 (Lfourward/simulator/Architecture;I[BLfourward/simulator/TableStore;)Lfourward/simulator/PipelineResult;
 FN:50,fourward/simulator/PipelineResult::<init> (Lfourward/TraceTree;)V
 FNDA:1,fourward/simulator/PipelineResult::<init> (Lfourward/TraceTree;)V
-FN:50,fourward/simulator/PipelineResult::getTrace ()Lfourward/TraceTree;
+FN:52,fourward/simulator/PipelineResult::getTrace ()Lfourward/TraceTree;
 FNDA:1,fourward/simulator/PipelineResult::getTrace ()Lfourward/TraceTree;
-FN:52,fourward/simulator/PipelineResult::getPossibleOutcomes ()Ljava/util/List;
+FN:55,fourward/simulator/PipelineResult::getPossibleOutcomes ()Ljava/util/List;
 FNDA:1,fourward/simulator/PipelineResult::getPossibleOutcomes ()Ljava/util/List;
-FN:52,fourward/simulator/PipelineResult$possibleOutcomes$2::invoke ()Ljava/util/List;
+FN:55,fourward/simulator/PipelineResult$possibleOutcomes$2::invoke ()Ljava/util/List;
 FNDA:1,fourward/simulator/PipelineResult$possibleOutcomes$2::invoke ()Ljava/util/List;
 DA:35,1
 DA:50,1
 DA:52,1
-LH:3
-LF:3
+DA:55,1
+LH:4
+LF:4
 end_of_record
 SF:simulator/ArchitectureHelpers.kt
 FN:18,fourward/simulator/ArchitectureHelpersKt::randomInInclusiveRange (Ljava/math/BigInteger;Ljava/math/BigInteger;)Ljava/math/BigInteger;
@@ -11960,6 +11961,14 @@ LH:1113
 LF:1190
 end_of_record
 SF:simulator/TraceHelpers.kt
+FN:121,fourward/simulator/TraceEventIdNormalizer::<init> ()V
+FNDA:1,fourward/simulator/TraceEventIdNormalizer::<init> ()V
+FN:124,fourward/simulator/TraceEventIdNormalizer::normalize (Lfourward/TraceTree;)Lfourward/TraceTree;
+FNDA:1,fourward/simulator/TraceEventIdNormalizer::normalize (Lfourward/TraceTree;)Lfourward/TraceTree;
+FN:127,fourward/simulator/TraceEventIdNormalizer::normalizeNode (Lfourward/TraceTree;)Lfourward/TraceTree;
+FNDA:1,fourward/simulator/TraceEventIdNormalizer::normalizeNode (Lfourward/TraceTree;)Lfourward/TraceTree;
+FN:138,fourward/simulator/TraceEventIdNormalizer::normalizeNode$remapCause (Ljava/util/Map;J)J
+FNDA:1,fourward/simulator/TraceEventIdNormalizer::normalizeNode$remapCause (Ljava/util/Map;J)J
 FN:17,fourward/simulator/TraceHelpersKt::buildDropTrace (Ljava/util/List;Ljava/lang/Long;)Lfourward/TraceTree;
 FNDA:1,fourward/simulator/TraceHelpersKt::buildDropTrace (Ljava/util/List;Ljava/lang/Long;)Lfourward/TraceTree;
 FN:16,fourward/simulator/TraceHelpersKt::buildDropTrace$default (Ljava/util/List;Ljava/lang/Long;ILjava/lang/Object;)Lfourward/TraceTree;
@@ -11980,16 +11989,38 @@ FN:89,fourward/simulator/TraceHelpersKt::withEvents (Lfourward/TraceTree;Ljava/u
 FNDA:1,fourward/simulator/TraceHelpersKt::withEvents (Lfourward/TraceTree;Ljava/util/List;)Lfourward/TraceTree;
 FN:107,fourward/simulator/TraceHelpersKt::prependEvents (Lfourward/TraceTree;Ljava/util/List;)Lfourward/TraceTree;
 FNDA:1,fourward/simulator/TraceHelpersKt::prependEvents (Lfourward/TraceTree;Ljava/util/List;)Lfourward/TraceTree;
-FN:111,fourward/simulator/TraceHelpersKt::packetIngressEvent-yztLrCc (I)Lfourward/TraceEvent;
+FN:119,fourward/simulator/TraceHelpersKt::normalizeTraceEventIds (Lfourward/TraceTree;)Lfourward/TraceTree;
+FNDA:1,fourward/simulator/TraceHelpersKt::normalizeTraceEventIds (Lfourward/TraceTree;)Lfourward/TraceTree;
+FN:176,fourward/simulator/TraceHelpersKt::packetIngressEvent-yztLrCc (I)Lfourward/TraceEvent;
 FNDA:1,fourward/simulator/TraceHelpersKt::packetIngressEvent-yztLrCc (I)Lfourward/TraceEvent;
-FN:123,fourward/simulator/TraceHelpersKt::stageEvent (Lfourward/PipelineStage;Lfourward/PipelineStageEvent$Direction;Ljava/lang/Integer;)Lfourward/TraceEvent;
+FN:188,fourward/simulator/TraceHelpersKt::stageEvent (Lfourward/PipelineStage;Lfourward/PipelineStageEvent$Direction;Ljava/lang/Integer;)Lfourward/TraceEvent;
 FNDA:1,fourward/simulator/TraceHelpersKt::stageEvent (Lfourward/PipelineStage;Lfourward/PipelineStageEvent$Direction;Ljava/lang/Integer;)Lfourward/TraceEvent;
-FN:118,fourward/simulator/TraceHelpersKt::stageEvent$default (Lfourward/PipelineStage;Lfourward/PipelineStageEvent$Direction;Ljava/lang/Integer;ILjava/lang/Object;)Lfourward/TraceEvent;
+FN:183,fourward/simulator/TraceHelpersKt::stageEvent$default (Lfourward/PipelineStage;Lfourward/PipelineStageEvent$Direction;Ljava/lang/Integer;ILjava/lang/Object;)Lfourward/TraceEvent;
 FNDA:1,fourward/simulator/TraceHelpersKt::stageEvent$default (Lfourward/PipelineStage;Lfourward/PipelineStageEvent$Direction;Ljava/lang/Integer;ILjava/lang/Object;)Lfourward/TraceEvent;
-FN:135,fourward/simulator/TraceHelpersKt::multicastGroupLookupEvent (II)Lfourward/TraceEvent;
+FN:200,fourward/simulator/TraceHelpersKt::multicastGroupLookupEvent (II)Lfourward/TraceEvent;
 FNDA:1,fourward/simulator/TraceHelpersKt::multicastGroupLookupEvent (II)Lfourward/TraceEvent;
-FN:146,fourward/simulator/TraceHelpersKt::multicastGroupMissEvent (I)Lfourward/TraceEvent;
+FN:211,fourward/simulator/TraceHelpersKt::multicastGroupMissEvent (I)Lfourward/TraceEvent;
 FNDA:1,fourward/simulator/TraceHelpersKt::multicastGroupMissEvent (I)Lfourward/TraceEvent;
+BRDA:129,0,0,1
+BRDA:129,0,1,1
+BRDA:138,0,0,0
+BRDA:138,0,1,1
+BRDA:140,0,0,0
+BRDA:140,0,1,0
+BRDA:140,0,2,1
+BRDA:140,0,3,1
+BRDA:140,0,4,1
+BRDA:140,0,5,1
+BRDA:143,0,0,1
+BRDA:143,0,1,1
+BRDA:144,0,0,1
+BRDA:144,0,1,1
+BRDA:151,0,0,1
+BRDA:151,0,1,0
+BRDA:152,0,0,1
+BRDA:152,0,1,1
+BRDA:164,0,0,1
+BRDA:164,0,1,1
 BRDA:17,0,0,1
 BRDA:17,0,1,1
 BRDA:45,0,0,1
@@ -12004,8 +12035,8 @@ BRDA:90,0,4,1
 BRDA:90,0,5,1
 BRDA:107,0,0,0
 BRDA:107,0,1,1
-BRDA:129,0,0,1
-BRDA:129,0,1,1
+BRDA:194,0,0,1
+BRDA:194,0,1,1
 DA:16,1
 DA:17,1
 DA:18,1
@@ -12045,33 +12076,62 @@ DA:94,1
 DA:95,1
 DA:99,1
 DA:107,1
-DA:111,1
-DA:112,1
-DA:113,1
-DA:115,1
-DA:118,1
+DA:119,1
 DA:121,1
-DA:123,1
+DA:122,1
 DA:124,1
-DA:125,1
-DA:126,1
 DA:127,1
 DA:128,1
 DA:129,1
+DA:130,1
 DA:131,1
-DA:135,1
-DA:136,1
-DA:137,1
+DA:132,1
 DA:138,1
-DA:139,1
 DA:140,1
 DA:142,1
-DA:146,1
+DA:143,1
+DA:144,1
+DA:145,1
 DA:147,1
-DA:148,1
 DA:150,1
-LH:64
-LF:64
+DA:151,1
+DA:152,1
+DA:153,1
+DA:155,1
+DA:158,1
+DA:159,1
+DA:161,1
+DA:163,1
+DA:164,1
+DA:165,1
+DA:170,1
+DA:176,1
+DA:177,1
+DA:178,1
+DA:180,1
+DA:183,1
+DA:186,1
+DA:188,1
+DA:189,1
+DA:190,1
+DA:191,1
+DA:192,1
+DA:193,1
+DA:194,1
+DA:196,1
+DA:200,1
+DA:201,1
+DA:202,1
+DA:203,1
+DA:204,1
+DA:205,1
+DA:207,1
+DA:211,1
+DA:212,1
+DA:213,1
+DA:215,1
+LH:93
+LF:93
 end_of_record
 SF:simulator/V1ModelArchitecture.kt
 FN:1356,fourward/simulator/CloneFork::<init> (ILjava/util/List;Ljava/util/List;Ljava/util/Map;Lfourward/simulator/Environment;ILfourward/simulator/V1ModelPendingOps;Lfourward/simulator/Environment;I)V

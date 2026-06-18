@@ -31,18 +31,18 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryLo">72.4&nbsp;%</td>
+            <td class="headerCovTableEntryMed">75.9&nbsp;%</td>
             <td class="headerCovTableEntry">29</td>
-            <td class="headerCovTableEntry">21</td>
+            <td class="headerCovTableEntry">22</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-18 07:19:44</td>
+            <td class="headerValue">2026-06-18 07:26:02</td>
             <td></td>
             <td class="headerItem">Functions:</td>
-            <td class="headerCovTableEntryLo">63.6&nbsp;%</td>
+            <td class="headerCovTableEntryLo">72.7&nbsp;%</td>
             <td class="headerCovTableEntry">11</td>
-            <td class="headerCovTableEntry">7</td>
+            <td class="headerCovTableEntry">8</td>
           </tr>
                   <tr><td><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
                 </table>
@@ -109,10 +109,10 @@
 <span id="L47"><span class="lineNum">      47</span>              :         }</span>
 <span id="L48"><span class="lineNum">      48</span> <span class="tlaUNC">           0 :       }</span></span>
 <span id="L49"><span class="lineNum">      49</span> <span class="tlaUNC">           0 :       registry.get(targetDeviceId).dataplaneService.injectPackets(guardedRequests)</span></span>
-<span id="L50"><span class="lineNum">      50</span> <span class="tlaUNC">           0 :     }</span></span>
+<span id="L50"><span class="lineNum">      50</span> <span class="tlaGNC tlaBgGNC">           1 :     }</span></span>
 <span id="L51"><span class="lineNum">      51</span>              : </span>
 <span id="L52"><span class="lineNum">      52</span>              :   override fun subscribeResults(request: SubscribeResultsRequest): Flow&lt;SubscribeResultsResponse&gt; =</span>
-<span id="L53"><span class="lineNum">      53</span> <span class="tlaUNC">           0 :     service(request.deviceId).subscribeResults(request)</span></span>
+<span id="L53"><span class="lineNum">      53</span> <span class="tlaUNC tlaBgUNC">           0 :     service(request.deviceId).subscribeResults(request)</span></span>
 <span id="L54"><span class="lineNum">      54</span>              : </span>
 <span id="L55"><span class="lineNum">      55</span>              :   override fun registerPrePacketHook(</span>
 <span id="L56"><span class="lineNum">      56</span>              :     requests: Flow&lt;PrePacketHookResponse&gt;</span>
