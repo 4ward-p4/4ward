@@ -137,7 +137,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         val causeId = ingress.cloneLookupEventId
         return buildReplicationTree(ingress.events, i2eCloneBranches, causeId)
       }
-      return buildDropTrace(ingress.events, ingress.dropTriggerId)
+      return buildDropTrace(ingress.events, ingress.dropCauseId)
     }
 
     // Resubmit: the same packet re-enters ingress — modeled as a Continuation.
@@ -227,7 +227,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val deparsedBytes: ByteArray,
     val dropped: Boolean,
     /** Id of the event that caused a drop (MarkToDropEvent or AssertionEvent), or null if none. */
-    val dropTriggerId: Long? = null,
+    val dropCauseId: Long? = null,
     /** Id of the CloneSessionLookupEvent when an I2E clone was requested, or null if none. */
     val cloneLookupEventId: Long? = null,
     /**
@@ -282,7 +282,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
           output,
           byteArrayOf(),
           dropped = true,
-          dropTriggerId = ctx.lastEventIdWhere { it.hasMarkToDrop() },
+          dropCauseId = ctx.lastEventIdWhere { it.hasMarkToDrop() },
           nextEventId = ctx.peekNextEventId(),
         )
       }
@@ -296,7 +296,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         output,
         byteArrayOf(),
         dropped = true,
-        dropTriggerId = ctx.lastEventIdWhere { it.hasAssertion() },
+        dropCauseId = ctx.lastEventIdWhere { it.hasAssertion() },
         nextEventId = ctx.peekNextEventId(),
       )
     }
@@ -336,7 +336,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         multicastGroupMissEvent(multicastGroup).toBuilder().setId(firstEventId).build()
       return TraceTree.newBuilder()
         .addEvents(missEvent)
-        .setDrop(fourward.Drop.newBuilder().setTrigger(firstEventId))
+        .setDrop(fourward.Drop.newBuilder().setCause(firstEventId))
         .build()
     }
 
@@ -383,7 +383,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val deparsedBytes: ByteArray,
     val output: StructVal?,
     /** Id of the event that caused a drop, or null if none. */
-    val dropTriggerId: Long? = null,
+    val dropCauseId: Long? = null,
     /** Whether this egress pass should recirculate. */
     val recirculate: Boolean = false,
   )
@@ -437,7 +437,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         // PSA E2E clone sessions don't emit a CloneSessionLookupEvent in the current impl.
         return buildReplicationTree(core.events, e2eCloneBranches)
       }
-      return buildDropTrace(core.events, core.dropTriggerId)
+      return buildDropTrace(core.events, core.dropCauseId)
     }
 
     // Recirculate: the same packet loops back to ingress — modeled as a Continuation.
@@ -507,7 +507,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
         dropped = true,
         byteArrayOf(),
         egressOutput,
-        dropTriggerId = egressCtx.lastEventIdWhere { it.hasAssertion() },
+        dropCauseId = egressCtx.lastEventIdWhere { it.hasAssertion() },
       )
     }
 
@@ -519,14 +519,14 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     runControlStage(egressInterpreter, egressCtx, egressEnv, p.egressDeparser)
 
     val outputBytes = egressCtx.deparsedPayload()
-    val dropTriggerId = if (dropped) egressCtx.lastEventIdWhere { it.hasMarkToDrop() } else null
+    val dropCauseId = if (dropped) egressCtx.lastEventIdWhere { it.hasMarkToDrop() } else null
     val recirculate = !dropped && egressPort.toUInt().toLong() == PSA_PORT_RECIRCULATE_LONG
     return EgressCoreResult(
       egressCtx.getEvents(),
       dropped,
       outputBytes,
       egressOutput,
-      dropTriggerId,
+      dropCauseId,
       recirculate,
     )
   }
@@ -613,7 +613,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     selectorMembers: Map<String, Int>,
   ): TraceTree {
     fun egressToTrace(result: EgressCoreResult): TraceTree =
-      if (result.dropped) buildDropTrace(result.events, result.dropTriggerId)
+      if (result.dropped) buildDropTrace(result.events, result.dropCauseId)
       else buildOutputTrace(result.events, egressPort, result.deparsedBytes)
     return try {
       egressToTrace(

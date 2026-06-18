@@ -13,8 +13,8 @@ import fourward.TraceEvent
 import fourward.TraceTree
 
 /** Builds a [TraceTree] representing a dropped packet with the given trace events. */
-internal fun buildDropTrace(events: List<TraceEvent>, triggerId: Long? = null): TraceTree {
-  val drop = Drop.newBuilder().also { if (triggerId != null) it.setTrigger(triggerId) }.build()
+internal fun buildDropTrace(events: List<TraceEvent>, causeId: Long? = null): TraceTree {
+  val drop = Drop.newBuilder().also { if (causeId != null) it.setCause(causeId) }.build()
   return TraceTree.newBuilder().addAllEvents(events).setDrop(drop).build()
 }
 

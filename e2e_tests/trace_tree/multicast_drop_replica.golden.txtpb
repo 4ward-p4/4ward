@@ -242,7 +242,7 @@ replication {
       id: 6
     }
     drop {
-      trigger: 3
+      cause: 3
     }
   }
   branches {

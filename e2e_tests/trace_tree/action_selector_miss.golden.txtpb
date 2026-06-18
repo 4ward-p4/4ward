@@ -111,5 +111,5 @@ events {
   id: 11
 }
 drop {
-  trigger: 10
+  cause: 10
 }
