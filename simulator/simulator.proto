@@ -62,22 +62,22 @@ message TraceTree {
   oneof outcome {
     // All branches happen simultaneously; outputs are the union.
     // Cause: clone session or multicast group lookup that triggered the copies.
-    Replication replication = 4;
+    Replication replication = 2;
 
     // Exactly one branch happens at runtime (possible worlds).
     // Cause: the table-apply event for the action selector.
-    Choice choice = 5;
+    Choice choice = 3;
 
     // The same packet continues as another parser-to-deparser pass.
     // Kind: RESUBMIT or RECIRCULATE; KIND_UNSPECIFIED is the proto default
     // but not emitted by any architecture.
-    Continuation continuation = 6;
+    Continuation continuation = 4;
 
     // Terminal: packet emitted on a port.
-    OutputPacket output = 7;
+    OutputPacket output = 5;
 
     // Terminal: packet discarded.
-    Drop drop = 8;
+    Drop drop = 6;
   }
 }
 
