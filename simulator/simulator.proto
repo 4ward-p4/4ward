@@ -86,7 +86,7 @@ message TraceTree {
 // mirror). `cause` references the lookup event that triggered the copies, if
 // any.
 message Replication {
-  uint64 cause = 1;                 // id of the typed event that triggered this
+  optional uint64 cause = 1;        // id of the typed event that triggered this
   repeated TraceTree branches = 2;  // ≥ 1 branch
 }
 
@@ -94,7 +94,7 @@ message Replication {
 // Used for action selector groups (the selected member is unknown statically).
 // `cause` references the TableLookupEvent for the selector table.
 message Choice {
-  uint64 cause = 1;                 // id of the typed event that triggered this
+  optional uint64 cause = 1;        // id of the typed event that triggered this
   repeated TraceTree branches = 2;  // ≥ 2 branches
 }
 
