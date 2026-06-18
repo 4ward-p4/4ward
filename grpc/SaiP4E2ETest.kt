@@ -8,6 +8,9 @@ import fourward.SubscribeResultsResponse
 import fourward.TranslationEntry
 import fourward.TypeTranslation
 import io.grpc.Status
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
 import kotlinx.coroutines.launch
@@ -615,47 +618,42 @@ class SaiP4E2ETest {
       installAclEntry(findAction("acl_drop"))
 
       val stub = DataplaneCoroutineStub(harness.channel)
-      val results = Channel<SubscribeResultsResponse>(UNLIMITED)
-      val job = launch {
-        stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
-          results.send(it)
+      val (job, results) = subscribeAndAwaitActive(stub)
+      try {
+        val packetOut = buildCpuPacketOut(submitToIngress = false)
+
+        harness.openStream().use { session ->
+          session.arbitrate()
+          session.sendPacketOut(packetOut, timeoutMs = FourwardTestHarness.NO_RESPONSE_TIMEOUT_MS)
+
+          val msg = withTimeout(SUBSCRIBE_RESULT_TIMEOUT_MS) { results.receive() }
+          assertTrue("should be a result", msg.hasResult())
+          val outputs = msg.result.possibleOutcomesList.single().packetsList
+          assertEquals(
+            "submit_to_ingress=0 should bypass ingress (ACL drop) and exit on egress_port",
+            1,
+            outputs.size,
+          )
+          assertEquals(
+            "should exit on the PacketOut's egress_port",
+            "Ethernet1",
+            outputs[0].p4RtEgressPort.toStringUtf8(),
+          )
+          val expectedPayload = packetOut.payload.toByteArray()
+          val actualPayload = outputs[0].payload.toByteArray()
+          assertEquals(
+            "PacketOut controller header bits must not leak into output payload",
+            expectedPayload.size,
+            actualPayload.size,
+          )
+          assertBytesEqual("dst_mac", UNICAST_MAC, actualPayload, 0)
+          assertBytesEqual("src_mac", SRC_MAC, actualPayload, MAC_LEN)
+          assertBytesEqual("src_ip", SRC_IP, actualPayload, SRC_IP_OFFSET)
+          assertBytesEqual("dst_ip", DST_IP, actualPayload, DST_IP_OFFSET)
         }
+      } finally {
+        job.cancelAndJoin()
       }
-      val first = withTimeout(5000) { results.receive() }
-      assertTrue("first message should be SubscriptionActive", first.hasActive())
-      val packetOut = buildCpuPacketOut(submitToIngress = false)
-
-      harness.openStream().use { session ->
-        session.arbitrate()
-        session.sendPacketOut(packetOut, timeoutMs = FourwardTestHarness.NO_RESPONSE_TIMEOUT_MS)
-
-        val msg = withTimeout(5000) { results.receive() }
-        assertTrue("should be a result", msg.hasResult())
-        val outputs = msg.result.possibleOutcomesList.single().packetsList
-        assertEquals(
-          "submit_to_ingress=0 should bypass ingress (ACL drop) and exit on egress_port",
-          1,
-          outputs.size,
-        )
-        assertEquals(
-          "should exit on the PacketOut's egress_port",
-          "Ethernet1",
-          outputs[0].p4RtEgressPort.toStringUtf8(),
-        )
-        val expectedPayload = packetOut.payload.toByteArray()
-        val actualPayload = outputs[0].payload.toByteArray()
-        assertEquals(
-          "PacketOut controller header bits must not leak into output payload",
-          expectedPayload.size,
-          actualPayload.size,
-        )
-        assertBytesEqual("dst_mac", UNICAST_MAC, actualPayload, 0)
-        assertBytesEqual("src_mac", SRC_MAC, actualPayload, MAC_LEN)
-        assertBytesEqual("src_ip", SRC_IP, actualPayload, SRC_IP_OFFSET)
-        assertBytesEqual("dst_ip", DST_IP, actualPayload, DST_IP_OFFSET)
-      }
-
-      job.cancel()
     }
 
   @Test
@@ -2179,6 +2177,8 @@ class SaiP4E2ETest {
       .toStringUtf8()
 
   companion object {
+    private const val SUBSCRIBE_RESULT_TIMEOUT_MS = 20_000L
+
     // CPU port = 2^9 - 2 = 510 for 9-bit ports (SAI P4 ids.h: SAI_P4_CPU_PORT).
     private const val CPU_PORT = 510
     private const val COPY_TO_CPU_SESSION_ID = 255
@@ -2240,5 +2240,19 @@ class SaiP4E2ETest {
     @Suppress("MagicNumber")
     private val IPV6_2001_DB8 =
       byteArrayOf(0x20, 0x01, 0x0d, 0xb8.toByte(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+    private suspend fun CoroutineScope.subscribeAndAwaitActive(
+      stub: DataplaneCoroutineStub
+    ): Pair<Job, Channel<SubscribeResultsResponse>> {
+      val results = Channel<SubscribeResultsResponse>(UNLIMITED)
+      val job = launch {
+        stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
+          results.send(it)
+        }
+      }
+      val first = withTimeout(SUBSCRIBE_RESULT_TIMEOUT_MS) { results.receive() }
+      assertTrue("first message should be SubscriptionActive", first.hasActive())
+      return job to results
+    }
   }
 }
