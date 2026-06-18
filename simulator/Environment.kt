@@ -152,8 +152,10 @@ class PacketContext(packet: PacketBits, initialBitOffset: Int = 0, firstEventId:
   private val traceEvents: MutableList<TraceEvent> = mutableListOf()
   private var nextEventId: Long = firstEventId
 
-  fun addTraceEvent(event: TraceEvent) {
-    traceEvents.add(event.toBuilder().setId(nextEventId++).build())
+  fun addTraceEvent(event: TraceEvent): Long {
+    val id = nextEventId++
+    traceEvents.add(event.toBuilder().setId(id).build())
+    return id
   }
 
   fun getEvents(): List<TraceEvent> = traceEvents.toList()

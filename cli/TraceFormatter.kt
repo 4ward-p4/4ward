@@ -53,16 +53,16 @@ object TraceFormatter {
         )
       }
       TraceTree.OutcomeCase.DROP -> {
+        val cause =
+          if (tree.drop.hasCause()) tree.eventsList.firstOrNull { it.id == tree.drop.cause }
+          else null
         val suffix =
-          if (tree.drop.hasCause()) {
-            val cause = tree.eventsList.firstOrNull { it.id == tree.drop.cause }
-            when {
-              cause?.hasMarkToDrop() == true -> " (mark_to_drop)"
-              cause?.hasAssertion() == true -> " (assertion failed)"
-              cause?.hasMulticastGroupLookup() == true -> " (multicast group not found)"
-              else -> ""
-            }
-          } else ""
+          when (cause?.eventCase) {
+            TraceEvent.EventCase.MARK_TO_DROP -> " (mark_to_drop)"
+            TraceEvent.EventCase.ASSERTION -> " (assertion failed)"
+            TraceEvent.EventCase.MULTICAST_GROUP_LOOKUP -> " (multicast group not found)"
+            else -> ""
+          }
         appendLine("${pad(indent)}drop$suffix")
       }
       TraceTree.OutcomeCase.OUTCOME_NOT_SET,

@@ -334,15 +334,11 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     val ctx = PacketContext(PacketBits.EMPTY, firstEventId = firstEventId)
     val group = egressState.pipeline.tableStore.getMulticastGroup(multicastGroup)
     if (group == null) {
-      ctx.addTraceEvent(multicastGroupMissEvent(multicastGroup))
-      return buildDropTrace(
-        ctx.getEvents(),
-        causeId = ctx.lastEventIdWhere { it.hasMulticastGroupLookup() },
-      )
+      val causeId = ctx.addTraceEvent(multicastGroupMissEvent(multicastGroup))
+      return buildDropTrace(ctx.getEvents(), causeId = causeId)
     }
 
-    ctx.addTraceEvent(multicastGroupLookupEvent(multicastGroup, group.replicasCount))
-    val causeId = ctx.lastEventIdWhere { it.hasMulticastGroupLookup() }
+    val causeId = ctx.addTraceEvent(multicastGroupLookupEvent(multicastGroup, group.replicasCount))
     val branches =
       group.replicasList.map { replica ->
         val port = replicaPort(replica)
