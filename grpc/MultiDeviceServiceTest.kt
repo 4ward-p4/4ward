@@ -1,3 +1,7 @@
+// See comment in GoldenErrorTest.kt — `val unused = stub.X(...)` discards must-be-used gRPC
+// return values flagged by the downstream sync's `@CheckReturnValue` lint.
+@file:Suppress("UnusedPrivateProperty")
+
 package fourward.grpc
 
 import com.google.protobuf.ByteString
@@ -266,17 +270,18 @@ class MultiDeviceServiceTest {
       management.listDevices(ListDevicesRequest.getDefaultInstance()).deviceIdsList
 
     suspend fun loadPipeline(deviceId: Long, config: fourward.PipelineConfig) {
-      p4rt.setForwardingPipelineConfig(
-        SetForwardingPipelineConfigRequest.newBuilder()
-          .setDeviceId(deviceId)
-          .setAction(SetForwardingPipelineConfigRequest.Action.VERIFY_AND_COMMIT)
-          .setConfig(
-            ForwardingPipelineConfig.newBuilder()
-              .setP4Info(config.p4Info)
-              .setP4DeviceConfig(config.device.toByteString())
-          )
-          .build()
-      )
+      val unused =
+        p4rt.setForwardingPipelineConfig(
+          SetForwardingPipelineConfigRequest.newBuilder()
+            .setDeviceId(deviceId)
+            .setAction(SetForwardingPipelineConfigRequest.Action.VERIFY_AND_COMMIT)
+            .setConfig(
+              ForwardingPipelineConfig.newBuilder()
+                .setP4Info(config.p4Info)
+                .setP4DeviceConfig(config.device.toByteString())
+            )
+            .build()
+        )
     }
 
     suspend fun getConfig(deviceId: Long) =
