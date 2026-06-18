@@ -53,6 +53,8 @@ private data class ResolvedTableWrite(
   val storedEntry: TableEntry,
 )
 
+private data class ReferencedFieldValue(val fieldId: Int, val value: ByteString)
+
 private fun applyInlineDirectResources(
   rawEntry: TableEntry,
   storedEntry: TableEntry,
@@ -355,6 +357,8 @@ class TableStore : TableDataReader {
     private val tableEntriesByName: MutableMap<String, MutableList<TableEntry>> = mutableMapOf()
     private val tableEntryIndexes: MutableMap<String, MutableMap<TableEntryKey, Int>> =
       mutableMapOf()
+    private val tableFieldValueCounts: MutableMap<String, MutableMap<ReferencedFieldValue, Int>> =
+      mutableMapOf()
     internal val directMeterData: MutableMap<TableEntry, P4RuntimeOuterClass.MeterConfig> =
       mutableMapOf()
     internal val defaultActions: MutableMap<String, DefaultAction> = mutableMapOf()
@@ -403,21 +407,32 @@ class TableStore : TableDataReader {
     internal fun tableEntryAt(tableName: String, index: Int): TableEntry? =
       tableEntriesByName[tableName]?.getOrNull(index)
 
+    internal fun hasEntryWithFieldValue(
+      tableName: String,
+      fieldId: Int,
+      value: ByteString,
+    ): Boolean =
+      tableFieldValueCounts[tableName]?.containsKey(ReferencedFieldValue(fieldId, value)) ?: false
+
     internal fun setTableEntries(tableName: String, entries: List<TableEntry>) {
       tableEntriesByName[tableName] = entries.toMutableList()
       rebuildTableEntryIndex(tableName)
+      rebuildTableFieldValueIndex(tableName)
     }
 
     internal fun addTableEntry(tableName: String, entry: TableEntry) {
       val entries = tableEntriesByName.getOrPut(tableName) { mutableListOf() }
       entries.add(entry)
       tableEntryIndexes.getOrPut(tableName) { mutableMapOf() }[entry.key()] = entries.lastIndex
+      addFieldValues(tableName, entry)
     }
 
     internal fun replaceTableEntry(tableName: String, index: Int, entry: TableEntry) {
       val entries = tableEntriesByName[tableName] ?: error("unknown table '$tableName'")
       val old = entries[index]
       entries[index] = entry
+      removeFieldValues(tableName, old)
+      addFieldValues(tableName, entry)
       tableEntryIndexes
         .getOrPut(tableName) { mutableMapOf() }
         .let { indexByKey ->
@@ -429,6 +444,7 @@ class TableStore : TableDataReader {
     internal fun removeTableEntry(tableName: String, index: Int): TableEntry {
       val entries = tableEntriesByName[tableName] ?: error("unknown table '$tableName'")
       val removed = entries.removeAt(index)
+      removeFieldValues(tableName, removed)
       rebuildTableEntryIndex(tableName)
       return removed
     }
@@ -438,6 +454,45 @@ class TableStore : TableDataReader {
       tableEntryIndexes[tableName] =
         entries.withIndex().associateTo(mutableMapOf()) { (index, entry) -> entry.key() to index }
     }
+
+    private fun rebuildTableFieldValueIndex(tableName: String) {
+      tableFieldValueCounts.remove(tableName)
+      tableEntriesByName[tableName]?.forEach { addFieldValues(tableName, it) }
+    }
+
+    private fun addFieldValues(tableName: String, entry: TableEntry) {
+      val counts = tableFieldValueCounts.getOrPut(tableName) { mutableMapOf() }
+      for (fieldValue in referencedFieldValues(entry)) {
+        counts.merge(fieldValue, 1, Int::plus)
+      }
+    }
+
+    private fun removeFieldValues(tableName: String, entry: TableEntry) {
+      val counts = tableFieldValueCounts[tableName] ?: return
+      for (fieldValue in referencedFieldValues(entry)) {
+        val remaining = (counts[fieldValue] ?: error("missing field-value index entry")) - 1
+        if (remaining == 0) counts.remove(fieldValue) else counts[fieldValue] = remaining
+      }
+      if (counts.isEmpty()) tableFieldValueCounts.remove(tableName)
+    }
+
+    private fun referencedFieldValues(entry: TableEntry): Sequence<ReferencedFieldValue> =
+      entry.matchList.asSequence().mapNotNull { match ->
+        when (match.fieldMatchTypeCase) {
+          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT ->
+            ReferencedFieldValue(match.fieldId, match.exact.value)
+          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL ->
+            ReferencedFieldValue(match.fieldId, match.optional.value)
+          // @refers_to applies only to point values; range-like match types cannot be used as
+          // reference targets, so they don't participate in the field-value index.
+          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY,
+          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM,
+          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE,
+          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
+          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
+          null -> null
+        }
+      }
 
     /** Creates a structural copy. Protobuf entries are shared; only containers are copied. */
     fun deepCopy(): ForwardingSnapshot =
@@ -2072,21 +2127,7 @@ class TableStore : TableDataReader {
    */
   fun hasEntryWithFieldValue(tableId: Int, fieldId: Int, value: ByteString): Boolean {
     val tableName = tableNameById[tableId] ?: return false
-    return writeState.tableEntries(tableName).any { entry ->
-      entry.matchList.any { fm ->
-        fm.fieldId == fieldId &&
-          when (fm.fieldMatchTypeCase) {
-            P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT -> fm.exact.value == value
-            P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -> fm.optional.value == value
-            P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY,
-            P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM,
-            P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE,
-            P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-            P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
-            null -> false
-          }
-      }
-    }
+    return writeState.hasEntryWithFieldValue(tableName, fieldId, value)
   }
 
   // -------------------------------------------------------------------------

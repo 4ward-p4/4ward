@@ -27,11 +27,16 @@ import p4.v1.P4RuntimeOuterClass.WriteRequest
  *
  * The benchmark loads SAI middleblock on every device. `entriesPerDevice` installs that many IPv6
  * route entries per device, plus the four prerequisite SAI objects needed by `@refers_to`.
+ *
+ * Use `-Dfourward.multidevice.mode=refersTo` to stress `@refers_to` validation directly. Each
+ * logical route gets distinct VRF, router-interface, neighbor, nexthop, and IPv6-route entries,
+ * covering match-field references and action parameters with multiple references.
  */
 @Suppress("FunctionNaming", "MagicNumber")
 class MultiDeviceScaleBenchmark {
   @Test
   fun `multi-device scale benchmark`() = runBlocking {
+    val mode = benchmarkMode()
     val deviceCount = intProperty("fourward.multidevice.devices", default = 100)
     val entriesPerDevice = intProperty("fourward.multidevice.entriesPerDevice", default = 0)
     val writeBatchSize = intProperty("fourward.multidevice.writeBatchSize", default = 1_000)
@@ -39,6 +44,11 @@ class MultiDeviceScaleBenchmark {
     require(entriesPerDevice >= 0) { "fourward.multidevice.entriesPerDevice must be non-negative" }
     require(entriesPerDevice <= MAX_IPV6_ROUTES_PER_DEVICE) {
       "entriesPerDevice must be <= $MAX_IPV6_ROUTES_PER_DEVICE for unique IPv6 /128 routes"
+    }
+    require(
+      mode != BenchmarkMode.REFERS_TO || entriesPerDevice <= MAX_REFERS_TO_CHAINS_PER_DEVICE
+    ) {
+      "entriesPerDevice must be <= $MAX_REFERS_TO_CHAINS_PER_DEVICE in refersTo mode"
     }
     require(writeBatchSize > 0) { "fourward.multidevice.writeBatchSize must be positive" }
 
@@ -64,7 +74,8 @@ class MultiDeviceScaleBenchmark {
           .setP4Info(config.p4Info)
           .setP4DeviceConfig(config.device.toByteString())
           .build()
-      val entryBatches = saiEntries(config, entriesPerDevice).chunked(writeBatchSize)
+      val entryPlan = saiEntries(config, entriesPerDevice, mode)
+      val entryBatches = entryPlan.entities.chunked(writeBatchSize)
 
       val populateMs = elapsedMillis {
         for (deviceId in 1L..deviceCount.toLong()) {
@@ -85,8 +96,10 @@ class MultiDeviceScaleBenchmark {
       println()
       println("Multi-device scale benchmark")
       println("pipeline: sai_middleblock")
+      println("mode: ${mode.propertyValue}")
       println("devices: $deviceCount")
       println("ipv6_routes/device: $entriesPerDevice")
+      println("referenced_objects/device: ${entryPlan.referencedObjectCount}")
       println("total_table_entries/device: ${entryBatches.sumOf { it.size }}")
       println("create_ms: $createMs")
       println("populate_ms: $populateMs")
@@ -112,6 +125,15 @@ class MultiDeviceScaleBenchmark {
   private fun intProperty(name: String, default: Int): Int =
     System.getProperty(name)?.toIntOrNull() ?: default
 
+  private fun benchmarkMode(): BenchmarkMode {
+    val value = System.getProperty("fourward.multidevice.mode", BenchmarkMode.ROUTES.propertyValue)
+    return BenchmarkMode.entries.find { it.propertyValue == value }
+      ?: error(
+        "fourward.multidevice.mode must be one of " +
+          BenchmarkMode.entries.joinToString(", ") { it.propertyValue }
+      )
+  }
+
   private suspend fun elapsedMillis(block: suspend () -> Unit): Long {
     val start = System.nanoTime()
     block()
@@ -129,32 +151,84 @@ class MultiDeviceScaleBenchmark {
 
   private fun bytesToMiB(bytes: Long): Long = bytes / (1024 * 1024)
 
-  private fun saiEntries(config: PipelineConfig, routeCount: Int): List<Entity> {
-    if (routeCount == 0) return emptyList()
-    return buildList {
-      add(buildVrfEntry(config))
+  private fun saiEntries(config: PipelineConfig, routeCount: Int, mode: BenchmarkMode): EntryPlan =
+    when (mode) {
+      BenchmarkMode.ROUTES -> saiRouteEntries(config, routeCount)
+      BenchmarkMode.REFERS_TO -> saiRefersToEntries(config, routeCount)
+    }
+
+  private fun saiRouteEntries(config: PipelineConfig, routeCount: Int): EntryPlan {
+    if (routeCount == 0) return EntryPlan(emptyList(), referencedObjectCount = 0)
+    val entities = buildList {
+      add(buildVrfEntry(config, VRF_ID))
       add(buildRouterInterfaceEntry(config))
       add(buildNeighborEntry(config))
       add(buildNexthopEntry(config))
       for (index in 0 until routeCount) {
-        add(buildIpv6RouteEntry(config, index))
+        add(buildIpv6RouteEntry(config, index, VRF_ID))
       }
     }
+    return EntryPlan(entities, referencedObjectCount = 4)
   }
 
-  private fun buildVrfEntry(config: PipelineConfig): Entity {
+  private fun saiRefersToEntries(config: PipelineConfig, routeCount: Int): EntryPlan {
+    if (routeCount == 0) return EntryPlan(emptyList(), referencedObjectCount = 0)
+    val vrfCount = minOf(routeCount, SAI_VRF_TABLE_SIZE)
+    val entities = buildList {
+      for (index in 0 until routeCount) {
+        add(buildRouterInterfaceEntry(config, benchmarkRouterInterfaceId(index)))
+      }
+      for (index in 0 until routeCount) {
+        add(
+          buildNeighborEntry(config, benchmarkRouterInterfaceId(index), benchmarkNeighborId(index))
+        )
+      }
+      for (index in 0 until routeCount) {
+        add(
+          buildNexthopEntry(
+            config,
+            benchmarkNexthopId(index),
+            benchmarkRouterInterfaceId(index),
+            benchmarkNeighborId(index),
+          )
+        )
+      }
+      for (index in 0 until vrfCount) {
+        add(buildVrfEntry(config, benchmarkVrfId(index)))
+      }
+      for (index in 0 until routeCount) {
+        add(
+          buildIpv6RouteEntry(
+            config,
+            index,
+            benchmarkVrfId(index % vrfCount),
+            benchmarkNexthopId(index),
+          )
+        )
+      }
+    }
+    return EntryPlan(
+      entities,
+      referencedObjectCount = routeCount * REFERENCED_OBJECTS_PER_CHAIN + vrfCount,
+    )
+  }
+
+  private fun buildVrfEntry(config: PipelineConfig, vrfId: String): Entity {
     val table = findTable(config, "vrf_table")
     val action = findAction(config, "no_action")
-    return buildEntry(table, action, matches = listOf(exactMatch(table, "vrf_id", VRF_ID)))
+    return buildEntry(table, action, matches = listOf(exactMatch(table, "vrf_id", vrfId)))
   }
 
-  private fun buildRouterInterfaceEntry(config: PipelineConfig): Entity {
+  private fun buildRouterInterfaceEntry(
+    config: PipelineConfig,
+    routerInterfaceId: String = ROUTER_INTERFACE_ID,
+  ): Entity {
     val table = findTable(config, "router_interface_table")
     val action = findAction(config, "set_port_and_src_mac")
     return buildEntry(
       table,
       action,
-      matches = listOf(exactMatch(table, "router_interface_id", ROUTER_INTERFACE_ID)),
+      matches = listOf(exactMatch(table, "router_interface_id", routerInterfaceId)),
       params =
         listOf(
           stringParam(action, "port", PORT_ID),
@@ -163,7 +237,11 @@ class MultiDeviceScaleBenchmark {
     )
   }
 
-  private fun buildNeighborEntry(config: PipelineConfig): Entity {
+  private fun buildNeighborEntry(
+    config: PipelineConfig,
+    routerInterfaceId: String = ROUTER_INTERFACE_ID,
+    neighborId: ByteArray = NEIGHBOR_ID,
+  ): Entity {
     val table = findTable(config, "neighbor_table")
     val action = findAction(config, "set_dst_mac")
     return buildEntry(
@@ -171,8 +249,8 @@ class MultiDeviceScaleBenchmark {
       action,
       matches =
         listOf(
-          exactMatch(table, "router_interface_id", ROUTER_INTERFACE_ID),
-          exactMatch(table, "neighbor_id", NEIGHBOR_ID),
+          exactMatch(table, "router_interface_id", routerInterfaceId),
+          exactMatch(table, "neighbor_id", neighborId),
         ),
       params =
         listOf(
@@ -192,22 +270,32 @@ class MultiDeviceScaleBenchmark {
     )
   }
 
-  private fun buildNexthopEntry(config: PipelineConfig): Entity {
+  private fun buildNexthopEntry(
+    config: PipelineConfig,
+    nexthopId: String = NEXTHOP_ID,
+    routerInterfaceId: String = ROUTER_INTERFACE_ID,
+    neighborId: ByteArray = NEIGHBOR_ID,
+  ): Entity {
     val table = findTable(config, "nexthop_table")
     val action = findAction(config, "set_ip_nexthop")
     return buildEntry(
       table,
       action,
-      matches = listOf(exactMatch(table, "nexthop_id", NEXTHOP_ID)),
+      matches = listOf(exactMatch(table, "nexthop_id", nexthopId)),
       params =
         listOf(
-          stringParam(action, "router_interface_id", ROUTER_INTERFACE_ID),
-          bytesParam(action, "neighbor_id", NEIGHBOR_ID),
+          stringParam(action, "router_interface_id", routerInterfaceId),
+          bytesParam(action, "neighbor_id", neighborId),
         ),
     )
   }
 
-  private fun buildIpv6RouteEntry(config: PipelineConfig, index: Int): Entity {
+  private fun buildIpv6RouteEntry(
+    config: PipelineConfig,
+    index: Int,
+    vrfId: String,
+    nexthopId: String = NEXTHOP_ID,
+  ): Entity {
     val table = findTable(config, "ipv6_table")
     val action = findAction(config, "set_nexthop_id")
     return buildEntry(
@@ -215,10 +303,10 @@ class MultiDeviceScaleBenchmark {
       action,
       matches =
         listOf(
-          exactMatch(table, "vrf_id", VRF_ID),
+          exactMatch(table, "vrf_id", vrfId),
           lpmMatch(table, "ipv6_dst", ipv6Address(index), prefixLen = 128),
         ),
-      params = listOf(stringParam(action, "nexthop_id", NEXTHOP_ID)),
+      params = listOf(stringParam(action, "nexthop_id", nexthopId)),
     )
   }
 
@@ -329,8 +417,29 @@ class MultiDeviceScaleBenchmark {
       (index and 0xFF).toByte(),
     )
 
+  private fun benchmarkVrfId(index: Int): String = "benchmark-vrf-$index"
+
+  private fun benchmarkRouterInterfaceId(index: Int): String = "benchmark-rif-$index"
+
+  private fun benchmarkNexthopId(index: Int): String = "benchmark-nhop-$index"
+
+  private fun benchmarkNeighborId(index: Int): ByteArray =
+    ByteArray(16) { byteIndex ->
+      if (byteIndex >= 12) (index ushr ((15 - byteIndex) * 8)).toByte() else 0
+    }
+
+  private enum class BenchmarkMode(val propertyValue: String) {
+    ROUTES("routes"),
+    REFERS_TO("refersTo"),
+  }
+
+  private data class EntryPlan(val entities: List<Entity>, val referencedObjectCount: Int)
+
   companion object {
     private const val MAX_IPV6_ROUTES_PER_DEVICE = 1 shl 24
+    private const val REFERENCED_OBJECTS_PER_CHAIN = 3
+    private const val MAX_REFERS_TO_CHAINS_PER_DEVICE = 4_096
+    private const val SAI_VRF_TABLE_SIZE = 64
     private const val VRF_ID = "benchmark-vrf"
     private const val ROUTER_INTERFACE_ID = "benchmark-rif"
     private const val NEXTHOP_ID = "benchmark-nhop"
