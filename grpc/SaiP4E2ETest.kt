@@ -10,11 +10,13 @@ import fourward.TypeTranslation
 import io.grpc.Status
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -652,7 +654,7 @@ class SaiP4E2ETest {
           assertBytesEqual("dst_ip", DST_IP, actualPayload, DST_IP_OFFSET)
         }
       } finally {
-        job.cancelAndJoin()
+        withContext(NonCancellable) { job.cancelAndJoin() }
       }
     }
 
