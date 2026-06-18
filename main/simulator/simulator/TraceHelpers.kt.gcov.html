@@ -31,18 +31,18 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">97.9&nbsp;%</td>
-            <td class="headerCovTableEntry">47</td>
-            <td class="headerCovTableEntry">46</td>
+            <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
+            <td class="headerCovTableEntry">64</td>
+            <td class="headerCovTableEntry">64</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-17 08:27:19</td>
+            <td class="headerValue">2026-06-18 06:18:00</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
-            <td class="headerCovTableEntry">11</td>
-            <td class="headerCovTableEntry">11</td>
+            <td class="headerCovTableEntry">15</td>
+            <td class="headerCovTableEntry">15</td>
           </tr>
                   <tr><td><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
                 </table>
@@ -62,120 +62,154 @@
 <pre class="source">
 <span id="L1"><span class="lineNum">       1</span>              : package fourward.simulator</span>
 <span id="L2"><span class="lineNum">       2</span>              : </span>
-<span id="L3"><span class="lineNum">       3</span>              : import fourward.Drop</span>
-<span id="L4"><span class="lineNum">       4</span>              : import fourward.DropReason</span>
-<span id="L5"><span class="lineNum">       5</span>              : import fourward.Fork</span>
-<span id="L6"><span class="lineNum">       6</span>              : import fourward.ForkBranch</span>
-<span id="L7"><span class="lineNum">       7</span>              : import fourward.ForkReason</span>
-<span id="L8"><span class="lineNum">       8</span>              : import fourward.MulticastGroupLookupEvent</span>
-<span id="L9"><span class="lineNum">       9</span>              : import fourward.PacketIngressEvent</span>
-<span id="L10"><span class="lineNum">      10</span>              : import fourward.PacketOutcome</span>
-<span id="L11"><span class="lineNum">      11</span>              : import fourward.PipelineStage</span>
-<span id="L12"><span class="lineNum">      12</span>              : import fourward.PipelineStageEvent</span>
-<span id="L13"><span class="lineNum">      13</span>              : import fourward.TraceEvent</span>
-<span id="L14"><span class="lineNum">      14</span>              : import fourward.TraceTree</span>
-<span id="L15"><span class="lineNum">      15</span>              : </span>
-<span id="L16"><span class="lineNum">      16</span>              : /**</span>
-<span id="L17"><span class="lineNum">      17</span>              :  * Whether a fork's branches all happen (parallel) or only one happens (alternative).</span>
-<span id="L18"><span class="lineNum">      18</span>              :  * - **Parallel** (clone, multicast, resubmit, recirculate): all branches execute simultaneously.</span>
-<span id="L19"><span class="lineNum">      19</span>              :  *   Output packets are the union of all branch outputs.</span>
-<span id="L20"><span class="lineNum">      20</span>              :  * - **Alternative** (action selector): exactly one branch executes at runtime. Each branch is a</span>
-<span id="L21"><span class="lineNum">      21</span>              :  *   &quot;possible world&quot; — a distinct possible outcome set.</span>
-<span id="L22"><span class="lineNum">      22</span>              :  */</span>
-<span id="L23"><span class="lineNum">      23</span>              : enum class ForkMode {</span>
-<span id="L24"><span class="lineNum">      24</span> <span class="tlaGNC tlaBgGNC">           1 :   PARALLEL,</span></span>
-<span id="L25"><span class="lineNum">      25</span> <span class="tlaGNC">           1 :   ALTERNATIVE,</span></span>
-<span id="L26"><span class="lineNum">      26</span>              : }</span>
-<span id="L27"><span class="lineNum">      27</span>              : </span>
-<span id="L28"><span class="lineNum">      28</span>              : /**</span>
-<span id="L29"><span class="lineNum">      29</span>              :  * Maps a [ForkReason] to its [ForkMode].</span>
-<span id="L30"><span class="lineNum">      30</span>              :  *</span>
-<span id="L31"><span class="lineNum">      31</span>              :  * Exhaustive — adding a new [ForkReason] without updating this function is a compile error.</span>
-<span id="L32"><span class="lineNum">      32</span>              :  */</span>
-<span id="L33"><span class="lineNum">      33</span>              : fun forkModeOf(reason: ForkReason): ForkMode =</span>
-<span id="L34"><span class="lineNum">      34</span> <span class="tlaGNC">           1 :   when (reason) {</span></span>
-<span id="L35"><span class="lineNum">      35</span> <span class="tlaGNC">           1 :     ForkReason.ACTION_SELECTOR -&gt; ForkMode.ALTERNATIVE</span></span>
-<span id="L36"><span class="lineNum">      36</span>              :     ForkReason.CLONE,</span>
-<span id="L37"><span class="lineNum">      37</span>              :     ForkReason.MULTICAST,</span>
-<span id="L38"><span class="lineNum">      38</span>              :     ForkReason.RESUBMIT,</span>
-<span id="L39"><span class="lineNum">      39</span> <span class="tlaGNC">           1 :     ForkReason.RECIRCULATE -&gt; ForkMode.PARALLEL</span></span>
-<span id="L40"><span class="lineNum">      40</span>              :     ForkReason.FORK_REASON_UNSPECIFIED,</span>
-<span id="L41"><span class="lineNum">      41</span> <span class="tlaUNC tlaBgUNC">           0 :     ForkReason.UNRECOGNIZED -&gt; error(&quot;unexpected fork reason: $reason&quot;)</span></span>
-<span id="L42"><span class="lineNum">      42</span> <span class="tlaGNC tlaBgGNC">           1 :   }</span></span>
-<span id="L43"><span class="lineNum">      43</span>              : </span>
-<span id="L44"><span class="lineNum">      44</span>              : /** Builds a [TraceTree] representing a dropped packet with the given trace events and reason. */</span>
-<span id="L45"><span class="lineNum">      45</span> <span class="tlaGNC">           1 : internal fun buildDropTrace(</span></span>
-<span id="L46"><span class="lineNum">      46</span>              :   events: List&lt;TraceEvent&gt;,</span>
-<span id="L47"><span class="lineNum">      47</span> <span class="tlaGNC">           1 :   reason: DropReason = DropReason.MARK_TO_DROP,</span></span>
-<span id="L48"><span class="lineNum">      48</span>              : ): TraceTree {</span>
-<span id="L49"><span class="lineNum">      49</span> <span class="tlaGNC">           1 :   val outcome = PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(reason)).build()</span></span>
-<span id="L50"><span class="lineNum">      50</span> <span class="tlaGNC">           1 :   return TraceTree.newBuilder().addAllEvents(events).setPacketOutcome(outcome).build()</span></span>
-<span id="L51"><span class="lineNum">      51</span>              : }</span>
-<span id="L52"><span class="lineNum">      52</span>              : </span>
-<span id="L53"><span class="lineNum">      53</span>              : /** Builds a [TraceTree] representing a packet output on the given port. */</span>
-<span id="L54"><span class="lineNum">      54</span>              : internal fun buildOutputTrace(events: List&lt;TraceEvent&gt;, port: Int, payload: ByteArray): TraceTree {</span>
-<span id="L55"><span class="lineNum">      55</span> <span class="tlaGNC">           1 :   val output =</span></span>
-<span id="L56"><span class="lineNum">      56</span> <span class="tlaGNC">           1 :     fourward.OutputPacket.newBuilder()</span></span>
-<span id="L57"><span class="lineNum">      57</span> <span class="tlaGNC">           1 :       .setDataplaneEgressPort(port)</span></span>
-<span id="L58"><span class="lineNum">      58</span> <span class="tlaGNC">           1 :       .setPayload(com.google.protobuf.ByteString.copyFrom(payload))</span></span>
-<span id="L59"><span class="lineNum">      59</span> <span class="tlaGNC">           1 :       .build()</span></span>
-<span id="L60"><span class="lineNum">      60</span> <span class="tlaGNC">           1 :   val outcome = PacketOutcome.newBuilder().setOutput(output).build()</span></span>
-<span id="L61"><span class="lineNum">      61</span> <span class="tlaGNC">           1 :   return TraceTree.newBuilder().addAllEvents(events).setPacketOutcome(outcome).build()</span></span>
-<span id="L62"><span class="lineNum">      62</span>              : }</span>
-<span id="L63"><span class="lineNum">      63</span>              : </span>
-<span id="L64"><span class="lineNum">      64</span>              : /** Creates a [TraceEvent] recording the packet's ingress port. */</span>
-<span id="L65"><span class="lineNum">      65</span>              : internal fun packetIngressEvent(ingressPort: DataplanePort): TraceEvent =</span>
-<span id="L66"><span class="lineNum">      66</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
-<span id="L67"><span class="lineNum">      67</span> <span class="tlaGNC">           1 :     .setPacketIngress(</span></span>
-<span id="L68"><span class="lineNum">      68</span> <span class="tlaGNC">           1 :       PacketIngressEvent.newBuilder().setDataplaneIngressPort(ingressPort.protoValue)</span></span>
-<span id="L69"><span class="lineNum">      69</span>              :     )</span>
-<span id="L70"><span class="lineNum">      70</span> <span class="tlaGNC">           1 :     .build()</span></span>
-<span id="L71"><span class="lineNum">      71</span>              : </span>
-<span id="L72"><span class="lineNum">      72</span>              : /** Creates a [TraceEvent] marking the entry/exit of a pipeline stage. */</span>
-<span id="L73"><span class="lineNum">      73</span> <span class="tlaGNC">           1 : internal fun stageEvent(</span></span>
-<span id="L74"><span class="lineNum">      74</span>              :   stage: PipelineStage,</span>
-<span id="L75"><span class="lineNum">      75</span>              :   direction: PipelineStageEvent.Direction,</span>
-<span id="L76"><span class="lineNum">      76</span> <span class="tlaGNC">           1 :   dataplanePort: Int? = null,</span></span>
-<span id="L77"><span class="lineNum">      77</span>              : ): TraceEvent =</span>
-<span id="L78"><span class="lineNum">      78</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
-<span id="L79"><span class="lineNum">      79</span> <span class="tlaGNC">           1 :     .setPipelineStage(</span></span>
-<span id="L80"><span class="lineNum">      80</span> <span class="tlaGNC">           1 :       PipelineStageEvent.newBuilder()</span></span>
-<span id="L81"><span class="lineNum">      81</span> <span class="tlaGNC">           1 :         .setStageName(stage.name)</span></span>
-<span id="L82"><span class="lineNum">      82</span> <span class="tlaGNC">           1 :         .setStageKind(stage.kind)</span></span>
-<span id="L83"><span class="lineNum">      83</span> <span class="tlaGNC">           1 :         .setDirection(direction)</span></span>
-<span id="L84"><span class="lineNum">      84</span> <span class="tlaGNC">           1 :         .apply { if (dataplanePort != null) setDataplanePort(dataplanePort) }</span></span>
-<span id="L85"><span class="lineNum">      85</span>              :     )</span>
-<span id="L86"><span class="lineNum">      86</span> <span class="tlaGNC">           1 :     .build()</span></span>
-<span id="L87"><span class="lineNum">      87</span>              : </span>
-<span id="L88"><span class="lineNum">      88</span>              : /** Creates a [TraceEvent] recording a successful multicast group lookup. */</span>
-<span id="L89"><span class="lineNum">      89</span>              : internal fun multicastGroupLookupEvent(groupId: Int, replicaCount: Int): TraceEvent =</span>
-<span id="L90"><span class="lineNum">      90</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
-<span id="L91"><span class="lineNum">      91</span> <span class="tlaGNC">           1 :     .setMulticastGroupLookup(</span></span>
-<span id="L92"><span class="lineNum">      92</span> <span class="tlaGNC">           1 :       MulticastGroupLookupEvent.newBuilder()</span></span>
-<span id="L93"><span class="lineNum">      93</span> <span class="tlaGNC">           1 :         .setMulticastGroupId(groupId)</span></span>
-<span id="L94"><span class="lineNum">      94</span> <span class="tlaGNC">           1 :         .setGroupFound(true)</span></span>
-<span id="L95"><span class="lineNum">      95</span> <span class="tlaGNC">           1 :         .setReplicaCount(replicaCount)</span></span>
-<span id="L96"><span class="lineNum">      96</span>              :     )</span>
-<span id="L97"><span class="lineNum">      97</span> <span class="tlaGNC">           1 :     .build()</span></span>
-<span id="L98"><span class="lineNum">      98</span>              : </span>
-<span id="L99"><span class="lineNum">      99</span>              : /** Creates a [TraceEvent] recording a failed multicast group lookup. */</span>
-<span id="L100"><span class="lineNum">     100</span>              : internal fun multicastGroupMissEvent(groupId: Int): TraceEvent =</span>
-<span id="L101"><span class="lineNum">     101</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
-<span id="L102"><span class="lineNum">     102</span> <span class="tlaGNC">           1 :     .setMulticastGroupLookup(</span></span>
-<span id="L103"><span class="lineNum">     103</span> <span class="tlaGNC">           1 :       MulticastGroupLookupEvent.newBuilder().setMulticastGroupId(groupId).setGroupFound(false)</span></span>
-<span id="L104"><span class="lineNum">     104</span>              :     )</span>
-<span id="L105"><span class="lineNum">     105</span> <span class="tlaGNC">           1 :     .build()</span></span>
-<span id="L106"><span class="lineNum">     106</span>              : </span>
-<span id="L107"><span class="lineNum">     107</span>              : /** Builds a [TraceTree] with a fork outcome from accumulated events and branches. */</span>
-<span id="L108"><span class="lineNum">     108</span>              : internal fun buildForkTree(</span>
-<span id="L109"><span class="lineNum">     109</span>              :   events: List&lt;TraceEvent&gt;,</span>
-<span id="L110"><span class="lineNum">     110</span>              :   reason: ForkReason,</span>
-<span id="L111"><span class="lineNum">     111</span>              :   branches: List&lt;ForkBranch&gt;,</span>
-<span id="L112"><span class="lineNum">     112</span>              : ): TraceTree =</span>
-<span id="L113"><span class="lineNum">     113</span> <span class="tlaGNC">           1 :   TraceTree.newBuilder()</span></span>
-<span id="L114"><span class="lineNum">     114</span> <span class="tlaGNC">           1 :     .addAllEvents(events)</span></span>
-<span id="L115"><span class="lineNum">     115</span> <span class="tlaGNC">           1 :     .setForkOutcome(Fork.newBuilder().setReason(reason).addAllBranches(branches))</span></span>
-<span id="L116"><span class="lineNum">     116</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L3"><span class="lineNum">       3</span>              : import fourward.Choice</span>
+<span id="L4"><span class="lineNum">       4</span>              : import fourward.Continuation</span>
+<span id="L5"><span class="lineNum">       5</span>              : import fourward.Drop</span>
+<span id="L6"><span class="lineNum">       6</span>              : import fourward.MulticastGroupLookupEvent</span>
+<span id="L7"><span class="lineNum">       7</span>              : import fourward.OutputPacket</span>
+<span id="L8"><span class="lineNum">       8</span>              : import fourward.PacketIngressEvent</span>
+<span id="L9"><span class="lineNum">       9</span>              : import fourward.PipelineStage</span>
+<span id="L10"><span class="lineNum">      10</span>              : import fourward.PipelineStageEvent</span>
+<span id="L11"><span class="lineNum">      11</span>              : import fourward.Replication</span>
+<span id="L12"><span class="lineNum">      12</span>              : import fourward.TraceEvent</span>
+<span id="L13"><span class="lineNum">      13</span>              : import fourward.TraceTree</span>
+<span id="L14"><span class="lineNum">      14</span>              : </span>
+<span id="L15"><span class="lineNum">      15</span>              : /** Builds a [TraceTree] representing a dropped packet with the given trace events. */</span>
+<span id="L16"><span class="lineNum">      16</span> <span class="tlaGNC tlaBgGNC">           1 : internal fun buildDropTrace(events: List&lt;TraceEvent&gt;, causeId: Long? = null): TraceTree {</span></span>
+<span id="L17"><span class="lineNum">      17</span> <span class="tlaGNC">           1 :   val drop = Drop.newBuilder().also { if (causeId != null) it.setCause(causeId) }.build()</span></span>
+<span id="L18"><span class="lineNum">      18</span> <span class="tlaGNC">           1 :   return TraceTree.newBuilder().addAllEvents(events).setDrop(drop).build()</span></span>
+<span id="L19"><span class="lineNum">      19</span>              : }</span>
+<span id="L20"><span class="lineNum">      20</span>              : </span>
+<span id="L21"><span class="lineNum">      21</span>              : /** Builds a [TraceTree] representing a packet output on the given port. */</span>
+<span id="L22"><span class="lineNum">      22</span>              : internal fun buildOutputTrace(events: List&lt;TraceEvent&gt;, port: Int, payload: ByteArray): TraceTree {</span>
+<span id="L23"><span class="lineNum">      23</span> <span class="tlaGNC">           1 :   val output =</span></span>
+<span id="L24"><span class="lineNum">      24</span> <span class="tlaGNC">           1 :     OutputPacket.newBuilder()</span></span>
+<span id="L25"><span class="lineNum">      25</span> <span class="tlaGNC">           1 :       .setDataplaneEgressPort(port)</span></span>
+<span id="L26"><span class="lineNum">      26</span> <span class="tlaGNC">           1 :       .setPayload(com.google.protobuf.ByteString.copyFrom(payload))</span></span>
+<span id="L27"><span class="lineNum">      27</span> <span class="tlaGNC">           1 :       .build()</span></span>
+<span id="L28"><span class="lineNum">      28</span> <span class="tlaGNC">           1 :   return TraceTree.newBuilder().addAllEvents(events).setOutput(output).build()</span></span>
+<span id="L29"><span class="lineNum">      29</span>              : }</span>
+<span id="L30"><span class="lineNum">      30</span>              : </span>
+<span id="L31"><span class="lineNum">      31</span>              : /**</span>
+<span id="L32"><span class="lineNum">      32</span>              :  * Builds a [TraceTree] where all branches execute simultaneously (clone, multicast). [cause] is the</span>
+<span id="L33"><span class="lineNum">      33</span>              :  * id of the CloneSessionLookupEvent or MulticastGroupLookupEvent that triggered the replication, or</span>
+<span id="L34"><span class="lineNum">      34</span>              :  * null when there is no triggering event (e.g. PNA mirror_packet).</span>
+<span id="L35"><span class="lineNum">      35</span>              :  */</span>
+<span id="L36"><span class="lineNum">      36</span> <span class="tlaGNC">           1 : internal fun buildReplicationTree(</span></span>
+<span id="L37"><span class="lineNum">      37</span>              :   events: List&lt;TraceEvent&gt;,</span>
+<span id="L38"><span class="lineNum">      38</span>              :   branches: List&lt;TraceTree&gt;,</span>
+<span id="L39"><span class="lineNum">      39</span> <span class="tlaGNC">           1 :   cause: Long? = null,</span></span>
+<span id="L40"><span class="lineNum">      40</span>              : ): TraceTree =</span>
+<span id="L41"><span class="lineNum">      41</span> <span class="tlaGNC">           1 :   TraceTree.newBuilder()</span></span>
+<span id="L42"><span class="lineNum">      42</span> <span class="tlaGNC">           1 :     .addAllEvents(events)</span></span>
+<span id="L43"><span class="lineNum">      43</span> <span class="tlaGNC">           1 :     .setReplication(</span></span>
+<span id="L44"><span class="lineNum">      44</span> <span class="tlaGNC">           1 :       Replication.newBuilder()</span></span>
+<span id="L45"><span class="lineNum">      45</span> <span class="tlaGNC">           1 :         .also { if (cause != null) it.setCause(cause) }</span></span>
+<span id="L46"><span class="lineNum">      46</span> <span class="tlaGNC">           1 :         .addAllBranches(branches)</span></span>
+<span id="L47"><span class="lineNum">      47</span>              :     )</span>
+<span id="L48"><span class="lineNum">      48</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L49"><span class="lineNum">      49</span>              : </span>
+<span id="L50"><span class="lineNum">      50</span>              : /**</span>
+<span id="L51"><span class="lineNum">      51</span>              :  * Builds a [TraceTree] where exactly one branch executes at runtime (action selector). [cause] is</span>
+<span id="L52"><span class="lineNum">      52</span>              :  * the id of the TableLookupEvent for the selector table.</span>
+<span id="L53"><span class="lineNum">      53</span>              :  */</span>
+<span id="L54"><span class="lineNum">      54</span>              : internal fun buildChoiceTree(</span>
+<span id="L55"><span class="lineNum">      55</span>              :   events: List&lt;TraceEvent&gt;,</span>
+<span id="L56"><span class="lineNum">      56</span>              :   cause: Long?,</span>
+<span id="L57"><span class="lineNum">      57</span>              :   branches: List&lt;TraceTree&gt;,</span>
+<span id="L58"><span class="lineNum">      58</span>              : ): TraceTree =</span>
+<span id="L59"><span class="lineNum">      59</span> <span class="tlaGNC">           1 :   TraceTree.newBuilder()</span></span>
+<span id="L60"><span class="lineNum">      60</span> <span class="tlaGNC">           1 :     .addAllEvents(events)</span></span>
+<span id="L61"><span class="lineNum">      61</span> <span class="tlaGNC">           1 :     .setChoice(</span></span>
+<span id="L62"><span class="lineNum">      62</span> <span class="tlaGNC">           1 :       Choice.newBuilder().also { if (cause != null) it.setCause(cause) }.addAllBranches(branches)</span></span>
+<span id="L63"><span class="lineNum">      63</span>              :     )</span>
+<span id="L64"><span class="lineNum">      64</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L65"><span class="lineNum">      65</span>              : </span>
+<span id="L66"><span class="lineNum">      66</span>              : /**</span>
+<span id="L67"><span class="lineNum">      67</span>              :  * Builds a [TraceTree] where the same packet continues as another pass. Used for resubmit and</span>
+<span id="L68"><span class="lineNum">      68</span>              :  * recirculate. [kind] must be RESUBMIT or RECIRCULATE.</span>
+<span id="L69"><span class="lineNum">      69</span>              :  */</span>
+<span id="L70"><span class="lineNum">      70</span> <span class="tlaGNC">           1 : internal fun buildContinuationTree(</span></span>
+<span id="L71"><span class="lineNum">      71</span>              :   events: List&lt;TraceEvent&gt;,</span>
+<span id="L72"><span class="lineNum">      72</span>              :   kind: Continuation.Kind,</span>
+<span id="L73"><span class="lineNum">      73</span> <span class="tlaGNC">           1 :   preservedFields: Map&lt;String, String&gt; = emptyMap(),</span></span>
+<span id="L74"><span class="lineNum">      74</span>              :   next: TraceTree,</span>
+<span id="L75"><span class="lineNum">      75</span>              : ): TraceTree =</span>
+<span id="L76"><span class="lineNum">      76</span> <span class="tlaGNC">           1 :   TraceTree.newBuilder()</span></span>
+<span id="L77"><span class="lineNum">      77</span> <span class="tlaGNC">           1 :     .addAllEvents(events)</span></span>
+<span id="L78"><span class="lineNum">      78</span> <span class="tlaGNC">           1 :     .setContinuation(</span></span>
+<span id="L79"><span class="lineNum">      79</span> <span class="tlaGNC">           1 :       Continuation.newBuilder().setKind(kind).putAllPreservedFields(preservedFields).setNext(next)</span></span>
+<span id="L80"><span class="lineNum">      80</span>              :     )</span>
+<span id="L81"><span class="lineNum">      81</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L82"><span class="lineNum">      82</span>              : </span>
+<span id="L83"><span class="lineNum">      83</span>              : /**</span>
+<span id="L84"><span class="lineNum">      84</span>              :  * Returns a copy of [tree] with its events replaced by [events], preserving the outcome. The single</span>
+<span id="L85"><span class="lineNum">      85</span>              :  * source of truth for &quot;copy a TraceTree with different events&quot; — avoids duplicating the exhaustive</span>
+<span id="L86"><span class="lineNum">      86</span>              :  * outcome dispatch in every caller.</span>
+<span id="L87"><span class="lineNum">      87</span>              :  */</span>
+<span id="L88"><span class="lineNum">      88</span>              : internal fun TraceTree.withEvents(events: List&lt;TraceEvent&gt;): TraceTree {</span>
+<span id="L89"><span class="lineNum">      89</span> <span class="tlaGNC">           1 :   val b = TraceTree.newBuilder().addAllEvents(events)</span></span>
+<span id="L90"><span class="lineNum">      90</span> <span class="tlaGNC">           1 :   when (outcomeCase) {</span></span>
+<span id="L91"><span class="lineNum">      91</span> <span class="tlaGNC">           1 :     TraceTree.OutcomeCase.REPLICATION -&gt; b.setReplication(replication)</span></span>
+<span id="L92"><span class="lineNum">      92</span> <span class="tlaGNC">           1 :     TraceTree.OutcomeCase.CHOICE -&gt; b.setChoice(choice)</span></span>
+<span id="L93"><span class="lineNum">      93</span> <span class="tlaGNC">           1 :     TraceTree.OutcomeCase.CONTINUATION -&gt; b.setContinuation(continuation)</span></span>
+<span id="L94"><span class="lineNum">      94</span> <span class="tlaGNC">           1 :     TraceTree.OutcomeCase.OUTPUT -&gt; b.setOutput(output)</span></span>
+<span id="L95"><span class="lineNum">      95</span> <span class="tlaGNC">           1 :     TraceTree.OutcomeCase.DROP -&gt; b.setDrop(drop)</span></span>
+<span id="L96"><span class="lineNum">      96</span>              :     TraceTree.OutcomeCase.OUTCOME_NOT_SET,</span>
+<span id="L97"><span class="lineNum">      97</span>              :     null -&gt; {}</span>
+<span id="L98"><span class="lineNum">      98</span>              :   }</span>
+<span id="L99"><span class="lineNum">      99</span> <span class="tlaGNC">           1 :   return b.build()</span></span>
+<span id="L100"><span class="lineNum">     100</span>              : }</span>
+<span id="L101"><span class="lineNum">     101</span>              : </span>
+<span id="L102"><span class="lineNum">     102</span>              : /**</span>
+<span id="L103"><span class="lineNum">     103</span>              :  * Prepends [prefix] events to [tree], returning a new [TraceTree] with the same outcome. Used when</span>
+<span id="L104"><span class="lineNum">     104</span>              :  * flattening sequential pipeline stages into a single node.</span>
+<span id="L105"><span class="lineNum">     105</span>              :  */</span>
+<span id="L106"><span class="lineNum">     106</span>              : internal fun prependEvents(tree: TraceTree, prefix: List&lt;TraceEvent&gt;): TraceTree =</span>
+<span id="L107"><span class="lineNum">     107</span> <span class="tlaGNC">           1 :   if (prefix.isEmpty()) tree else tree.withEvents(prefix + tree.eventsList)</span></span>
+<span id="L108"><span class="lineNum">     108</span>              : </span>
+<span id="L109"><span class="lineNum">     109</span>              : /** Creates a [TraceEvent] recording the packet's ingress port. */</span>
+<span id="L110"><span class="lineNum">     110</span>              : internal fun packetIngressEvent(ingressPort: DataplanePort): TraceEvent =</span>
+<span id="L111"><span class="lineNum">     111</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
+<span id="L112"><span class="lineNum">     112</span> <span class="tlaGNC">           1 :     .setPacketIngress(</span></span>
+<span id="L113"><span class="lineNum">     113</span> <span class="tlaGNC">           1 :       PacketIngressEvent.newBuilder().setDataplaneIngressPort(ingressPort.protoValue)</span></span>
+<span id="L114"><span class="lineNum">     114</span>              :     )</span>
+<span id="L115"><span class="lineNum">     115</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L116"><span class="lineNum">     116</span>              : </span>
+<span id="L117"><span class="lineNum">     117</span>              : /** Creates a [TraceEvent] marking the entry/exit of a pipeline stage. */</span>
+<span id="L118"><span class="lineNum">     118</span> <span class="tlaGNC">           1 : internal fun stageEvent(</span></span>
+<span id="L119"><span class="lineNum">     119</span>              :   stage: PipelineStage,</span>
+<span id="L120"><span class="lineNum">     120</span>              :   direction: PipelineStageEvent.Direction,</span>
+<span id="L121"><span class="lineNum">     121</span> <span class="tlaGNC">           1 :   dataplanePort: Int? = null,</span></span>
+<span id="L122"><span class="lineNum">     122</span>              : ): TraceEvent =</span>
+<span id="L123"><span class="lineNum">     123</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
+<span id="L124"><span class="lineNum">     124</span> <span class="tlaGNC">           1 :     .setPipelineStage(</span></span>
+<span id="L125"><span class="lineNum">     125</span> <span class="tlaGNC">           1 :       PipelineStageEvent.newBuilder()</span></span>
+<span id="L126"><span class="lineNum">     126</span> <span class="tlaGNC">           1 :         .setStageName(stage.name)</span></span>
+<span id="L127"><span class="lineNum">     127</span> <span class="tlaGNC">           1 :         .setStageKind(stage.kind)</span></span>
+<span id="L128"><span class="lineNum">     128</span> <span class="tlaGNC">           1 :         .setDirection(direction)</span></span>
+<span id="L129"><span class="lineNum">     129</span> <span class="tlaGNC">           1 :         .apply { if (dataplanePort != null) setDataplanePort(dataplanePort) }</span></span>
+<span id="L130"><span class="lineNum">     130</span>              :     )</span>
+<span id="L131"><span class="lineNum">     131</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L132"><span class="lineNum">     132</span>              : </span>
+<span id="L133"><span class="lineNum">     133</span>              : /** Creates a [TraceEvent] recording a successful multicast group lookup. */</span>
+<span id="L134"><span class="lineNum">     134</span>              : internal fun multicastGroupLookupEvent(groupId: Int, replicaCount: Int): TraceEvent =</span>
+<span id="L135"><span class="lineNum">     135</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
+<span id="L136"><span class="lineNum">     136</span> <span class="tlaGNC">           1 :     .setMulticastGroupLookup(</span></span>
+<span id="L137"><span class="lineNum">     137</span> <span class="tlaGNC">           1 :       MulticastGroupLookupEvent.newBuilder()</span></span>
+<span id="L138"><span class="lineNum">     138</span> <span class="tlaGNC">           1 :         .setMulticastGroupId(groupId)</span></span>
+<span id="L139"><span class="lineNum">     139</span> <span class="tlaGNC">           1 :         .setGroupFound(true)</span></span>
+<span id="L140"><span class="lineNum">     140</span> <span class="tlaGNC">           1 :         .setReplicaCount(replicaCount)</span></span>
+<span id="L141"><span class="lineNum">     141</span>              :     )</span>
+<span id="L142"><span class="lineNum">     142</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L143"><span class="lineNum">     143</span>              : </span>
+<span id="L144"><span class="lineNum">     144</span>              : /** Creates a [TraceEvent] recording a failed multicast group lookup. */</span>
+<span id="L145"><span class="lineNum">     145</span>              : internal fun multicastGroupMissEvent(groupId: Int): TraceEvent =</span>
+<span id="L146"><span class="lineNum">     146</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
+<span id="L147"><span class="lineNum">     147</span> <span class="tlaGNC">           1 :     .setMulticastGroupLookup(</span></span>
+<span id="L148"><span class="lineNum">     148</span> <span class="tlaGNC">           1 :       MulticastGroupLookupEvent.newBuilder().setMulticastGroupId(groupId).setGroupFound(false)</span></span>
+<span id="L149"><span class="lineNum">     149</span>              :     )</span>
+<span id="L150"><span class="lineNum">     150</span> <span class="tlaGNC">           1 :     .build()</span></span>
         </pre>
               </td>
             </tr>

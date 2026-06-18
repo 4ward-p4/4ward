@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">96.1&nbsp;%</td>
+            <td class="headerCovTableEntryHi">95.1&nbsp;%</td>
             <td class="headerCovTableEntry">103</td>
-            <td class="headerCovTableEntry">99</td>
+            <td class="headerCovTableEntry">98</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-17 08:27:19</td>
+            <td class="headerValue">2026-06-18 06:18:00</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">95.5&nbsp;%</td>
@@ -349,43 +349,37 @@
 <span id="L287"><span class="lineNum">     287</span>              : }</span>
 <span id="L288"><span class="lineNum">     288</span>              : </span>
 <span id="L289"><span class="lineNum">     289</span>              : /**</span>
-<span id="L290"><span class="lineNum">     290</span>              :  * Collects all possible outcome sets from a trace tree, respecting fork semantics.</span>
-<span id="L291"><span class="lineNum">     291</span>              :  * - **Parallel forks** (clone, multicast, resubmit, recirculate): outputs from all branches are</span>
-<span id="L292"><span class="lineNum">     292</span>              :  *   combined within each possible world (Cartesian product of branch outcomes).</span>
-<span id="L293"><span class="lineNum">     293</span>              :  * - **Alternative forks** (action selector): each branch is a separate possible world; outcomes are</span>
-<span id="L294"><span class="lineNum">     294</span>              :  *   concatenated (union of branch outcomes).</span>
-<span id="L295"><span class="lineNum">     295</span>              :  * - **Leaf (output):** one possible world with one packet.</span>
-<span id="L296"><span class="lineNum">     296</span>              :  * - **Leaf (drop):** one possible world with no packets.</span>
-<span id="L297"><span class="lineNum">     297</span>              :  *</span>
-<span id="L298"><span class="lineNum">     298</span>              :  * Returns a non-empty list. Each inner list is one complete set of output packets that could result</span>
-<span id="L299"><span class="lineNum">     299</span>              :  * from a single real execution.</span>
-<span id="L300"><span class="lineNum">     300</span>              :  */</span>
-<span id="L301"><span class="lineNum">     301</span>              : fun collectPossibleOutcomes(tree: TraceTree): List&lt;List&lt;OutputPacket&gt;&gt; {</span>
-<span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :   when (tree.outcomeCase) {</span></span>
-<span id="L303"><span class="lineNum">     303</span>              :     TraceTree.OutcomeCase.PACKET_OUTCOME -&gt;</span>
-<span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :       return if (tree.packetOutcome.hasOutput()) {</span></span>
-<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :         listOf(listOf(tree.packetOutcome.output))</span></span>
-<span id="L306"><span class="lineNum">     306</span>              :       } else {</span>
-<span id="L307"><span class="lineNum">     307</span> <span class="tlaGNC">           1 :         listOf(emptyList())</span></span>
-<span id="L308"><span class="lineNum">     308</span>              :       }</span>
-<span id="L309"><span class="lineNum">     309</span>              :     TraceTree.OutcomeCase.OUTCOME_NOT_SET,</span>
-<span id="L310"><span class="lineNum">     310</span> <span class="tlaGNC">           1 :     null -&gt; return listOf(emptyList())</span></span>
-<span id="L311"><span class="lineNum">     311</span>              :     TraceTree.OutcomeCase.FORK_OUTCOME -&gt; {} // fall through to fork handling below</span>
-<span id="L312"><span class="lineNum">     312</span>              :   }</span>
-<span id="L313"><span class="lineNum">     313</span> <span class="tlaGNC">           1 :   val fork = tree.forkOutcome</span></span>
-<span id="L314"><span class="lineNum">     314</span> <span class="tlaGNC">           1 :   val branchOutcomes = fork.branchesList.map { collectPossibleOutcomes(it.subtree) }</span></span>
-<span id="L315"><span class="lineNum">     315</span> <span class="tlaGNC">           1 :   if (branchOutcomes.isEmpty()) return listOf(emptyList())</span></span>
-<span id="L316"><span class="lineNum">     316</span> <span class="tlaGNC">           1 :   return when (forkModeOf(fork.reason)) {</span></span>
-<span id="L317"><span class="lineNum">     317</span>              :     // Alternative: each branch adds its worlds to the result.</span>
-<span id="L318"><span class="lineNum">     318</span> <span class="tlaGNC">           1 :     ForkMode.ALTERNATIVE -&gt; branchOutcomes.flatten()</span></span>
-<span id="L319"><span class="lineNum">     319</span>              :     // Parallel: Cartesian product across branches — for each combination of one world per</span>
-<span id="L320"><span class="lineNum">     320</span>              :     // branch, concatenate the packets.</span>
-<span id="L321"><span class="lineNum">     321</span>              :     ForkMode.PARALLEL -&gt;</span>
-<span id="L322"><span class="lineNum">     322</span> <span class="tlaGNC">           1 :       branchOutcomes.reduce { acc, next -&gt;</span></span>
-<span id="L323"><span class="lineNum">     323</span> <span class="tlaGNC">           1 :         acc.flatMap { world -&gt; next.map { branchWorld -&gt; world + branchWorld } }</span></span>
-<span id="L324"><span class="lineNum">     324</span>              :       }</span>
-<span id="L325"><span class="lineNum">     325</span>              :   }</span>
-<span id="L326"><span class="lineNum">     326</span>              : }</span>
+<span id="L290"><span class="lineNum">     290</span>              :  * Collects all possible outcome sets from a trace tree, respecting outcome semantics.</span>
+<span id="L291"><span class="lineNum">     291</span>              :  * - **Replication** (clone, multicast): all branches execute simultaneously — Cartesian product.</span>
+<span id="L292"><span class="lineNum">     292</span>              :  * - **Choice** (action selector): exactly one branch executes — union of branch outcomes.</span>
+<span id="L293"><span class="lineNum">     293</span>              :  * - **Continuation** (resubmit, recirculate): same packet, another pass — delegate to next.</span>
+<span id="L294"><span class="lineNum">     294</span>              :  * - **Output:** one possible world with one packet.</span>
+<span id="L295"><span class="lineNum">     295</span>              :  * - **Drop:** one possible world with no packets.</span>
+<span id="L296"><span class="lineNum">     296</span>              :  *</span>
+<span id="L297"><span class="lineNum">     297</span>              :  * Returns a non-empty list. Each inner list is one complete set of output packets that could result</span>
+<span id="L298"><span class="lineNum">     298</span>              :  * from a single real execution.</span>
+<span id="L299"><span class="lineNum">     299</span>              :  */</span>
+<span id="L300"><span class="lineNum">     300</span>              : fun collectPossibleOutcomes(tree: TraceTree): List&lt;List&lt;OutputPacket&gt;&gt; {</span>
+<span id="L301"><span class="lineNum">     301</span> <span class="tlaGNC">           1 :   return when (tree.outcomeCase) {</span></span>
+<span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :     TraceTree.OutcomeCase.OUTPUT -&gt; listOf(listOf(tree.output))</span></span>
+<span id="L303"><span class="lineNum">     303</span>              :     TraceTree.OutcomeCase.DROP,</span>
+<span id="L304"><span class="lineNum">     304</span>              :     TraceTree.OutcomeCase.OUTCOME_NOT_SET,</span>
+<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :     null -&gt; listOf(emptyList())</span></span>
+<span id="L306"><span class="lineNum">     306</span>              :     TraceTree.OutcomeCase.REPLICATION -&gt;</span>
+<span id="L307"><span class="lineNum">     307</span>              :       // Cartesian product: for each combination of one world per branch, concatenate packets.</span>
+<span id="L308"><span class="lineNum">     308</span> <span class="tlaGNC">           1 :       tree.replication.branchesList</span></span>
+<span id="L309"><span class="lineNum">     309</span> <span class="tlaGNC">           1 :         .map { collectPossibleOutcomes(it) }</span></span>
+<span id="L310"><span class="lineNum">     310</span> <span class="tlaGNC">           1 :         .reduceOrNull { acc, next -&gt;</span></span>
+<span id="L311"><span class="lineNum">     311</span> <span class="tlaGNC">           1 :           acc.flatMap { world -&gt; next.map { branchWorld -&gt; world + branchWorld } }</span></span>
+<span id="L312"><span class="lineNum">     312</span> <span class="tlaUNC tlaBgUNC">           0 :         } ?: listOf(emptyList())</span></span>
+<span id="L313"><span class="lineNum">     313</span>              :     TraceTree.OutcomeCase.CHOICE -&gt;</span>
+<span id="L314"><span class="lineNum">     314</span>              :       // Each branch is a separate possible world; union their outcomes.</span>
+<span id="L315"><span class="lineNum">     315</span> <span class="tlaGNC tlaBgGNC">           1 :       tree.choice.branchesList</span></span>
+<span id="L316"><span class="lineNum">     316</span> <span class="tlaGNC">           1 :         .flatMap { collectPossibleOutcomes(it) }</span></span>
+<span id="L317"><span class="lineNum">     317</span> <span class="tlaGNC">           1 :         .ifEmpty { listOf(emptyList()) }</span></span>
+<span id="L318"><span class="lineNum">     318</span> <span class="tlaGNC">           1 :     TraceTree.OutcomeCase.CONTINUATION -&gt; collectPossibleOutcomes(tree.continuation.next)</span></span>
+<span id="L319"><span class="lineNum">     319</span>              :   }</span>
+<span id="L320"><span class="lineNum">     320</span>              : }</span>
         </pre>
               </td>
             </tr>
