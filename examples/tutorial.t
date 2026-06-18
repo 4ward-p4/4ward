@@ -97,7 +97,7 @@ an IPv4 frame that matches, and an ARP frame that doesn't.
     table port_table: miss -> drop
     action drop
     mark_to_drop()
-    drop (reason: mark_to_drop)
+    drop
   PASS
 
 Now the trace tells a much richer story. The first packet (etherType
@@ -197,7 +197,7 @@ The human-readable trace is compact but lossy -- it omits source
 locations and raw byte payloads. The --format=textproto flag outputs
 the full trace tree as a protocol buffer:
 
-  $ 4ward run --format=textproto passthrough.p4 - << 'EOF' | grep -A 10 parser_transition
+  $ 4ward run --format=textproto passthrough.p4 - << 'EOF' | grep -A 11 parser_transition
   > packet 0 FFFFFFFFFFFF 000000000001 0800
   > expect 1 FFFFFFFFFFFF 000000000001 0800
   > EOF
@@ -206,6 +206,7 @@ the full trace tree as a protocol buffer:
       from_state: "start"
       to_state: "accept"
     }
+    id: 3
     source_info {
       file: "passthrough.p4"
       line: 25

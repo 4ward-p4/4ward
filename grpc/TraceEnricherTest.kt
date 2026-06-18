@@ -3,13 +3,9 @@ package fourward.grpc
 import com.google.protobuf.ByteString
 import fourward.CloneSessionLookupEvent
 import fourward.Drop
-import fourward.DropReason
-import fourward.Fork
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.OutputPacket
 import fourward.PacketIngressEvent
-import fourward.PacketOutcome
+import fourward.Replication
 import fourward.TableLookupEvent
 import fourward.TraceEvent
 import fourward.TraceTree
@@ -60,7 +56,7 @@ class TraceEnricherTest {
     val trace = simpleTrace(ingressPort = 0, egressPort = 0)
     val enriched = TraceEnricher.enrich(trace, translator)
 
-    val output = enriched.packetOutcome.output
+    val output = enriched.output
     assertEquals(0, output.dataplaneEgressPort)
     assertEquals(ByteString.copyFromUtf8("Ethernet1"), output.p4RtEgressPort)
   }
@@ -206,35 +202,24 @@ class TraceEnricherTest {
 
     val branch1 =
       TraceTree.newBuilder()
-        .setPacketOutcome(
-          PacketOutcome.newBuilder()
-            .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(0).setPayload(EMPTY))
-        )
+        .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(0).setPayload(EMPTY))
         .build()
     val branch2 =
       TraceTree.newBuilder()
-        .setPacketOutcome(
-          PacketOutcome.newBuilder()
-            .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(EMPTY))
-        )
+        .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(EMPTY))
         .build()
 
     val trace =
       TraceTree.newBuilder()
-        .setForkOutcome(
-          Fork.newBuilder()
-            .setReason(ForkReason.MULTICAST)
-            .addBranches(ForkBranch.newBuilder().setLabel("replica_0").setSubtree(branch1))
-            .addBranches(ForkBranch.newBuilder().setLabel("replica_1").setSubtree(branch2))
-        )
+        .setReplication(Replication.newBuilder().addBranches(branch1).addBranches(branch2))
         .build()
 
     val enriched = TraceEnricher.enrich(trace, translator)
 
-    val out0 = enriched.forkOutcome.getBranches(0).subtree.packetOutcome.output
+    val out0 = enriched.replication.getBranches(0).output
     assertEquals(ByteString.copyFromUtf8("Ethernet0"), out0.p4RtEgressPort)
 
-    val out1 = enriched.forkOutcome.getBranches(1).subtree.packetOutcome.output
+    val out1 = enriched.replication.getBranches(1).output
     assertEquals(ByteString.copyFromUtf8("Ethernet1"), out1.p4RtEgressPort)
   }
 
@@ -243,12 +228,7 @@ class TraceEnricherTest {
     val translator = portTranslator()
     translator.p4rtToDataplane(PORT_TYPE, "Ethernet0")
 
-    val trace =
-      TraceTree.newBuilder()
-        .setPacketOutcome(
-          PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.MARK_TO_DROP))
-        )
-        .build()
+    val trace = TraceTree.newBuilder().setDrop(Drop.getDefaultInstance()).build()
 
     assertSame(trace, TraceEnricher.enrich(trace, translator))
   }
@@ -263,10 +243,7 @@ class TraceEnricherTest {
         TraceEvent.newBuilder()
           .setPacketIngress(PacketIngressEvent.newBuilder().setDataplaneIngressPort(ingressPort))
       )
-      .setPacketOutcome(
-        PacketOutcome.newBuilder()
-          .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(egressPort).setPayload(EMPTY))
-      )
+      .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(egressPort).setPayload(EMPTY))
       .build()
 
   private fun traceWithIngress(ingressPort: Int): TraceTree =

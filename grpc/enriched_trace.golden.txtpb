@@ -3,6 +3,7 @@ events {
     dataplane_ingress_port: 1
     p4rt_ingress_port: "Ethernet0"
   }
+  id: 1
 }
 events {
   pipeline_stage {
@@ -10,6 +11,7 @@ events {
     stage_kind: PARSER
     direction: ENTER
   }
+  id: 2
 }
 events {
   parser_transition {
@@ -17,6 +19,7 @@ events {
     from_state: "start"
     to_state: "accept"
   }
+  id: 3
   source_info {
     file: "e2e_tests/translated_port/translated_port.p4"
     line: 30
@@ -30,6 +33,7 @@ events {
     stage_kind: PARSER
     direction: EXIT
   }
+  id: 4
 }
 events {
   pipeline_stage {
@@ -38,6 +42,7 @@ events {
     direction: ENTER
     dataplane_port: 1
   }
+  id: 5
 }
 events {
   pipeline_stage {
@@ -46,6 +51,7 @@ events {
     direction: EXIT
     dataplane_port: 1
   }
+  id: 6
 }
 events {
   pipeline_stage {
@@ -54,6 +60,7 @@ events {
     direction: ENTER
     dataplane_port: 1
   }
+  id: 7
 }
 events {
   table_lookup {
@@ -97,6 +104,7 @@ events {
       }
     }
   }
+  id: 8
   source_info {
     file: "e2e_tests/translated_port/translated_port.p4"
     line: 50
@@ -116,6 +124,7 @@ events {
       value: "\000"
     }
   }
+  id: 9
   source_info {
     file: "e2e_tests/translated_port/translated_port.p4"
     line: 50
@@ -127,6 +136,7 @@ events {
   assignment {
     target: "smeta.egress_spec"
   }
+  id: 10
   source_info {
     file: "e2e_tests/translated_port/translated_port.p4"
     line: 42
@@ -146,6 +156,7 @@ events {
     direction: EXIT
     dataplane_port: 1
   }
+  id: 11
 }
 events {
   pipeline_stage {
@@ -154,6 +165,7 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 12
 }
 events {
   pipeline_stage {
@@ -162,6 +174,7 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 13
 }
 events {
   pipeline_stage {
@@ -170,6 +183,7 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 14
 }
 events {
   pipeline_stage {
@@ -178,6 +192,7 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 15
 }
 events {
   pipeline_stage {
@@ -185,12 +200,14 @@ events {
     stage_kind: DEPARSER
     direction: ENTER
   }
+  id: 16
 }
 events {
   deparser_emit {
     header_type: "ethernet_t"
     byte_length: 14
   }
+  id: 17
 }
 events {
   pipeline_stage {
@@ -198,11 +215,9 @@ events {
     stage_kind: DEPARSER
     direction: EXIT
   }
+  id: 18
 }
-packet_outcome {
-  output {
-    payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000\336\255\276\357"
-    p4rt_egress_port: "Ethernet1"
-  }
+output {
+  payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000\336\255\276\357"
+  p4rt_egress_port: "Ethernet1"
 }
-

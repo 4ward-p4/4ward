@@ -1,6 +1,7 @@
 events {
   packet_ingress {
   }
+  id: 1
 }
 events {
   pipeline_stage {
@@ -8,6 +9,7 @@ events {
     stage_kind: PARSER
     direction: ENTER
   }
+  id: 2
 }
 events {
   parser_transition {
@@ -15,6 +17,7 @@ events {
     from_state: "start"
     to_state: "accept"
   }
+  id: 3
   source_info {
     file: "e2e_tests/trace_tree/e2e_clone.p4"
     line: 23
@@ -28,6 +31,7 @@ events {
     stage_kind: PARSER
     direction: EXIT
   }
+  id: 4
 }
 events {
   pipeline_stage {
@@ -36,6 +40,7 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 5
 }
 events {
   pipeline_stage {
@@ -44,6 +49,7 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 6
 }
 events {
   pipeline_stage {
@@ -52,11 +58,13 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 7
 }
 events {
   assignment {
     target: "smeta.egress_spec"
   }
+  id: 8
   source_info {
     file: "e2e_tests/trace_tree/e2e_clone.p4"
     line: 34
@@ -72,6 +80,7 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 9
 }
 events {
   pipeline_stage {
@@ -80,12 +89,14 @@ events {
     direction: ENTER
     dataplane_port: 2
   }
+  id: 10
 }
 events {
   branch {
     control_name: "MyEgress"
     taken: true
   }
+  id: 11
   source_info {
     file: "e2e_tests/trace_tree/e2e_clone.p4"
     line: 53
@@ -102,6 +113,7 @@ events {
   clone {
     session_id: 100
   }
+  id: 12
   source_info {
     file: "e2e_tests/trace_tree/e2e_clone.p4"
     line: 54
@@ -130,6 +142,7 @@ events {
     }
     action_name: "tag_original"
   }
+  id: 13
   source_info {
     file: "e2e_tests/trace_tree/e2e_clone.p4"
     line: 56
@@ -145,6 +158,7 @@ events {
   action_execution {
     action_name: "tag_original"
   }
+  id: 14
   source_info {
     file: "e2e_tests/trace_tree/e2e_clone.p4"
     line: 56
@@ -156,6 +170,7 @@ events {
   assignment {
     target: "hdr.ethernet.dstAddr"
   }
+  id: 15
   source_info {
     file: "e2e_tests/trace_tree/e2e_clone.p4"
     line: 39
@@ -171,6 +186,7 @@ events {
     direction: EXIT
     dataplane_port: 2
   }
+  id: 16
 }
 events {
   pipeline_stage {
@@ -179,6 +195,7 @@ events {
     direction: ENTER
     dataplane_port: 2
   }
+  id: 17
 }
 events {
   pipeline_stage {
@@ -187,6 +204,7 @@ events {
     direction: EXIT
     dataplane_port: 2
   }
+  id: 18
 }
 events {
   clone_session_lookup {
@@ -195,173 +213,178 @@ events {
     dataplane_egress_port: 5
     replica_count: 1
   }
+  id: 19
 }
-fork_outcome {
-  reason: CLONE
+replication {
+  cause: 19
   branches {
-    label: "original"
-    subtree {
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: ENTER
-        }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: ENTER
       }
-      events {
-        deparser_emit {
-          header_type: "ethernet_t"
-          byte_length: 14
-        }
+      id: 1
+    }
+    events {
+      deparser_emit {
+        header_type: "ethernet_t"
+        byte_length: 14
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: EXIT
-        }
+      id: 2
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: EXIT
       }
-      packet_outcome {
-        output {
-          dataplane_egress_port: 2
-          payload: "\252\252\252\252\252\252\000\000\000\000\000\001\b\000"
-        }
-      }
+      id: 3
+    }
+    output {
+      dataplane_egress_port: 2
+      payload: "\252\252\252\252\252\252\000\000\000\000\000\001\b\000"
     }
   }
   branches {
-    label: "clone"
-    subtree {
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 5
-        }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 5
       }
-      events {
-        branch {
-          control_name: "MyEgress"
-          taken: false
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/e2e_clone.p4"
-          line: 53
-          column: 12
-          source_fragment: "smeta.instance_type == 0"
-        }
-        variable_values {
-          key: "smeta.instance_type"
-          value: "2"
-        }
-        result_value: "false"
+      id: 1
+    }
+    events {
+      branch {
+        control_name: "MyEgress"
+        taken: false
       }
-      events {
-        table_lookup {
-          table_name: "egress_classify"
-          hit: true
-          matched_entry {
-            table_id: 43808281
-            match {
-              field_id: 1
-              exact {
-                value: "\000\000\000\002"
-              }
+      id: 2
+      source_info {
+        file: "e2e_tests/trace_tree/e2e_clone.p4"
+        line: 53
+        column: 12
+        source_fragment: "smeta.instance_type == 0"
+      }
+      variable_values {
+        key: "smeta.instance_type"
+        value: "2"
+      }
+      result_value: "false"
+    }
+    events {
+      table_lookup {
+        table_name: "egress_classify"
+        hit: true
+        matched_entry {
+          table_id: 43808281
+          match {
+            field_id: 1
+            exact {
+              value: "\000\000\000\002"
             }
-            action {
-              action {
-                action_id: 20863306
-              }
-            }
-            is_const: true
           }
-          action_name: "tag_clone"
+          action {
+            action {
+              action_id: 20863306
+            }
+          }
+          is_const: true
         }
-        source_info {
-          file: "e2e_tests/trace_tree/e2e_clone.p4"
-          line: 56
-          column: 8
-          source_fragment: "egress_classify.apply()"
-        }
-        variable_values {
-          key: "1"
-          value: "2"
-        }
+        action_name: "tag_clone"
       }
-      events {
-        action_execution {
-          action_name: "tag_clone"
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/e2e_clone.p4"
-          line: 56
-          column: 8
-          source_fragment: "egress_classify.apply()"
-        }
+      id: 3
+      source_info {
+        file: "e2e_tests/trace_tree/e2e_clone.p4"
+        line: 56
+        column: 8
+        source_fragment: "egress_classify.apply()"
       }
-      events {
-        assignment {
-          target: "hdr.ethernet.srcAddr"
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/e2e_clone.p4"
-          line: 40
-          column: 46
-          source_fragment: "hdr.ethernet.srcAddr = 48w0xbbbbbbbbbbbb"
-        }
-        result_value: "206414982921147 (0xbbbbbbbbbbbb)"
+      variable_values {
+        key: "1"
+        value: "2"
       }
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 5
-        }
+    }
+    events {
+      action_execution {
+        action_name: "tag_clone"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 5
-        }
+      id: 4
+      source_info {
+        file: "e2e_tests/trace_tree/e2e_clone.p4"
+        line: 56
+        column: 8
+        source_fragment: "egress_classify.apply()"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 5
-        }
+    }
+    events {
+      assignment {
+        target: "hdr.ethernet.srcAddr"
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: ENTER
-        }
+      id: 5
+      source_info {
+        file: "e2e_tests/trace_tree/e2e_clone.p4"
+        line: 40
+        column: 46
+        source_fragment: "hdr.ethernet.srcAddr = 48w0xbbbbbbbbbbbb"
       }
-      events {
-        deparser_emit {
-          header_type: "ethernet_t"
-          byte_length: 14
-        }
+      result_value: "206414982921147 (0xbbbbbbbbbbbb)"
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 5
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: EXIT
-        }
+      id: 6
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 5
       }
-      packet_outcome {
-        output {
-          dataplane_egress_port: 5
-          payload: "\252\252\252\252\252\252\273\273\273\273\273\273\b\000"
-        }
+      id: 7
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 5
       }
+      id: 8
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: ENTER
+      }
+      id: 9
+    }
+    events {
+      deparser_emit {
+        header_type: "ethernet_t"
+        byte_length: 14
+      }
+      id: 10
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: EXIT
+      }
+      id: 11
+    }
+    output {
+      dataplane_egress_port: 5
+      payload: "\252\252\252\252\252\252\273\273\273\273\273\273\b\000"
     }
   }
 }

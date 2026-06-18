@@ -3,16 +3,13 @@ package fourward.cli
 import com.google.protobuf.ByteString
 import fourward.ActionExecutionEvent
 import fourward.AssertionEvent
+import fourward.Continuation
 import fourward.Drop
-import fourward.DropReason
-import fourward.Fork
-import fourward.ForkBranch
-import fourward.ForkReason
 import fourward.LogMessageEvent
 import fourward.MarkToDropEvent
 import fourward.OutputPacket
-import fourward.PacketOutcome
 import fourward.ParserTransitionEvent
+import fourward.Replication
 import fourward.TableLookupEvent
 import fourward.TraceEvent
 import fourward.TraceTree
@@ -38,13 +35,10 @@ class TraceFormatterTest {
           TraceEvent.newBuilder()
             .setActionExecution(ActionExecutionEvent.newBuilder().setActionName("NoAction"))
         )
-        .setPacketOutcome(
-          PacketOutcome.newBuilder()
-            .setOutput(
-              OutputPacket.newBuilder()
-                .setDataplaneEgressPort(1)
-                .setPayload(ByteString.copyFrom(byteArrayOf(0xDE.toByte(), 0xAD.toByte())))
-            )
+        .setOutput(
+          OutputPacket.newBuilder()
+            .setDataplaneEgressPort(1)
+            .setPayload(ByteString.copyFrom(byteArrayOf(0xDE.toByte(), 0xAD.toByte())))
         )
         .build()
 
@@ -81,12 +75,7 @@ class TraceFormatterTest {
                 .putParams("port", ByteString.copyFrom(byteArrayOf(0x01)))
             )
         )
-        .setPacketOutcome(
-          PacketOutcome.newBuilder()
-            .setOutput(
-              OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY)
-            )
-        )
+        .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY))
         .build()
 
     val output = TraceFormatter.format(tree)
@@ -105,20 +94,15 @@ class TraceFormatterTest {
   fun dropWithMarkToDrop() {
     val tree =
       TraceTree.newBuilder()
-        .addEvents(
-          TraceEvent.newBuilder()
-            .setMarkToDrop(MarkToDropEvent.newBuilder().setReason(DropReason.MARK_TO_DROP))
-        )
-        .setPacketOutcome(
-          PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.MARK_TO_DROP))
-        )
+        .addEvents(TraceEvent.newBuilder().setMarkToDrop(MarkToDropEvent.newBuilder()))
+        .setDrop(Drop.getDefaultInstance())
         .build()
 
     val output = TraceFormatter.format(tree)
     assertEquals(
       """
       |mark_to_drop()
-      |drop (reason: mark_to_drop)
+      |drop
       |"""
         .trimMargin(),
       output,
@@ -135,37 +119,18 @@ class TraceFormatterTest {
               ParserTransitionEvent.newBuilder().setFromState("start").setToState("accept")
             )
         )
-        .setForkOutcome(
-          Fork.newBuilder()
-            .setReason(ForkReason.CLONE)
+        .setReplication(
+          Replication.newBuilder()
             .addBranches(
-              ForkBranch.newBuilder()
-                .setLabel("original")
-                .setSubtree(
-                  TraceTree.newBuilder()
-                    .setPacketOutcome(
-                      PacketOutcome.newBuilder()
-                        .setOutput(
-                          OutputPacket.newBuilder()
-                            .setDataplaneEgressPort(1)
-                            .setPayload(ByteString.EMPTY)
-                        )
-                    )
+              TraceTree.newBuilder()
+                .setOutput(
+                  OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY)
                 )
             )
             .addBranches(
-              ForkBranch.newBuilder()
-                .setLabel("clone")
-                .setSubtree(
-                  TraceTree.newBuilder()
-                    .setPacketOutcome(
-                      PacketOutcome.newBuilder()
-                        .setOutput(
-                          OutputPacket.newBuilder()
-                            .setDataplaneEgressPort(2)
-                            .setPayload(ByteString.EMPTY)
-                        )
-                    )
+              TraceTree.newBuilder()
+                .setOutput(
+                  OutputPacket.newBuilder().setDataplaneEgressPort(2).setPayload(ByteString.EMPTY)
                 )
             )
         )
@@ -175,11 +140,9 @@ class TraceFormatterTest {
     assertEquals(
       """
       |parse: start -> accept
-      |fork (clone)
-      |  branch: original
-      |    output port 1, 0 bytes
-      |  branch: clone
-      |    output port 2, 0 bytes
+      |replication
+      |  output port 1, 0 bytes
+      |  output port 2, 0 bytes
       |"""
         .trimMargin(),
       output,
@@ -194,12 +157,7 @@ class TraceFormatterTest {
           TraceEvent.newBuilder()
             .setLogMessage(LogMessageEvent.newBuilder().setMessage("TTL = 64, port = 1"))
         )
-        .setPacketOutcome(
-          PacketOutcome.newBuilder()
-            .setOutput(
-              OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY)
-            )
-        )
+        .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY))
         .build()
 
     assertEquals(
@@ -219,12 +177,7 @@ class TraceFormatterTest {
         .addEvents(
           TraceEvent.newBuilder().setAssertion(AssertionEvent.newBuilder().setPassed(true))
         )
-        .setPacketOutcome(
-          PacketOutcome.newBuilder()
-            .setOutput(
-              OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY)
-            )
-        )
+        .setOutput(OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY))
         .build()
 
     assertEquals(
@@ -244,16 +197,66 @@ class TraceFormatterTest {
         .addEvents(
           TraceEvent.newBuilder().setAssertion(AssertionEvent.newBuilder().setPassed(false))
         )
-        .setPacketOutcome(
-          PacketOutcome.newBuilder()
-            .setDrop(Drop.newBuilder().setReason(DropReason.ASSERTION_FAILURE))
-        )
+        .setDrop(Drop.getDefaultInstance())
         .build()
 
     assertEquals(
       """
       |assert: FAILED
-      |drop (reason: assertion failure)
+      |drop
+      |"""
+        .trimMargin(),
+      TraceFormatter.format(tree),
+    )
+  }
+
+  @Test
+  fun continuationTriggerResubmit() {
+    val tree =
+      TraceTree.newBuilder()
+        .setContinuation(
+          Continuation.newBuilder()
+            .setKind(Continuation.Kind.RESUBMIT)
+            .setNext(
+              TraceTree.newBuilder()
+                .setOutput(
+                  OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY)
+                )
+            )
+        )
+        .build()
+
+    assertEquals(
+      """
+      |resubmit
+      |  output port 1, 0 bytes
+      |"""
+        .trimMargin(),
+      TraceFormatter.format(tree),
+    )
+  }
+
+  @Test
+  fun continuationTriggerWithPreservedFields() {
+    val tree =
+      TraceTree.newBuilder()
+        .setContinuation(
+          Continuation.newBuilder()
+            .setKind(Continuation.Kind.RESUBMIT)
+            .putPreservedFields("tag", "48879")
+            .setNext(
+              TraceTree.newBuilder()
+                .setOutput(
+                  OutputPacket.newBuilder().setDataplaneEgressPort(1).setPayload(ByteString.EMPTY)
+                )
+            )
+        )
+        .build()
+
+    assertEquals(
+      """
+      |resubmit (preserved: tag=48879)
+      |  output port 1, 0 bytes
       |"""
         .trimMargin(),
       TraceFormatter.format(tree),

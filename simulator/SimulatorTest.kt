@@ -295,8 +295,7 @@ class SimulatorTest {
     sim.loadPipeline(config, dropPortOverride = 42)
 
     val result = sim.processPacket(ingressPort = 0, payload = byteArrayOf(0x01))
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -408,53 +407,35 @@ class SimulatorTest {
   }
 }
 
-/** Unit tests for [collectPossibleOutcomes] — the parallel vs alternative fork semantics. */
+/** Unit tests for [collectPossibleOutcomes] — the outcome type semantics. */
 class CollectPossibleOutcomesTest {
 
   private fun output(port: Int): fourward.TraceTree =
     fourward.TraceTree.newBuilder()
-      .setPacketOutcome(
-        fourward.PacketOutcome.newBuilder()
-          .setOutput(
-            fourward.OutputPacket.newBuilder()
-              .setDataplaneEgressPort(port)
-              .setPayload(com.google.protobuf.ByteString.copyFrom(byteArrayOf(0x01)))
-          )
+      .setOutput(
+        fourward.OutputPacket.newBuilder()
+          .setDataplaneEgressPort(port)
+          .setPayload(com.google.protobuf.ByteString.copyFrom(byteArrayOf(0x01)))
       )
       .build()
 
   private fun drop(): fourward.TraceTree =
+    fourward.TraceTree.newBuilder().setDrop(fourward.Drop.newBuilder()).build()
+
+  private fun replication(vararg branches: fourward.TraceTree): fourward.TraceTree =
     fourward.TraceTree.newBuilder()
-      .setPacketOutcome(
-        fourward.PacketOutcome.newBuilder()
-          .setDrop(fourward.Drop.newBuilder().setReason(fourward.DropReason.MARK_TO_DROP))
-      )
+      .setReplication(fourward.Replication.newBuilder().addAllBranches(branches.toList()))
       .build()
 
-  private fun fork(
-    reason: fourward.ForkReason,
-    vararg branches: Pair<String, fourward.TraceTree>,
-  ): fourward.TraceTree =
+  private fun choice(vararg branches: fourward.TraceTree): fourward.TraceTree =
     fourward.TraceTree.newBuilder()
-      .setForkOutcome(
-        fourward.Fork.newBuilder()
-          .setReason(reason)
-          .addAllBranches(
-            branches.map {
-              fourward.ForkBranch.newBuilder().setLabel(it.first).setSubtree(it.second).build()
-            }
-          )
-      )
+      .setChoice(fourward.Choice.newBuilder().addAllBranches(branches.toList()))
       .build()
-
-  private fun alternativeFork(
-    vararg branches: Pair<String, fourward.TraceTree>
-  ): fourward.TraceTree = fork(fourward.ForkReason.ACTION_SELECTOR, *branches)
 
   @Test
   fun `linear trace produces one world with one output`() {
     val outcomes = collectPossibleOutcomes(output(1))
-    assertEquals(listOf(listOf(output(1).packetOutcome.output)), outcomes)
+    assertEquals(listOf(listOf(output(1).output)), outcomes)
   }
 
   @Test
@@ -465,8 +446,8 @@ class CollectPossibleOutcomesTest {
   }
 
   @Test
-  fun `parallel fork combines outputs within each world`() {
-    val tree = fork(fourward.ForkReason.CLONE, "original" to output(1), "clone" to output(2))
+  fun `replication combines outputs within each world`() {
+    val tree = replication(output(1), output(2))
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals("one world", 1, outcomes.size)
     assertEquals("two outputs", 2, outcomes[0].size)
@@ -475,9 +456,8 @@ class CollectPossibleOutcomesTest {
   }
 
   @Test
-  fun `alternative fork produces one world per branch`() {
-    val tree =
-      alternativeFork("member_0" to output(1), "member_1" to output(2), "member_2" to output(3))
+  fun `choice produces one world per branch`() {
+    val tree = choice(output(1), output(2), output(3))
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals("three worlds", 3, outcomes.size)
     assertEquals(1, outcomes[0].single().dataplaneEgressPort)
@@ -486,26 +466,20 @@ class CollectPossibleOutcomesTest {
   }
 
   @Test
-  fun `alternative inside parallel produces Cartesian product`() {
-    // Clone (parallel) with 2 branches, each containing a 2-member selector (alternative).
-    val tree =
-      fork(
-        fourward.ForkReason.CLONE,
-        "original" to alternativeFork("m0" to output(1), "m1" to output(2)),
-        "clone" to alternativeFork("m0" to output(3), "m1" to output(4)),
-      )
+  fun `choice inside replication produces Cartesian product`() {
+    // Replication with 2 branches, each containing a 2-member choice.
+    val tree = replication(choice(output(1), output(2)), choice(output(3), output(4)))
     val outcomes = collectPossibleOutcomes(tree)
-    // 2 × 2 = 4 possible worlds, each with 2 outputs (one from original, one from clone).
+    // 2 × 2 = 4 possible worlds, each with 2 outputs (one per replication branch).
     assertEquals("2×2 Cartesian product", 4, outcomes.size)
     assertTrue(outcomes.all { it.size == 2 })
-    // Verify all 4 combinations exist.
     val portPairs = outcomes.map { world -> world.map { it.dataplaneEgressPort }.sorted() }.toSet()
     assertEquals(setOf(listOf(1, 3), listOf(1, 4), listOf(2, 3), listOf(2, 4)), portPairs)
   }
 
   @Test
-  fun `alternative with drop produces world with empty output`() {
-    val tree = alternativeFork("m0" to output(1), "m1" to drop())
+  fun `choice with drop produces world with empty output`() {
+    val tree = choice(output(1), drop())
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals(2, outcomes.size)
     assertEquals(1, outcomes[0].size)
@@ -513,9 +487,8 @@ class CollectPossibleOutcomesTest {
   }
 
   @Test
-  fun `multicast fork is parallel`() {
-    val tree =
-      fork(fourward.ForkReason.MULTICAST, "r0" to output(1), "r1" to output(2), "r2" to output(3))
+  fun `multicast replication combines all outputs`() {
+    val tree = replication(output(1), output(2), output(3))
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals("one world", 1, outcomes.size)
     assertEquals("three outputs", 3, outcomes[0].size)

@@ -1,6 +1,7 @@
 events {
   packet_ingress {
   }
+  id: 1
 }
 events {
   pipeline_stage {
@@ -8,6 +9,7 @@ events {
     stage_kind: PARSER
     direction: ENTER
   }
+  id: 2
 }
 events {
   parser_transition {
@@ -15,6 +17,7 @@ events {
     from_state: "start"
     to_state: "accept"
   }
+  id: 3
   source_info {
     file: "e2e_tests/trace_tree/clone_and_multicast.p4"
     line: 23
@@ -28,6 +31,7 @@ events {
     stage_kind: PARSER
     direction: EXIT
   }
+  id: 4
 }
 events {
   pipeline_stage {
@@ -36,6 +40,7 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 5
 }
 events {
   pipeline_stage {
@@ -44,6 +49,7 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 6
 }
 events {
   pipeline_stage {
@@ -52,11 +58,13 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 7
 }
 events {
   clone {
     session_id: 100
   }
+  id: 8
   source_info {
     file: "e2e_tests/trace_tree/clone_and_multicast.p4"
     line: 35
@@ -68,6 +76,7 @@ events {
   assignment {
     target: "smeta.mcast_grp"
   }
+  id: 9
   source_info {
     file: "e2e_tests/trace_tree/clone_and_multicast.p4"
     line: 36
@@ -83,6 +92,7 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 10
 }
 events {
   clone_session_lookup {
@@ -91,211 +101,216 @@ events {
     dataplane_egress_port: 3
     replica_count: 1
   }
+  id: 11
 }
-fork_outcome {
-  reason: CLONE
+replication {
+  cause: 11
   branches {
-    label: "original"
-    subtree {
-      events {
-        multicast_group_lookup {
-          multicast_group_id: 1
-          group_found: true
-          replica_count: 2
+    events {
+      multicast_group_lookup {
+        multicast_group_id: 1
+        group_found: true
+        replica_count: 2
+      }
+      id: 1
+    }
+    replication {
+      cause: 1
+      branches {
+        events {
+          pipeline_stage {
+            stage_name: "egress"
+            stage_kind: CONTROL
+            direction: ENTER
+            dataplane_port: 1
+          }
+          id: 1
+        }
+        events {
+          pipeline_stage {
+            stage_name: "egress"
+            stage_kind: CONTROL
+            direction: EXIT
+            dataplane_port: 1
+          }
+          id: 2
+        }
+        events {
+          pipeline_stage {
+            stage_name: "compute_checksum"
+            stage_kind: CONTROL
+            direction: ENTER
+            dataplane_port: 1
+          }
+          id: 3
+        }
+        events {
+          pipeline_stage {
+            stage_name: "compute_checksum"
+            stage_kind: CONTROL
+            direction: EXIT
+            dataplane_port: 1
+          }
+          id: 4
+        }
+        events {
+          pipeline_stage {
+            stage_name: "deparser"
+            stage_kind: DEPARSER
+            direction: ENTER
+          }
+          id: 5
+        }
+        events {
+          deparser_emit {
+            header_type: "ethernet_t"
+            byte_length: 14
+          }
+          id: 6
+        }
+        events {
+          pipeline_stage {
+            stage_name: "deparser"
+            stage_kind: DEPARSER
+            direction: EXIT
+          }
+          id: 7
+        }
+        output {
+          dataplane_egress_port: 1
+          payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
         }
       }
-      fork_outcome {
-        reason: MULTICAST
-        branches {
-          label: "replica_0_port_1"
-          subtree {
-            events {
-              pipeline_stage {
-                stage_name: "egress"
-                stage_kind: CONTROL
-                direction: ENTER
-                dataplane_port: 1
-              }
-            }
-            events {
-              pipeline_stage {
-                stage_name: "egress"
-                stage_kind: CONTROL
-                direction: EXIT
-                dataplane_port: 1
-              }
-            }
-            events {
-              pipeline_stage {
-                stage_name: "compute_checksum"
-                stage_kind: CONTROL
-                direction: ENTER
-                dataplane_port: 1
-              }
-            }
-            events {
-              pipeline_stage {
-                stage_name: "compute_checksum"
-                stage_kind: CONTROL
-                direction: EXIT
-                dataplane_port: 1
-              }
-            }
-            events {
-              pipeline_stage {
-                stage_name: "deparser"
-                stage_kind: DEPARSER
-                direction: ENTER
-              }
-            }
-            events {
-              deparser_emit {
-                header_type: "ethernet_t"
-                byte_length: 14
-              }
-            }
-            events {
-              pipeline_stage {
-                stage_name: "deparser"
-                stage_kind: DEPARSER
-                direction: EXIT
-              }
-            }
-            packet_outcome {
-              output {
-                dataplane_egress_port: 1
-                payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
-              }
-            }
+      branches {
+        events {
+          pipeline_stage {
+            stage_name: "egress"
+            stage_kind: CONTROL
+            direction: ENTER
+            dataplane_port: 2
           }
+          id: 1
         }
-        branches {
-          label: "replica_0_port_2"
-          subtree {
-            events {
-              pipeline_stage {
-                stage_name: "egress"
-                stage_kind: CONTROL
-                direction: ENTER
-                dataplane_port: 2
-              }
-            }
-            events {
-              pipeline_stage {
-                stage_name: "egress"
-                stage_kind: CONTROL
-                direction: EXIT
-                dataplane_port: 2
-              }
-            }
-            events {
-              pipeline_stage {
-                stage_name: "compute_checksum"
-                stage_kind: CONTROL
-                direction: ENTER
-                dataplane_port: 2
-              }
-            }
-            events {
-              pipeline_stage {
-                stage_name: "compute_checksum"
-                stage_kind: CONTROL
-                direction: EXIT
-                dataplane_port: 2
-              }
-            }
-            events {
-              pipeline_stage {
-                stage_name: "deparser"
-                stage_kind: DEPARSER
-                direction: ENTER
-              }
-            }
-            events {
-              deparser_emit {
-                header_type: "ethernet_t"
-                byte_length: 14
-              }
-            }
-            events {
-              pipeline_stage {
-                stage_name: "deparser"
-                stage_kind: DEPARSER
-                direction: EXIT
-              }
-            }
-            packet_outcome {
-              output {
-                dataplane_egress_port: 2
-                payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
-              }
-            }
+        events {
+          pipeline_stage {
+            stage_name: "egress"
+            stage_kind: CONTROL
+            direction: EXIT
+            dataplane_port: 2
           }
+          id: 2
+        }
+        events {
+          pipeline_stage {
+            stage_name: "compute_checksum"
+            stage_kind: CONTROL
+            direction: ENTER
+            dataplane_port: 2
+          }
+          id: 3
+        }
+        events {
+          pipeline_stage {
+            stage_name: "compute_checksum"
+            stage_kind: CONTROL
+            direction: EXIT
+            dataplane_port: 2
+          }
+          id: 4
+        }
+        events {
+          pipeline_stage {
+            stage_name: "deparser"
+            stage_kind: DEPARSER
+            direction: ENTER
+          }
+          id: 5
+        }
+        events {
+          deparser_emit {
+            header_type: "ethernet_t"
+            byte_length: 14
+          }
+          id: 6
+        }
+        events {
+          pipeline_stage {
+            stage_name: "deparser"
+            stage_kind: DEPARSER
+            direction: EXIT
+          }
+          id: 7
+        }
+        output {
+          dataplane_egress_port: 2
+          payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
         }
       }
     }
   }
   branches {
-    label: "clone"
-    subtree {
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 3
-        }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 3
       }
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 3
-        }
+      id: 1
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 3
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 3
-        }
+      id: 2
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 3
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 3
-        }
+      id: 3
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 3
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: ENTER
-        }
+      id: 4
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: ENTER
       }
-      events {
-        deparser_emit {
-          header_type: "ethernet_t"
-          byte_length: 14
-        }
+      id: 5
+    }
+    events {
+      deparser_emit {
+        header_type: "ethernet_t"
+        byte_length: 14
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: EXIT
-        }
+      id: 6
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: EXIT
       }
-      packet_outcome {
-        output {
-          dataplane_egress_port: 3
-          payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
-        }
-      }
+      id: 7
+    }
+    output {
+      dataplane_egress_port: 3
+      payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
     }
   }
 }

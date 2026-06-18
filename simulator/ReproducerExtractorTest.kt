@@ -3,11 +3,7 @@ package fourward.simulator
 import com.google.protobuf.ByteString
 import fourward.CloneSessionLookupEvent
 import fourward.Drop
-import fourward.DropReason
-import fourward.Fork
-import fourward.ForkBranch
-import fourward.ForkReason
-import fourward.PacketOutcome
+import fourward.Replication
 import fourward.TableLookupEvent
 import fourward.TraceEvent
 import fourward.TraceTree
@@ -68,8 +64,7 @@ class ReproducerExtractorTest {
       )
       .build()
 
-  private fun dropOutcome(): PacketOutcome =
-    PacketOutcome.newBuilder().setDrop(Drop.newBuilder().setReason(DropReason.MARK_TO_DROP)).build()
+  private fun dropOutcome(): Drop = Drop.getDefaultInstance()
 
   private fun emptyTableStore(): TableStore = TableStore()
 
@@ -107,7 +102,7 @@ class ReproducerExtractorTest {
 
   @Test
   fun `empty trace produces no entities`() {
-    val trace = TraceTree.newBuilder().setPacketOutcome(dropOutcome()).build()
+    val trace = TraceTree.newBuilder().setDrop(dropOutcome()).build()
     val entities = extract(trace, emptyTableStore())
     assertTrue(entities.isEmpty())
   }
@@ -116,10 +111,7 @@ class ReproducerExtractorTest {
   fun `table hit extracts matched entry`() {
     val entry = tableEntry(tableId = 1, matchValue = byteArrayOf(0x08, 0x00), actionId = 10)
     val trace =
-      TraceTree.newBuilder()
-        .addEvents(tableLookupHit(entry))
-        .setPacketOutcome(dropOutcome())
-        .build()
+      TraceTree.newBuilder().addEvents(tableLookupHit(entry)).setDrop(dropOutcome()).build()
 
     val entities = extract(trace, emptyTableStore())
 
@@ -130,8 +122,7 @@ class ReproducerExtractorTest {
 
   @Test
   fun `table miss produces no entities`() {
-    val trace =
-      TraceTree.newBuilder().addEvents(tableLookupMiss()).setPacketOutcome(dropOutcome()).build()
+    val trace = TraceTree.newBuilder().addEvents(tableLookupMiss()).setDrop(dropOutcome()).build()
 
     val entities = extract(trace, emptyTableStore())
     assertTrue(entities.isEmpty())
@@ -147,10 +138,7 @@ class ReproducerExtractorTest {
         .build()
 
     val trace =
-      TraceTree.newBuilder()
-        .addEvents(tableLookupHit(entry))
-        .setPacketOutcome(dropOutcome())
-        .build()
+      TraceTree.newBuilder().addEvents(tableLookupHit(entry)).setDrop(dropOutcome()).build()
 
     val entities = extract(trace, emptyTableStore(), listOf(staticUpdate))
     assertTrue("static entry should be excluded", entities.isEmpty())
@@ -163,7 +151,7 @@ class ReproducerExtractorTest {
       TraceTree.newBuilder()
         .addEvents(tableLookupHit(entry))
         .addEvents(tableLookupHit(entry))
-        .setPacketOutcome(dropOutcome())
+        .setDrop(dropOutcome())
         .build()
 
     val entities = extract(trace, emptyTableStore())
@@ -172,7 +160,7 @@ class ReproducerExtractorTest {
 
   @Test
   fun `register seed dependencies extract register entries`() {
-    val trace = TraceTree.newBuilder().setPacketOutcome(dropOutcome()).build()
+    val trace = TraceTree.newBuilder().setDrop(dropOutcome()).build()
     val store = tableStoreWithRegister()
     val entities =
       extractReproducerEntities(
@@ -211,7 +199,7 @@ class ReproducerExtractorTest {
     val trace =
       TraceTree.newBuilder()
         .addEvents(cloneSessionLookup(sessionId = 42, found = true))
-        .setPacketOutcome(dropOutcome())
+        .setDrop(dropOutcome())
         .build()
 
     val entities = extract(trace, store)
@@ -226,7 +214,7 @@ class ReproducerExtractorTest {
     val trace =
       TraceTree.newBuilder()
         .addEvents(cloneSessionLookup(sessionId = 99, found = false))
-        .setPacketOutcome(dropOutcome())
+        .setDrop(dropOutcome())
         .build()
 
     val entities = extract(trace, emptyTableStore())
@@ -240,26 +228,13 @@ class ReproducerExtractorTest {
 
     val trace =
       TraceTree.newBuilder()
-        .setForkOutcome(
-          Fork.newBuilder()
-            .setReason(ForkReason.CLONE)
+        .setReplication(
+          Replication.newBuilder()
             .addBranches(
-              ForkBranch.newBuilder()
-                .setLabel("original")
-                .setSubtree(
-                  TraceTree.newBuilder()
-                    .addEvents(tableLookupHit(entry1))
-                    .setPacketOutcome(dropOutcome())
-                )
+              TraceTree.newBuilder().addEvents(tableLookupHit(entry1)).setDrop(dropOutcome())
             )
             .addBranches(
-              ForkBranch.newBuilder()
-                .setLabel("clone")
-                .setSubtree(
-                  TraceTree.newBuilder()
-                    .addEvents(tableLookupHit(entry2))
-                    .setPacketOutcome(dropOutcome())
-                )
+              TraceTree.newBuilder().addEvents(tableLookupHit(entry2)).setDrop(dropOutcome())
             )
         )
         .build()
@@ -316,10 +291,7 @@ class ReproducerExtractorTest {
         .build()
 
     val trace =
-      TraceTree.newBuilder()
-        .addEvents(tableLookupHit(entry))
-        .setPacketOutcome(dropOutcome())
-        .build()
+      TraceTree.newBuilder().addEvents(tableLookupHit(entry)).setDrop(dropOutcome()).build()
 
     val entities = extract(trace, store)
 
@@ -367,10 +339,7 @@ class ReproducerExtractorTest {
         .build()
 
     val trace =
-      TraceTree.newBuilder()
-        .addEvents(tableLookupHit(entry))
-        .setPacketOutcome(dropOutcome())
-        .build()
+      TraceTree.newBuilder().addEvents(tableLookupHit(entry)).setDrop(dropOutcome()).build()
 
     val entities = extract(trace, store)
 
@@ -422,10 +391,7 @@ class ReproducerExtractorTest {
     store.publishSnapshot()
 
     val trace =
-      TraceTree.newBuilder()
-        .addEvents(tableLookupMiss("MyTable"))
-        .setPacketOutcome(dropOutcome())
-        .build()
+      TraceTree.newBuilder().addEvents(tableLookupMiss("MyTable")).setDrop(dropOutcome()).build()
 
     val entities = extract(trace, store)
 
@@ -459,10 +425,7 @@ class ReproducerExtractorTest {
     store.publishSnapshot()
 
     val trace =
-      TraceTree.newBuilder()
-        .addEvents(tableLookupMiss("MyTable"))
-        .setPacketOutcome(dropOutcome())
-        .build()
+      TraceTree.newBuilder().addEvents(tableLookupMiss("MyTable")).setDrop(dropOutcome()).build()
 
     val entities = extract(trace, store)
     assertTrue("unmodified default should not be extracted", entities.isEmpty())
@@ -499,7 +462,7 @@ class ReproducerExtractorTest {
     val trace =
       TraceTree.newBuilder()
         .addEvents(multicastGroupLookup(groupId = 1))
-        .setPacketOutcome(dropOutcome())
+        .setDrop(dropOutcome())
         .build()
 
     val entities = extract(trace, store)
@@ -521,7 +484,7 @@ class ReproducerExtractorTest {
                 .setGroupFound(false)
             )
         )
-        .setPacketOutcome(dropOutcome())
+        .setDrop(dropOutcome())
         .build()
 
     val entities = extract(trace, emptyTableStore())

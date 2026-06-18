@@ -5,13 +5,12 @@ import fourward.Architecture
 import fourward.BehavioralConfig
 import fourward.BinaryOp
 import fourward.BinaryOperator
+import fourward.Continuation
 import fourward.ControlDecl
-import fourward.DropReason
 import fourward.EnumDecl
 import fourward.Expr
 import fourward.ExternInstanceDecl
 import fourward.FieldDecl
-import fourward.ForkReason
 import fourward.HeaderDecl
 import fourward.ParamDecl
 import fourward.ParserDecl
@@ -25,6 +24,7 @@ import fourward.Transition
 import fourward.Type
 import fourward.TypeDecl
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -302,8 +302,7 @@ class PNAArchitectureTest {
     val config = pnaConfig()
     val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -324,8 +323,7 @@ class PNAArchitectureTest {
     val config = pnaConfig(mainControlStmts = listOf(sendToPort(5), dropPacket()))
     val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
+    assertTrue(result.trace.hasDrop())
   }
 
   @Test
@@ -459,13 +457,37 @@ class PNAArchitectureTest {
   }
 
   @Test
+  fun `recirculate emits Continuation with RECIRCULATE kind`() {
+    // First pass (loopedback=false): call recirculate().
+    // Second pass (loopedback=true): send to port 5.
+    val boolType = Type.newBuilder().setBoolean(true).build()
+    val loopedback = fieldAccess(nameRef("istd"), "loopedback", boolType)
+    val config =
+      pnaConfig(
+        mainControlStmts =
+          listOf(
+            ifStmt(
+              condition = loopedback,
+              thenStmts = listOf(sendToPort(5)),
+              elseStmts = listOf(recirculate()),
+            )
+          )
+      )
+    val result =
+      PNAArchitecture(config).processPacket(port(0), byteArrayOf(0xAA.toByte()), TableStore())
+
+    // Trace should show a CONTINUATION with RECIRCULATE kind.
+    assertEquals(Continuation.Kind.RECIRCULATE, result.trace.continuation.kind)
+    // Second pass exits on port 5.
+    assertEquals(5, result.possibleOutcomes.single().single().dataplaneEgressPort)
+  }
+
+  @Test
   fun `assertion failure drops packet`() {
     val config = pnaConfig(mainControlStmts = listOf(externCall("assert", boolLit(false))))
     val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
-    assertTrue(result.trace.hasPacketOutcome())
-    assertTrue(result.trace.packetOutcome.hasDrop())
-    assertEquals(DropReason.ASSERTION_FAILURE, result.trace.packetOutcome.drop.reason)
+    assertTrue(result.trace.hasDrop())
   }
 
   // ---------------------------------------------------------------------------
@@ -545,17 +567,17 @@ class PNAArchitectureTest {
   }
 
   @Test
-  fun `mirror_packet trace has CLONE fork reason`() {
+  fun `mirror_packet trace has REPLICATION outcome`() {
     val config = pnaConfig(mainControlStmts = listOf(sendToPort(2), mirrorPacket(0, 100)))
     val store = TableStore()
     writeCloneSession(store, 100, listOf(0 to 5))
 
     val result = PNAArchitecture(config).processPacket(port(0), byteArrayOf(0x01), store)
 
-    assertTrue(result.trace.hasForkOutcome())
-    assertEquals(ForkReason.CLONE, result.trace.forkOutcome.reason)
-    assertEquals("original", result.trace.forkOutcome.branchesList[0].label)
-    assertEquals("mirror_port_5", result.trace.forkOutcome.branchesList[1].label)
+    assertTrue(result.trace.hasReplication())
+    assertEquals(2, result.trace.replication.branchesList.size)
+    // mirror_packet has no triggering lookup event — cause must be absent.
+    assertFalse(result.trace.replication.hasCause())
   }
 
   @Test

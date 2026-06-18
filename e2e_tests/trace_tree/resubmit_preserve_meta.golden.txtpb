@@ -19,8 +19,8 @@ events {
   }
   id: 3
   source_info {
-    file: "e2e_tests/trace_tree/resubmit.p4"
-    line: 22
+    file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+    line: 29
     column: 10
     source_fragment: "start"
   }
@@ -66,8 +66,8 @@ events {
   }
   id: 8
   source_info {
-    file: "e2e_tests/trace_tree/resubmit.p4"
-    line: 34
+    file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+    line: 41
     column: 26
     source_fragment: "smeta.egress_spec = 9w1"
   }
@@ -80,8 +80,8 @@ events {
   }
   id: 9
   source_info {
-    file: "e2e_tests/trace_tree/resubmit.p4"
-    line: 35
+    file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+    line: 42
     column: 12
     source_fragment: "smeta.instance_type == 0"
   }
@@ -92,13 +92,26 @@ events {
   result_value: "true"
 }
 events {
+  assignment {
+    target: "meta.tag"
+  }
+  id: 10
+  source_info {
+    file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+    line: 43
+    column: 21
+    source_fragment: "meta.tag = 16w0xbeef"
+  }
+  result_value: "48879 (0xbeef)"
+}
+events {
   pipeline_stage {
     stage_name: "ingress"
     stage_kind: CONTROL
     direction: EXIT
     dataplane_port: 0
   }
-  id: 10
+  id: 11
 }
 continuation {
   kind: RESUBMIT
@@ -124,8 +137,8 @@ continuation {
       }
       id: 3
       source_info {
-        file: "e2e_tests/trace_tree/resubmit.p4"
-        line: 22
+        file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+        line: 29
         column: 10
         source_fragment: "start"
       }
@@ -171,8 +184,8 @@ continuation {
       }
       id: 8
       source_info {
-        file: "e2e_tests/trace_tree/resubmit.p4"
-        line: 34
+        file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+        line: 41
         column: 26
         source_fragment: "smeta.egress_spec = 9w1"
       }
@@ -185,8 +198,8 @@ continuation {
       }
       id: 9
       source_info {
-        file: "e2e_tests/trace_tree/resubmit.p4"
-        line: 35
+        file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+        line: 42
         column: 12
         source_fragment: "smeta.instance_type == 0"
       }
@@ -197,20 +210,28 @@ continuation {
       result_value: "false"
     }
     events {
+      assignment {
+        target: "hdr.ethernet.etherType"
+      }
+      id: 10
+      source_info {
+        file: "e2e_tests/trace_tree/resubmit_preserve_meta.p4"
+        line: 47
+        column: 35
+        source_fragment: "hdr.ethernet.etherType = meta.tag"
+      }
+      variable_values {
+        key: "meta.tag"
+        value: "48879 (0xbeef)"
+      }
+      result_value: "48879 (0xbeef)"
+    }
+    events {
       pipeline_stage {
         stage_name: "ingress"
         stage_kind: CONTROL
         direction: EXIT
         dataplane_port: 0
-      }
-      id: 10
-    }
-    events {
-      pipeline_stage {
-        stage_name: "egress"
-        stage_kind: CONTROL
-        direction: ENTER
-        dataplane_port: 1
       }
       id: 11
     }
@@ -218,16 +239,16 @@ continuation {
       pipeline_stage {
         stage_name: "egress"
         stage_kind: CONTROL
-        direction: EXIT
+        direction: ENTER
         dataplane_port: 1
       }
       id: 12
     }
     events {
       pipeline_stage {
-        stage_name: "compute_checksum"
+        stage_name: "egress"
         stage_kind: CONTROL
-        direction: ENTER
+        direction: EXIT
         dataplane_port: 1
       }
       id: 13
@@ -236,10 +257,19 @@ continuation {
       pipeline_stage {
         stage_name: "compute_checksum"
         stage_kind: CONTROL
-        direction: EXIT
+        direction: ENTER
         dataplane_port: 1
       }
       id: 14
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 1
+      }
+      id: 15
     }
     events {
       pipeline_stage {
@@ -247,14 +277,14 @@ continuation {
         stage_kind: DEPARSER
         direction: ENTER
       }
-      id: 15
+      id: 16
     }
     events {
       deparser_emit {
         header_type: "ethernet_t"
         byte_length: 14
       }
-      id: 16
+      id: 17
     }
     events {
       pipeline_stage {
@@ -262,11 +292,15 @@ continuation {
         stage_kind: DEPARSER
         direction: EXIT
       }
-      id: 17
+      id: 18
     }
     output {
       dataplane_egress_port: 1
-      payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
+      payload: "\377\377\377\377\377\377\000\000\000\000\000\001\276\357"
     }
+  }
+  preserved_fields {
+    key: "tag"
+    value: "48879"
   }
 }

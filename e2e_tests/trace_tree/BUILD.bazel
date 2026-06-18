@@ -40,6 +40,7 @@ _GOLDEN = [
     "selector_exit",
     "e2e_clone",
     "resubmit",
+    "resubmit_preserve_meta",
     "recirculate",
 ]
 

@@ -191,13 +191,19 @@ class EnvironmentTest {
   }
 
   @Test
-  fun `addTraceEvent records events in order`() {
+  fun `addTraceEvent records events in order with assigned ids`() {
     val pktCtx = PacketContext(byteArrayOf())
     val event1 = TraceEvent.newBuilder().setMarkToDrop(MarkToDropEvent.getDefaultInstance()).build()
     val event2 = TraceEvent.newBuilder().setMarkToDrop(MarkToDropEvent.getDefaultInstance()).build()
     pktCtx.addTraceEvent(event1)
     pktCtx.addTraceEvent(event2)
-    assertEquals(listOf(event1, event2), pktCtx.getEvents())
+    val events = pktCtx.getEvents()
+    assertEquals(2, events.size)
+    assertEquals(1L, events[0].id)
+    assertEquals(2L, events[1].id)
+    // Event content is preserved (ignoring the stamped id).
+    assertEquals(event1.markToDrop, events[0].markToDrop)
+    assertEquals(event2.markToDrop, events[1].markToDrop)
   }
 
   @Test

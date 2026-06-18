@@ -1,6 +1,7 @@
 events {
   packet_ingress {
   }
+  id: 1
 }
 events {
   pipeline_stage {
@@ -8,6 +9,7 @@ events {
     stage_kind: PARSER
     direction: ENTER
   }
+  id: 2
 }
 events {
   parser_transition {
@@ -15,6 +17,7 @@ events {
     from_state: "start"
     to_state: "accept"
   }
+  id: 3
   source_info {
     file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
     line: 31
@@ -28,6 +31,7 @@ events {
     stage_kind: PARSER
     direction: EXIT
   }
+  id: 4
 }
 events {
   pipeline_stage {
@@ -36,6 +40,7 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 5
 }
 events {
   pipeline_stage {
@@ -44,6 +49,7 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 6
 }
 events {
   pipeline_stage {
@@ -52,11 +58,13 @@ events {
     direction: ENTER
     dataplane_port: 0
   }
+  id: 7
 }
 events {
   assignment {
     target: "smeta.egress_spec"
   }
+  id: 8
   source_info {
     file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
     line: 43
@@ -69,6 +77,7 @@ events {
   assignment {
     target: "meta.preserved_value"
   }
+  id: 9
   source_info {
     file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
     line: 44
@@ -81,6 +90,7 @@ events {
   assignment {
     target: "meta.not_preserved_value"
   }
+  id: 10
   source_info {
     file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
     line: 45
@@ -93,6 +103,7 @@ events {
   clone {
     session_id: 100
   }
+  id: 11
   source_info {
     file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
     line: 46
@@ -107,6 +118,7 @@ events {
     direction: EXIT
     dataplane_port: 0
   }
+  id: 12
 }
 events {
   clone_session_lookup {
@@ -115,183 +127,191 @@ events {
     dataplane_egress_port: 2
     replica_count: 1
   }
+  id: 13
 }
-fork_outcome {
-  reason: CLONE
+replication {
+  cause: 13
   branches {
-    label: "original"
-    subtree {
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 1
-        }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 1
       }
-      events {
-        branch {
-          control_name: "MyEgress"
-          taken: false
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
-          line: 55
-          column: 12
-          source_fragment: "smeta.instance_type == 1"
-        }
-        variable_values {
-          key: "smeta.instance_type"
-          value: "0"
-        }
-        result_value: "false"
+      id: 1
+    }
+    events {
+      branch {
+        control_name: "MyEgress"
+        taken: false
       }
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 1
-        }
+      id: 2
+      source_info {
+        file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
+        line: 55
+        column: 12
+        source_fragment: "smeta.instance_type == 1"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 1
-        }
+      variable_values {
+        key: "smeta.instance_type"
+        value: "0"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 1
-        }
+      result_value: "false"
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 1
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: ENTER
-        }
+      id: 3
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 1
       }
-      events {
-        deparser_emit {
-          header_type: "ethernet_t"
-          byte_length: 14
-        }
+      id: 4
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 1
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: EXIT
-        }
+      id: 5
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: ENTER
       }
-      packet_outcome {
-        output {
-          dataplane_egress_port: 1
-          payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
-        }
+      id: 6
+    }
+    events {
+      deparser_emit {
+        header_type: "ethernet_t"
+        byte_length: 14
       }
+      id: 7
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: EXIT
+      }
+      id: 8
+    }
+    output {
+      dataplane_egress_port: 1
+      payload: "\377\377\377\377\377\377\000\000\000\000\000\001\b\000"
     }
   }
   branches {
-    label: "clone"
-    subtree {
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 2
-        }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 2
       }
-      events {
-        branch {
-          control_name: "MyEgress"
-          taken: true
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
-          line: 55
-          column: 12
-          source_fragment: "smeta.instance_type == 1"
-        }
-        variable_values {
-          key: "smeta.instance_type"
-          value: "1"
-        }
-        result_value: "true"
+      id: 1
+    }
+    events {
+      branch {
+        control_name: "MyEgress"
+        taken: true
       }
-      events {
-        assignment {
-          target: "hdr.ethernet.etherType"
-        }
-        source_info {
-          file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
-          line: 57
-          column: 35
-          source_fragment: "hdr.ethernet.etherType = meta.preserved_value"
-        }
-        variable_values {
-          key: "meta.preserved_value"
-          value: "43981 (0xabcd)"
-        }
-        result_value: "43981 (0xabcd)"
+      id: 2
+      source_info {
+        file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
+        line: 55
+        column: 12
+        source_fragment: "smeta.instance_type == 1"
       }
-      events {
-        pipeline_stage {
-          stage_name: "egress"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 2
-        }
+      variable_values {
+        key: "smeta.instance_type"
+        value: "1"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: ENTER
-          dataplane_port: 2
-        }
+      result_value: "true"
+    }
+    events {
+      assignment {
+        target: "hdr.ethernet.etherType"
       }
-      events {
-        pipeline_stage {
-          stage_name: "compute_checksum"
-          stage_kind: CONTROL
-          direction: EXIT
-          dataplane_port: 2
-        }
+      id: 3
+      source_info {
+        file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
+        line: 57
+        column: 35
+        source_fragment: "hdr.ethernet.etherType = meta.preserved_value"
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: ENTER
-        }
+      variable_values {
+        key: "meta.preserved_value"
+        value: "43981 (0xabcd)"
       }
-      events {
-        deparser_emit {
-          header_type: "ethernet_t"
-          byte_length: 14
-        }
+      result_value: "43981 (0xabcd)"
+    }
+    events {
+      pipeline_stage {
+        stage_name: "egress"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 2
       }
-      events {
-        pipeline_stage {
-          stage_name: "deparser"
-          stage_kind: DEPARSER
-          direction: EXIT
-        }
+      id: 4
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: ENTER
+        dataplane_port: 2
       }
-      packet_outcome {
-        output {
-          dataplane_egress_port: 2
-          payload: "\377\377\377\377\377\377\000\000\000\000\000\000\253\315"
-        }
+      id: 5
+    }
+    events {
+      pipeline_stage {
+        stage_name: "compute_checksum"
+        stage_kind: CONTROL
+        direction: EXIT
+        dataplane_port: 2
       }
+      id: 6
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: ENTER
+      }
+      id: 7
+    }
+    events {
+      deparser_emit {
+        header_type: "ethernet_t"
+        byte_length: 14
+      }
+      id: 8
+    }
+    events {
+      pipeline_stage {
+        stage_name: "deparser"
+        stage_kind: DEPARSER
+        direction: EXIT
+      }
+      id: 9
+    }
+    output {
+      dataplane_egress_port: 2
+      payload: "\377\377\377\377\377\377\000\000\000\000\000\000\253\315"
     }
   }
 }
