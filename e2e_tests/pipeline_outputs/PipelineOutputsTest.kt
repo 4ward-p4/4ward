@@ -6,6 +6,7 @@ import fourward.PipelineConfig
 import fourward.bazel.repoRoot
 import java.nio.file.Files
 import java.nio.file.Path
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -126,7 +127,26 @@ class PipelineOutputsTest {
     assertEquals(dcStandalone, dc)
   }
 
+  @Test
+  fun `binary outputs are byte-identical across compiler invocations`() {
+    // tiny.p4 has a table with multiple actions, so the DeviceConfig contains
+    // action_overrides: a protobuf map whose wire order used to depend on hash
+    // iteration. These duplicate Bazel actions run separate p4c processes and
+    // compare the raw bytes, not just parsed proto equality.
+    assertSameBytes("p4runtime", "tiny_p4runtime.binpb", "tiny_p4runtime.repeat.binpb")
+    assertSameBytes("p4info", "tiny.p4info.binpb", "tiny.p4info.repeat.binpb")
+    assertSameBytes("device config", "tiny.device_config.binpb", "tiny.device_config.repeat.binpb")
+  }
+
   private fun runfile(name: String): Path = repoRoot.resolve("e2e_tests/pipeline_outputs/$name")
+
+  private fun assertSameBytes(label: String, expected: String, actual: String) {
+    assertArrayEquals(
+      "$label output should be deterministic",
+      Files.readAllBytes(runfile(expected)),
+      Files.readAllBytes(runfile(actual)),
+    )
+  }
 
   private fun assertHeader(path: Path, expectedMessage: String) {
     val firstTwo = Files.readAllLines(path).take(2)
