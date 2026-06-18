@@ -52,7 +52,7 @@ class MultiDeviceP4RuntimeService(private val registry: DeviceRegistry) :
 
   override fun streamChannel(requests: Flow<StreamMessageRequest>): Flow<StreamMessageResponse> =
     channelFlow {
-      var device: DeviceContext? = null
+      var boundDeviceId: Long? = null
       val forwarded = Channel<StreamMessageRequest>(Channel.UNLIMITED)
       var delegateStarted = false
 
@@ -64,25 +64,24 @@ class MultiDeviceP4RuntimeService(private val registry: DeviceRegistry) :
             .asException()
         }
         val context = registry.get(first.arbitration.deviceId)
-        device = context
+        boundDeviceId = context.deviceId
+        val responses = context.p4RuntimeService.streamChannel(forwarded.receiveAsFlow())
         delegateStarted = true
-        launch {
-          context.p4RuntimeService.streamChannel(forwarded.receiveAsFlow()).collect { send(it) }
-        }
+        launch { responses.collect { send(it) } }
       }
 
       try {
         requests.collect { msg ->
-          val boundDevice = device
-          if (boundDevice == null) {
+          val deviceId = boundDeviceId
+          if (deviceId == null) {
             bind(msg)
           } else if (
             msg.updateCase == StreamMessageRequest.UpdateCase.ARBITRATION &&
-              msg.arbitration.deviceId != boundDevice.deviceId
+              msg.arbitration.deviceId != deviceId
           ) {
             throw Status.FAILED_PRECONDITION.withDescription(
-                "StreamChannel already bound to device_id ${boundDevice.deviceId}; " +
-                  "got device_id ${msg.arbitration.deviceId}"
+                "StreamChannel already bound to device_id $deviceId; got device_id " +
+                  msg.arbitration.deviceId
               )
               .asException()
           }
