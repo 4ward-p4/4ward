@@ -138,6 +138,7 @@ struct PortKeyLess {
 };
 
 inline void PrintPortKey(std::ostream* os, const PortKey& key) {
+  if (os == nullptr) return;
   if (std::holds_alternative<DataplanePort>(key)) {
     *os << std::get<DataplanePort>(key).port;
   } else {
@@ -175,9 +176,6 @@ inline auto OnPort(P4RuntimePort expected) {
       ::testing::Eq(expected.port));
 }
 inline auto OnPort(uint32_t port) { return OnPort(DataplanePort{port}); }
-inline auto OnPort(std::string port) {
-  return OnPort(P4RuntimePort{std::move(port)});
-}
 inline auto OnPort(std::string_view port) {
   return OnPort(P4RuntimePort{std::string(port)});
 }
@@ -386,10 +384,12 @@ class OnPortsMatcher {
       const internal::PacketList& group =
           it != groups.end() ? it->second : kEmpty;
       if (!matcher.Matches(group)) {
-        *listener << "on port ";
-        internal::PrintPortKey(listener->stream(), port);
-        *listener << ": ";
-        matcher.DescribeNegationTo(listener->stream());
+        if (listener->stream() != nullptr) {
+          *listener << "on port ";
+          internal::PrintPortKey(listener->stream(), port);
+          *listener << ": ";
+          matcher.DescribeNegationTo(listener->stream());
+        }
         return false;
       }
     }
