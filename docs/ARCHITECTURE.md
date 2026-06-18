@@ -217,7 +217,8 @@ happens with this specific hash seed?"
 ### Parallel vs alternative forks
 
 Not all forks are created equal. The simulator distinguishes two kinds of
-nondeterminism (see `ForkMode` and `forkModeOf` in `TraceHelpers.kt`):
+nondeterminism, represented by the `Replication` and `Choice` outcomes in
+`TraceTree` (`simulator.proto`):
 
 - **Parallel forks** (clone, multicast, resubmit, recirculate) — all branches
   execute simultaneously in a single real execution. The output packets are the

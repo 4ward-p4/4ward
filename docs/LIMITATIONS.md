@@ -20,7 +20,7 @@ guilt — just write it down so someone can find it later.
   bare fields, 1-arg and 3-arg forms), `Meter.execute` (stub GREEN),
   `Random.read()`, `InternetChecksum` (clear/add/subtract/get/get_state/set_state),
   `Digest.pack` (stub no-op), counters (indirect + direct), action profiles,
-  action selectors (including fork-based trace trees for group hits), parser
+  action selectors (including `Choice`-based trace trees for group hits), parser
   `value_set`, header stacks, and top-level assignments. 73 additional PSA
   programs (BMv2 + DPDK targets) are verified to compile. TNA is not
   implemented.
@@ -94,14 +94,14 @@ traffic rates, or asynchronous controller queues.
 
 ## Simulator
 
-- **Fork-point resume is v1model only.** When the trace tree forks (action
-  selectors, clone, multicast), v1model continues each branch from the fork
-  point instead of replaying the pipeline. PSA and PNA still use the
+- **Branch-point resume is v1model only.** When the trace tree branches
+  (`Choice` for action selectors, `Replication` for clone/multicast), v1model
+  continues each branch from the branch point instead of replaying the pipeline. PSA and PNA still use the
   replay-based approach (`handleActionSelectorFork` in `ArchitectureHelpers.kt`).
   Other v1model-specific optimizations (Long-backed `BitVector`, `CompactFieldMap`,
   proto builder pooling) benefit all architectures.
 - **Multicast: basic replication only.** Multicast group replication works
-  for the trace tree (forking per replica). PRE entries are installed via
+  for the trace tree (one `Replication` branch per replica). PRE entries are installed via
   P4Runtime `PacketReplicationEngineEntry`.
 
 ## Web playground

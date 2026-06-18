@@ -21,15 +21,18 @@ A trace tree is a recursive structure:
 
 ```
 TraceTree
-├── events[]          — chronologically ordered
-└── outcome
-    ├── PacketOutcome — terminal: output on a port, or drop
-    └── Fork          — non-terminal: branches into subtrees
+├── events[]      — chronologically ordered
+└── outcome (one of)
+    ├── Output        — terminal: packet transmitted on a port
+    ├── Drop          — terminal: packet discarded
+    ├── Replication   — parallel branches (clone, multicast)
+    ├── Choice        — alternative branches (action selector)
+    └── Continuation  — same packet, another pass (resubmit, recirculate)
 ```
 
 Events at the parent level are **shared** across all branches. Per-branch
-events live in the fork's subtrees. A program with no non-determinism produces
-a zero-fork tree — structurally equivalent to a flat trace.
+events live in the subtrees. A program with no non-determinism produces a
+linear trace — a `TraceTree` with a single `Output` or `Drop` outcome.
 
 ## A simple trace
 
@@ -189,15 +192,13 @@ source fragment) linking back to the P4 source.
 
 ## Packet outcomes
 
-Every trace path terminates with a **PacketOutcome**:
+Every trace path terminates with one of two outcomes:
 
 - **Output** — packet transmitted: `dataplane_egress_port` + `payload`.
-- **Drop** — packet dropped, with a reason:
-    - `MARK_TO_DROP` — explicit `mark_to_drop()` call.
-    - `PARSER_REJECT` — parser transitioned to the reject state.
-    - `PIPELINE_EXECUTION_LIMIT_REACHED` — too many fork branches
-      (exponential blowup guard).
-    - `ASSERTION_FAILURE` — `assert()` or `assume()` failed.
+- **Drop** — packet discarded. When there is a triggering event (e.g.
+  `mark_to_drop()`, a failed assertion, a missing multicast group), the
+  `Drop.cause` field points to its id in the same node's `events` list.
+  Parser-reject drops have no cause.
 
 ## P4RT enrichment
 
