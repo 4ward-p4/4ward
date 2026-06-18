@@ -2,7 +2,7 @@
  *
  * When the lookup misses, the default action runs without forking.
  * When it hits a group entry, the simulator forks into N branches.
- * This test verifies that misses produce a zero-fork subtree.
+ * This test verifies that misses produce a linear subtree.
  */
 
 #include <core.p4>

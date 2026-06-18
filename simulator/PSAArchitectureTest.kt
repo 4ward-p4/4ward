@@ -491,7 +491,7 @@ class PSAArchitectureTest {
   }
 
   @Test
-  fun `multicast trace has fork node with MULTICAST reason`() {
+  fun `multicast trace has replication outcome`() {
     val config = psaConfig(ingressStmts = listOf(multicast(1)))
     val tableStore = TableStore()
     writeMulticastGroup(tableStore, groupId = 1, replicas = listOf(0 to 2, 1 to 3))

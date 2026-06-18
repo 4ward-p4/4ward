@@ -34,7 +34,8 @@ object TraceFormatter {
             Continuation.Kind.RECIRCULATE -> "recirculate"
             Continuation.Kind.KIND_UNSPECIFIED,
             Continuation.Kind.UNRECOGNIZED,
-            null -> error("unexpected continuation kind: ${cont.kind}")
+            null ->
+              error("unexpected continuation kind ${cont.kind}: expected RESUBMIT or RECIRCULATE")
           }
         if (cont.preservedFieldsCount > 0) {
           val fields =
@@ -51,7 +52,19 @@ object TraceFormatter {
           "${pad(indent)}output port ${out.dataplaneEgressPort}, ${out.payload.size()} bytes"
         )
       }
-      TraceTree.OutcomeCase.DROP -> appendLine("${pad(indent)}drop")
+      TraceTree.OutcomeCase.DROP -> {
+        val cause =
+          if (tree.drop.hasCause()) tree.eventsList.firstOrNull { it.id == tree.drop.cause }
+          else null
+        val suffix =
+          when (cause?.eventCase) {
+            TraceEvent.EventCase.MARK_TO_DROP -> " (mark_to_drop)"
+            TraceEvent.EventCase.ASSERTION -> " (assertion failed)"
+            TraceEvent.EventCase.MULTICAST_GROUP_LOOKUP -> " (multicast group not found)"
+            else -> ""
+          }
+        appendLine("${pad(indent)}drop$suffix")
+      }
       TraceTree.OutcomeCase.OUTCOME_NOT_SET,
       null -> {}
     }

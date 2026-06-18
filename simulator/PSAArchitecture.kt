@@ -329,19 +329,16 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
     selectorMembers: Map<String, Int> = emptyMap(),
     firstEventId: Long = 1L,
   ): TraceTree {
+    // Use a PacketContext so the multicast lookup event is id-stamped the same way as all other
+    // trace events, rather than being set by hand.
+    val ctx = PacketContext(PacketBits.EMPTY, firstEventId = firstEventId)
     val group = egressState.pipeline.tableStore.getMulticastGroup(multicastGroup)
     if (group == null) {
-      // Multicast to unconfigured group — the lookup miss is the trigger for the drop.
-      val missEvent =
-        multicastGroupMissEvent(multicastGroup).toBuilder().setId(firstEventId).build()
-      return buildDropTrace(listOf(missEvent), causeId = firstEventId)
+      val causeId = ctx.addTraceEvent(multicastGroupMissEvent(multicastGroup))
+      return buildDropTrace(ctx.getEvents(), causeId = causeId)
     }
 
-    val hitEvent =
-      multicastGroupLookupEvent(multicastGroup, group.replicasCount)
-        .toBuilder()
-        .setId(firstEventId)
-        .build()
+    val causeId = ctx.addTraceEvent(multicastGroupLookupEvent(multicastGroup, group.replicasCount))
     val branches =
       group.replicasList.map { replica ->
         val port = replicaPort(replica)
@@ -356,7 +353,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
           selectorMembers,
         )
       }
-    return buildReplicationTree(listOf(hitEvent), branches, cause = firstEventId)
+    return buildReplicationTree(ctx.getEvents(), branches, cause = causeId)
   }
 
   // ---------------------------------------------------------------------------

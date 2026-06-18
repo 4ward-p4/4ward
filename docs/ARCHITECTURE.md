@@ -203,11 +203,11 @@ See [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 ## Trace trees
 
 4ward's output format is a **trace tree** (`TraceTree` in `simulator.proto`) —
-a recursive structure where each node contains a sequence of events and an
-optional fork. At non-deterministic choice points (action selectors, clone,
+a recursive structure where each node contains a sequence of events and one
+outcome. At non-deterministic choice points (action selectors, clone,
 multicast), execution forks into branches, one per possible outcome. A program
-with no non-determinism produces a zero-fork tree that is structurally
-equivalent to a flat trace — there is no separate "flat trace" format.
+with no non-determinism produces a linear tree: the root has events followed by
+a terminal `Output` or `Drop` outcome. There is no separate "flat trace" format.
 
 The key insight: even when choices like action selector hashing are technically
 deterministic, it's often more useful to reason about them as
@@ -217,7 +217,8 @@ happens with this specific hash seed?"
 ### Parallel vs alternative forks
 
 Not all forks are created equal. The simulator distinguishes two kinds of
-nondeterminism (see `ForkMode` and `forkModeOf` in `TraceHelpers.kt`):
+nondeterminism, represented by the `Replication` and `Choice` outcomes in
+`TraceTree` (`simulator.proto`):
 
 - **Parallel forks** (clone, multicast, resubmit, recirculate) — all branches
   execute simultaneously in a single real execution. The output packets are the

@@ -78,7 +78,7 @@ The response contains possible outcomes (output packet sets) and a full trace tr
 ```protobuf
 InjectPacketResponse {
   possible_outcomes { packets { dataplane_egress_port: 1  payload: <...> } }
-  trace { events { ... } packet_outcome { ... } }
+  trace { events { ... } output { ... } }
 }
 ```
 

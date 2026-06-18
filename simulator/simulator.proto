@@ -224,7 +224,7 @@ message ExternCallEvent {
 }
 
 // Fired when mark_to_drop() is called. Records the call site, not the packet
-// fate — the actual drop is represented by Drop in PacketOutcome.
+// fate — the actual drop is represented by the Drop TraceTree outcome.
 message MarkToDropEvent {}
 
 // Fired when the P4 program calls clone().
