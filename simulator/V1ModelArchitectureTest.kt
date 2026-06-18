@@ -6,6 +6,7 @@ import fourward.BehavioralConfig
 import fourward.BinaryOp
 import fourward.BinaryOperator
 import fourward.BlockStmt
+import fourward.Continuation
 import fourward.ControlDecl
 import fourward.ExitStmt
 import fourward.Expr
@@ -21,7 +22,6 @@ import fourward.PipelineStageEvent.Direction
 import fourward.StageKind
 import fourward.Stmt
 import fourward.StructDecl
-import fourward.Continuation
 import fourward.TraceEvent
 import fourward.TraceTree
 import fourward.Transition
