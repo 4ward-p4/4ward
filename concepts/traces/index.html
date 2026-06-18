@@ -1424,14 +1424,17 @@ possible outcome.</p>
 <h2 id="structure">Structure<a class="headerlink" href="#structure" title="Permanent link">¶</a></h2>
 <p>A trace tree is a recursive structure:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>TraceTree
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── events[]          — chronologically ordered
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>└── outcome
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    ├── PacketOutcome — terminal: output on a port, or drop
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    └── Fork          — non-terminal: branches into subtrees
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── events[]      — chronologically ordered
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>└── outcome (one of)
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    ├── Output        — terminal: packet transmitted on a port
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    ├── Drop          — terminal: packet discarded
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    ├── Replication   — parallel branches (clone, multicast)
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    ├── Choice        — alternative branches (action selector)
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    └── Continuation  — same packet, another pass (resubmit, recirculate)
 </code></pre></div>
 <p>Events at the parent level are <strong>shared</strong> across all branches. Per-branch
-events live in the fork's subtrees. A program with no non-determinism produces
-a zero-fork tree — structurally equivalent to a flat trace.</p>
+events live in the subtrees. A program with no non-determinism produces a
+linear trace — a <code>TraceTree</code> with a single <code>Output</code> or <code>Drop</code> outcome.</p>
 <h2 id="a-simple-trace">A simple trace<a class="headerlink" href="#a-simple-trace" title="Permanent link">¶</a></h2>
 <p>A packet matching a forwarding table and exiting on port 1:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>packet_ingress (port 0)
@@ -1461,9 +1464,7 @@ a zero-fork tree — structurally equivalent to a flat trace.</p>
 <a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>  params { key: "port" value: "\001" }
 <a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>} }
 <a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>events { deparser_emit { header_type: "ethernet_t" byte_length: 14 } }
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>packet_outcome {
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>  output { dataplane_egress_port: 1 payload: "..." }
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>}
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>output { dataplane_egress_port: 1 payload: "..." }
 </code></pre></div>
 <h2 id="forks">Forks<a class="headerlink" href="#forks" title="Permanent link">¶</a></h2>
 <p>When execution reaches a non-deterministic choice point, the trace forks.
@@ -1621,17 +1622,13 @@ source fragment) linking back to the P4 source.</p>
 </tbody>
 </table>
 <h2 id="packet-outcomes">Packet outcomes<a class="headerlink" href="#packet-outcomes" title="Permanent link">¶</a></h2>
-<p>Every trace path terminates with a <strong>PacketOutcome</strong>:</p>
+<p>Every trace path terminates with one of two outcomes:</p>
 <ul>
 <li><strong>Output</strong> — packet transmitted: <code>dataplane_egress_port</code> + <code>payload</code>.</li>
-<li><strong>Drop</strong> — packet dropped, with a reason:<ul>
-<li><code>MARK_TO_DROP</code> — explicit <code>mark_to_drop()</code> call.</li>
-<li><code>PARSER_REJECT</code> — parser transitioned to the reject state.</li>
-<li><code>PIPELINE_EXECUTION_LIMIT_REACHED</code> — too many fork branches
-  (exponential blowup guard).</li>
-<li><code>ASSERTION_FAILURE</code> — <code>assert()</code> or <code>assume()</code> failed.</li>
-</ul>
-</li>
+<li><strong>Drop</strong> — packet discarded. When there is a triggering event (e.g.
+  <code>mark_to_drop()</code>, a failed assertion, a missing multicast group), the
+  <code>Drop.cause</code> field points to its id in the same node's <code>events</code> list.
+  Parser-reject drops have no cause.</li>
 </ul>
 <h2 id="p4rt-enrichment">P4RT enrichment<a class="headerlink" href="#p4rt-enrichment" title="Permanent link">¶</a></h2>
 <p>When the loaded pipeline uses
@@ -1655,10 +1652,10 @@ automatically when packets are injected through the
 <a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    # P4Runtime: action param value "Ethernet1"
 <a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>  }
 <a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>} }
-<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>packet_outcome { output {
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>output {
 <a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>  dataplane_egress_port: 0
 <a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>  p4rt_egress_port: "Ethernet1"
-<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>} }
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>}
 </code></pre></div>
 <p>Enrichment only applies to the DataplaneService gRPC path. The CLI and web
 playground inject packets directly through the simulator and do not produce
