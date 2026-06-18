@@ -106,6 +106,71 @@ internal fun TraceTree.withEvents(events: List<TraceEvent>): TraceTree {
 internal fun prependEvents(tree: TraceTree, prefix: List<TraceEvent>): TraceTree =
   if (prefix.isEmpty()) tree else tree.withEvents(prefix + tree.eventsList)
 
+/**
+ * Assigns trace-global event ids and rewrites outcome causes to the new ids.
+ *
+ * Fork branches and continuations are often built from fresh [PacketContext]s, so their events can
+ * legitimately start with branch-local ids while the architecture is assembling the tree. This is
+ * the boundary where the simulator turns that internal representation into the public trace
+ * contract: every [TraceEvent.id] is unique across the recursive [TraceTree], and every cause still
+ * points to the event in the same node that originally triggered the outcome.
+ */
+internal fun normalizeTraceEventIds(tree: TraceTree): TraceTree =
+  TraceEventIdNormalizer().normalize(tree)
+
+private class TraceEventIdNormalizer {
+  private var nextEventId = 1L
+
+  fun normalize(tree: TraceTree): TraceTree = normalizeNode(tree)
+
+  private fun normalizeNode(node: TraceTree): TraceTree {
+    val eventIdMap = mutableMapOf<Long, Long>()
+    val normalized = TraceTree.newBuilder()
+    for (event in node.eventsList) {
+      val newId = nextEventId++
+      eventIdMap[event.id] = newId
+      normalized.addEvents(event.toBuilder().setId(newId))
+    }
+
+    // Outcome causes are node-local by construction: Replication/Choice/Drop cause references an
+    // event in the node's own events list, not an event in a child subtree.
+    fun remapCause(cause: Long): Long =
+      checkNotNull(eventIdMap[cause]) { "trace outcome cause $cause does not reference this node" }
+
+    when (node.outcomeCase) {
+      TraceTree.OutcomeCase.REPLICATION -> {
+        val replication = node.replication.toBuilder().clearBranches()
+        if (node.replication.hasCause()) replication.setCause(remapCause(node.replication.cause))
+        for (branch in node.replication.branchesList) {
+          replication.addBranches(normalizeNode(branch))
+        }
+        normalized.setReplication(replication)
+      }
+      TraceTree.OutcomeCase.CHOICE -> {
+        val choice = node.choice.toBuilder().clearBranches()
+        if (node.choice.hasCause()) choice.setCause(remapCause(node.choice.cause))
+        for (branch in node.choice.branchesList) {
+          choice.addBranches(normalizeNode(branch))
+        }
+        normalized.setChoice(choice)
+      }
+      TraceTree.OutcomeCase.CONTINUATION ->
+        normalized.setContinuation(
+          node.continuation.toBuilder().setNext(normalizeNode(node.continuation.next))
+        )
+      TraceTree.OutcomeCase.OUTPUT -> normalized.setOutput(node.output)
+      TraceTree.OutcomeCase.DROP -> {
+        val drop = node.drop.toBuilder()
+        if (node.drop.hasCause()) drop.setCause(remapCause(node.drop.cause))
+        normalized.setDrop(drop)
+      }
+      TraceTree.OutcomeCase.OUTCOME_NOT_SET,
+      null -> {}
+    }
+    return normalized.build()
+  }
+}
+
 /** Creates a [TraceEvent] recording the packet's ingress port. */
 internal fun packetIngressEvent(ingressPort: DataplanePort): TraceEvent =
   TraceEvent.newBuilder()

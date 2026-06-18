@@ -139,14 +139,14 @@ replication {
         direction: ENTER
         dataplane_port: 1
       }
-      id: 1
+      id: 14
     }
     events {
       branch {
         control_name: "MyEgress"
         taken: false
       }
-      id: 2
+      id: 15
       source_info {
         file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
         line: 55
@@ -166,7 +166,7 @@ replication {
         direction: EXIT
         dataplane_port: 1
       }
-      id: 3
+      id: 16
     }
     events {
       pipeline_stage {
@@ -175,7 +175,7 @@ replication {
         direction: ENTER
         dataplane_port: 1
       }
-      id: 4
+      id: 17
     }
     events {
       pipeline_stage {
@@ -184,7 +184,7 @@ replication {
         direction: EXIT
         dataplane_port: 1
       }
-      id: 5
+      id: 18
     }
     events {
       pipeline_stage {
@@ -192,14 +192,14 @@ replication {
         stage_kind: DEPARSER
         direction: ENTER
       }
-      id: 6
+      id: 19
     }
     events {
       deparser_emit {
         header_type: "ethernet_t"
         byte_length: 14
       }
-      id: 7
+      id: 20
     }
     events {
       pipeline_stage {
@@ -207,7 +207,7 @@ replication {
         stage_kind: DEPARSER
         direction: EXIT
       }
-      id: 8
+      id: 21
     }
     output {
       dataplane_egress_port: 1
@@ -222,14 +222,14 @@ replication {
         direction: ENTER
         dataplane_port: 2
       }
-      id: 1
+      id: 22
     }
     events {
       branch {
         control_name: "MyEgress"
         taken: true
       }
-      id: 2
+      id: 23
       source_info {
         file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
         line: 55
@@ -246,7 +246,7 @@ replication {
       assignment {
         target: "hdr.ethernet.etherType"
       }
-      id: 3
+      id: 24
       source_info {
         file: "e2e_tests/trace_tree/clone_preserve_meta.p4"
         line: 57
@@ -266,7 +266,7 @@ replication {
         direction: EXIT
         dataplane_port: 2
       }
-      id: 4
+      id: 25
     }
     events {
       pipeline_stage {
@@ -275,7 +275,7 @@ replication {
         direction: ENTER
         dataplane_port: 2
       }
-      id: 5
+      id: 26
     }
     events {
       pipeline_stage {
@@ -284,7 +284,7 @@ replication {
         direction: EXIT
         dataplane_port: 2
       }
-      id: 6
+      id: 27
     }
     events {
       pipeline_stage {
@@ -292,14 +292,14 @@ replication {
         stage_kind: DEPARSER
         direction: ENTER
       }
-      id: 7
+      id: 28
     }
     events {
       deparser_emit {
         header_type: "ethernet_t"
         byte_length: 14
       }
-      id: 8
+      id: 29
     }
     events {
       pipeline_stage {
@@ -307,7 +307,7 @@ replication {
         stage_kind: DEPARSER
         direction: EXIT
       }
-      id: 9
+      id: 30
     }
     output {
       dataplane_egress_port: 2

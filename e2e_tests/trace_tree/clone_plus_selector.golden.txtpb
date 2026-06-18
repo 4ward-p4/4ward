@@ -113,7 +113,7 @@ choice {
           value: "\000\001"
         }
       }
-      id: 1
+      id: 10
       source_info {
         file: "e2e_tests/trace_tree/clone_plus_selector.p4"
         line: 52
@@ -125,7 +125,7 @@ choice {
       assignment {
         target: "smeta.egress_spec"
       }
-      id: 2
+      id: 11
       source_info {
         file: "e2e_tests/trace_tree/clone_plus_selector.p4"
         line: 35
@@ -144,7 +144,7 @@ choice {
         stage_kind: CONTROL
         direction: EXIT
       }
-      id: 3
+      id: 12
     }
     events {
       clone_session_lookup {
@@ -153,10 +153,10 @@ choice {
         dataplane_egress_port: 1
         replica_count: 1
       }
-      id: 4
+      id: 13
     }
     replication {
-      cause: 4
+      cause: 13
       branches {
         events {
           pipeline_stage {
@@ -165,7 +165,7 @@ choice {
             direction: ENTER
             dataplane_port: 1
           }
-          id: 1
+          id: 14
         }
         events {
           pipeline_stage {
@@ -174,7 +174,7 @@ choice {
             direction: EXIT
             dataplane_port: 1
           }
-          id: 2
+          id: 15
         }
         events {
           pipeline_stage {
@@ -183,7 +183,7 @@ choice {
             direction: ENTER
             dataplane_port: 1
           }
-          id: 3
+          id: 16
         }
         events {
           pipeline_stage {
@@ -192,7 +192,7 @@ choice {
             direction: EXIT
             dataplane_port: 1
           }
-          id: 4
+          id: 17
         }
         events {
           pipeline_stage {
@@ -200,14 +200,14 @@ choice {
             stage_kind: DEPARSER
             direction: ENTER
           }
-          id: 5
+          id: 18
         }
         events {
           deparser_emit {
             header_type: "ethernet_t"
             byte_length: 14
           }
-          id: 6
+          id: 19
         }
         events {
           pipeline_stage {
@@ -215,7 +215,7 @@ choice {
             stage_kind: DEPARSER
             direction: EXIT
           }
-          id: 7
+          id: 20
         }
         output {
           dataplane_egress_port: 1
@@ -230,7 +230,7 @@ choice {
             direction: ENTER
             dataplane_port: 1
           }
-          id: 1
+          id: 21
         }
         events {
           pipeline_stage {
@@ -239,7 +239,7 @@ choice {
             direction: EXIT
             dataplane_port: 1
           }
-          id: 2
+          id: 22
         }
         events {
           pipeline_stage {
@@ -248,7 +248,7 @@ choice {
             direction: ENTER
             dataplane_port: 1
           }
-          id: 3
+          id: 23
         }
         events {
           pipeline_stage {
@@ -257,7 +257,7 @@ choice {
             direction: EXIT
             dataplane_port: 1
           }
-          id: 4
+          id: 24
         }
         events {
           pipeline_stage {
@@ -265,14 +265,14 @@ choice {
             stage_kind: DEPARSER
             direction: ENTER
           }
-          id: 5
+          id: 25
         }
         events {
           deparser_emit {
             header_type: "ethernet_t"
             byte_length: 14
           }
-          id: 6
+          id: 26
         }
         events {
           pipeline_stage {
@@ -280,7 +280,7 @@ choice {
             stage_kind: DEPARSER
             direction: EXIT
           }
-          id: 7
+          id: 27
         }
         output {
           dataplane_egress_port: 1
@@ -298,7 +298,7 @@ choice {
           value: "\000\002"
         }
       }
-      id: 1
+      id: 28
       source_info {
         file: "e2e_tests/trace_tree/clone_plus_selector.p4"
         line: 52
@@ -310,7 +310,7 @@ choice {
       assignment {
         target: "smeta.egress_spec"
       }
-      id: 2
+      id: 29
       source_info {
         file: "e2e_tests/trace_tree/clone_plus_selector.p4"
         line: 35
@@ -329,7 +329,7 @@ choice {
         stage_kind: CONTROL
         direction: EXIT
       }
-      id: 3
+      id: 30
     }
     events {
       clone_session_lookup {
@@ -338,10 +338,10 @@ choice {
         dataplane_egress_port: 1
         replica_count: 1
       }
-      id: 4
+      id: 31
     }
     replication {
-      cause: 4
+      cause: 31
       branches {
         events {
           pipeline_stage {
@@ -350,7 +350,7 @@ choice {
             direction: ENTER
             dataplane_port: 2
           }
-          id: 1
+          id: 32
         }
         events {
           pipeline_stage {
@@ -359,7 +359,7 @@ choice {
             direction: EXIT
             dataplane_port: 2
           }
-          id: 2
+          id: 33
         }
         events {
           pipeline_stage {
@@ -368,7 +368,7 @@ choice {
             direction: ENTER
             dataplane_port: 2
           }
-          id: 3
+          id: 34
         }
         events {
           pipeline_stage {
@@ -377,7 +377,7 @@ choice {
             direction: EXIT
             dataplane_port: 2
           }
-          id: 4
+          id: 35
         }
         events {
           pipeline_stage {
@@ -385,14 +385,14 @@ choice {
             stage_kind: DEPARSER
             direction: ENTER
           }
-          id: 5
+          id: 36
         }
         events {
           deparser_emit {
             header_type: "ethernet_t"
             byte_length: 14
           }
-          id: 6
+          id: 37
         }
         events {
           pipeline_stage {
@@ -400,7 +400,7 @@ choice {
             stage_kind: DEPARSER
             direction: EXIT
           }
-          id: 7
+          id: 38
         }
         output {
           dataplane_egress_port: 2
@@ -415,7 +415,7 @@ choice {
             direction: ENTER
             dataplane_port: 1
           }
-          id: 1
+          id: 39
         }
         events {
           pipeline_stage {
@@ -424,7 +424,7 @@ choice {
             direction: EXIT
             dataplane_port: 1
           }
-          id: 2
+          id: 40
         }
         events {
           pipeline_stage {
@@ -433,7 +433,7 @@ choice {
             direction: ENTER
             dataplane_port: 1
           }
-          id: 3
+          id: 41
         }
         events {
           pipeline_stage {
@@ -442,7 +442,7 @@ choice {
             direction: EXIT
             dataplane_port: 1
           }
-          id: 4
+          id: 42
         }
         events {
           pipeline_stage {
@@ -450,14 +450,14 @@ choice {
             stage_kind: DEPARSER
             direction: ENTER
           }
-          id: 5
+          id: 43
         }
         events {
           deparser_emit {
             header_type: "ethernet_t"
             byte_length: 14
           }
-          id: 6
+          id: 44
         }
         events {
           pipeline_stage {
@@ -465,7 +465,7 @@ choice {
             stage_kind: DEPARSER
             direction: EXIT
           }
-          id: 7
+          id: 45
         }
         output {
           dataplane_egress_port: 1

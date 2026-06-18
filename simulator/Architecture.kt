@@ -47,7 +47,10 @@ interface Architecture {
  * The [trace] tree carries the complete execution trace. Leaf nodes are [Output] or [Drop];
  * interior nodes ([Replication], [Choice], [Continuation]) represent branching and looping.
  */
-data class PipelineResult(val trace: TraceTree) {
+class PipelineResult(trace: TraceTree) {
+  /** Public traces always use ids that are unique across the full recursive tree. */
+  val trace: TraceTree = normalizeTraceEventIds(trace)
+
   /** All possible outcome sets, derived from the trace tree's fork structure. */
   val possibleOutcomes: List<List<OutputPacket>> by lazy { collectPossibleOutcomes(trace) }
 }

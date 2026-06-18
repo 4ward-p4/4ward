@@ -100,7 +100,7 @@ replication {
         direction: ENTER
         dataplane_port: 1
       }
-      id: 1
+      id: 11
     }
     events {
       table_lookup {
@@ -120,7 +120,7 @@ replication {
         }
         action_name: "tag_a"
       }
-      id: 2
+      id: 12
       source_info {
         file: "e2e_tests/trace_tree/multicast_selector.p4"
         line: 58
@@ -133,13 +133,13 @@ replication {
       }
     }
     choice {
-      cause: 2
+      cause: 12
       branches {
         events {
           action_execution {
             action_name: "tag_a"
           }
-          id: 1
+          id: 13
           source_info {
             file: "e2e_tests/trace_tree/multicast_selector.p4"
             line: 58
@@ -151,7 +151,7 @@ replication {
           assignment {
             target: "hdr.ethernet.dstAddr"
           }
-          id: 2
+          id: 14
           source_info {
             file: "e2e_tests/trace_tree/multicast_selector.p4"
             line: 42
@@ -166,7 +166,7 @@ replication {
             stage_kind: CONTROL
             direction: EXIT
           }
-          id: 3
+          id: 15
         }
         events {
           pipeline_stage {
@@ -174,7 +174,7 @@ replication {
             stage_kind: CONTROL
             direction: ENTER
           }
-          id: 4
+          id: 16
         }
         events {
           pipeline_stage {
@@ -182,7 +182,7 @@ replication {
             stage_kind: CONTROL
             direction: EXIT
           }
-          id: 5
+          id: 17
         }
         events {
           pipeline_stage {
@@ -190,14 +190,14 @@ replication {
             stage_kind: DEPARSER
             direction: ENTER
           }
-          id: 6
+          id: 18
         }
         events {
           deparser_emit {
             header_type: "ethernet_t"
             byte_length: 14
           }
-          id: 7
+          id: 19
         }
         events {
           pipeline_stage {
@@ -205,7 +205,7 @@ replication {
             stage_kind: DEPARSER
             direction: EXIT
           }
-          id: 8
+          id: 20
         }
         output {
           dataplane_egress_port: 1
@@ -217,7 +217,7 @@ replication {
           action_execution {
             action_name: "tag_b"
           }
-          id: 1
+          id: 21
           source_info {
             file: "e2e_tests/trace_tree/multicast_selector.p4"
             line: 58
@@ -229,7 +229,7 @@ replication {
           assignment {
             target: "hdr.ethernet.dstAddr"
           }
-          id: 2
+          id: 22
           source_info {
             file: "e2e_tests/trace_tree/multicast_selector.p4"
             line: 43
@@ -244,7 +244,7 @@ replication {
             stage_kind: CONTROL
             direction: EXIT
           }
-          id: 3
+          id: 23
         }
         events {
           pipeline_stage {
@@ -252,7 +252,7 @@ replication {
             stage_kind: CONTROL
             direction: ENTER
           }
-          id: 4
+          id: 24
         }
         events {
           pipeline_stage {
@@ -260,7 +260,7 @@ replication {
             stage_kind: CONTROL
             direction: EXIT
           }
-          id: 5
+          id: 25
         }
         events {
           pipeline_stage {
@@ -268,14 +268,14 @@ replication {
             stage_kind: DEPARSER
             direction: ENTER
           }
-          id: 6
+          id: 26
         }
         events {
           deparser_emit {
             header_type: "ethernet_t"
             byte_length: 14
           }
-          id: 7
+          id: 27
         }
         events {
           pipeline_stage {
@@ -283,7 +283,7 @@ replication {
             stage_kind: DEPARSER
             direction: EXIT
           }
-          id: 8
+          id: 28
         }
         output {
           dataplane_egress_port: 1
@@ -300,7 +300,7 @@ replication {
         direction: ENTER
         dataplane_port: 2
       }
-      id: 1
+      id: 29
     }
     events {
       table_lookup {
@@ -320,7 +320,7 @@ replication {
         }
         action_name: "tag_a"
       }
-      id: 2
+      id: 30
       source_info {
         file: "e2e_tests/trace_tree/multicast_selector.p4"
         line: 58
@@ -333,13 +333,13 @@ replication {
       }
     }
     choice {
-      cause: 2
+      cause: 30
       branches {
         events {
           action_execution {
             action_name: "tag_a"
           }
-          id: 1
+          id: 31
           source_info {
             file: "e2e_tests/trace_tree/multicast_selector.p4"
             line: 58
@@ -351,7 +351,7 @@ replication {
           assignment {
             target: "hdr.ethernet.dstAddr"
           }
-          id: 2
+          id: 32
           source_info {
             file: "e2e_tests/trace_tree/multicast_selector.p4"
             line: 42
@@ -366,7 +366,7 @@ replication {
             stage_kind: CONTROL
             direction: EXIT
           }
-          id: 3
+          id: 33
         }
         events {
           pipeline_stage {
@@ -374,7 +374,7 @@ replication {
             stage_kind: CONTROL
             direction: ENTER
           }
-          id: 4
+          id: 34
         }
         events {
           pipeline_stage {
@@ -382,7 +382,7 @@ replication {
             stage_kind: CONTROL
             direction: EXIT
           }
-          id: 5
+          id: 35
         }
         events {
           pipeline_stage {
@@ -390,14 +390,14 @@ replication {
             stage_kind: DEPARSER
             direction: ENTER
           }
-          id: 6
+          id: 36
         }
         events {
           deparser_emit {
             header_type: "ethernet_t"
             byte_length: 14
           }
-          id: 7
+          id: 37
         }
         events {
           pipeline_stage {
@@ -405,7 +405,7 @@ replication {
             stage_kind: DEPARSER
             direction: EXIT
           }
-          id: 8
+          id: 38
         }
         output {
           dataplane_egress_port: 2
@@ -417,7 +417,7 @@ replication {
           action_execution {
             action_name: "tag_b"
           }
-          id: 1
+          id: 39
           source_info {
             file: "e2e_tests/trace_tree/multicast_selector.p4"
             line: 58
@@ -429,7 +429,7 @@ replication {
           assignment {
             target: "hdr.ethernet.dstAddr"
           }
-          id: 2
+          id: 40
           source_info {
             file: "e2e_tests/trace_tree/multicast_selector.p4"
             line: 43
@@ -444,7 +444,7 @@ replication {
             stage_kind: CONTROL
             direction: EXIT
           }
-          id: 3
+          id: 41
         }
         events {
           pipeline_stage {
@@ -452,7 +452,7 @@ replication {
             stage_kind: CONTROL
             direction: ENTER
           }
-          id: 4
+          id: 42
         }
         events {
           pipeline_stage {
@@ -460,7 +460,7 @@ replication {
             stage_kind: CONTROL
             direction: EXIT
           }
-          id: 5
+          id: 43
         }
         events {
           pipeline_stage {
@@ -468,14 +468,14 @@ replication {
             stage_kind: DEPARSER
             direction: ENTER
           }
-          id: 6
+          id: 44
         }
         events {
           deparser_emit {
             header_type: "ethernet_t"
             byte_length: 14
           }
-          id: 7
+          id: 45
         }
         events {
           pipeline_stage {
@@ -483,7 +483,7 @@ replication {
             stage_kind: DEPARSER
             direction: EXIT
           }
-          id: 8
+          id: 46
         }
         output {
           dataplane_egress_port: 2
