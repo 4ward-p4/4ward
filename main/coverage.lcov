@@ -4410,19 +4410,19 @@ FN:72,fourward/simulator/ArchitectureHelpersKt::buildBlockParamsMap (Lfourward/B
 FNDA:1,fourward/simulator/ArchitectureHelpersKt::buildBlockParamsMap (Lfourward/BehavioralConfig;)Ljava/util/Map;
 FN:99,fourward/simulator/ArchitectureHelpersKt::createDefaultValues (Lfourward/BehavioralConfig;Ljava/util/Map;)Ljava/util/Map;
 FNDA:1,fourward/simulator/ArchitectureHelpersKt::createDefaultValues (Lfourward/BehavioralConfig;Ljava/util/Map;)Ljava/util/Map;
-FN:119,fourward/simulator/ArchitectureHelpersKt::buildExternInstancesMap (Lfourward/BehavioralConfig;)Ljava/util/Map;
+FN:123,fourward/simulator/ArchitectureHelpersKt::buildExternInstancesMap (Lfourward/BehavioralConfig;)Ljava/util/Map;
 FNDA:1,fourward/simulator/ArchitectureHelpersKt::buildExternInstancesMap (Lfourward/BehavioralConfig;)Ljava/util/Map;
-FN:136,fourward/simulator/ArchitectureHelpersKt::bindStageParams (Lfourward/simulator/Environment;Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;)V
+FN:140,fourward/simulator/ArchitectureHelpersKt::bindStageParams (Lfourward/simulator/Environment;Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;)V
 FNDA:1,fourward/simulator/ArchitectureHelpersKt::bindStageParams (Lfourward/simulator/Environment;Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;)V
-FN:149,fourward/simulator/ArchitectureHelpersKt::runParserStage (Lfourward/simulator/Interpreter$Execution;Lfourward/simulator/PacketContext;Lfourward/simulator/Environment;Lfourward/PipelineStage;Lkotlin/jvm/functions/Function1;)V
+FN:153,fourward/simulator/ArchitectureHelpersKt::runParserStage (Lfourward/simulator/Interpreter$Execution;Lfourward/simulator/PacketContext;Lfourward/simulator/Environment;Lfourward/PipelineStage;Lkotlin/jvm/functions/Function1;)V
 FNDA:1,fourward/simulator/ArchitectureHelpersKt::runParserStage (Lfourward/simulator/Interpreter$Execution;Lfourward/simulator/PacketContext;Lfourward/simulator/Environment;Lfourward/PipelineStage;Lkotlin/jvm/functions/Function1;)V
-FN:166,fourward/simulator/ArchitectureHelpersKt::runControlStage (Lfourward/simulator/Interpreter$Execution;Lfourward/simulator/PacketContext;Lfourward/simulator/Environment;Lfourward/PipelineStage;)V
+FN:170,fourward/simulator/ArchitectureHelpersKt::runControlStage (Lfourward/simulator/Interpreter$Execution;Lfourward/simulator/PacketContext;Lfourward/simulator/Environment;Lfourward/PipelineStage;)V
 FNDA:1,fourward/simulator/ArchitectureHelpersKt::runControlStage (Lfourward/simulator/Interpreter$Execution;Lfourward/simulator/PacketContext;Lfourward/simulator/Environment;Lfourward/PipelineStage;)V
-FN:192,fourward/simulator/ArchitectureHelpersKt::handleActionSelectorFork (Lfourward/simulator/ActionSelectorFork;Ljava/util/Map;Lkotlin/jvm/functions/Function1;)Lfourward/TraceTree;
+FN:196,fourward/simulator/ArchitectureHelpersKt::handleActionSelectorFork (Lfourward/simulator/ActionSelectorFork;Ljava/util/Map;Lkotlin/jvm/functions/Function1;)Lfourward/TraceTree;
 FNDA:1,fourward/simulator/ArchitectureHelpersKt::handleActionSelectorFork (Lfourward/simulator/ActionSelectorFork;Ljava/util/Map;Lkotlin/jvm/functions/Function1;)Lfourward/TraceTree;
-FN:205,fourward/simulator/ArchitectureHelpersKt::dropPrefixEvents (Lfourward/TraceTree;I)Lfourward/TraceTree;
+FN:209,fourward/simulator/ArchitectureHelpersKt::dropPrefixEvents (Lfourward/TraceTree;I)Lfourward/TraceTree;
 FNDA:1,fourward/simulator/ArchitectureHelpersKt::dropPrefixEvents (Lfourward/TraceTree;I)Lfourward/TraceTree;
-FN:223,fourward/simulator/ArchitectureHelpersKt::handleCommonExternMethod (Lfourward/simulator/ExternCall$Method;Lfourward/simulator/ExternEvaluator;Lfourward/simulator/TableStore;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;)Lfourward/simulator/Value;
+FN:227,fourward/simulator/ArchitectureHelpersKt::handleCommonExternMethod (Lfourward/simulator/ExternCall$Method;Lfourward/simulator/ExternEvaluator;Lfourward/simulator/TableStore;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;)Lfourward/simulator/Value;
 FNDA:1,fourward/simulator/ArchitectureHelpersKt::handleCommonExternMethod (Lfourward/simulator/ExternCall$Method;Lfourward/simulator/ExternEvaluator;Lfourward/simulator/TableStore;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;)Lfourward/simulator/Value;
 FN:50,fourward/simulator/ArchitectureHelpersKt::<clinit> ()V
 FNDA:1,fourward/simulator/ArchitectureHelpersKt::<clinit> ()V
@@ -4435,7 +4435,7 @@ FNDA:1,fourward/simulator/BlockParam::getTypeName ()Ljava/lang/String;
 BRDA:18,0,0,1
 BRDA:18,0,1,1
 BRDA:23,0,0,1
-BRDA:23,0,1,0
+BRDA:23,0,1,1
 BRDA:35,0,0,1
 BRDA:35,0,1,1
 BRDA:37,0,0,1
@@ -4470,60 +4470,64 @@ BRDA:102,0,0,1
 BRDA:102,0,1,0
 BRDA:102,0,2,1
 BRDA:102,0,3,1
-BRDA:107,0,0,1
-BRDA:107,0,1,1
-BRDA:108,0,0,1
-BRDA:108,0,1,1
+BRDA:103,0,0,1
+BRDA:103,0,1,1
 BRDA:109,0,0,1
-BRDA:109,0,1,0
-BRDA:109,0,2,1
-BRDA:109,0,3,1
-BRDA:136,0,0,0
-BRDA:136,0,1,1
-BRDA:136,0,2,1
-BRDA:136,0,3,1
-BRDA:137,0,0,1
-BRDA:137,0,1,0
-BRDA:194,0,0,1
-BRDA:194,0,1,0
-BRDA:223,0,0,0
-BRDA:223,0,1,1
-BRDA:223,0,2,1
-BRDA:223,0,3,1
-BRDA:223,0,4,1
-BRDA:223,0,5,1
-BRDA:223,0,6,0
-BRDA:223,0,7,1
-BRDA:223,0,8,1
-BRDA:223,0,9,0
-BRDA:223,0,10,1
-BRDA:223,0,11,1
-BRDA:223,0,12,1
-BRDA:223,0,13,1
-BRDA:226,0,0,1
-BRDA:226,0,1,1
-BRDA:228,0,0,1
-BRDA:228,0,1,1
+BRDA:109,0,1,1
+BRDA:110,0,0,1
+BRDA:110,0,1,1
+BRDA:111,0,0,1
+BRDA:111,0,1,0
+BRDA:111,0,2,1
+BRDA:111,0,3,1
+BRDA:112,0,0,1
+BRDA:112,0,1,1
+BRDA:140,0,0,0
+BRDA:140,0,1,1
+BRDA:140,0,2,1
+BRDA:140,0,3,1
+BRDA:141,0,0,1
+BRDA:141,0,1,0
+BRDA:198,0,0,1
+BRDA:198,0,1,0
+BRDA:227,0,0,0
+BRDA:227,0,1,1
+BRDA:227,0,2,1
+BRDA:227,0,3,1
+BRDA:227,0,4,1
+BRDA:227,0,5,1
+BRDA:227,0,6,0
+BRDA:227,0,7,1
+BRDA:227,0,8,1
+BRDA:227,0,9,0
+BRDA:227,0,10,1
+BRDA:227,0,11,1
+BRDA:227,0,12,1
+BRDA:227,0,13,1
 BRDA:230,0,0,1
-BRDA:230,0,1,0
+BRDA:230,0,1,1
 BRDA:232,0,0,1
-BRDA:232,0,1,0
-BRDA:232,0,2,1
-BRDA:232,0,3,0
-BRDA:232,0,4,1
-BRDA:232,0,5,0
-BRDA:232,0,6,1
-BRDA:232,0,7,0
-BRDA:233,0,0,1
-BRDA:233,0,1,0
-BRDA:233,0,2,1
-BRDA:233,0,3,0
-BRDA:233,0,4,1
-BRDA:233,0,5,0
-BRDA:233,0,6,1
-BRDA:233,0,7,0
-BRDA:249,0,0,1
-BRDA:249,0,1,1
+BRDA:232,0,1,1
+BRDA:234,0,0,1
+BRDA:234,0,1,0
+BRDA:236,0,0,1
+BRDA:236,0,1,0
+BRDA:236,0,2,1
+BRDA:236,0,3,0
+BRDA:236,0,4,1
+BRDA:236,0,5,0
+BRDA:236,0,6,1
+BRDA:236,0,7,0
+BRDA:237,0,0,1
+BRDA:237,0,1,0
+BRDA:237,0,2,1
+BRDA:237,0,3,0
+BRDA:237,0,4,1
+BRDA:237,0,5,0
+BRDA:237,0,6,1
+BRDA:237,0,7,0
+BRDA:253,0,0,1
+BRDA:253,0,1,1
 DA:15,1
 DA:18,1
 DA:19,1
@@ -4563,87 +4567,89 @@ DA:100,1
 DA:101,1
 DA:102,1
 DA:103,1
-DA:107,1
-DA:108,1
+DA:104,1
 DA:109,1
 DA:110,1
-DA:114,1
-DA:119,1
-DA:120,1
-DA:121,1
-DA:136,1
-DA:137,1
-DA:139,1
-DA:149,1
-DA:150,1
-DA:151,1
-DA:152,1
+DA:111,1
+DA:112,1
+DA:113,1
+DA:118,1
+DA:123,1
+DA:124,1
+DA:125,1
+DA:140,1
+DA:141,1
+DA:143,1
 DA:153,1
+DA:154,1
 DA:155,1
+DA:156,1
 DA:157,1
-DA:166,1
-DA:167,1
-DA:168,1
-DA:169,0
+DA:159,1
+DA:161,1
+DA:170,1
+DA:171,1
 DA:172,1
-DA:174,1
-DA:192,1
-DA:194,1
-DA:195,1
+DA:173,0
+DA:176,1
+DA:178,1
 DA:196,1
-DA:197,1
 DA:198,1
+DA:199,1
 DA:200,1
-DA:205,1
-DA:223,1
-DA:225,1
-DA:226,1
+DA:201,1
+DA:202,1
+DA:204,1
+DA:209,1
 DA:227,1
-DA:228,1
+DA:229,1
 DA:230,1
 DA:231,1
 DA:232,1
-DA:233,1
 DA:234,1
 DA:235,1
 DA:236,1
 DA:237,1
-DA:241,0
-DA:244,1
-DA:245,1
-DA:246,1
+DA:238,1
+DA:239,1
+DA:240,1
+DA:241,1
+DA:245,0
+DA:248,1
 DA:249,1
 DA:250,1
-DA:251,1
 DA:253,1
+DA:254,1
 DA:255,1
-DA:256,1
-DA:258,1
+DA:257,1
 DA:259,1
+DA:260,1
 DA:262,1
 DA:263,1
-DA:264,1
-DA:265,1
+DA:266,1
+DA:267,1
+DA:268,1
 DA:269,1
-DA:270,1
-DA:271,1
-DA:272,1
 DA:273,1
+DA:274,1
+DA:275,1
 DA:276,1
 DA:277,1
-DA:280,0
-DA:281,0
-DA:284,1
-DA:285,1
-DA:287,1
-DA:290,0
-DA:291,0
-DA:292,0
-DA:293,0
+DA:280,1
+DA:281,1
+DA:284,0
+DA:285,0
+DA:288,1
+DA:289,1
+DA:291,1
+DA:294,0
 DA:295,0
-DA:296,1
-LH:109
-LF:118
+DA:296,0
+DA:297,0
+DA:299,0
+DA:300,1
+LH:111
+LF:120
 end_of_record
 SF:simulator/BitAccumulator.kt
 FN:17,fourward/simulator/BitAccumulator::<init> ()V
