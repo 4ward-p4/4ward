@@ -331,7 +331,7 @@ class PSAArchitecture(private val config: BehavioralConfig) : Architecture {
   ): TraceTree {
     // Use a PacketContext so the multicast lookup event is id-stamped the same way as all other
     // trace events, rather than being set by hand.
-    val ctx = PacketContext(PacketBits.ofBytes(byteArrayOf()), firstEventId = firstEventId)
+    val ctx = PacketContext(PacketBits.EMPTY, firstEventId = firstEventId)
     val group = egressState.pipeline.tableStore.getMulticastGroup(multicastGroup)
     if (group == null) {
       ctx.addTraceEvent(multicastGroupMissEvent(multicastGroup))

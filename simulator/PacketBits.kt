@@ -63,6 +63,8 @@ class PacketBits private constructor(private val paddedBytes: ByteArray, val val
       "validBitLength=$validBitLength)"
 
   companion object {
+    val EMPTY: PacketBits = PacketBits(byteArrayOf(), 0)
+
     fun ofBytes(bytes: ByteArray): PacketBits = PacketBits(bytes, bytes.size * Byte.SIZE_BITS)
 
     /**

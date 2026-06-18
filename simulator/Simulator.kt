@@ -303,18 +303,20 @@ fun collectPossibleOutcomes(tree: TraceTree): List<List<OutputPacket>> {
     TraceTree.OutcomeCase.DROP,
     TraceTree.OutcomeCase.OUTCOME_NOT_SET,
     null -> listOf(emptyList())
-    TraceTree.OutcomeCase.REPLICATION ->
+    TraceTree.OutcomeCase.REPLICATION -> {
       // Cartesian product: for each combination of one world per branch, concatenate packets.
+      require(tree.replication.branchesCount > 0) { "Replication must have at least one branch" }
       tree.replication.branchesList
         .map { collectPossibleOutcomes(it) }
-        .reduceOrNull { acc, next ->
+        .reduce { acc, next ->
           acc.flatMap { world -> next.map { branchWorld -> world + branchWorld } }
-        } ?: listOf(emptyList())
-    TraceTree.OutcomeCase.CHOICE ->
+        }
+    }
+    TraceTree.OutcomeCase.CHOICE -> {
       // Each branch is a separate possible world; union their outcomes.
-      tree.choice.branchesList
-        .flatMap { collectPossibleOutcomes(it) }
-        .ifEmpty { listOf(emptyList()) }
+      require(tree.choice.branchesCount > 0) { "Choice must have at least one branch" }
+      tree.choice.branchesList.flatMap { collectPossibleOutcomes(it) }
+    }
     TraceTree.OutcomeCase.CONTINUATION -> collectPossibleOutcomes(tree.continuation.next)
   }
 }
