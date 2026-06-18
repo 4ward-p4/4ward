@@ -24,6 +24,7 @@ import fourward.Transition
 import fourward.Type
 import fourward.TypeDecl
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -575,6 +576,8 @@ class PNAArchitectureTest {
 
     assertTrue(result.trace.hasReplication())
     assertEquals(2, result.trace.replication.branchesList.size)
+    // mirror_packet has no triggering lookup event — cause must be absent.
+    assertFalse(result.trace.replication.hasCause())
   }
 
   @Test

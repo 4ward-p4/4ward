@@ -21,6 +21,7 @@ import fourward.PipelineStageEvent.Direction
 import fourward.StageKind
 import fourward.Stmt
 import fourward.StructDecl
+import fourward.Continuation
 import fourward.TraceEvent
 import fourward.TraceTree
 import fourward.Transition
@@ -558,6 +559,7 @@ class V1ModelArchitectureTest {
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasDrop())
+    assertFalse(result.trace.drop.hasCause())
   }
 
   @Test
@@ -1074,6 +1076,7 @@ class V1ModelArchitectureTest {
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasContinuation())
+    assertEquals(Continuation.Kind.RESUBMIT, result.trace.continuation.kind)
   }
 
   @Test
@@ -1093,6 +1096,7 @@ class V1ModelArchitectureTest {
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasContinuation())
+    assertEquals(Continuation.Kind.RECIRCULATE, result.trace.continuation.kind)
   }
 
   @Test
