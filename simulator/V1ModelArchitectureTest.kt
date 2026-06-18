@@ -710,7 +710,7 @@ class V1ModelArchitectureTest {
   }
 
   @Test
-  fun `multicast fork trace tree has fork node`() {
+  fun `multicast trace has replication outcome`() {
     val config = v1modelConfig(assignField("sm", "mcast_grp", 1, 16))
     val tableStore = TableStore()
     writeMulticastGroup(tableStore, groupId = 1, replicas = listOf(0 to 2, 0 to 3))

@@ -58,7 +58,7 @@ ternary ACL entries.
 - **Sequential** = `InjectPacket` (one packet at a time, wait for result).
   Intra-packet parallelism (fork branches) is enabled.
 - **Batch** = `InjectPackets` (1000 packets streamed concurrently).
-  Parallelizes across packets and within trace tree forks.
+  Parallelizes across packets and within trace tree branches.
 
 Reproducing:
 ```sh
@@ -80,7 +80,7 @@ with the same table entries: 10k LPM routes + 500 ternary ACL entries.
 BMv2 is faster on single-core sequential throughput — it's a mature C++
 codebase compiled with `-O2` and doesn't build trace trees. 4ward's
 concurrent mode (`InjectPackets`) pulls ahead by parallelizing across
-packets and within trace tree forks.
+packets and within trace tree branches.
 
 WCMP ×16 sequential is additionally lower because the two simulators do
 different amounts of work: BMv2 hashes to one action selector member per

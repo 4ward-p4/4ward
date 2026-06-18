@@ -69,9 +69,7 @@ events { action_execution {
   params { key: "port" value: "\001" }
 } }
 events { deparser_emit { header_type: "ethernet_t" byte_length: 14 } }
-packet_outcome {
-  output { dataplane_egress_port: 1 payload: "..." }
-}
+output { dataplane_egress_port: 1 payload: "..." }
 ```
 
 ## Forks
@@ -225,10 +223,10 @@ events { table_lookup {
     # P4Runtime: action param value "Ethernet1"
   }
 } }
-packet_outcome { output {
+output {
   dataplane_egress_port: 0
   p4rt_egress_port: "Ethernet1"
-} }
+}
 ```
 
 Enrichment only applies to the DataplaneService gRPC path. The CLI and web

@@ -1,8 +1,8 @@
 /* no_fork.p4 — simplest trace tree test: no non-determinism.
  *
  * Parses an Ethernet header, applies an exact-match table to set the egress
- * port, and re-emits.  The resulting trace tree should be a zero-fork tree
- * (no ForkNode) with parser + table lookup + action execution events.
+ * port, and re-emits.  The resulting trace tree should be a linear tree
+ * with parser + table lookup + action execution events.
  */
 
 #include <core.p4>

@@ -28,7 +28,7 @@ Legend:
 | Action selectors | Supported | Supported | N/A | PSA selector hits produce `Choice` trace tree nodes; PNA does not use the same selector model. |
 | Clone/mirror | Supported | Supported | Supported | PNA `mirror_packet` emits the deparsed current packet state, matching DPDK SoftNIC behavior. |
 | Multicast | Supported | Supported | N/A | v1model forks one branch per configured PRE replica and sets `egress_port`/`egress_rid`. |
-| Resubmit | Supported | Supported | N/A | Produces trace tree forks where applicable. |
+| Resubmit | Supported | Supported | N/A | Produces `Continuation` trace tree outcomes where applicable. |
 | Recirculate | Supported | Supported | Supported | PNA recirculate tracks pass count. |
 | Registers | Supported | Supported | Supported | Reproducers seed the packet-start register values read by the trace. |
 | Counters | Supported | Supported | Supported | Direct counters increment on table hits; PSA/PNA `Counter.count()` updates P4Runtime-readable counter state. |
