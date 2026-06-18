@@ -110,6 +110,28 @@ class TableStoreTest {
       .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
       .build()
 
+  private fun exactEntry(
+    firstFieldId: Int,
+    firstValue: ByteArray,
+    secondFieldId: Int,
+    secondValue: ByteArray,
+    actionId: Int,
+  ): TableEntry =
+    TableEntry.newBuilder()
+      .setTableId(TABLE_ID)
+      .addMatch(
+        FieldMatch.newBuilder()
+          .setFieldId(firstFieldId)
+          .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(firstValue)))
+      )
+      .addMatch(
+        FieldMatch.newBuilder()
+          .setFieldId(secondFieldId)
+          .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(secondValue)))
+      )
+      .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
+      .build()
+
   private fun lpmEntry(fieldId: Int, value: ByteArray, prefixLen: Int, actionId: Int): TableEntry =
     TableEntry.newBuilder()
       .setTableId(TABLE_ID)
@@ -548,6 +570,55 @@ class TableStoreTest {
     val thirdResult = store.lookup(TABLE_NAME, listOf("1" to BitVal(3, 8)))
     assertTrue(thirdResult.hit)
     assertEquals("action99", thirdResult.actionName)
+  }
+
+  @Test
+  fun `hasEntryWithFieldValue sees uncommitted exact match writes`() {
+    val value = byteArrayOf(0x0A)
+
+    assertEquals(WriteResult.Success, store.write(insertUpdate(exactEntry(1, value, 10))))
+
+    assertTrue(store.hasEntryWithFieldValue(TABLE_ID, fieldId = 1, ByteString.copyFrom(value)))
+  }
+
+  @Test
+  fun `hasEntryWithFieldValue tracks optional match writes`() {
+    val value = byteArrayOf(0x0B)
+
+    assertEquals(WriteResult.Success, store.write(insertUpdate(optionalEntry(1, value, 10))))
+
+    assertTrue(store.hasEntryWithFieldValue(TABLE_ID, fieldId = 1, ByteString.copyFrom(value)))
+  }
+
+  @Test
+  fun `hasEntryWithFieldValue ignores non-exact match kinds`() {
+    val value = byteArrayOf(0x0C)
+
+    assertEquals(
+      WriteResult.Success,
+      store.write(insertUpdate(lpmEntry(1, value, prefixLen = 8, actionId = 10))),
+    )
+
+    assertFalse(store.hasEntryWithFieldValue(TABLE_ID, fieldId = 1, ByteString.copyFrom(value)))
+  }
+
+  @Test
+  fun `hasEntryWithFieldValue removes value only after last matching entry is deleted`() {
+    val referencedValue = byteArrayOf(0x0D)
+    val first = exactEntry(1, referencedValue, 2, byteArrayOf(0x01), actionId = 10)
+    val second = exactEntry(1, referencedValue, 2, byteArrayOf(0x02), actionId = 20)
+    assertEquals(WriteResult.Success, store.write(insertUpdate(first)))
+    assertEquals(WriteResult.Success, store.write(insertUpdate(second)))
+
+    assertEquals(WriteResult.Success, store.write(deleteUpdate(first)))
+    assertTrue(
+      store.hasEntryWithFieldValue(TABLE_ID, fieldId = 1, ByteString.copyFrom(referencedValue))
+    )
+
+    assertEquals(WriteResult.Success, store.write(deleteUpdate(second)))
+    assertFalse(
+      store.hasEntryWithFieldValue(TABLE_ID, fieldId = 1, ByteString.copyFrom(referencedValue))
+    )
   }
 
   // P4Runtime spec §9.1: INSERT of a duplicate entry must return ALREADY_EXISTS.
