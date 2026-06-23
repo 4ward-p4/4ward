@@ -410,12 +410,12 @@ class SimulatorTest {
 /** Unit tests for [collectPossibleOutcomes] — the outcome type semantics. */
 class CollectPossibleOutcomesTest {
 
-  private fun output(port: Int): fourward.TraceTree =
+  private fun output(port: Int, payload: Int = 0x01): fourward.TraceTree =
     fourward.TraceTree.newBuilder()
       .setOutput(
         fourward.OutputPacket.newBuilder()
           .setDataplaneEgressPort(port)
-          .setPayload(com.google.protobuf.ByteString.copyFrom(byteArrayOf(0x01)))
+          .setPayload(com.google.protobuf.ByteString.copyFrom(byteArrayOf(payload.toByte())))
       )
       .build()
 
@@ -526,5 +526,26 @@ class CollectPossibleOutcomesTest {
     val portMultisets = outcomes.map { outcome -> outcome.map { it.dataplaneEgressPort }.sorted() }
     assertEquals("distinct outcomes only", portMultisets.size, portMultisets.toSet().size)
     assertEquals(setOf(listOf(1, 1), listOf(1, 2), listOf(2, 2)), portMultisets.toSet())
+  }
+
+  @Test
+  fun `outcomes differing only by payload stay distinct`() {
+    // Same egress port, different payload — these are different observable outcomes and must not
+    // collapse. Outcome identity is (port, payload), not port alone. (Without this, a regression
+    // that keyed on port only would still pass every other test, which all use one payload.)
+    val tree = choice(output(1, payload = 0x01), output(1, payload = 0x02))
+    val outcomes = collectPossibleOutcomes(tree)
+    assertEquals(2, outcomes.size)
+  }
+
+  @Test
+  fun `outcomes differing only by packet multiplicity stay distinct`() {
+    // One copy versus two copies of the same packet are different outcomes — multiplicity is part
+    // of an outcome's identity (multicast/clone really can emit a packet twice), so they must not
+    // collapse to one.
+    val tree = choice(output(1), replication(output(1), output(1)))
+    val outcomes = collectPossibleOutcomes(tree)
+    assertEquals("one-copy and two-copy outcomes are distinct", 2, outcomes.size)
+    assertEquals(setOf(1, 2), outcomes.map { it.size }.toSet())
   }
 }
