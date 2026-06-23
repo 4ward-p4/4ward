@@ -247,6 +247,48 @@ TEST(OnPortsTest, P4RuntimePortKeys) {
                     })));
 }
 
+// A single OnPorts call may mix DataplanePort and P4RuntimePort expectations;
+// each is evaluated against its own port type. Here the two CPU packets carry
+// both a dataplane and a P4Runtime egress port, so they are matched either way.
+TEST(OnPortsTest, MixedPortTypes) {
+  fourward::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  auto* forwarded = ps->add_packets();
+  forwarded->set_dataplane_egress_port(1);
+  forwarded->set_p4rt_egress_port("6");
+  for (int i = 0; i < 2; ++i) {
+    auto* punted = ps->add_packets();
+    punted->set_dataplane_egress_port(510);
+    punted->set_p4rt_egress_port("CPU");
+  }
+
+  EXPECT_THAT(resp, OutcomeIs(OnPorts({
+                        {P4RuntimePort{"6"}, SizeIs(1)},
+                        {DataplanePort{510}, SizeIs(2)},
+                    })));
+  // The order of mixed expectations must not matter — the original bug keyed
+  // grouping off the first entry's port type, so reversing the order is the
+  // direct regression guard.
+  EXPECT_THAT(resp, OutcomeIs(OnPorts({
+                        {DataplanePort{510}, SizeIs(2)},
+                        {P4RuntimePort{"6"}, SizeIs(1)},
+                    })));
+}
+
+// OnPorts is exhaustive: a packet on a port no expectation lists fails the
+// match rather than being silently ignored.
+TEST(OnPortsTest, RejectsUnlistedPort) {
+  fourward::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  ps->add_packets()->set_dataplane_egress_port(1);
+  ps->add_packets()->set_dataplane_egress_port(2);
+
+  EXPECT_THAT(resp, Not(OutcomeIs(OnPorts({{DataplanePort{1}, SizeIs(1)}}))));
+  EXPECT_THAT(
+      ExplainMatch(OutcomeIs(OnPorts({{DataplanePort{1}, SizeIs(1)}})), resp),
+      ::testing::HasSubstr("unexpected packet egressing on dataplane port 2"));
+}
+
 TEST(OutcomesAreTest, MixedBareAndOutcome) {
   fourward::InjectPacketResponse resp;
   auto* multicast = resp.add_possible_outcomes();

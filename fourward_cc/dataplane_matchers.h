@@ -16,6 +16,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/algorithm/container.h"
 #include "absl/container/btree_map.h"
 #include "fourward_cc/dataplane_client.h"
 #include "gmock/gmock.h"
@@ -113,29 +114,20 @@ class OutcomesMatcherBase {
   std::string description_;
 };
 
-// Port key for OnPorts grouping.
+// Port key for OnPorts expectations: either a dataplane or a P4Runtime port.
 using PortKey = std::variant<DataplanePort, P4RuntimePort>;
 
-// All entries must use the same port type (DataplanePort or P4RuntimePort).
-// Mixing types in a single OnPorts call groups all packets by the first
-// entry's type, which silently ignores entries of the other type.
-inline PortKey PacketPortKey(const fourward::OutputPacket& pkt,
-                             const PortKey& example_key) {
-  if (std::holds_alternative<P4RuntimePort>(example_key)) {
-    return P4RuntimePort{pkt.p4rt_egress_port()};
+// True if `pkt` egressed on `key`, comparing the packet's egress port in
+// `key`'s own port type. OnPorts evaluates each expectation through this
+// predicate, so a single call can mix DataplanePort and P4RuntimePort
+// expectations freely — each selects packets by its own port type.
+inline bool PacketIsOnPort(const fourward::OutputPacket& pkt,
+                           const PortKey& key) {
+  if (std::holds_alternative<DataplanePort>(key)) {
+    return pkt.dataplane_egress_port() == std::get<DataplanePort>(key).port;
   }
-  return DataplanePort{pkt.dataplane_egress_port()};
+  return pkt.p4rt_egress_port() == std::get<P4RuntimePort>(key).port;
 }
-
-struct PortKeyLess {
-  bool operator()(const PortKey& a, const PortKey& b) const {
-    if (a.index() != b.index()) return a.index() < b.index();
-    if (std::holds_alternative<DataplanePort>(a)) {
-      return std::get<DataplanePort>(a).port < std::get<DataplanePort>(b).port;
-    }
-    return std::get<P4RuntimePort>(a).port < std::get<P4RuntimePort>(b).port;
-  }
-};
 
 inline void PrintPortKey(std::ostream* os, const PortKey& key) {
   if (std::holds_alternative<DataplanePort>(key)) {
@@ -357,7 +349,9 @@ inline auto Drops() { return OutcomeIs(); }
 // ---------------------------------------------------------------------------
 // OnPorts — group by egress port
 //
-// All entries must use the same port type (DataplanePort or P4RuntimePort).
+// Expectations may mix DataplanePort and P4RuntimePort; each is matched
+// against the packets on that port in its own port type. Exhaustive: a
+// packet egressing on a port no expectation lists fails the match.
 // ---------------------------------------------------------------------------
 
 class OnPortsMatcher {
@@ -372,25 +366,36 @@ class OnPortsMatcher {
   template <typename Container>
   bool MatchAndExplain(const Container& packets,
                        ::testing::MatchResultListener* listener) const {
-    absl::btree_map<internal::PortKey, internal::PacketList,
-                    internal::PortKeyLess>
-        groups;
-    // Port type is inferred from the first entry — all entries must use the
-    // same type (DataplanePort or P4RuntimePort).
-    for (const auto& p : packets) {
-      groups[internal::PacketPortKey(p, expected_.front().first)].push_back(p);
-    }
-    static const internal::PacketList kEmpty;
+    // Each expectation is evaluated independently against the full packet
+    // list, selecting packets by its own port type. This lets one OnPorts
+    // call mix DataplanePort and P4RuntimePort expectations.
     for (const auto& [port, matcher] : expected_) {
-      auto it = groups.find(port);
-      const internal::PacketList& group =
-          it != groups.end() ? it->second : kEmpty;
+      internal::PacketList group;
+      for (const auto& p : packets) {
+        if (internal::PacketIsOnPort(p, port)) group.push_back(p);
+      }
       if (!matcher.Matches(group)) {
         if (!listener->IsInterested()) return false;
         *listener << "on port ";
         internal::PrintPortKey(listener->stream(), port);
         *listener << ": ";
         matcher.DescribeNegationTo(listener->stream());
+        return false;
+      }
+    }
+    // Exhaustive: a packet on a port no expectation lists is a failure, not
+    // silently ignored. A packet is covered if it matches any listed port in
+    // that port's own type, so mixed-type expectations cover it either way.
+    for (const auto& p : packets) {
+      const bool covered =
+          absl::c_any_of(expected_, [&](const PortExpectation& e) {
+            return internal::PacketIsOnPort(p, e.first);
+          });
+      if (!covered) {
+        if (!listener->IsInterested()) return false;
+        *listener << "has an unexpected packet egressing on dataplane port "
+                  << p.dataplane_egress_port() << " (P4Runtime port \""
+                  << p.p4rt_egress_port() << "\")";
         return false;
       }
     }
@@ -406,6 +411,7 @@ class OnPortsMatcher {
       *os << " ";
       expected_[i].second.DescribeTo(os);
     }
+    *os << ", and no packets on other ports";
   }
   void DescribeNegationTo(std::ostream* os) const {
     *os << "does not match port-grouped expectations";
