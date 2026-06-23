@@ -300,9 +300,9 @@ private fun enrichResult(
         .setTag(tag)
     )
     .addAllPossibleOutcomes(
-      possibleOutcomes.map { world ->
+      possibleOutcomes.map { outcome ->
         Outcome.newBuilder()
-          .addAllPackets(world.map { it.toDualEncoded(translator, codec) })
+          .addAllPackets(outcome.map { it.toDualEncoded(translator, codec) })
           .build()
       }
     )

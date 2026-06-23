@@ -69,7 +69,7 @@ class TraceTreeConsistencyTest(private val testName: String) {
     )
     assertCausesResolveOnce(trace, eventIdCounts)
 
-    // Verify possibleOutcomes is consistent with the trace tree: flattening all worlds
+    // Verify possibleOutcomes is consistent with the trace tree: flattening all outcomes
     // should produce the same outputs as collecting all leaf outputs from the tree.
     val outputsFromPossibleOutcomes =
       result.possibleOutcomes.flatten().map { it.dataplaneEgressPort to it.payload }
@@ -85,6 +85,21 @@ class TraceTreeConsistencyTest(private val testName: String) {
         "Trace:\n${TextFormat.printer().printToString(trace)}",
       outputsFromPossibleOutcomes.toSet(),
       outputsFromTree.toSet(),
+    )
+
+    // The set contract holds on real programs, not just hand-built trees: no outcome appears
+    // twice. Identity is the multiset of observable packets — the same key collectPossibleOutcomes
+    // dedupes on. (Only programs that nest an alternative fork inside a parallel one can produce
+    // duplicates pre-dedup, so this bites on exactly the corpus programs that exercise that path.)
+    val outcomeKeys =
+      result.possibleOutcomes.map { outcome ->
+        outcome.groupingBy { it.dataplaneEgressPort to it.payload }.eachCount()
+      }
+    assertEquals(
+      "Duplicate possible outcomes for $testName.\n" +
+        "Trace:\n${TextFormat.printer().printToString(trace)}",
+      outcomeKeys.size,
+      outcomeKeys.toSet().size,
     )
   }
 

@@ -76,29 +76,30 @@ class StfRunner(private val pipelineConfigPath: Path, private val dropPortOverri
 }
 
 /**
- * Appends the best-matching possible world's outputs to [outputQueue].
+ * Appends the best-matching outcome's outputs to [outputQueue].
  *
- * For each world in [possibleOutcomes], scores how well it satisfies [expects] when combined with
- * already-accumulated outputs, and picks the world with the fewest failures. For the common case of
- * a single possible world (no alternative forks), skips scoring entirely.
+ * For each outcome in [possibleOutcomes], scores how well it satisfies [expects] when combined with
+ * already-accumulated outputs, and picks the outcome with the fewest failures. For the common case
+ * of a single possible outcome (no alternative forks), skips scoring entirely.
  */
 fun appendBestOutcome(
   possibleOutcomes: List<List<fourward.OutputPacket>>,
   expects: List<StfExpectedOutput>,
   outputQueue: MutableList<ReceivedPacket>,
 ) {
-  val bestWorld =
+  val bestOutcome =
     if (possibleOutcomes.size == 1) {
       possibleOutcomes[0]
     } else {
-      possibleOutcomes.minBy { world ->
+      possibleOutcomes.minBy { outcome ->
         val candidate =
           outputQueue +
-            world.map { ReceivedPacket(it.dataplaneEgressPort, it.payload.toByteArray()) }
+            outcome.map { ReceivedPacket(it.dataplaneEgressPort, it.payload.toByteArray()) }
         matchOutputAgainstExpects(expects, candidate).size
       }
     }
-  outputQueue += bestWorld.map { ReceivedPacket(it.dataplaneEgressPort, it.payload.toByteArray()) }
+  outputQueue +=
+    bestOutcome.map { ReceivedPacket(it.dataplaneEgressPort, it.payload.toByteArray()) }
 }
 
 /**
