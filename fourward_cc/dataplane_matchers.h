@@ -386,6 +386,7 @@ class OnPortsMatcher {
       const internal::PacketList& group =
           it != groups.end() ? it->second : kEmpty;
       if (!matcher.Matches(group)) {
+        if (!listener->IsInterested()) return false;
         *listener << "on port ";
         internal::PrintPortKey(listener->stream(), port);
         *listener << ": ";

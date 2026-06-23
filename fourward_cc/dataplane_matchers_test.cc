@@ -214,6 +214,27 @@ TEST(OnPortsTest, GroupsByPort) {
               OutcomeIs(OnPorts({{DataplanePort{1}, SizeIs(2)}, {DataplanePort{2}, SizeIs(1)}})));
 }
 
+TEST(OnPortsTest, MatchesDoesNotCrashOnMismatch) {
+  fourward::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  ps->add_packets()->set_dataplane_egress_port(1);
+
+  ::testing::Matcher<const fourward::InjectPacketResponse&> matcher =
+      OutcomeIs(OnPorts({{DataplanePort{2}, SizeIs(1)}}));
+
+  EXPECT_FALSE(matcher.Matches(resp));
+}
+
+TEST(OnPortsTest, ExplainsMismatchWhenListenerIsInterested) {
+  fourward::InjectPacketResponse resp;
+  auto* ps = resp.add_possible_outcomes();
+  ps->add_packets()->set_dataplane_egress_port(1);
+
+  EXPECT_THAT(ExplainMatch(OutcomeIs(OnPorts({{DataplanePort{2}, SizeIs(1)}})),
+                           resp),
+              ::testing::HasSubstr("on port 2"));
+}
+
 TEST(OnPortsTest, P4RuntimePortKeys) {
   fourward::InjectPacketResponse resp;
   auto* ps = resp.add_possible_outcomes();
