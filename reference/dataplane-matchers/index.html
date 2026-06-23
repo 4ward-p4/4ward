@@ -1458,8 +1458,10 @@ with <code>Eq</code>, <code>StartsWith</code>, <code>ResultOf</code>, and anythi
 </code></pre></div>
 <h2 id="grouping-by-port">Grouping by port<a class="headerlink" href="#grouping-by-port" title="Permanent link">¶</a></h2>
 <p><code>OnPorts</code> groups packets by egress port and applies per-group matchers —
-use it when a single <code>EXPECT_THAT</code> covers everything you need. When you
-need packets in variables for more involved follow-up, see
+use it when a single <code>EXPECT_THAT</code> covers everything you need. It is
+exhaustive: a packet egressing on a port you didn't list fails the
+match, so you can't accidentally overlook stray copies. When you need
+packets in variables for more involved follow-up, see
 <a href="#extracting-packets-by-port">Extracting packets by port</a> below.</p>
 <p>Use <code>OnPorts</code> directly inside <code>OutcomeIs</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">using</span><span class="w"> </span><span class="o">::</span><span class="n">fourward</span><span class="o">::</span><span class="n">OnPorts</span><span class="p">;</span>
@@ -1487,6 +1489,13 @@ need packets in variables for more involved follow-up, see
 <a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="p">{</span><span class="n">P4RuntimePort</span><span class="p">{</span><span class="s">"Ethernet0"</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
 <a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="w">    </span><span class="p">{</span><span class="n">P4RuntimePort</span><span class="p">{</span><span class="s">"Ethernet1"</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
 <a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="p">})));</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="c1">// DataplanePort and P4RuntimePort expectations may be mixed in one call;</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="c1">// each is matched against the packets on that port in its own port type:</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="n">EXPECT_THAT</span><span class="p">(</span><span class="n">response</span><span class="p">,</span><span class="w"> </span><span class="n">OutcomeIs</span><span class="p">(</span><span class="n">OnPorts</span><span class="p">({</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="w">    </span><span class="p">{</span><span class="n">P4RuntimePort</span><span class="p">{</span><span class="s">"Ethernet0"</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="w">    </span><span class="p">{</span><span class="n">DataplanePort</span><span class="p">{</span><span class="mi">510</span><span class="p">},</span><span class="w"> </span><span class="n">SizeIs</span><span class="p">(</span><span class="mi">2</span><span class="p">)},</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="p">})));</span>
 </code></pre></div>
 <h2 id="extracting-packets-by-port">Extracting packets by port<a class="headerlink" href="#extracting-packets-by-port" title="Permanent link">¶</a></h2>
 <p><code>PacketsByDataplanePort</code> and <code>PacketsByP4RuntimePort</code> are the
