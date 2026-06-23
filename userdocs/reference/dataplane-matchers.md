@@ -141,6 +141,13 @@ EXPECT_THAT(response, OutcomeIs(OnPorts({
     {P4RuntimePort{"Ethernet0"}, SizeIs(1)},
     {P4RuntimePort{"Ethernet1"}, SizeIs(1)},
 })));
+
+// DataplanePort and P4RuntimePort expectations may be mixed in one call;
+// each is matched against the packets on that port in its own port type:
+EXPECT_THAT(response, OutcomeIs(OnPorts({
+    {P4RuntimePort{"Ethernet0"}, SizeIs(1)},
+    {DataplanePort{510}, SizeIs(2)},
+})));
 ```
 
 ## Extracting packets by port
