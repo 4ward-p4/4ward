@@ -329,11 +329,9 @@ fun collectPossibleOutcomes(tree: TraceTree): List<List<OutputPacket>> {
   // carry no probability, so the multiplicity of identical outcomes is meaningless — only their
   // presence is. [outcomeIdentity] defines when two outcomes are the same.
   //
-  // Deduplicating on every return (rather than building raw and deduplicating once at the top)
-  // keeps
-  // this a single recursive function and stops the Cartesian product from compounding duplicates
-  // across nesting levels. The repeated dedup work is irrelevant here — simplicity over
-  // performance.
+  // Deduplicate on every return (not once at the top) — this keeps one recursive function and
+  // stops the Cartesian product from compounding duplicates across nesting. The repeated work
+  // is irrelevant for a simulator: simplicity over performance.
   return outcomes.distinctBy { it.outcomeIdentity() }
 }
 
