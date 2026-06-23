@@ -433,33 +433,33 @@ class CollectPossibleOutcomesTest {
       .build()
 
   @Test
-  fun `linear trace produces one world with one output`() {
+  fun `linear trace produces one outcome with one output`() {
     val outcomes = collectPossibleOutcomes(output(1))
     assertEquals(listOf(listOf(output(1).output)), outcomes)
   }
 
   @Test
-  fun `drop produces one world with no outputs`() {
+  fun `drop produces one outcome with no outputs`() {
     val outcomes = collectPossibleOutcomes(drop())
     assertEquals(1, outcomes.size)
     assertTrue(outcomes[0].isEmpty())
   }
 
   @Test
-  fun `replication combines outputs within each world`() {
+  fun `replication combines outputs within each outcome`() {
     val tree = replication(output(1), output(2))
     val outcomes = collectPossibleOutcomes(tree)
-    assertEquals("one world", 1, outcomes.size)
+    assertEquals("one outcome", 1, outcomes.size)
     assertEquals("two outputs", 2, outcomes[0].size)
     assertEquals(1, outcomes[0][0].dataplaneEgressPort)
     assertEquals(2, outcomes[0][1].dataplaneEgressPort)
   }
 
   @Test
-  fun `choice produces one world per branch`() {
+  fun `choice produces one outcome per branch`() {
     val tree = choice(output(1), output(2), output(3))
     val outcomes = collectPossibleOutcomes(tree)
-    assertEquals("three worlds", 3, outcomes.size)
+    assertEquals("three outcomes", 3, outcomes.size)
     assertEquals(1, outcomes[0].single().dataplaneEgressPort)
     assertEquals(2, outcomes[1].single().dataplaneEgressPort)
     assertEquals(3, outcomes[2].single().dataplaneEgressPort)
@@ -470,27 +470,28 @@ class CollectPossibleOutcomesTest {
     // Replication with 2 branches, each containing a 2-member choice.
     val tree = replication(choice(output(1), output(2)), choice(output(3), output(4)))
     val outcomes = collectPossibleOutcomes(tree)
-    // 2 × 2 = 4 possible worlds, each with 2 outputs (one per replication branch).
+    // 2 × 2 = 4 possible outcomes, each with 2 outputs (one per replication branch).
     assertEquals("2×2 Cartesian product", 4, outcomes.size)
     assertTrue(outcomes.all { it.size == 2 })
-    val portPairs = outcomes.map { world -> world.map { it.dataplaneEgressPort }.sorted() }.toSet()
+    val portPairs =
+      outcomes.map { outcome -> outcome.map { it.dataplaneEgressPort }.sorted() }.toSet()
     assertEquals(setOf(listOf(1, 3), listOf(1, 4), listOf(2, 3), listOf(2, 4)), portPairs)
   }
 
   @Test
-  fun `choice with drop produces world with empty output`() {
+  fun `choice with drop produces outcome with empty output`() {
     val tree = choice(output(1), drop())
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals(2, outcomes.size)
     assertEquals(1, outcomes[0].size)
-    assertTrue("drop world is empty", outcomes[1].isEmpty())
+    assertTrue("drop outcome is empty", outcomes[1].isEmpty())
   }
 
   @Test
   fun `multicast replication combines all outputs`() {
     val tree = replication(output(1), output(2), output(3))
     val outcomes = collectPossibleOutcomes(tree)
-    assertEquals("one world", 1, outcomes.size)
+    assertEquals("one outcome", 1, outcomes.size)
     assertEquals("three outputs", 3, outcomes[0].size)
   }
 
@@ -498,7 +499,7 @@ class CollectPossibleOutcomesTest {
   fun `identical choice branches collapse to one outcome`() {
     // An action selector whose members all forward identically: the result is certain, so there
     // is exactly one possible outcome — not one per member. The outer collection is a set of
-    // distinct outcomes; duplicate worlds carry no information (forks are unweighted).
+    // distinct outcomes; duplicate outcomes carry no information (forks are unweighted).
     val tree = choice(output(1), output(1))
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals(listOf(listOf(output(1).output)), outcomes)
@@ -522,7 +523,7 @@ class CollectPossibleOutcomesTest {
     // raw Cartesian combinations collapse to three distinct outcomes: {1,1}, {1,2}, {2,2}.
     val tree = replication(choice(output(1), output(2)), choice(output(1), output(2)))
     val outcomes = collectPossibleOutcomes(tree)
-    val portMultisets = outcomes.map { world -> world.map { it.dataplaneEgressPort }.sorted() }
+    val portMultisets = outcomes.map { outcome -> outcome.map { it.dataplaneEgressPort }.sorted() }
     assertEquals("distinct outcomes only", portMultisets.size, portMultisets.toSet().size)
     assertEquals(setOf(listOf(1, 1), listOf(1, 2), listOf(2, 2)), portMultisets.toSet())
   }

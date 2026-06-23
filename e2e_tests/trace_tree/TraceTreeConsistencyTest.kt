@@ -4,6 +4,7 @@ import com.google.protobuf.TextFormat
 import fourward.TraceTree
 import fourward.simulator.ProcessPacketResult
 import fourward.simulator.Simulator
+import fourward.simulator.outcomeIdentity
 import fourward.stf.StfFile
 import fourward.stf.installStfEntries
 import fourward.stf.loadPipelineConfig
@@ -87,19 +88,14 @@ class TraceTreeConsistencyTest(private val testName: String) {
       outputsFromTree.toSet(),
     )
 
-    // The set contract holds on real programs, not just hand-built trees: no outcome appears
-    // twice. Identity is the multiset of observable packets — the same key collectPossibleOutcomes
-    // dedupes on. (Only programs that nest an alternative fork inside a parallel one can produce
-    // duplicates pre-dedup, so this bites on exactly the corpus programs that exercise that path.)
-    val outcomeKeys =
-      result.possibleOutcomes.map { outcome ->
-        outcome.groupingBy { it.dataplaneEgressPort to it.payload }.eachCount()
-      }
+    // The set contract holds on real corpus programs, not just hand-built trees: no outcome
+    // repeats (keyed by [outcomeIdentity], the same key collectPossibleOutcomes dedupes on). Only
+    // a program nesting an alternative fork inside a parallel one can produce duplicates here.
     assertEquals(
       "Duplicate possible outcomes for $testName.\n" +
         "Trace:\n${TextFormat.printer().printToString(trace)}",
-      outcomeKeys.size,
-      outcomeKeys.toSet().size,
+      result.possibleOutcomes.size,
+      result.possibleOutcomes.distinctBy { it.outcomeIdentity() }.size,
     )
   }
 

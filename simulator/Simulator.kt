@@ -1,5 +1,6 @@
 package fourward.simulator
 
+import com.google.protobuf.ByteString
 import fourward.OutputPacket
 import fourward.PipelineConfig
 import fourward.TraceTree
@@ -14,9 +15,9 @@ import java.util.concurrent.atomic.AtomicReference
  * - **Alternative forks** (action selector): exactly one branch executes at runtime, so each branch
  *   produces a separate possible outcome.
  *
- * Programs with no alternative forks have exactly one possible outcome. Programs with action
- * selectors have one possible outcome per alternative (Cartesian product when nested inside
- * parallel forks).
+ * The outcomes form a *set* of distinct possibilities: alternatives that forward identically (e.g.
+ * action-selector members with the same effect) collapse to one outcome. Programs with no
+ * alternative forks have exactly one possible outcome. See [collectPossibleOutcomes].
  *
  * Decouples the simulator from the gRPC wire format ([fourward.InjectPacketResponse]). Each RPC
  * method builds its own wire proto from this data class.
@@ -326,19 +327,22 @@ fun collectPossibleOutcomes(tree: TraceTree): List<List<OutputPacket>> {
   // possible outcome, not two. Distinct fork resolutions can produce the same outcome (a multicast
   // whose replicas land on the same ports, symmetric action-selector members, …), and the forks
   // carry no probability, so the multiplicity of identical outcomes is meaningless — only their
-  // presence is.
-  //
-  // An outcome's identity is the *multiset* of packets it emits: multiplicity within one outcome is
-  // real (multicast/clone can emit a packet twice) and is preserved, while order is not observable.
-  // The key uses the observable packet fields only (egress port, payload); enrichment fields are
-  // never populated at this layer.
+  // presence is. [outcomeIdentity] defines when two outcomes are the same.
   //
   // Deduplicating on every return (rather than building raw and deduplicating once at the top)
   // keeps
   // this a single recursive function and stops the Cartesian product from compounding duplicates
   // across nesting levels. The repeated dedup work is irrelevant here — simplicity over
   // performance.
-  return outcomes.distinctBy { outcome ->
-    outcome.groupingBy { it.dataplaneEgressPort to it.payload }.eachCount()
-  }
+  return outcomes.distinctBy { it.outcomeIdentity() }
 }
+
+/**
+ * The identity of an outcome (the output packets from one real execution): the *multiset* of
+ * packets it emits, keyed by the observable fields (egress port, payload). Two outcomes are the
+ * same iff their identities are equal — order within an outcome is not observable, but multiplicity
+ * is (multicast/clone can emit a packet twice), hence a multiset and not a set. Enrichment fields
+ * are never populated at this layer, so they don't participate.
+ */
+fun List<OutputPacket>.outcomeIdentity(): Map<Pair<Int, ByteString>, Int> =
+  groupingBy { it.dataplaneEgressPort to it.payload }.eachCount()
