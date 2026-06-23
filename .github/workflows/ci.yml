@@ -59,7 +59,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Build docs
         run: pip install 'mkdocs-material>=9,<10' mkdocs-glightbox mkdocs-macros-plugin && mkdocs build --strict
@@ -88,7 +88,7 @@ jobs:
     if: github.event.action != 'closed' && github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check remote cache availability
         id: cache
@@ -108,7 +108,7 @@ jobs:
       # this key.  Lint builds a subset of targets, so letting it save would
       # evict simulator/e2e artifacts that build-and-test needs.
       - name: Restore Bazel cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/bazel
           key: bazel-ubuntu-24.04-${{ hashFiles('*.bazel*') }}
@@ -152,7 +152,7 @@ jobs:
       BAZEL_CACHE: ${{ contains(matrix.os, 'macos') && '~/Library/Caches/bazel' || '~/.cache/bazel' }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check remote cache availability
         id: cache
@@ -197,7 +197,7 @@ jobs:
           echo "Bazel output base: $OUTPUT_BASE"
 
       - name: Restore Bazel cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: |
             ${{ env.BAZEL_CACHE }}
@@ -273,7 +273,7 @@ jobs:
       # save rescues that PR's re-runs without costing the steady state.
       # Skip on schedule — the warm-cache job saves a more complete cache.
       - name: Save Bazel cache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         if: always() && github.event_name != 'schedule' && (github.ref_name == 'main' || env.DURATION > 1200)
         with:
           path: |
@@ -293,7 +293,7 @@ jobs:
     name: BCR consumer check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check remote cache availability
         id: cache
@@ -309,7 +309,7 @@ jobs:
       # shared — both builds use the same Bazel version, so action
       # hashes match and the BCR check benefits from warm cache.
       - name: Restore Bazel cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/bazel
           key: bazel-bcr-${{ hashFiles('*.bazel*', 'bcr_test_module/*.bazel*') }}
@@ -356,7 +356,7 @@ jobs:
       # near-cold PR build (>20 min). The high bar keeps routine PR saves from
       # evicting the shared main cache under the repo's 10 GB budget.
       - name: Save Bazel cache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         if: always() && (github.ref_name == 'main' || env.DURATION > 1200)
         with:
           path: ~/.cache/bazel
@@ -387,7 +387,7 @@ jobs:
       BAZEL_CACHE: ${{ contains(matrix.os, 'macos') && '~/Library/Caches/bazel' || '~/.cache/bazel' }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Select stable Xcode
         if: runner.os == 'macOS'
@@ -410,7 +410,7 @@ jobs:
           echo "Bazel output base: $OUTPUT_BASE"
 
       - name: Restore Bazel cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: |
             ${{ env.BAZEL_CACHE }}
@@ -451,7 +451,7 @@ jobs:
       # Always save — this is the whole point of the warm-cache job.
       - name: Save Bazel cache
         if: always()
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: |
             ${{ env.BAZEL_CACHE }}
@@ -472,7 +472,7 @@ jobs:
     env:
       PR_NUM: ${{ github.event.pull_request.number || '' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check remote cache availability
         id: cache
@@ -489,7 +489,7 @@ jobs:
           echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
 
       - name: Restore Bazel cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/bazel
           key: bazel-coverage-${{ hashFiles('*.bazel*') }}
@@ -542,7 +542,7 @@ jobs:
       # from the main cache but don't save — this prevents PR caches (~625 MB
       # each) from evicting the warm main cache under GitHub's 10 GB limit.
       - name: Save Bazel cache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         if: always() && github.ref_name == 'main'
         with:
           path: ~/.cache/bazel
