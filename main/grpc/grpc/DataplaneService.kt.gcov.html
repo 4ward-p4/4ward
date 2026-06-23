@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-23 06:41:36</td>
+            <td class="headerValue">2026-06-23 18:57:12</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -68,8 +68,8 @@
 <span id="L6"><span class="lineNum">       6</span>              : import fourward.InjectPacketResponse</span>
 <span id="L7"><span class="lineNum">       7</span>              : import fourward.InjectPacketsResponse</span>
 <span id="L8"><span class="lineNum">       8</span>              : import fourward.InputPacket</span>
-<span id="L9"><span class="lineNum">       9</span>              : import fourward.OutputPacket</span>
-<span id="L10"><span class="lineNum">      10</span>              : import fourward.PacketSet</span>
+<span id="L9"><span class="lineNum">       9</span>              : import fourward.Outcome</span>
+<span id="L10"><span class="lineNum">      10</span>              : import fourward.OutputPacket</span>
 <span id="L11"><span class="lineNum">      11</span>              : import fourward.PipelineConfig</span>
 <span id="L12"><span class="lineNum">      12</span>              : import fourward.PrePacketHookInvocation</span>
 <span id="L13"><span class="lineNum">      13</span>              : import fourward.PrePacketHookResponse</span>
@@ -362,9 +362,9 @@
 <span id="L300"><span class="lineNum">     300</span> <span class="tlaGNC">           1 :         .setTag(tag)</span></span>
 <span id="L301"><span class="lineNum">     301</span>              :     )</span>
 <span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :     .addAllPossibleOutcomes(</span></span>
-<span id="L303"><span class="lineNum">     303</span> <span class="tlaGNC">           1 :       possibleOutcomes.map { world -&gt;</span></span>
-<span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :         PacketSet.newBuilder()</span></span>
-<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :           .addAllPackets(world.map { it.toDualEncoded(translator, codec) })</span></span>
+<span id="L303"><span class="lineNum">     303</span> <span class="tlaGNC">           1 :       possibleOutcomes.map { outcome -&gt;</span></span>
+<span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :         Outcome.newBuilder()</span></span>
+<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :           .addAllPackets(outcome.map { it.toDualEncoded(translator, codec) })</span></span>
 <span id="L306"><span class="lineNum">     306</span> <span class="tlaGNC">           1 :           .build()</span></span>
 <span id="L307"><span class="lineNum">     307</span>              :       }</span>
 <span id="L308"><span class="lineNum">     308</span>              :     )</span>

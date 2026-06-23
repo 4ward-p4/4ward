@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">95.2&nbsp;%</td>
+            <td class="headerCovTableEntryHi">99.0&nbsp;%</td>
             <td class="headerCovTableEntry">105</td>
-            <td class="headerCovTableEntry">100</td>
+            <td class="headerCovTableEntry">104</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-06-23 06:41:36</td>
+            <td class="headerValue">2026-06-23 18:57:12</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -230,10 +230,10 @@
 <span id="L168"><span class="lineNum">     168</span> <span class="tlaGNC">           1 :       val canonical = canonicalizeAction(member.action)</span></span>
 <span id="L169"><span class="lineNum">     169</span> <span class="tlaGNC">           1 :       if (canonical === member.action) update</span></span>
 <span id="L170"><span class="lineNum">     170</span>              :       else</span>
-<span id="L171"><span class="lineNum">     171</span> <span class="tlaUNC tlaBgUNC">           0 :         update</span></span>
-<span id="L172"><span class="lineNum">     172</span> <span class="tlaUNC">           0 :           .toBuilder()</span></span>
-<span id="L173"><span class="lineNum">     173</span> <span class="tlaUNC">           0 :           .apply { entityBuilder.actionProfileMemberBuilder.action = canonical }</span></span>
-<span id="L174"><span class="lineNum">     174</span> <span class="tlaUNC">           0 :           .build()</span></span>
+<span id="L171"><span class="lineNum">     171</span> <span class="tlaGNC">           1 :         update</span></span>
+<span id="L172"><span class="lineNum">     172</span> <span class="tlaGNC">           1 :           .toBuilder()</span></span>
+<span id="L173"><span class="lineNum">     173</span> <span class="tlaGNC">           1 :           .apply { entityBuilder.actionProfileMemberBuilder.action = canonical }</span></span>
+<span id="L174"><span class="lineNum">     174</span> <span class="tlaGNC">           1 :           .build()</span></span>
 <span id="L175"><span class="lineNum">     175</span>              :     }</span>
 <span id="L176"><span class="lineNum">     176</span>              :     // Action-profile groups carry only member-ID references — no client bytestrings.</span>
 <span id="L177"><span class="lineNum">     177</span>              :     P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_GROUP,</span>
@@ -251,7 +251,7 @@
 <span id="L189"><span class="lineNum">     189</span>              :     P4RuntimeOuterClass.Entity.EntityCase.EXTERN_ENTRY,</span>
 <span id="L190"><span class="lineNum">     190</span>              :     // Should not happen: the validator rejects updates with no entity set before we reach here.</span>
 <span id="L191"><span class="lineNum">     191</span>              :     P4RuntimeOuterClass.Entity.EntityCase.ENTITY_NOT_SET,</span>
-<span id="L192"><span class="lineNum">     192</span> <span class="tlaGNC tlaBgGNC">           1 :     null -&gt; update</span></span>
+<span id="L192"><span class="lineNum">     192</span> <span class="tlaGNC">           1 :     null -&gt; update</span></span>
 <span id="L193"><span class="lineNum">     193</span>              :   }</span>
 <span id="L194"><span class="lineNum">     194</span>              : }</span>
 <span id="L195"><span class="lineNum">     195</span>              : </span>
