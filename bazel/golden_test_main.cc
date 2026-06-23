@@ -8,6 +8,8 @@
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
+  // Must run before ParseCommandLine: it sets the --update_golden default that a
+  // command-line --update_golden=... then overrides.
   fourward::bazel::internal::InitializeGoldenTestMain();
   absl::ParseCommandLine(argc, argv);
   return RUN_ALL_TESTS();

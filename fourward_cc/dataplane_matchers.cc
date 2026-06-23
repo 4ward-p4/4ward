@@ -200,6 +200,24 @@ void PrintTraceForMatcher(std::ostream* os, const fourward::TraceTree& trace) {
   }
 }
 
+void PrintActualOutputSummary(std::ostream* os, const PacketList& packets) {
+  if (packets.empty()) {
+    *os << "actual output had no packets";
+    return;
+  }
+  if (packets.size() == 1) {
+    *os << "actual packet egressed on ";
+    PrintPacketEgress(os, packets[0]);
+    return;
+  }
+
+  *os << "actual output had " << packets.size() << " packets";
+  for (size_t i = 0; i < packets.size(); ++i) {
+    *os << (i == 0 ? ": " : ", ");
+    PrintPacketEgress(os, packets[i]);
+  }
+}
+
 void PrintPacketPortGroups(std::ostream* os, const PacketList& packets) {
   ::absl::btree_map<uint32_t, int> dataplane_ports;
   ::absl::btree_map<std::string, int> p4rt_ports;

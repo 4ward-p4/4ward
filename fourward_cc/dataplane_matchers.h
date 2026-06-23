@@ -7,7 +7,6 @@
 #ifndef FOURWARD_CC_DATAPLANE_MATCHERS_H_
 #define FOURWARD_CC_DATAPLANE_MATCHERS_H_
 
-#include <algorithm>
 #include <concepts>
 #include <cstdint>
 #include <ostream>
@@ -299,25 +298,6 @@ inline void PrintPacketEgress(std::ostream* os,
   if (!packet.payload().empty()) {
     *os << " with payload ";
     PrintPayloadPreview(os, packet.payload());
-  }
-}
-
-inline void PrintActualOutputSummary(std::ostream* os,
-                                     const PacketList& packets) {
-  if (packets.empty()) {
-    *os << "actual output had no packets";
-    return;
-  }
-  if (packets.size() == 1) {
-    *os << "actual packet egressed on ";
-    PrintPacketEgress(os, packets[0]);
-    return;
-  }
-
-  *os << "actual output had " << packets.size() << " packets";
-  for (size_t i = 0; i < packets.size(); ++i) {
-    *os << (i == 0 ? ": " : ", ");
-    PrintPacketEgress(os, packets[i]);
   }
 }
 
