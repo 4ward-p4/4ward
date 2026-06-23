@@ -1613,32 +1613,60 @@ whatever <code>ResultOf</code> returns, so any <code>bytes → T</code> parser w
 way.</p>
 <h2 id="trace-on-failure">Trace on failure<a class="headerlink" href="#trace-on-failure" title="Permanent link">¶</a></h2>
 <p>When an outcome-level matcher fails (<code>ForwardsTo</code>, <code>Forwards</code>, <code>Drops</code>,
-<code>OutcomeIs</code>, <code>OutcomesAre</code>, <code>EachOutcome</code>, <code>AnyOutcome</code>), the full
-simulator trace is automatically appended to the failure message — if the
-response carries one. This gives you immediate visibility into how the
-packet was processed without rerunning the test:</p>
+<code>OutcomeIs</code>, <code>OutcomesAre</code>, <code>EachOutcome</code>, <code>AnyOutcome</code>), the failure
+message includes the actual outcome summary and, if the response carries a
+trace, a compact trace summary. The summary keeps the high-signal routing
+events visible without dumping every parser assignment and branch value:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>Expected: drop the packet
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  Actual: (has 1 possible outcomes),
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>full trace:
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>events {
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>  table_lookup {
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    table_name: "ingress.acl"
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    hit: true
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>    ...
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>  }
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>}
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>...
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>Actual: 1 outcome: {1 packet, dataplane ports {1: 1}, P4Runtime ports {"Ethernet1": 1}}
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>expected drop; actual packet egressed on dataplane port 1 / P4Runtime port "Ethernet1" with payload 0x000102030405...
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>trace:
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>ingress dataplane port 0 / P4Runtime port "1"
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>assignments: local_metadata.vrf_id := 1, local_metadata.nexthop_id_valid := true, ...
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>table ingress.acl: hit action punt_to_cpu(queue="CPU") (looked up value: "vrf")
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>clone session 1: found -&gt; dataplane port 510 / P4Runtime port "CPU", rid 1, replicas 1
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>clone replication with 1 branch
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>  branch 1:
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>    output dataplane port 510 / P4Runtime port "CPU": 0x000102030405060708090a0b0c0d0e0f1011121314151617...
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>full trace omitted; rerun with --fourward_matcher_trace=full
 </code></pre></div>
-<p>No opt-in needed — the trace shows up whenever the response has one.</p>
+<p>The <code>--fourward_matcher_trace</code> Abseil flag controls how much trace detail
+matcher failures print:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>summary</code></td>
+<td>Default. Print the compact trace summary and a full-trace rerun hint.</td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>Omit trace details and print a rerun hint.</td>
+</tr>
+<tr>
+<td><code>full</code></td>
+<td>Print the raw <code>TraceTree</code> proto debug string.</td>
+</tr>
+</tbody>
+</table>
+<p>For a Bazel test, pass the flag through with <code>--test_arg</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//path/to:my_test<span class="w"> </span>--test_arg<span class="o">=</span>--fourward_matcher_trace<span class="o">=</span>full
+</code></pre></div>
+<p>This also works for tests using the default GoogleTest main.</p>
 <h2 id="bazel-dependency">Bazel dependency<a class="headerlink" href="#bazel-dependency" title="Permanent link">¶</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">cc_test</span><span class="p">(</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="n">name</span> <span class="o">=</span> <span class="s2">"my_test"</span><span class="p">,</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"my_test.cc"</span><span class="p">],</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>        <span class="s2">"@fourward//fourward_cc:dataplane_matchers"</span><span class="p">,</span>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        <span class="c1"># ...</span>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="p">],</span>
-<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">cc_test</span><span class="p">(</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="n">name</span> <span class="o">=</span> <span class="s2">"my_test"</span><span class="p">,</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"my_test.cc"</span><span class="p">],</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>        <span class="s2">"@fourward//fourward_cc:dataplane_matchers"</span><span class="p">,</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>        <span class="c1"># ...</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    <span class="p">],</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="p">)</span>
 </code></pre></div>
 
 
