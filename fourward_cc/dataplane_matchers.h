@@ -7,9 +7,11 @@
 #ifndef FOURWARD_CC_DATAPLANE_MATCHERS_H_
 #define FOURWARD_CC_DATAPLANE_MATCHERS_H_
 
+#include <algorithm>
 #include <concepts>
 #include <cstdint>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -18,15 +20,30 @@
 
 #include "absl/algorithm/container.h"
 #include "absl/container/btree_map.h"
+#include "absl/strings/escaping.h"
+#include "absl/strings/string_view.h"
 #include "fourward_cc/dataplane_client.h"
 #include "gmock/gmock.h"
 #include "grpc/dataplane.pb.h"
 #include "simulator/simulator.pb.h"
+#include "simulator/trace_summary.h"
 
 namespace fourward {
 namespace internal {
 
 using PacketList = std::vector<fourward::OutputPacket>;
+
+enum class MatcherTraceMode {
+  kNone,
+  kSummary,
+  kFull,
+};
+
+bool AbslParseFlag(::absl::string_view text, MatcherTraceMode* mode,
+                   std::string* error);
+std::string AbslUnparseFlag(MatcherTraceMode mode);
+MatcherTraceMode GetMatcherTraceMode();
+void SetMatcherTraceModeForTest(MatcherTraceMode mode);
 
 // Satisfied by InjectPacketResponse and ProcessPacketResult.
 template <typename T>
@@ -42,6 +59,44 @@ std::vector<PacketList> ExtractOutcomes(const T& result) {
     outcomes.emplace_back(ps.packets().begin(), ps.packets().end());
   }
   return outcomes;
+}
+
+void PrintTraceForMatcher(std::ostream* os, const fourward::TraceTree& trace);
+void PrintActualOutputSummary(std::ostream* os, const PacketList& packets);
+void PrintPacketPortGroups(std::ostream* os, const PacketList& packets);
+void PrintPacketListSummary(std::ostream* os, const PacketList& packets);
+void PrintPacketListDetails(std::ostream* os, const PacketList& packets);
+void PrintOutcomesSummary(std::ostream* os,
+                          const std::vector<PacketList>& outcomes);
+
+template <typename T>
+  requires(HasPossibleOutcomes<T>)
+void PrintResultSummary(const T& result, std::ostream* os) {
+  auto outcomes = ExtractOutcomes(result);
+  if (outcomes.size() == 1) {
+    *os << "1 outcome: ";
+    PrintPacketListSummary(os, outcomes[0]);
+    return;
+  }
+  *os << outcomes.size() << " possible outcomes: ";
+  PrintOutcomesSummary(os, outcomes);
+}
+
+template <typename T>
+  requires(HasPossibleOutcomes<T>)
+void PrintResultFailureDetails(const T& result,
+                               const std::vector<PacketList>& outcomes,
+                               ::testing::MatchResultListener* listener,
+                               bool include_outcomes = true) {
+  if (!listener->IsInterested()) return;
+  if (include_outcomes) {
+    *listener << "\nactual outcomes: ";
+    PrintOutcomesSummary(listener->stream(), outcomes);
+  }
+  if (result.has_trace()) {
+    *listener << "\n";
+    PrintTraceForMatcher(listener->stream(), result.trace());
+  }
 }
 
 // Tag types for disambiguation.
@@ -86,9 +141,7 @@ class OutcomesMatcherBase {
                        ::testing::MatchResultListener* listener) const {
     auto outcomes = ExtractOutcomes(result);
     if (inner_.MatchAndExplain(outcomes, listener)) return true;
-    if (result.has_trace()) {
-      *listener << "\nfull trace:\n" << result.trace().DebugString();
-    }
+    PrintResultFailureDetails(result, outcomes, listener);
     return false;
   }
 
@@ -114,6 +167,66 @@ class OutcomesMatcherBase {
   std::string description_;
 };
 
+class SingleOutcomePacketsMatcher {
+ public:
+  SingleOutcomePacketsMatcher(
+      ::testing::Matcher<const PacketList&> packet_matcher,
+      std::string description, bool include_packet_explanation = false)
+      : packet_matcher_(std::move(packet_matcher)),
+        description_(std::move(description)),
+        include_packet_explanation_(include_packet_explanation) {}
+
+  template <typename T>
+    requires(HasPossibleOutcomes<T>)
+  bool MatchAndExplain(const T& result,
+                       ::testing::MatchResultListener* listener) const {
+    auto outcomes = ExtractOutcomes(result);
+    ::testing::StringMatchResultListener inner_listener;
+    if (outcomes.size() == 1 &&
+        packet_matcher_.MatchAndExplain(outcomes[0], &inner_listener)) {
+      return true;
+    }
+    if (listener->IsInterested()) {
+      *listener << "expected one outcome whose packets match; ";
+      if (outcomes.size() == 1) {
+        PrintActualOutputSummary(listener->stream(), outcomes[0]);
+      } else {
+        *listener << "actual result had " << outcomes.size()
+                  << " possible outcomes";
+      }
+      const std::string packet_explanation = inner_listener.str();
+      if (include_packet_explanation_ && !packet_explanation.empty()) {
+        *listener << "\n" << packet_explanation;
+      }
+    }
+    PrintResultFailureDetails(result, outcomes, listener,
+                              /*include_outcomes=*/outcomes.size() != 1);
+    return false;
+  }
+
+  void DescribeTo(std::ostream* os) const {
+    if (description_.empty()) {
+      *os << "has exactly one outcome and that outcome ";
+      packet_matcher_.DescribeTo(os);
+    } else {
+      *os << description_;
+    }
+  }
+  void DescribeNegationTo(std::ostream* os) const {
+    if (description_.empty()) {
+      *os << "does not have exactly one outcome whose packets ";
+      packet_matcher_.DescribeTo(os);
+    } else {
+      *os << "does not " << description_;
+    }
+  }
+
+ private:
+  ::testing::Matcher<const PacketList&> packet_matcher_;
+  std::string description_;
+  bool include_packet_explanation_;
+};
+
 // Port key for OnPorts expectations: either a dataplane or a P4Runtime port.
 using PortKey = std::variant<DataplanePort, P4RuntimePort>;
 
@@ -137,6 +250,77 @@ inline void PrintPortKey(std::ostream* os, const PortKey& key) {
   }
 }
 
+inline void PrintTypedPortKey(std::ostream* os, const PortKey& key) {
+  if (std::holds_alternative<DataplanePort>(key)) {
+    *os << "dataplane port " << std::get<DataplanePort>(key).port;
+  } else {
+    *os << "P4Runtime port \"" << std::get<P4RuntimePort>(key).port << "\"";
+  }
+}
+
+inline void PrintPayloadPreview(std::ostream* os, std::string_view payload) {
+  constexpr size_t kMaxPayloadPreviewBytes = 24;
+  const std::string_view preview = payload.substr(0, kMaxPayloadPreviewBytes);
+  *os << "0x" << absl::BytesToHexString(preview);
+  if (payload.size() > kMaxPayloadPreviewBytes) *os << "...";
+}
+
+inline PortKey ToPortKey(DataplanePort port) { return PortKey{port}; }
+inline PortKey ToPortKey(P4RuntimePort port) {
+  return PortKey{std::move(port)};
+}
+inline PortKey ToPortKey(uint32_t port) { return PortKey{DataplanePort{port}}; }
+inline PortKey ToPortKey(const std::string& port) {
+  return PortKey{P4RuntimePort{port}};
+}
+inline PortKey ToPortKey(std::string_view port) {
+  return PortKey{P4RuntimePort{std::string(port)}};
+}
+inline PortKey ToPortKey(const char* port) {
+  return PortKey{P4RuntimePort{port}};
+}
+
+inline std::string ForwardDescription(const std::vector<PortKey>& ports) {
+  std::ostringstream description;
+  description << (ports.size() == 1 ? "forward to " : "forward to ports ");
+  for (size_t i = 0; i < ports.size(); ++i) {
+    if (i > 0) description << ", ";
+    PrintTypedPortKey(&description, ports[i]);
+  }
+  return description.str();
+}
+
+inline void PrintPacketEgress(std::ostream* os,
+                              const fourward::OutputPacket& packet) {
+  *os << "dataplane port " << packet.dataplane_egress_port();
+  if (!packet.p4rt_egress_port().empty()) {
+    *os << " / P4Runtime port \"" << packet.p4rt_egress_port() << "\"";
+  }
+  if (!packet.payload().empty()) {
+    *os << " with payload ";
+    PrintPayloadPreview(os, packet.payload());
+  }
+}
+
+inline void PrintActualOutputSummary(std::ostream* os,
+                                     const PacketList& packets) {
+  if (packets.empty()) {
+    *os << "actual output had no packets";
+    return;
+  }
+  if (packets.size() == 1) {
+    *os << "actual packet egressed on ";
+    PrintPacketEgress(os, packets[0]);
+    return;
+  }
+
+  *os << "actual output had " << packets.size() << " packets";
+  for (size_t i = 0; i < packets.size(); ++i) {
+    *os << (i == 0 ? ": " : ", ");
+    PrintPacketEgress(os, packets[i]);
+  }
+}
+
 template <typename T>
   requires(HasPossibleOutcomes<T>)
 PacketList DeterministicPackets(const T& result) {
@@ -148,23 +332,190 @@ PacketList DeterministicPackets(const T& result) {
   return std::move(outcomes[0]);
 }
 
+class OnPortMatcher {
+ public:
+  explicit OnPortMatcher(PortKey expected) : expected_(std::move(expected)) {}
+
+  bool MatchAndExplain(const fourward::OutputPacket& packet,
+                       ::testing::MatchResultListener* listener) const {
+    if (PacketIsOnPort(packet, expected_)) return true;
+
+    if (std::holds_alternative<DataplanePort>(expected_)) {
+      *listener << "egressed on dataplane port "
+                << packet.dataplane_egress_port();
+    } else {
+      *listener << "egressed on P4Runtime port \"" << packet.p4rt_egress_port()
+                << "\"";
+    }
+    return false;
+  }
+
+  void DescribeTo(std::ostream* os) const {
+    *os << "is on ";
+    PrintTypedPortKey(os, expected_);
+  }
+
+  void DescribeNegationTo(std::ostream* os) const {
+    *os << "is not on ";
+    PrintTypedPortKey(os, expected_);
+  }
+
+ private:
+  PortKey expected_;
+};
+
+class HasPayloadMatcher {
+ public:
+  explicit HasPayloadMatcher(::testing::Matcher<const std::string&> expected)
+      : expected_(std::move(expected)) {}
+
+  bool MatchAndExplain(const fourward::OutputPacket& packet,
+                       ::testing::MatchResultListener* listener) const {
+    ::testing::StringMatchResultListener inner_listener;
+    if (expected_.MatchAndExplain(packet.payload(), &inner_listener)) {
+      return true;
+    }
+
+    *listener << "has payload " << ::testing::PrintToString(packet.payload());
+    const std::string inner_explanation = inner_listener.str();
+    if (!inner_explanation.empty()) {
+      *listener << ", " << inner_explanation;
+    }
+    return false;
+  }
+
+  void DescribeTo(std::ostream* os) const {
+    *os << "has payload that ";
+    expected_.DescribeTo(os);
+  }
+
+  void DescribeNegationTo(std::ostream* os) const {
+    *os << "has payload that ";
+    expected_.DescribeNegationTo(os);
+  }
+
+ private:
+  ::testing::Matcher<const std::string&> expected_;
+};
+
+class DropMatcher {
+ public:
+  DropMatcher() : inner_(::testing::ElementsAre(::testing::IsEmpty())) {}
+
+  template <typename T>
+    requires(HasPossibleOutcomes<T>)
+  bool MatchAndExplain(const T& result,
+                       ::testing::MatchResultListener* listener) const {
+    auto outcomes = ExtractOutcomes(result);
+    ::testing::StringMatchResultListener inner_listener;
+    if (inner_.MatchAndExplain(outcomes, &inner_listener)) return true;
+
+    if (listener->IsInterested()) {
+      if (outcomes.size() == 1) {
+        *listener << "expected drop; ";
+        PrintActualOutputSummary(listener->stream(), outcomes[0]);
+      } else {
+        *listener << "expected drop; actual result had " << outcomes.size()
+                  << " possible outcomes";
+      }
+      PrintResultFailureDetails(result, outcomes, listener,
+                                /*include_outcomes=*/outcomes.size() != 1);
+    }
+    return false;
+  }
+
+  void DescribeTo(std::ostream* os) const { *os << "drop the packet"; }
+  void DescribeNegationTo(std::ostream* os) const {
+    *os << "does not drop the packet";
+  }
+
+ private:
+  ::testing::Matcher<const std::vector<PacketList>&> inner_;
+};
+
+class ForwardsToMatcher {
+ public:
+  ForwardsToMatcher(::testing::Matcher<const std::vector<PacketList>&> inner,
+                    std::vector<PortKey> expected)
+      : inner_(std::move(inner)), expected_(std::move(expected)) {}
+
+  template <typename T>
+    requires(HasPossibleOutcomes<T>)
+  bool MatchAndExplain(const T& result,
+                       ::testing::MatchResultListener* listener) const {
+    auto outcomes = ExtractOutcomes(result);
+    ::testing::StringMatchResultListener inner_listener;
+    if (inner_.MatchAndExplain(outcomes, &inner_listener)) return true;
+
+    if (listener->IsInterested()) {
+      *listener << "expected ";
+      PrintExpectedOutput(listener->stream());
+      *listener << "; ";
+      if (outcomes.size() == 1) {
+        PrintActualOutputSummary(listener->stream(), outcomes[0]);
+      } else {
+        *listener << "actual result had " << outcomes.size()
+                  << " possible outcomes";
+      }
+      PrintResultFailureDetails(result, outcomes, listener,
+                                /*include_outcomes=*/outcomes.size() != 1);
+    }
+    return false;
+  }
+
+  void DescribeTo(std::ostream* os) const {
+    *os << ForwardDescription(expected_);
+  }
+  void DescribeNegationTo(std::ostream* os) const {
+    *os << "does not " << ForwardDescription(expected_);
+  }
+
+ private:
+  void PrintExpectedOutput(std::ostream* os) const {
+    if (expected_.size() == 1) {
+      *os << "one packet on ";
+      PrintTypedPortKey(os, expected_[0]);
+      return;
+    }
+
+    *os << expected_.size() << " packets on ";
+    for (size_t i = 0; i < expected_.size(); ++i) {
+      if (i > 0) *os << ", ";
+      PrintTypedPortKey(os, expected_[i]);
+    }
+  }
+
+  ::testing::Matcher<const std::vector<PacketList>&> inner_;
+  std::vector<PortKey> expected_;
+};
+
 }  // namespace internal
+
+// Deliberately affects GoogleTest printing for these response protos whenever
+// this matcher header is included. That is the point: the first `Actual:` line
+// in a matcher failure is owned by GoogleTest's PrintToString path, so keeping
+// it compact requires a PrintTo overload for the response type itself.
+inline void PrintTo(const fourward::InjectPacketResponse& result,
+                    std::ostream* os) {
+  internal::PrintResultSummary(result, os);
+}
+
+inline void PrintTo(const fourward::ProcessPacketResult& result,
+                    std::ostream* os) {
+  internal::PrintResultSummary(result, os);
+}
 
 // ---------------------------------------------------------------------------
 // Packet-level matchers (match on OutputPacket)
 // ---------------------------------------------------------------------------
 
 inline auto OnPort(DataplanePort expected) {
-  return ::testing::ResultOf(
-      [](const fourward::OutputPacket& p) { return p.dataplane_egress_port(); },
-      ::testing::Eq(expected.port));
+  return ::testing::MakePolymorphicMatcher(
+      internal::OnPortMatcher(internal::PortKey{expected}));
 }
 inline auto OnPort(P4RuntimePort expected) {
-  return ::testing::ResultOf(
-      [](const fourward::OutputPacket& p) -> const std::string& {
-        return p.p4rt_egress_port();
-      },
-      ::testing::Eq(expected.port));
+  return ::testing::MakePolymorphicMatcher(
+      internal::OnPortMatcher(internal::PortKey{std::move(expected)}));
 }
 inline auto OnPort(uint32_t port) { return OnPort(DataplanePort{port}); }
 inline auto OnPort(std::string port) {
@@ -175,11 +526,8 @@ inline auto OnPort(std::string_view port) {
 }
 
 inline auto HasPayload(::testing::Matcher<const std::string&> m) {
-  return ::testing::ResultOf(
-      [](const fourward::OutputPacket& p) -> const std::string& {
-        return p.payload();
-      },
-      std::move(m));
+  return ::testing::MakePolymorphicMatcher(
+      internal::HasPayloadMatcher(std::move(m)));
 }
 
 // OnPort with payload: "a packet on this port with this payload."
@@ -213,21 +561,55 @@ auto Outcome(Ms... ms) {
 // ---------------------------------------------------------------------------
 
 inline auto OutcomeIs() {
-  return ::testing::MakePolymorphicMatcher(internal::OutcomesMatcherBase(
-      ::testing::ElementsAre(::testing::IsEmpty()), "drop the packet"));
+  return ::testing::MakePolymorphicMatcher(internal::DropMatcher());
+}
+
+namespace internal {
+
+template <typename M>
+std::string DescribePacketMatcher(const M& matcher_like) {
+  ::testing::Matcher<const fourward::OutputPacket&> matcher = matcher_like;
+  std::ostringstream description;
+  matcher.DescribeTo(&description);
+  return description.str();
 }
 
 template <typename... Ms>
+std::string SingleOutcomeDescription(const Ms&... matchers) {
+  std::vector<std::string> descriptions;
+  (descriptions.push_back(DescribePacketMatcher(matchers)), ...);
+
+  std::ostringstream description;
+  description << "has exactly one outcome with ";
+  if (descriptions.size() == 1) {
+    description << "one packet that " << descriptions[0];
+    return description.str();
+  }
+
+  description << descriptions.size() << " packets matching: ";
+  for (size_t i = 0; i < descriptions.size(); ++i) {
+    if (i > 0) description << ", ";
+    description << descriptions[i];
+  }
+  return description.str();
+}
+
+}  // namespace internal
+
+template <typename... Ms>
 auto OutcomeIs(Ms... ms) {
-  return ::testing::MakePolymorphicMatcher(internal::OutcomesMatcherBase(
-      ::testing::ElementsAre(::testing::UnorderedElementsAre(std::move(ms)...)),
-      ""));
+  return ::testing::MakePolymorphicMatcher(
+      internal::SingleOutcomePacketsMatcher(
+          ::testing::UnorderedElementsAre(std::move(ms)...),
+          internal::SingleOutcomeDescription(ms...)));
 }
 
 template <typename M>
 auto OutcomeIs(internal::PacketsTag<M> tagged) {
-  return ::testing::MakePolymorphicMatcher(internal::OutcomesMatcherBase(
-      ::testing::ElementsAre(std::move(tagged.matcher)), ""));
+  return ::testing::MakePolymorphicMatcher(
+      internal::SingleOutcomePacketsMatcher(
+          std::move(tagged.matcher), "",
+          /*include_packet_explanation=*/true));
 }
 
 // ---------------------------------------------------------------------------
@@ -335,7 +717,9 @@ inline auto HasIngress(std::string_view port) {
 
 template <typename... Ports>
 auto ForwardsTo(Ports... ports) {
-  return OutcomeIs(OnPort(std::move(ports))...);
+  return ::testing::MakePolymorphicMatcher(internal::ForwardsToMatcher(
+      ::testing::ElementsAre(::testing::UnorderedElementsAre(OnPort(ports)...)),
+      {internal::ToPortKey(ports)...}));
 }
 
 inline auto Forwards() {
@@ -374,12 +758,22 @@ class OnPortsMatcher {
       for (const auto& p : packets) {
         if (internal::PacketIsOnPort(p, port)) group.push_back(p);
       }
-      if (!matcher.Matches(group)) {
+      ::testing::StringMatchResultListener inner_listener;
+      if (!matcher.MatchAndExplain(group, &inner_listener)) {
         if (!listener->IsInterested()) return false;
-        *listener << "on port ";
-        internal::PrintPortKey(listener->stream(), port);
-        *listener << ": ";
-        matcher.DescribeNegationTo(listener->stream());
+        *listener << "on ";
+        internal::PrintTypedPortKey(listener->stream(), port);
+        *listener << ": found " << group.size() << " packet"
+                  << (group.size() == 1 ? "" : "s") << "; expected: ";
+        matcher.DescribeTo(listener->stream());
+        const std::string inner_explanation = inner_listener.str();
+        if (!inner_explanation.empty()) {
+          *listener << "\n" << inner_explanation;
+        }
+        *listener << "\nactual port groups: ";
+        internal::PrintPacketPortGroups(
+            listener->stream(),
+            internal::PacketList(packets.begin(), packets.end()));
         return false;
       }
     }
@@ -406,8 +800,7 @@ class OnPortsMatcher {
     *os << "has packets grouped by port matching: ";
     for (size_t i = 0; i < expected_.size(); ++i) {
       if (i > 0) *os << ", ";
-      *os << "port ";
-      internal::PrintPortKey(os, expected_[i].first);
+      internal::PrintTypedPortKey(os, expected_[i].first);
       *os << " ";
       expected_[i].second.DescribeTo(os);
     }
@@ -438,9 +831,9 @@ inline auto OnPorts(
 
 template <typename T>
   requires(internal::HasPossibleOutcomes<T>)
-absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>>
-PacketsByDataplanePort(const T& result) {
-  absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>> groups;
+auto PacketsByDataplanePort(const T& result)
+    -> ::absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>> {
+  ::absl::btree_map<uint32_t, std::vector<fourward::OutputPacket>> groups;
   auto packets = internal::DeterministicPackets(result);
   for (auto& pkt : packets) {
     groups[pkt.dataplane_egress_port()].push_back(std::move(pkt));
@@ -450,9 +843,9 @@ PacketsByDataplanePort(const T& result) {
 
 template <typename T>
   requires(internal::HasPossibleOutcomes<T>)
-absl::btree_map<std::string, std::vector<fourward::OutputPacket>>
-PacketsByP4RuntimePort(const T& result) {
-  absl::btree_map<std::string, std::vector<fourward::OutputPacket>> groups;
+auto PacketsByP4RuntimePort(const T& result)
+    -> ::absl::btree_map<std::string, std::vector<fourward::OutputPacket>> {
+  ::absl::btree_map<std::string, std::vector<fourward::OutputPacket>> groups;
   auto packets = internal::DeterministicPackets(result);
   for (auto& pkt : packets) {
     groups[pkt.p4rt_egress_port()].push_back(std::move(pkt));

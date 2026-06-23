@@ -1,6 +1,8 @@
 load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
 load("@protobuf//bazel:java_proto_library.bzl", "java_proto_library")
 load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
 
 package(
@@ -54,6 +56,19 @@ cc_proto_library(
     name = "simulator_cc_proto",
     visibility = ["//visibility:public"],
     deps = [":simulator_proto"],
+)
+
+cc_library(
+    name = "trace_summary",
+    srcs = ["trace_summary.cc"],
+    hdrs = ["trace_summary.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":ir_cc_proto",
+        ":simulator_cc_proto",
+        "@abseil-cpp//absl/strings",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+    ],
 )
 
 # The p4runtime BCR module only ships cc/go/py proto targets; we
@@ -131,6 +146,25 @@ kt_jvm_library(
 # =============================================================================
 # Unit tests (colocated with source per Google convention)
 # =============================================================================
+
+cc_test(
+    name = "trace_summary_test",
+    srcs = ["trace_summary_test.cc"],
+    data = glob(["golden_trace_summaries/*.golden.txt"]),
+    local_defines = [
+        'HUMAN_TRACE_SUMMARY_GOLDEN_RLOCATION=\\"$(rlocationpath //simulator:golden_trace_summaries/human_trace_summary.golden.txt)\\"',
+        'MULTICAST_TRACE_SUMMARY_GOLDEN_RLOCATION=\\"$(rlocationpath //simulator:golden_trace_summaries/multicast_trace_summary.golden.txt)\\"',
+    ],
+    deps = [
+        ":ir_cc_proto",
+        ":simulator_cc_proto",
+        ":trace_summary",
+        "//bazel:golden_test",
+        "//bazel:golden_test_main",
+        "@googletest//:gtest",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+    ],
+)
 
 kt_jvm_test(
     name = "HeaderValTest",

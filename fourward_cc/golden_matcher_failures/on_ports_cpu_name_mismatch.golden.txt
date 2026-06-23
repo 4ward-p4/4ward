@@ -1,0 +1,6 @@
+Expected: has exactly one outcome and that outcome has packets grouped by port matching: P4Runtime port "6" has a size that is equal to 1, P4Runtime port "510" has a size that is equal to 2, and no packets on other ports
+Actual: 1 outcome: {3 packets, dataplane ports {1: 1, 510: 2}, P4Runtime ports {"6": 1, "CPU": 2}}
+expected one outcome whose packets match; actual output had 3 packets: dataplane port 1 / P4Runtime port "6", dataplane port 510 / P4Runtime port "CPU", dataplane port 510 / P4Runtime port "CPU"
+on P4Runtime port "510": found 0 packets; expected: has a size that is equal to 2
+whose size 0 doesn't match
+actual port groups: dataplane ports {1: 1, 510: 2}, P4Runtime ports {"6": 1, "CPU": 2}

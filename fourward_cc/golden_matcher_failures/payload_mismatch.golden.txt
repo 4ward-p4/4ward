@@ -1,0 +1,3 @@
+Expected: has exactly one outcome with one packet that (is on dataplane port 1) and (has payload that is equal to "expected")
+Actual: 1 outcome: {1 packet, dataplane ports {1: 1}}
+expected one outcome whose packets match; actual packet egressed on dataplane port 1 with payload 0x61637475616c

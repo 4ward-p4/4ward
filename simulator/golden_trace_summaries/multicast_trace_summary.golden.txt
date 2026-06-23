@@ -1,0 +1,7 @@
+trace:
+multicast group 42: found, replicas 2
+multicast replication with 2 branches
+  branch 1:
+    output dataplane port 1
+  branch 2:
+    output dataplane port 2
