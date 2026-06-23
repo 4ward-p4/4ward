@@ -5,7 +5,7 @@ import com.google.rpc.Status as RpcStatus
 import fourward.DataplaneGrpcKt.DataplaneCoroutineStub
 import fourward.InjectPacketRequest
 import fourward.InjectPacketResponse
-import fourward.PacketSet
+import fourward.Outcome
 import fourward.PipelineConfig
 import fourward.simulator.Simulator
 import fourward.simulator.portToBytes
@@ -201,8 +201,8 @@ class FourwardTestHarness(
       )
     }
 
-  /** Injects a packet and returns the possible outcome sets. */
-  fun simulatePacket(ingressPort: Int, payload: ByteArray): List<PacketSet> =
+  /** Injects a packet and returns the set of possible outcomes. */
+  fun simulatePacket(ingressPort: Int, payload: ByteArray): List<Outcome> =
     injectPacket(ingressPort, payload).possibleOutcomesList
 
   /** Injects multiple packets concurrently via the streaming InjectPackets RPC. */

@@ -77,9 +77,9 @@ class TraceTreeConsistencyTest(private val testName: String) {
     val outputsFromTree =
       leafTrees.filter { it.hasOutput() }.map { it.output.dataplaneEgressPort to it.output.payload }
 
-    // For trees without nested alternative-inside-parallel forks, these match exactly.
-    // For trees with such nesting, possibleOutcomes may have duplicates from the Cartesian
-    // product, so we compare as sets.
+    // possibleOutcomes is a set of distinct outcomes, so flattening it drops the packets of any
+    // folded duplicate outcome — but every distinct output the tree can produce still survives in
+    // some outcome. So we compare as sets of observable outputs rather than as multisets.
     assertEquals(
       "Output packets vs trace tree mismatch for $testName.\n" +
         "Trace:\n${TextFormat.printer().printToString(trace)}",

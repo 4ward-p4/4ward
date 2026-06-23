@@ -287,36 +287,53 @@ class Simulator : TableDataReader {
 }
 
 /**
- * Collects all possible outcome sets from a trace tree, respecting outcome semantics.
+ * Collects the set of possible outcomes from a trace tree, respecting outcome semantics.
  * - **Replication** (clone, multicast): all branches execute simultaneously — Cartesian product.
  * - **Choice** (action selector): exactly one branch executes — union of branch outcomes.
  * - **Continuation** (resubmit, recirculate): same packet, another pass — delegate to next.
- * - **Output:** one possible world with one packet.
- * - **Drop:** one possible world with no packets.
+ * - **Output:** one possible outcome with one packet.
+ * - **Drop:** one possible outcome with no packets.
  *
- * Returns a non-empty list. Each inner list is one complete set of output packets that could result
- * from a single real execution.
+ * Returns a non-empty, duplicate-free list: each entry is a distinct possible outcome — one
+ * complete multiset of output packets that could result from a single real execution. The entries
+ * form a *set* (no outcome appears twice); *within* an entry, multiplicity is preserved (a packet
+ * emitted twice appears twice) but order is not meaningful.
  */
 fun collectPossibleOutcomes(tree: TraceTree): List<List<OutputPacket>> {
-  return when (tree.outcomeCase) {
-    TraceTree.OutcomeCase.OUTPUT -> listOf(listOf(tree.output))
-    TraceTree.OutcomeCase.DROP,
-    TraceTree.OutcomeCase.OUTCOME_NOT_SET,
-    null -> listOf(emptyList())
-    TraceTree.OutcomeCase.REPLICATION -> {
-      // Cartesian product: for each combination of one world per branch, concatenate packets.
-      require(tree.replication.branchesCount > 0) { "Replication must have at least one branch" }
-      tree.replication.branchesList
-        .map { collectPossibleOutcomes(it) }
-        .reduce { acc, next ->
-          acc.flatMap { world -> next.map { branchWorld -> world + branchWorld } }
-        }
+  val worlds =
+    when (tree.outcomeCase) {
+      TraceTree.OutcomeCase.OUTPUT -> listOf(listOf(tree.output))
+      TraceTree.OutcomeCase.DROP,
+      TraceTree.OutcomeCase.OUTCOME_NOT_SET,
+      null -> listOf(emptyList())
+      TraceTree.OutcomeCase.REPLICATION -> {
+        // Cartesian product: for each combination of one world per branch, concatenate packets.
+        require(tree.replication.branchesCount > 0) { "Replication must have at least one branch" }
+        tree.replication.branchesList
+          .map { collectPossibleOutcomes(it) }
+          .reduce { acc, next ->
+            acc.flatMap { world -> next.map { branchWorld -> world + branchWorld } }
+          }
+      }
+      TraceTree.OutcomeCase.CHOICE -> {
+        // Each branch is a separate possible world; union their outcomes.
+        require(tree.choice.branchesCount > 0) { "Choice must have at least one branch" }
+        tree.choice.branchesList.flatMap { collectPossibleOutcomes(it) }
+      }
+      TraceTree.OutcomeCase.CONTINUATION -> collectPossibleOutcomes(tree.continuation.next)
     }
-    TraceTree.OutcomeCase.CHOICE -> {
-      // Each branch is a separate possible world; union their outcomes.
-      require(tree.choice.branchesCount > 0) { "Choice must have at least one branch" }
-      tree.choice.branchesList.flatMap { collectPossibleOutcomes(it) }
-    }
-    TraceTree.OutcomeCase.CONTINUATION -> collectPossibleOutcomes(tree.continuation.next)
+  // The possible outcomes are a *set*: two real executions that emit the same packets are one
+  // possible outcome, not two. Distinct fork resolutions can produce the same outcome (a multicast
+  // whose replicas land on the same ports, symmetric action-selector members, …), and the forks
+  // carry no probability, so the multiplicity of identical outcomes is meaningless — only their
+  // presence is. Deduplicating here, at every level of the recursion, makes each subtree likewise
+  // yield a set and stops the Cartesian product from compounding duplicates across nesting levels.
+  //
+  // An outcome's identity is the *multiset* of packets it emits: multiplicity within one outcome is
+  // real (multicast/clone can emit a packet twice) and is preserved, while order is not observable.
+  // The key uses the observable packet fields only (egress port, payload); enrichment fields are
+  // never populated at this layer.
+  return worlds.distinctBy { world ->
+    world.groupingBy { it.dataplaneEgressPort to it.payload }.eachCount()
   }
 }

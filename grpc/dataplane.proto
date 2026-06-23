@@ -84,22 +84,22 @@ message InjectPacketRequest {
   int64 tag = 4;
 }
 
-// A set of output packets from one possible real execution.
-// Programs with only parallel forks (clone, multicast) have exactly one
-// possible outcome.  Programs with alternative forks (action selectors) have
-// one possible outcome per alternative.
-message PacketSet {
+// One possible outcome: the packets emitted by a single real execution.
+// Order is not meaningful; multiplicity is — multicast/clone can emit the same
+// packet more than once, so this is a multiset, not a set, of packets.
+message Outcome {
   repeated OutputPacket packets = 1;
 }
 
 // InjectPacket response. Omits the input (the caller already has it).
 message InjectPacketResponse {
   TraceTree trace = 1;
-  // Each entry is one possible set of output packets from a single real
-  // execution.  Programs with only parallel forks have exactly one entry.
-  // Programs with alternative forks (action selectors) have one entry per
-  // alternative — each representing a "possible world".
-  repeated PacketSet possible_outcomes = 2;
+  // The set of possible outcomes — one entry per *distinct* result a real
+  // execution could produce. Programs with only parallel forks (clone,
+  // multicast) have exactly one entry. Alternative forks (action selectors) add
+  // one entry per distinct alternative; alternatives that emit the same packets
+  // collapse to a single entry.
+  repeated Outcome possible_outcomes = 2;
 }
 
 // Self-contained reproduction case for a packet trace. Load the pipeline,
@@ -123,8 +123,8 @@ message Reproducer {
 message ProcessPacketResult {
   InputPacket input_packet = 1;
   TraceTree trace = 2;
-  // Possible outcome sets (see InjectPacketResponse.possible_outcomes).
-  repeated PacketSet possible_outcomes = 3;
+  // The set of possible outcomes (see InjectPacketResponse.possible_outcomes).
+  repeated Outcome possible_outcomes = 3;
 }
 
 message SubscribeResultsRequest {

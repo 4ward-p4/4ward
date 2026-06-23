@@ -493,4 +493,37 @@ class CollectPossibleOutcomesTest {
     assertEquals("one world", 1, outcomes.size)
     assertEquals("three outputs", 3, outcomes[0].size)
   }
+
+  @Test
+  fun `identical choice branches collapse to one outcome`() {
+    // An action selector whose members all forward identically: the result is certain, so there
+    // is exactly one possible outcome — not one per member. The outer collection is a set of
+    // distinct outcomes; duplicate worlds carry no information (forks are unweighted).
+    val tree = choice(output(1), output(1))
+    val outcomes = collectPossibleOutcomes(tree)
+    assertEquals(listOf(listOf(output(1).output)), outcomes)
+  }
+
+  @Test
+  fun `replication keeps duplicate packets within an outcome`() {
+    // Multicast/clone can emit the same packet to the same port more than once, and every copy
+    // is physically real. Multiplicity *within* a single outcome is meaningful and must never be
+    // deduplicated — only duplicate *outcomes* collapse, not duplicate packets.
+    val tree = replication(output(1), output(1))
+    val outcomes = collectPossibleOutcomes(tree)
+    assertEquals("one outcome", 1, outcomes.size)
+    assertEquals("two real copies, not collapsed", 2, outcomes[0].size)
+  }
+
+  @Test
+  fun `symmetric choices fold duplicate outcomes`() {
+    // Both replication branches choose between the same two ports. Choosing (port1, port2) and
+    // (port2, port1) emit the same multiset of packets — one possible outcome, not two. The four
+    // raw Cartesian combinations collapse to three distinct outcomes: {1,1}, {1,2}, {2,2}.
+    val tree = replication(choice(output(1), output(2)), choice(output(1), output(2)))
+    val outcomes = collectPossibleOutcomes(tree)
+    val portMultisets = outcomes.map { world -> world.map { it.dataplaneEgressPort }.sorted() }
+    assertEquals("distinct outcomes only", portMultisets.size, portMultisets.toSet().size)
+    assertEquals(setOf(listOf(1, 1), listOf(1, 2), listOf(2, 2)), portMultisets.toSet())
+  }
 }
