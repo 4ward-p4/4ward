@@ -86,14 +86,19 @@ cc_library(
 cc_library(
     name = "dataplane_matchers",
     testonly = True,
+    srcs = ["dataplane_matchers.cc"],
     hdrs = ["dataplane_matchers.h"],
     visibility = ["//visibility:public"],
     deps = [
         ":dataplane_client",
         "//grpc:dataplane_cc_proto",
         "//simulator:simulator_cc_proto",
+        "//simulator:trace_summary",
         "@abseil-cpp//absl/algorithm:container",
+        "@abseil-cpp//absl/base",
         "@abseil-cpp//absl/container:btree",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest",
     ],
 )
@@ -101,9 +106,29 @@ cc_library(
 cc_test(
     name = "dataplane_matchers_test",
     srcs = ["dataplane_matchers_test.cc"],
+    data = glob(["golden_matcher_failures/*.golden.txt"]),
+    local_defines = [
+        'COMPACT_TRACE_GOLDEN_RLOCATION=\\"$(rlocationpath //fourward_cc:golden_matcher_failures/compact_trace.golden.txt)\\"',
+        'ON_PORTS_CPU_NAME_MISMATCH_GOLDEN_RLOCATION=\\"$(rlocationpath //fourward_cc:golden_matcher_failures/on_ports_cpu_name_mismatch.golden.txt)\\"',
+        'PAYLOAD_MISMATCH_GOLDEN_RLOCATION=\\"$(rlocationpath //fourward_cc:golden_matcher_failures/payload_mismatch.golden.txt)\\"',
+        'WRONG_PORT_GOLDEN_RLOCATION=\\"$(rlocationpath //fourward_cc:golden_matcher_failures/wrong_port.golden.txt)\\"',
+    ],
     deps = [
         ":dataplane_matchers",
+        "//bazel:golden_test",
+        "//bazel:golden_test_main",
         "//grpc:dataplane_cc_proto",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "dataplane_matchers_flag_test",
+    srcs = ["dataplane_matchers_flag_test.cc"],
+    args = ["--fourward_matcher_trace=full"],
+    deps = [
+        ":dataplane_matchers",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

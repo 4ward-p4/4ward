@@ -1,0 +1,19 @@
+Expected: drop the packet
+Actual: 1 outcome: {2 packets, dataplane ports {6: 1, 510: 1}, P4Runtime ports {"6": 1, "CPU": 1}}
+expected drop; actual output had 2 packets: dataplane port 6 / P4Runtime port "6" with payload 0x616263, dataplane port 510 / P4Runtime port "CPU" with payload 0x616263646566
+trace:
+ingress dataplane port 2 / P4Runtime port "4"
+parser path: start -> parse_ethernet -> parse_ipv4 -> accept
+assignments: local_metadata.vrf_id := 1, local_metadata.nexthop_id_valid := true, local_metadata.nexthop_id := 5, standard_metadata.egress_spec := 6, ... (+1 more)
+tables missed: acl_pre_ingress_vlan_table, acl_pre_ingress_metadata_table
+table acl_ingress_table: hit action acl_copy
+table ipv4_table: hit action set_nexthop_id(nexthop_id="nexthop(5, vrf)") (looked up value: "vrf")
+clone session 1: found -> dataplane port 510 / P4Runtime port "CPU", rid 1, replicas 1
+clone session 1
+clone replication with 2 branches
+  branch 1:
+    assignment: headers.ipv4.ttl := 31 (0x1f)
+    output dataplane port 6 / P4Runtime port "6": 0x616263
+  branch 2:
+    output dataplane port 510 / P4Runtime port "CPU": 0x616263646566
+full trace omitted; rerun with --fourward_matcher_trace=full

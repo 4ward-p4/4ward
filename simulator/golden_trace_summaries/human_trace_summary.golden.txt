@@ -1,0 +1,7 @@
+trace:
+ingress dataplane port 2 / P4Runtime port "4"
+parser path: start -> parse_ethernet -> parse_ipv4 -> accept
+assignments: a := 1, b := 2, c := 3, d := 4, ... (+1 more)
+table ipv4: hit action punt(port="6", queue="CPU") (looked up value: "vrf")
+table ambiguous: hit action duplicate_params(a="raw_duplicate", b="raw_duplicate")
+output dataplane port 6 / P4Runtime port "6": 0x000102030405060708090a0b0c0d0e0f1011121314151617...

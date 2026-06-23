@@ -1,0 +1,3 @@
+Expected: forward to dataplane port 2
+Actual: 1 outcome: {1 packet, dataplane ports {1: 1}}
+expected one packet on dataplane port 2; actual packet egressed on dataplane port 1

@@ -301,26 +301,42 @@ way.
 ## Trace on failure
 
 When an outcome-level matcher fails (`ForwardsTo`, `Forwards`, `Drops`,
-`OutcomeIs`, `OutcomesAre`, `EachOutcome`, `AnyOutcome`), the full
-simulator trace is automatically appended to the failure message — if the
-response carries one. This gives you immediate visibility into how the
-packet was processed without rerunning the test:
+`OutcomeIs`, `OutcomesAre`, `EachOutcome`, `AnyOutcome`), the failure
+message includes the actual outcome summary and, if the response carries a
+trace, a compact trace summary. The summary keeps the high-signal routing
+events visible without dumping every parser assignment and branch value:
 
 ```
 Expected: drop the packet
-  Actual: (has 1 possible outcomes),
-full trace:
-events {
-  table_lookup {
-    table_name: "ingress.acl"
-    hit: true
-    ...
-  }
-}
-...
+Actual: 1 outcome: {1 packet, dataplane ports {1: 1}, P4Runtime ports {"Ethernet1": 1}}
+expected drop; actual packet egressed on dataplane port 1 / P4Runtime port "Ethernet1" with payload 0x000102030405...
+trace:
+ingress dataplane port 0 / P4Runtime port "1"
+assignments: local_metadata.vrf_id := 1, local_metadata.nexthop_id_valid := true, ...
+table ingress.acl: hit action punt_to_cpu(queue="CPU") (looked up value: "vrf")
+clone session 1: found -> dataplane port 510 / P4Runtime port "CPU", rid 1, replicas 1
+clone replication with 1 branch
+  branch 1:
+    output dataplane port 510 / P4Runtime port "CPU": 0x000102030405060708090a0b0c0d0e0f1011121314151617...
+full trace omitted; rerun with --fourward_matcher_trace=full
 ```
 
-No opt-in needed — the trace shows up whenever the response has one.
+The `--fourward_matcher_trace` Abseil flag controls how much trace detail
+matcher failures print:
+
+| Value | Behavior |
+| --- | --- |
+| `summary` | Default. Print the compact trace summary and a full-trace rerun hint. |
+| `none` | Omit trace details and print a rerun hint. |
+| `full` | Print the raw `TraceTree` proto debug string. |
+
+For a Bazel test, pass the flag through with `--test_arg`:
+
+```sh
+bazel test //path/to:my_test --test_arg=--fourward_matcher_trace=full
+```
+
+This also works for tests using the default GoogleTest main.
 
 ## Bazel dependency
 
