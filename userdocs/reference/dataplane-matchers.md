@@ -109,8 +109,10 @@ EXPECT_THAT(dataplane.InjectPacket({...}), IsOkAndHolds(Forwards()));
 ## Grouping by port
 
 `OnPorts` groups packets by egress port and applies per-group matchers —
-use it when a single `EXPECT_THAT` covers everything you need. When you
-need packets in variables for more involved follow-up, see
+use it when a single `EXPECT_THAT` covers everything you need. It is
+exhaustive: a packet egressing on a port you didn't list fails the
+match, so you can't accidentally overlook stray copies. When you need
+packets in variables for more involved follow-up, see
 [Extracting packets by port](#extracting-packets-by-port) below.
 
 Use `OnPorts` directly inside `OutcomeIs`:

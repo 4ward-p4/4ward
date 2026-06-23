@@ -16,6 +16,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/algorithm/container.h"
 #include "absl/container/btree_map.h"
 #include "fourward_cc/dataplane_client.h"
 #include "gmock/gmock.h"
@@ -349,7 +350,8 @@ inline auto Drops() { return OutcomeIs(); }
 // OnPorts — group by egress port
 //
 // Expectations may mix DataplanePort and P4RuntimePort; each is matched
-// against the packets on that port in its own port type.
+// against the packets on that port in its own port type. Exhaustive: a
+// packet egressing on a port no expectation lists fails the match.
 // ---------------------------------------------------------------------------
 
 class OnPortsMatcher {
@@ -381,6 +383,22 @@ class OnPortsMatcher {
         return false;
       }
     }
+    // Exhaustive: a packet on a port no expectation lists is a failure, not
+    // silently ignored. A packet is covered if it matches any listed port in
+    // that port's own type, so mixed-type expectations cover it either way.
+    for (const auto& p : packets) {
+      const bool covered =
+          absl::c_any_of(expected_, [&](const PortExpectation& e) {
+            return internal::PacketIsOnPort(p, e.first);
+          });
+      if (!covered) {
+        if (!listener->IsInterested()) return false;
+        *listener << "has an unexpected packet egressing on dataplane port "
+                  << p.dataplane_egress_port() << " (P4Runtime port \""
+                  << p.p4rt_egress_port() << "\")";
+        return false;
+      }
+    }
     return true;
   }
 
@@ -393,6 +411,7 @@ class OnPortsMatcher {
       *os << " ";
       expected_[i].second.DescribeTo(os);
     }
+    *os << ", and no packets on other ports";
   }
   void DescribeNegationTo(std::ostream* os) const {
     *os << "does not match port-grouped expectations";
