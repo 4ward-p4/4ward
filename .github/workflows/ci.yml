@@ -8,10 +8,14 @@ on:
     # `closed` triggers cancel-closed-pr-runs; the rest are GitHub's defaults.
     types: [opened, synchronize, reopened, closed]
   schedule:
-    # Cache-warming build every 3 days (Mon/Thu 06:00 UTC). BuildBuddy
-    # evicted entries within 6 days of inactivity; GHA caches expire
-    # after 7. Running every 3 days stays well within both windows.
-    - cron: '0 6 * * 1,4'
+    # Daily cache-warming build (06:00 UTC). BuildBuddy evicts entries after
+    # 6 days of inactivity and GHA caches expire after 7; the old Mon/Thu
+    # cadence stayed within those windows on paper, but GitHub delays or
+    # silently drops scheduled runs on public repos under load, so a 3-4 day
+    # gap can stretch past eviction during quiet stretches. Daily warming is
+    # cheap insurance against that — the warm-cache job disables BuildBuddy,
+    # so the extra runs cost zero remote-cache transfer.
+    - cron: '0 6 * * *'
 
 # Cancel any preceding run on the pull request.
 concurrency:
@@ -258,12 +262,19 @@ jobs:
       #   if: always()
       #   run: bazel shutdown && rm -rf $(bazel info repository_cache)
 
-      # Save on main pushes or slow PR builds. Skip on schedule —
-      # the warm-cache job saves a more complete cache (with all
-      # intermediate outputs from a full local build).
+      # Save on main pushes, or on PR builds slow enough (>20 min) that they
+      # were near-cold. The high bar keeps routine PR builds (warm: 1-11 min)
+      # from saving: each ~2.5 GB PR cache counts against the repo's 10 GB
+      # budget, and a PR-scoped cache only helps re-runs of that same PR
+      # (GitHub scopes caches to the branch), so frequent PR saves would
+      # evict the shared main cache that every PR restores from. A build only
+      # exceeds 20 min when the caches are already cold — i.e. when main is
+      # itself rebuilding and there's no warm main cache to evict — so the
+      # save rescues that PR's re-runs without costing the steady state.
+      # Skip on schedule — the warm-cache job saves a more complete cache.
       - name: Save Bazel cache
         uses: actions/cache/save@v5
-        if: always() && github.event_name != 'schedule' && (github.ref_name == 'main' || env.DURATION > 300)
+        if: always() && github.event_name != 'schedule' && (github.ref_name == 'main' || env.DURATION > 1200)
         with:
           path: |
             ${{ env.BAZEL_CACHE }}
@@ -341,12 +352,12 @@ jobs:
         if: always()
         run: echo "DURATION=$(( $(date +%s) - START_TIME ))" >> "$GITHUB_ENV"
 
-      # Mirror build-and-test: save on main (authoritative cache) or
-      # when the build was slow enough (>5 min) that persisting is
-      # worthwhile despite the PR-branch scoping.
+      # Mirror build-and-test: save on main (authoritative cache) or on a
+      # near-cold PR build (>20 min). The high bar keeps routine PR saves from
+      # evicting the shared main cache under the repo's 10 GB budget.
       - name: Save Bazel cache
         uses: actions/cache/save@v5
-        if: always() && (github.ref_name == 'main' || env.DURATION > 300)
+        if: always() && (github.ref_name == 'main' || env.DURATION > 1200)
         with:
           path: ~/.cache/bazel
           key: bazel-bcr-${{ hashFiles('*.bazel*', 'bcr_test_module/*.bazel*') }}-${{ github.run_id }}
