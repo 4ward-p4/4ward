@@ -212,6 +212,17 @@ void PrintAssignmentRun(
   *os << "\n";
 }
 
+// Returns the action's params as (name, value) pairs, preferring P4Runtime-encoded values over the
+// dataplane-encoded ones the simulator records — the P4Runtime encoding is what the control plane
+// wrote, so it reads more naturally in a failure summary.
+//
+// The translation is only possible via the matched table entry, which carries the action params in
+// both encodings: `matched_entry` (dataplane) and `p4rt_matched_entry` (P4Runtime), positionally
+// aligned. The event's params, however, are keyed by name, so we recover each one's position by
+// matching its dataplane value against `matched_entry`'s params, then read the P4Runtime value at
+// that position. We fall back to the dataplane values (returning early) whenever that mapping would
+// be ambiguous or unsafe: missing/typed-wrong entries, mismatched param counts, or — the subtle
+// case — duplicate dataplane values, which make value-based position recovery ambiguous.
 std::vector<std::pair<std::string, absl::string_view>> ActionParamValues(
     const fourward::ActionExecutionEvent& action,
     const fourward::TableLookupEvent* table) {
