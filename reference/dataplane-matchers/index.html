@@ -1533,7 +1533,7 @@ outcome. Indexing a port that received no packets returns an empty
 vector.</p>
 <h2 id="handling-multiple-outcomes">Handling multiple outcomes<a class="headerlink" href="#handling-multiple-outcomes" title="Permanent link">¶</a></h2>
 <p>P4 programs with action selectors can produce multiple possible outcomes
-— each representing one "possible world."</p>
+— each representing one distinct possible execution.</p>
 <p><strong><code>OutcomesAre</code></strong> pins the exact set of outcomes (order-independent).
 Each argument is a packet matcher for a single-packet outcome; use
 <code>Outcome(...)</code> to spell out a multi-packet outcome:</p>

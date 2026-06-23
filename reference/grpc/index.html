@@ -1635,19 +1635,20 @@ dataplane RPCs; P4Runtime control-plane RPCs still require a nonzero
 <a href="../../concepts/type-translation/"><code>@p4runtime_translation</code></a> on the port type.</p>
 <p><strong>Response:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">message</span><span class="w"> </span><span class="nc">InjectPacketResponse</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">PacketSet</span><span class="w"> </span><span class="na">possible_outcomes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">   </span><span class="c1">// one entry per possible real execution</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="n">TraceTree</span><span class="w"> </span><span class="na">trace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">                        </span><span class="c1">// P4RT-enriched when translation is available</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">Outcome</span><span class="w"> </span><span class="na">possible_outcomes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">   </span><span class="c1">// one entry per distinct possible execution</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="n">TraceTree</span><span class="w"> </span><span class="na">trace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">                      </span><span class="c1">// P4RT-enriched when translation is available</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">}</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="kd">message</span><span class="w"> </span><span class="nc">PacketSet</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="kd">message</span><span class="w"> </span><span class="nc">Outcome</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">OutputPacket</span><span class="w"> </span><span class="na">packets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">}</span>
 </code></pre></div>
 <p>The <code>possible_outcomes</code> field captures the distinction between
 <a href="../../concepts/traces/#forks">parallel and alternative forks</a>.
-Each <code>PacketSet</code> is one possible set of output packets from a single real
-execution. Programs with only parallel forks (clone, multicast) have exactly
-one entry. Programs with action selectors have one entry per alternative.</p>
+Each <code>Outcome</code> is the packets emitted by a single real execution. The entries
+form a set: programs with only parallel forks (clone, multicast) have exactly
+one entry, action selectors add one entry per alternative, and alternatives that
+emit the same packets collapse to a single entry.</p>
 <h3 id="injectpackets"><code>InjectPackets</code><a class="headerlink" href="#injectpackets" title="Permanent link">¶</a></h3>
 <p>Client-streaming RPC for bulk packet injection. Packets are processed
 concurrently as they arrive from the stream. Results are <strong>not</strong> returned
