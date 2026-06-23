@@ -4,10 +4,14 @@
 directly. This keeps the main tree clean and allows parallel work.
 
 ```sh
-git worktree add ../4ward-<branch> -b <branch>    # create
-git worktree remove ../4ward-<branch>              # clean up after merging
-git worktree prune                                 # gc dangling refs
+git fetch origin main
+git worktree add ../4ward-<branch> -b <branch> origin/main  # create from latest main
+git worktree remove ../4ward-<branch>                       # clean up after merging
+git worktree prune                                          # gc dangling refs
 ```
+
+For completed changes, do not stop at local edits. Commit, push, and open a
+draft PR unless the user explicitly asks not to.
 
 ## Philosophy
 
