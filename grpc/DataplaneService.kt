@@ -6,8 +6,8 @@ import fourward.InjectPacketRequest
 import fourward.InjectPacketResponse
 import fourward.InjectPacketsResponse
 import fourward.InputPacket
+import fourward.Outcome
 import fourward.OutputPacket
-import fourward.PacketSet
 import fourward.PipelineConfig
 import fourward.PrePacketHookInvocation
 import fourward.PrePacketHookResponse
@@ -300,9 +300,9 @@ private fun enrichResult(
         .setTag(tag)
     )
     .addAllPossibleOutcomes(
-      possibleOutcomes.map { world ->
-        PacketSet.newBuilder()
-          .addAllPackets(world.map { it.toDualEncoded(translator, codec) })
+      possibleOutcomes.map { outcome ->
+        Outcome.newBuilder()
+          .addAllPackets(outcome.map { it.toDualEncoded(translator, codec) })
           .build()
       }
     )

@@ -226,8 +226,8 @@ class WebServer(
     val result = simulator.processPacket(ingressPort, payload)
 
     val outcomesJson =
-      result.possibleOutcomes.joinToString(",") { world ->
-        "[${world.joinToString(",") { jsonPrinter.print(it) }}]"
+      result.possibleOutcomes.joinToString(",") { outcome ->
+        "[${outcome.joinToString(",") { jsonPrinter.print(it) }}]"
       }
     val traceJson = jsonPrinter.print(result.trace)
     val traceProto = textPrinter.printToString(result.trace)

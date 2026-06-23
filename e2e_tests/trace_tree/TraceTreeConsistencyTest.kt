@@ -4,6 +4,7 @@ import com.google.protobuf.TextFormat
 import fourward.TraceTree
 import fourward.simulator.ProcessPacketResult
 import fourward.simulator.Simulator
+import fourward.simulator.outcomeIdentity
 import fourward.stf.StfFile
 import fourward.stf.installStfEntries
 import fourward.stf.loadPipelineConfig
@@ -69,7 +70,7 @@ class TraceTreeConsistencyTest(private val testName: String) {
     )
     assertCausesResolveOnce(trace, eventIdCounts)
 
-    // Verify possibleOutcomes is consistent with the trace tree: flattening all worlds
+    // Verify possibleOutcomes is consistent with the trace tree: flattening all outcomes
     // should produce the same outputs as collecting all leaf outputs from the tree.
     val outputsFromPossibleOutcomes =
       result.possibleOutcomes.flatten().map { it.dataplaneEgressPort to it.payload }
@@ -77,14 +78,24 @@ class TraceTreeConsistencyTest(private val testName: String) {
     val outputsFromTree =
       leafTrees.filter { it.hasOutput() }.map { it.output.dataplaneEgressPort to it.output.payload }
 
-    // For trees without nested alternative-inside-parallel forks, these match exactly.
-    // For trees with such nesting, possibleOutcomes may have duplicates from the Cartesian
-    // product, so we compare as sets.
+    // possibleOutcomes is a set of distinct outcomes, so flattening it drops the packets of any
+    // folded duplicate outcome — but every distinct output the tree can produce still survives in
+    // some outcome. So we compare as sets of observable outputs rather than as multisets.
     assertEquals(
       "Output packets vs trace tree mismatch for $testName.\n" +
         "Trace:\n${TextFormat.printer().printToString(trace)}",
       outputsFromPossibleOutcomes.toSet(),
       outputsFromTree.toSet(),
+    )
+
+    // The set contract holds on real corpus programs, not just hand-built trees: no outcome
+    // repeats (keyed by [outcomeIdentity], the same key collectPossibleOutcomes dedupes on). Only
+    // a program nesting an alternative fork inside a parallel one can produce duplicates here.
+    assertEquals(
+      "Duplicate possible outcomes for $testName.\n" +
+        "Trace:\n${TextFormat.printer().printToString(trace)}",
+      result.possibleOutcomes.size,
+      result.possibleOutcomes.distinctBy { it.outcomeIdentity() }.size,
     )
   }
 

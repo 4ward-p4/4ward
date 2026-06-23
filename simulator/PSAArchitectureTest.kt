@@ -1479,10 +1479,12 @@ class PSAArchitectureTest {
     assertTrue("expected choice outcome", result.trace.hasChoice())
     assertEquals(2, result.trace.choice.branchesCount)
 
-    // Alternative choice: 2 possible worlds, each with 1 output (send_to_port(1) post-table).
+    // Both members forward identically (no-op action, then post-table send_to_port(1)), so the
+    // trace keeps 2 distinct branches but the outcomes collapse to one: identical outcomes are a
+    // single possibility, not two.
     val outcomes = result.possibleOutcomes
-    assertEquals(2, outcomes.size)
-    assertTrue(outcomes.all { world -> world.size == 1 && world[0].dataplaneEgressPort == 1 })
+    assertEquals(1, outcomes.size)
+    assertTrue(outcomes.all { outcome -> outcome.size == 1 && outcome[0].dataplaneEgressPort == 1 })
   }
 
   @Test
@@ -1511,7 +1513,7 @@ class PSAArchitectureTest {
     assertTrue("expected choice outcome", result.trace.hasChoice())
     assertEquals(1, result.trace.choice.branchesCount)
 
-    // Alternative choice: 1 possible world with 1 output.
+    // Alternative choice: 1 possible outcome with 1 output.
     val outcomes = result.possibleOutcomes
     assertEquals(1, outcomes.size)
     assertEquals(1, outcomes[0].size)
@@ -1534,10 +1536,10 @@ class PSAArchitectureTest {
     assertTrue("expected choice outcome", result.trace.hasChoice())
     assertEquals(2, result.trace.choice.branchesCount)
 
-    // Alternative choice: 2 possible worlds, each with 1 output.
+    // Both members forward identically, so the 2 trace branches collapse to a single outcome.
     val outcomes = result.possibleOutcomes
-    assertEquals(2, outcomes.size)
-    assertTrue(outcomes.all { world -> world.size == 1 && world[0].dataplaneEgressPort == 1 })
+    assertEquals(1, outcomes.size)
+    assertTrue(outcomes.all { outcome -> outcome.size == 1 && outcome[0].dataplaneEgressPort == 1 })
   }
 
   @Test
@@ -1568,10 +1570,11 @@ class PSAArchitectureTest {
     assertTrue("expected choice in clone", cloneBranch.hasChoice())
     assertEquals(2, cloneBranch.choice.branchesCount)
 
-    // Parallel clone × alternative selector: 2 members × 2 members = 4 possible worlds,
-    // each with 2 outputs (one from original, one from clone).
+    // Parallel clone ⊗ alternative selector. Both members forward identically within each branch,
+    // so the 2×2 raw combinations collapse to a single outcome with 2 outputs (one from the
+    // original, one from the clone).
     val outcomes = result.possibleOutcomes
-    assertEquals(4, outcomes.size)
+    assertEquals(1, outcomes.size)
     assertTrue(outcomes.all { it.size == 2 })
   }
 

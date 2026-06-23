@@ -410,12 +410,12 @@ class SimulatorTest {
 /** Unit tests for [collectPossibleOutcomes] — the outcome type semantics. */
 class CollectPossibleOutcomesTest {
 
-  private fun output(port: Int): fourward.TraceTree =
+  private fun output(port: Int, payload: Int = 0x01): fourward.TraceTree =
     fourward.TraceTree.newBuilder()
       .setOutput(
         fourward.OutputPacket.newBuilder()
           .setDataplaneEgressPort(port)
-          .setPayload(com.google.protobuf.ByteString.copyFrom(byteArrayOf(0x01)))
+          .setPayload(com.google.protobuf.ByteString.copyFrom(byteArrayOf(payload.toByte())))
       )
       .build()
 
@@ -433,33 +433,33 @@ class CollectPossibleOutcomesTest {
       .build()
 
   @Test
-  fun `linear trace produces one world with one output`() {
+  fun `linear trace produces one outcome with one output`() {
     val outcomes = collectPossibleOutcomes(output(1))
     assertEquals(listOf(listOf(output(1).output)), outcomes)
   }
 
   @Test
-  fun `drop produces one world with no outputs`() {
+  fun `drop produces one outcome with no outputs`() {
     val outcomes = collectPossibleOutcomes(drop())
     assertEquals(1, outcomes.size)
     assertTrue(outcomes[0].isEmpty())
   }
 
   @Test
-  fun `replication combines outputs within each world`() {
+  fun `replication combines outputs within each outcome`() {
     val tree = replication(output(1), output(2))
     val outcomes = collectPossibleOutcomes(tree)
-    assertEquals("one world", 1, outcomes.size)
+    assertEquals("one outcome", 1, outcomes.size)
     assertEquals("two outputs", 2, outcomes[0].size)
     assertEquals(1, outcomes[0][0].dataplaneEgressPort)
     assertEquals(2, outcomes[0][1].dataplaneEgressPort)
   }
 
   @Test
-  fun `choice produces one world per branch`() {
+  fun `choice produces one outcome per branch`() {
     val tree = choice(output(1), output(2), output(3))
     val outcomes = collectPossibleOutcomes(tree)
-    assertEquals("three worlds", 3, outcomes.size)
+    assertEquals("three outcomes", 3, outcomes.size)
     assertEquals(1, outcomes[0].single().dataplaneEgressPort)
     assertEquals(2, outcomes[1].single().dataplaneEgressPort)
     assertEquals(3, outcomes[2].single().dataplaneEgressPort)
@@ -470,27 +470,82 @@ class CollectPossibleOutcomesTest {
     // Replication with 2 branches, each containing a 2-member choice.
     val tree = replication(choice(output(1), output(2)), choice(output(3), output(4)))
     val outcomes = collectPossibleOutcomes(tree)
-    // 2 × 2 = 4 possible worlds, each with 2 outputs (one per replication branch).
+    // 2 × 2 = 4 possible outcomes, each with 2 outputs (one per replication branch).
     assertEquals("2×2 Cartesian product", 4, outcomes.size)
     assertTrue(outcomes.all { it.size == 2 })
-    val portPairs = outcomes.map { world -> world.map { it.dataplaneEgressPort }.sorted() }.toSet()
+    val portPairs =
+      outcomes.map { outcome -> outcome.map { it.dataplaneEgressPort }.sorted() }.toSet()
     assertEquals(setOf(listOf(1, 3), listOf(1, 4), listOf(2, 3), listOf(2, 4)), portPairs)
   }
 
   @Test
-  fun `choice with drop produces world with empty output`() {
+  fun `choice with drop produces outcome with empty output`() {
     val tree = choice(output(1), drop())
     val outcomes = collectPossibleOutcomes(tree)
     assertEquals(2, outcomes.size)
     assertEquals(1, outcomes[0].size)
-    assertTrue("drop world is empty", outcomes[1].isEmpty())
+    assertTrue("drop outcome is empty", outcomes[1].isEmpty())
   }
 
   @Test
   fun `multicast replication combines all outputs`() {
     val tree = replication(output(1), output(2), output(3))
     val outcomes = collectPossibleOutcomes(tree)
-    assertEquals("one world", 1, outcomes.size)
+    assertEquals("one outcome", 1, outcomes.size)
     assertEquals("three outputs", 3, outcomes[0].size)
+  }
+
+  @Test
+  fun `identical choice branches collapse to one outcome`() {
+    // An action selector whose members all forward identically: the result is certain, so there
+    // is exactly one possible outcome — not one per member. The outer collection is a set of
+    // distinct outcomes; duplicate outcomes carry no information (forks are unweighted).
+    val tree = choice(output(1), output(1))
+    val outcomes = collectPossibleOutcomes(tree)
+    assertEquals(listOf(listOf(output(1).output)), outcomes)
+  }
+
+  @Test
+  fun `replication keeps duplicate packets within an outcome`() {
+    // Multicast/clone can emit the same packet to the same port more than once, and every copy
+    // is physically real. Multiplicity *within* a single outcome is meaningful and must never be
+    // deduplicated — only duplicate *outcomes* collapse, not duplicate packets.
+    val tree = replication(output(1), output(1))
+    val outcomes = collectPossibleOutcomes(tree)
+    assertEquals("one outcome", 1, outcomes.size)
+    assertEquals("two real copies, not collapsed", 2, outcomes[0].size)
+  }
+
+  @Test
+  fun `symmetric choices fold duplicate outcomes`() {
+    // Both replication branches choose between the same two ports. Choosing (port1, port2) and
+    // (port2, port1) emit the same multiset of packets — one possible outcome, not two. The four
+    // raw Cartesian combinations collapse to three distinct outcomes: {1,1}, {1,2}, {2,2}.
+    val tree = replication(choice(output(1), output(2)), choice(output(1), output(2)))
+    val outcomes = collectPossibleOutcomes(tree)
+    val portMultisets = outcomes.map { outcome -> outcome.map { it.dataplaneEgressPort }.sorted() }
+    assertEquals("distinct outcomes only", portMultisets.size, portMultisets.toSet().size)
+    assertEquals(setOf(listOf(1, 1), listOf(1, 2), listOf(2, 2)), portMultisets.toSet())
+  }
+
+  @Test
+  fun `outcomes differing only by payload stay distinct`() {
+    // Same egress port, different payload — these are different observable outcomes and must not
+    // collapse. Outcome identity is (port, payload), not port alone. (Without this, a regression
+    // that keyed on port only would still pass every other test, which all use one payload.)
+    val tree = choice(output(1, payload = 0x01), output(1, payload = 0x02))
+    val outcomes = collectPossibleOutcomes(tree)
+    assertEquals(2, outcomes.size)
+  }
+
+  @Test
+  fun `outcomes differing only by packet multiplicity stay distinct`() {
+    // One copy versus two copies of the same packet are different outcomes — multiplicity is part
+    // of an outcome's identity (multicast/clone really can emit a packet twice), so they must not
+    // collapse to one.
+    val tree = choice(output(1), replication(output(1), output(1)))
+    val outcomes = collectPossibleOutcomes(tree)
+    assertEquals("one-copy and two-copy outcomes are distinct", 2, outcomes.size)
+    assertEquals(setOf(1, 2), outcomes.map { it.size }.toSet())
   }
 }

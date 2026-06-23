@@ -196,7 +196,7 @@ vector.
 ## Handling multiple outcomes
 
 P4 programs with action selectors can produce multiple possible outcomes
-— each representing one "possible world."
+— each representing one distinct possible execution.
 
 **`OutcomesAre`** pins the exact set of outcomes (order-independent).
 Each argument is a packet matcher for a single-packet outcome; use
