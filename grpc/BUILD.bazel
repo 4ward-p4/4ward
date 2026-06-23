@@ -746,6 +746,7 @@ kt_jvm_test(
     data = [
         "//e2e_tests/basic_table",
         "//e2e_tests/passthrough",
+        "//e2e_tests/trace_tree:action_selector_3",
         "//e2e_tests/trace_tree:multicast",
         "//p4c_backend:p4c-4ward",
         "@p4c//p4include",

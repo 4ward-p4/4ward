@@ -56,6 +56,12 @@ import p4.config.v1.P4InfoOuterClass.ControllerPacketMetadata
 import p4.config.v1.P4InfoOuterClass.P4Info
 import p4.config.v1.P4InfoOuterClass.Preamble
 import p4.config.v1.P4Types
+import p4.v1.P4RuntimeOuterClass.Action
+import p4.v1.P4RuntimeOuterClass.ActionProfileMember
+import p4.v1.P4RuntimeOuterClass.Entity
+import p4.v1.P4RuntimeOuterClass.FieldMatch
+import p4.v1.P4RuntimeOuterClass.TableAction
+import p4.v1.P4RuntimeOuterClass.TableEntry
 
 class DataplaneServiceTest {
 
@@ -130,6 +136,98 @@ class DataplaneServiceTest {
       response.possibleOutcomesList.single().packetsCount,
     )
   }
+
+  @Test
+  fun `InjectPacket dedupes identical action-selector outcomes on the wire`() {
+    // Set semantics must survive the gRPC boundary, not only the simulator. A group whose two
+    // members forward identically forks the trace into two branches but yields a single possible
+    // outcome — proving the dedup at the single projection (collectPossibleOutcomes) is inherited
+    // by the InjectPacket API end-to-end (enrichment + proto), per the single-source contract.
+    val config = loadConfig("e2e_tests/trace_tree/action_selector_3.txtpb")
+    harness.loadPipeline(config)
+
+    val profileId = config.p4Info.actionProfilesList.first().preamble.id
+    val setPort = FourwardTestHarness.findAction(config, "set_port")
+    val portBytes =
+      ByteString.copyFrom(
+        FourwardTestHarness.longToBytes(1, (setPort.paramsList.first().bitwidth + 7) / 8)
+      )
+
+    // Two members, both set_port(1): identical forwarding, so identical outcomes.
+    for (memberId in listOf(1, 2)) {
+      harness.installEntry(
+        Entity.newBuilder()
+          .setActionProfileMember(
+            ActionProfileMember.newBuilder()
+              .setActionProfileId(profileId)
+              .setMemberId(memberId)
+              .setAction(
+                Action.newBuilder()
+                  .setActionId(setPort.preamble.id)
+                  .addParams(
+                    Action.Param.newBuilder()
+                      .setParamId(FourwardTestHarness.paramId(setPort, "port"))
+                      .setValue(portBytes)
+                  )
+              )
+          )
+          .build()
+      )
+    }
+    harness.installEntry(
+      FourwardTestHarness.buildGroupEntity(profileId, groupId = 1, memberIds = listOf(1, 2))
+    )
+
+    // Table entry: the frame's broadcast dstAddr → action profile group 1.
+    val ecmpTable = config.p4Info.tablesList.first()
+    val dstField = ecmpTable.matchFieldsList.first()
+    harness.installEntry(
+      Entity.newBuilder()
+        .setTableEntry(
+          TableEntry.newBuilder()
+            .setTableId(ecmpTable.preamble.id)
+            .addMatch(
+              FieldMatch.newBuilder()
+                .setFieldId(dstField.id)
+                .setExact(
+                  FieldMatch.Exact.newBuilder()
+                    .setValue(
+                      ByteString.copyFrom(
+                        FourwardTestHarness.longToBytes(
+                          0xFFFFFFFFFFFFL,
+                          (dstField.bitwidth + 7) / 8,
+                        )
+                      )
+                    )
+                )
+            )
+            .setAction(TableAction.newBuilder().setActionProfileGroupId(1))
+        )
+        .build()
+    )
+
+    val response =
+      harness.injectPacket(ingressPort = 0, payload = buildEthernetFrame(etherType = 0x0800))
+
+    // The trace stays lossless (both selector branches), while the outcomes collapse to one.
+    assertEquals("selector forked into 2 branches", 2, choiceBranchCount(response.trace))
+    assertEquals("identical members collapse to one outcome", 1, response.possibleOutcomesCount)
+    assertEquals(1, response.possibleOutcomesList.single().packetsCount)
+    assertEquals(1, response.possibleOutcomesList.single().getPackets(0).dataplaneEgressPort)
+  }
+
+  /** Branch count of the first CHOICE in the trace, through continuation/replication wrappers. */
+  private fun choiceBranchCount(tree: TraceTree): Int? =
+    when (tree.outcomeCase) {
+      TraceTree.OutcomeCase.CHOICE -> tree.choice.branchesCount
+      TraceTree.OutcomeCase.CONTINUATION -> choiceBranchCount(tree.continuation.next)
+      TraceTree.OutcomeCase.REPLICATION ->
+        tree.replication.branchesList.firstNotNullOfOrNull { choiceBranchCount(it) }
+      TraceTree.OutcomeCase.OUTPUT,
+      TraceTree.OutcomeCase.DROP,
+      TraceTree.OutcomeCase.OUTCOME_NOT_SET,
+      null -> null
+    }
 
   // =========================================================================
   // GetReproducer
