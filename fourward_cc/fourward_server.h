@@ -41,6 +41,7 @@
 #include "absl/time/time.h"
 #include "grpc/dataplane.grpc.pb.h"
 #include "grpc/management.grpc.pb.h"
+#include "grpc/network.grpc.pb.h"
 #include "grpcpp/channel.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 
@@ -163,6 +164,9 @@ class FourwardServer {
   std::unique_ptr<fourward::FourwardManagement::Stub> NewManagementStub()
       const {
     return fourward::FourwardManagement::NewStub(channel_);
+  }
+  std::unique_ptr<fourward::Network::Stub> NewNetworkStub() const {
+    return fourward::Network::NewStub(channel_);
   }
 
   // Address suitable for grpc::CreateChannel, e.g. "localhost:42517".
