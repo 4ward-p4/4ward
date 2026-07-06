@@ -471,17 +471,13 @@ class ForwardsToMatcher {
 
 }  // namespace internal
 
-// Deliberately affects GoogleTest printing for these response protos whenever
-// this matcher header is included. That is the point: the first `Actual:` line
-// in a matcher failure is owned by GoogleTest's PrintToString path, so keeping
-// it compact requires a PrintTo overload for the response type itself.
-inline void PrintTo(const fourward::InjectPacketResponse& result,
-                    std::ostream* os) {
-  internal::PrintResultSummary(result, os);
-}
-
-inline void PrintTo(const fourward::ProcessPacketResult& result,
-                    std::ostream* os) {
+// Hooks into GoogleTest's ADL-based PrintTo dispatch for any
+// HasPossibleOutcomes type (InjectPacketResponse, ProcessPacketResult, …).
+// Whenever this header is included, GoogleTest prints these types using a
+// compact summary instead of the full proto DebugString.
+template <typename T>
+  requires(internal::HasPossibleOutcomes<T>)
+void PrintTo(const T& result, std::ostream* os) {
   internal::PrintResultSummary(result, os);
 }
 
