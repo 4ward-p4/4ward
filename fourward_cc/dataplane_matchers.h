@@ -471,17 +471,13 @@ class ForwardsToMatcher {
 
 }  // namespace internal
 
-// Deliberately affects GoogleTest printing for these response protos whenever
-// this matcher header is included. That is the point: the first `Actual:` line
-// in a matcher failure is owned by GoogleTest's PrintToString path, so keeping
-// it compact requires a PrintTo overload for the response type itself.
-inline void PrintTo(const fourward::InjectPacketResponse& result,
-                    std::ostream* os) {
-  internal::PrintResultSummary(result, os);
-}
-
-inline void PrintTo(const fourward::ProcessPacketResult& result,
-                    std::ostream* os) {
+// Hooks into GoogleTest's ADL-based PrintTo dispatch for any
+// HasPossibleOutcomes type (InjectPacketResponse, ProcessPacketResult, …).
+// Whenever this header is included, GoogleTest prints these types using a
+// compact summary instead of the full proto DebugString.
+template <typename T>
+  requires(internal::HasPossibleOutcomes<T>)
+void PrintTo(const T& result, std::ostream* os) {
   internal::PrintResultSummary(result, os);
 }
 
@@ -834,5 +830,19 @@ auto PacketsByP4RuntimePort(const T& result)
 }
 
 }  // namespace fourward
+
+namespace testing {
+
+// Mirrors fourward::PrintTo in ::testing so that test utilities can call
+// PrintTo directly without a namespace qualifier and without relying on ADL.
+// The fourward:: version is the primary hook for GoogleTest's own ADL-based
+// dispatch; this one exists for explicit call sites in test helpers.
+template <typename T>
+  requires(fourward::internal::HasPossibleOutcomes<T>)
+void PrintTo(const T& result, std::ostream* os) {
+  fourward::internal::PrintResultSummary(result, os);
+}
+
+}  // namespace testing
 
 #endif  // FOURWARD_CC_DATAPLANE_MATCHERS_H_
