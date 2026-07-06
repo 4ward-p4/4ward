@@ -831,4 +831,19 @@ auto PacketsByP4RuntimePort(const T& result)
 
 }  // namespace fourward
 
+namespace testing {
+
+// GoogleTest has a built-in proto PrintTo in ::testing that produces
+// "<ShortDebugString()>" for any proto message. It wins over fourward::PrintTo
+// found via ADL. This overload, being more specifically constrained on
+// HasPossibleOutcomes, takes priority and replaces the generic proto output
+// with our compact summary.
+template <typename T>
+  requires(fourward::internal::HasPossibleOutcomes<T>)
+void PrintTo(const T& result, std::ostream* os) {
+  fourward::PrintTo(result, os);
+}
+
+}  // namespace testing
+
 #endif  // FOURWARD_CC_DATAPLANE_MATCHERS_H_
