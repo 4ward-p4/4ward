@@ -471,10 +471,9 @@ class ForwardsToMatcher {
 
 }  // namespace internal
 
-// Hooks into GoogleTest's ADL-based PrintTo dispatch for any
-// HasPossibleOutcomes type (InjectPacketResponse, ProcessPacketResult, …).
-// Whenever this header is included, GoogleTest prints these types using a
-// compact summary instead of the full proto DebugString.
+// Shared implementation for ::testing::PrintTo below, which is what actually
+// overrides GoogleTest's built-in proto printer. Also acts as an ADL hook in
+// non-GoogleTest contexts where ::testing is not a candidate namespace.
 template <typename T>
   requires(internal::HasPossibleOutcomes<T>)
 void PrintTo(const T& result, std::ostream* os) {
