@@ -471,10 +471,8 @@ class ForwardsToMatcher {
 
 }  // namespace internal
 
-// Hooks into GoogleTest's ADL-based PrintTo dispatch for any
-// HasPossibleOutcomes type (InjectPacketResponse, ProcessPacketResult, …).
-// Whenever this header is included, GoogleTest prints these types using a
-// compact summary instead of the full proto DebugString.
+// ADL hook for non-GoogleTest ostream contexts. GoogleTest printing goes
+// through the UniversalPrinter specializations below.
 template <typename T>
   requires(internal::HasPossibleOutcomes<T>)
 void PrintTo(const T& result, std::ostream* os) {
@@ -832,18 +830,28 @@ auto PacketsByP4RuntimePort(const T& result)
 }  // namespace fourward
 
 namespace testing {
+namespace internal {
 
-// GoogleTest has a built-in proto PrintTo in ::testing that produces
-// "<ShortDebugString()>" for any proto message. It wins over fourward::PrintTo
-// found via ADL. This overload, being more specifically constrained on
-// HasPossibleOutcomes, takes priority and replaces the generic proto output
-// with our compact summary.
-template <typename T>
-  requires(fourward::internal::HasPossibleOutcomes<T>)
-void PrintTo(const T& result, std::ostream* os) {
-  fourward::PrintTo(result, os);
-}
+// UniversalPrinter<T>::Print is called before PrintTo overload resolution, so
+// specializing it here is the most direct hook into GoogleTest printing.
+template <>
+class UniversalPrinter<::fourward::InjectPacketResponse> {
+ public:
+  static void Print(const ::fourward::InjectPacketResponse& value,
+                    ::std::ostream* os) {
+    ::fourward::internal::PrintResultSummary(value, os);
+  }
+};
+template <>
+class UniversalPrinter<::fourward::ProcessPacketResult> {
+ public:
+  static void Print(const ::fourward::ProcessPacketResult& value,
+                    ::std::ostream* os) {
+    ::fourward::internal::PrintResultSummary(value, os);
+  }
+};
 
+}  // namespace internal
 }  // namespace testing
 
 #endif  // FOURWARD_CC_DATAPLANE_MATCHERS_H_
