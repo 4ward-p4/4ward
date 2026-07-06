@@ -831,18 +831,4 @@ auto PacketsByP4RuntimePort(const T& result)
 
 }  // namespace fourward
 
-namespace testing {
-
-// Mirrors fourward::PrintTo in ::testing so that test utilities can call
-// PrintTo directly without a namespace qualifier and without relying on ADL.
-// The fourward:: version is the primary hook for GoogleTest's own ADL-based
-// dispatch; this one exists for explicit call sites in test helpers.
-template <typename T>
-  requires(fourward::internal::HasPossibleOutcomes<T>)
-void PrintTo(const T& result, std::ostream* os) {
-  fourward::internal::PrintResultSummary(result, os);
-}
-
-}  // namespace testing
-
 #endif  // FOURWARD_CC_DATAPLANE_MATCHERS_H_
