@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">96.5&nbsp;%</td>
+            <td class="headerCovTableEntryHi">95.9&nbsp;%</td>
             <td class="headerCovTableEntry">172</td>
-            <td class="headerCovTableEntry">166</td>
+            <td class="headerCovTableEntry">165</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-07-06 18:04:53</td>
+            <td class="headerValue">2026-07-06 18:31:47</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -199,8 +199,8 @@
 <span id="L137"><span class="lineNum">     137</span>              :   override suspend fun injectPackets(requests: Flow&lt;InjectPacketRequest&gt;): InjectPacketsResponse {</span>
 <span id="L138"><span class="lineNum">     138</span> <span class="tlaGNC">           1 :     val translator = pipelineSnapshot()?.typeTranslator</span></span>
 <span id="L139"><span class="lineNum">     139</span> <span class="tlaGNC">           1 :     broker.withHookOnce { processPacket -&gt;</span></span>
-<span id="L140"><span class="lineNum">     140</span> <span class="tlaGNC">           1 :       requests.collect { request -&gt;</span></span>
-<span id="L141"><span class="lineNum">     141</span> <span class="tlaGNC">           1 :         val port = resolveIngressPort(request, translator)</span></span>
+<span id="L140"><span class="lineNum">     140</span> <span class="tlaUNC tlaBgUNC">           0 :       requests.collect { request -&gt;</span></span>
+<span id="L141"><span class="lineNum">     141</span> <span class="tlaGNC tlaBgGNC">           1 :         val port = resolveIngressPort(request, translator)</span></span>
 <span id="L142"><span class="lineNum">     142</span> <span class="tlaGNC">           1 :         val payload = request.payload.toByteArray()</span></span>
 <span id="L143"><span class="lineNum">     143</span> <span class="tlaGNC">           1 :         val tag = request.tag</span></span>
 <span id="L144"><span class="lineNum">     144</span> <span class="tlaGNC">           1 :         processPacket(port, payload, tag)</span></span>
