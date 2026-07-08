@@ -503,9 +503,9 @@ class PSAArchitectureTest {
     // Branches are in replica order; each outputs to its assigned port.
     assertEquals(2, result.trace.replication.branchesList[0].output.dataplaneEgressPort)
     assertEquals(3, result.trace.replication.branchesList[1].output.dataplaneEgressPort)
-    // Replication.cause should reference the multicast group lookup event by id.
-    val causeId = result.trace.replication.cause
-    assertTrue("Replication.cause should be non-zero", causeId > 0)
+    // Replication.causeId should reference the multicast group lookup event by id.
+    val causeId = result.trace.replication.causeId
+    assertTrue("Replication.causeId should be non-zero", causeId > 0)
     val lookupEvent = result.trace.eventsList.single { it.id == causeId }
     assertTrue(lookupEvent.hasMulticastGroupLookup())
   }

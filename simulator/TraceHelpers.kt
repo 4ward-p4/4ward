@@ -14,7 +14,7 @@ import fourward.TraceTree
 
 /** Builds a [TraceTree] representing a dropped packet with the given trace events. */
 internal fun buildDropTrace(events: List<TraceEvent>, causeId: Long? = null): TraceTree {
-  val drop = Drop.newBuilder().also { if (causeId != null) it.setCause(causeId) }.build()
+  val drop = Drop.newBuilder().also { if (causeId != null) it.setCauseId(causeId) }.build()
   return TraceTree.newBuilder().addAllEvents(events).setDrop(drop).build()
 }
 
@@ -42,7 +42,7 @@ internal fun buildReplicationTree(
     .addAllEvents(events)
     .setReplication(
       Replication.newBuilder()
-        .also { if (cause != null) it.setCause(cause) }
+        .also { if (cause != null) it.setCauseId(cause) }
         .addAllBranches(branches)
     )
     .build()
@@ -59,7 +59,7 @@ internal fun buildChoiceTree(
   TraceTree.newBuilder()
     .addAllEvents(events)
     .setChoice(
-      Choice.newBuilder().also { if (cause != null) it.setCause(cause) }.addAllBranches(branches)
+      Choice.newBuilder().also { if (cause != null) it.setCauseId(cause) }.addAllBranches(branches)
     )
     .build()
 
@@ -140,7 +140,8 @@ private class TraceEventIdNormalizer {
     when (node.outcomeCase) {
       TraceTree.OutcomeCase.REPLICATION -> {
         val replication = node.replication.toBuilder().clearBranches()
-        if (node.replication.hasCause()) replication.setCause(remapCause(node.replication.cause))
+        if (node.replication.hasCauseId())
+          replication.setCauseId(remapCause(node.replication.causeId))
         for (branch in node.replication.branchesList) {
           replication.addBranches(normalizeNode(branch))
         }
@@ -148,7 +149,7 @@ private class TraceEventIdNormalizer {
       }
       TraceTree.OutcomeCase.CHOICE -> {
         val choice = node.choice.toBuilder().clearBranches()
-        if (node.choice.hasCause()) choice.setCause(remapCause(node.choice.cause))
+        if (node.choice.hasCauseId()) choice.setCauseId(remapCause(node.choice.causeId))
         for (branch in node.choice.branchesList) {
           choice.addBranches(normalizeNode(branch))
         }
@@ -161,7 +162,7 @@ private class TraceEventIdNormalizer {
       TraceTree.OutcomeCase.OUTPUT -> normalized.setOutput(node.output)
       TraceTree.OutcomeCase.DROP -> {
         val drop = node.drop.toBuilder()
-        if (node.drop.hasCause()) drop.setCause(remapCause(node.drop.cause))
+        if (node.drop.hasCauseId()) drop.setCauseId(remapCause(node.drop.causeId))
         normalized.setDrop(drop)
       }
       TraceTree.OutcomeCase.OUTCOME_NOT_SET,

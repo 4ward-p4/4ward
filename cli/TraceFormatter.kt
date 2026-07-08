@@ -54,7 +54,7 @@ object TraceFormatter {
       }
       TraceTree.OutcomeCase.DROP -> {
         val cause =
-          if (tree.drop.hasCause()) tree.eventsList.firstOrNull { it.id == tree.drop.cause }
+          if (tree.drop.hasCauseId()) tree.eventsList.firstOrNull { it.id == tree.drop.causeId }
           else null
         val suffix =
           when (cause?.eventCase) {

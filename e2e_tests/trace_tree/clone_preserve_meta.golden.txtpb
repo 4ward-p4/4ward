@@ -130,7 +130,7 @@ events {
   id: 13
 }
 replication {
-  cause: 13
+  cause_id: 13
   branches {
     events {
       pipeline_stage {

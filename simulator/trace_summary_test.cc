@@ -156,7 +156,7 @@ TEST(TraceSummaryTest, PrintsMulticastLookupBeforeReplicationBranches) {
   lookup->mutable_multicast_group_lookup()->set_replica_count(2);
 
   auto* replication = trace.mutable_replication();
-  replication->set_cause(7);
+  replication->set_cause_id(7);
   replication->add_branches()->mutable_output()->set_dataplane_egress_port(1);
   replication->add_branches()->mutable_output()->set_dataplane_egress_port(2);
 

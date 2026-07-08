@@ -137,9 +137,9 @@ class TraceTreeConsistencyTest(private val testName: String) {
     val cause =
       when (tree.outcomeCase) {
         TraceTree.OutcomeCase.REPLICATION ->
-          if (tree.replication.hasCause()) tree.replication.cause else null
-        TraceTree.OutcomeCase.CHOICE -> if (tree.choice.hasCause()) tree.choice.cause else null
-        TraceTree.OutcomeCase.DROP -> if (tree.drop.hasCause()) tree.drop.cause else null
+          if (tree.replication.hasCauseId()) tree.replication.causeId else null
+        TraceTree.OutcomeCase.CHOICE -> if (tree.choice.hasCauseId()) tree.choice.causeId else null
+        TraceTree.OutcomeCase.DROP -> if (tree.drop.hasCauseId()) tree.drop.causeId else null
         TraceTree.OutcomeCase.CONTINUATION,
         TraceTree.OutcomeCase.OUTPUT,
         TraceTree.OutcomeCase.OUTCOME_NOT_SET,

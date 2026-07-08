@@ -104,7 +104,7 @@ events {
   id: 11
 }
 replication {
-  cause: 11
+  cause_id: 11
   branches {
     events {
       pipeline_stage {

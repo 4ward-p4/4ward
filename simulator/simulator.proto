@@ -83,18 +83,18 @@ message TraceTree {
 
 // All branches execute; their output packets are the union.
 // Used for any mechanism that sends copies to multiple ports (clone, multicast,
-// mirror). `cause` references the lookup event that triggered the copies, if
+// mirror). `cause_id` references the lookup event that triggered the copies, if
 // any.
 message Replication {
-  optional uint64 cause = 1;        // id of the typed event that triggered this
+  optional uint64 cause_id = 1;     // id of the typed event that triggered this
   repeated TraceTree branches = 2;  // ≥ 1 branch
 }
 
 // Exactly one branch executes at runtime.
 // Used for action selector groups (the selected member is unknown statically).
-// `cause` references the TableLookupEvent for the selector table.
+// `cause_id` references the TableLookupEvent for the selector table.
 message Choice {
-  optional uint64 cause = 1;        // id of the typed event that triggered this
+  optional uint64 cause_id = 1;     // id of the typed event that triggered this
   repeated TraceTree branches = 2;  // ≥ 2 branches
 }
 
@@ -115,19 +115,19 @@ message Continuation {
   map<string, string> preserved_fields = 3;
 }
 
-// A packet that was dropped.  `cause` is absent when the packet fell off the
-// end of the pipeline with no forwarding decision (the implicit default).
+// A packet that was dropped.  `cause_id` is absent when the packet fell off
+// the end of the pipeline with no forwarding decision (the implicit default).
 // When present, the referenced event's type identifies the cause:
 //   MarkToDropEvent                            → explicit mark_to_drop() call
 //   AssertionEvent                             → assert()/assume() failure
 //   MulticastGroupLookupEvent(group_found=false) → multicast to empty group
 message Drop {
-  optional uint64 cause = 1;  // id of the event that caused the drop, if any
+  optional uint64 cause_id = 1;  // id of the event that caused the drop, if any
 }
 
 message TraceEvent {
   // Trace-global identifier, assigned by the simulator in emission order.
-  // Referenced by Replication.cause, Choice.cause, and Drop.cause to
+  // Referenced by Replication.cause_id, Choice.cause_id, and Drop.cause_id to
   // identify which event triggered each outcome.
   uint64 id = 16;
 

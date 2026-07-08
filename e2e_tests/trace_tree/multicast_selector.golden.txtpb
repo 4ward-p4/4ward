@@ -91,7 +91,7 @@ events {
   id: 10
 }
 replication {
-  cause: 10
+  cause_id: 10
   branches {
     events {
       pipeline_stage {
@@ -133,7 +133,7 @@ replication {
       }
     }
     choice {
-      cause: 12
+      cause_id: 12
       branches {
         events {
           action_execution {
@@ -333,7 +333,7 @@ replication {
       }
     }
     choice {
-      cause: 30
+      cause_id: 30
       branches {
         events {
           action_execution {

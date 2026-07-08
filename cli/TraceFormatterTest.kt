@@ -95,7 +95,7 @@ class TraceFormatterTest {
     val tree =
       TraceTree.newBuilder()
         .addEvents(TraceEvent.newBuilder().setMarkToDrop(MarkToDropEvent.newBuilder()).setId(1))
-        .setDrop(Drop.newBuilder().setCause(1))
+        .setDrop(Drop.newBuilder().setCauseId(1))
         .build()
 
     val output = TraceFormatter.format(tree)
@@ -207,7 +207,7 @@ class TraceFormatterTest {
             .setAssertion(AssertionEvent.newBuilder().setPassed(false))
             .setId(1)
         )
-        .setDrop(Drop.newBuilder().setCause(1))
+        .setDrop(Drop.newBuilder().setCauseId(1))
         .build()
 
     assertEquals(

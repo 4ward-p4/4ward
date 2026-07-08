@@ -559,7 +559,7 @@ class V1ModelArchitectureTest {
     val result = V1ModelArchitecture(config).processPacket(port(0), byteArrayOf(0x01), TableStore())
 
     assertTrue(result.trace.hasDrop())
-    assertFalse(result.trace.drop.hasCause())
+    assertFalse(result.trace.drop.hasCauseId())
   }
 
   @Test
