@@ -32,12 +32,12 @@
             <td></td>
             <td class="headerItem">Lines:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
-            <td class="headerCovTableEntry">93</td>
-            <td class="headerCovTableEntry">93</td>
+            <td class="headerCovTableEntry">94</td>
+            <td class="headerCovTableEntry">94</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-07-07 16:46:43</td>
+            <td class="headerValue">2026-07-08 21:27:31</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -76,7 +76,7 @@
 <span id="L14"><span class="lineNum">      14</span>              : </span>
 <span id="L15"><span class="lineNum">      15</span>              : /** Builds a [TraceTree] representing a dropped packet with the given trace events. */</span>
 <span id="L16"><span class="lineNum">      16</span> <span class="tlaGNC tlaBgGNC">           1 : internal fun buildDropTrace(events: List&lt;TraceEvent&gt;, causeId: Long? = null): TraceTree {</span></span>
-<span id="L17"><span class="lineNum">      17</span> <span class="tlaGNC">           1 :   val drop = Drop.newBuilder().also { if (causeId != null) it.setCause(causeId) }.build()</span></span>
+<span id="L17"><span class="lineNum">      17</span> <span class="tlaGNC">           1 :   val drop = Drop.newBuilder().also { if (causeId != null) it.setCauseId(causeId) }.build()</span></span>
 <span id="L18"><span class="lineNum">      18</span> <span class="tlaGNC">           1 :   return TraceTree.newBuilder().addAllEvents(events).setDrop(drop).build()</span></span>
 <span id="L19"><span class="lineNum">      19</span>              : }</span>
 <span id="L20"><span class="lineNum">      20</span>              : </span>
@@ -104,7 +104,7 @@
 <span id="L42"><span class="lineNum">      42</span> <span class="tlaGNC">           1 :     .addAllEvents(events)</span></span>
 <span id="L43"><span class="lineNum">      43</span> <span class="tlaGNC">           1 :     .setReplication(</span></span>
 <span id="L44"><span class="lineNum">      44</span> <span class="tlaGNC">           1 :       Replication.newBuilder()</span></span>
-<span id="L45"><span class="lineNum">      45</span> <span class="tlaGNC">           1 :         .also { if (cause != null) it.setCause(cause) }</span></span>
+<span id="L45"><span class="lineNum">      45</span> <span class="tlaGNC">           1 :         .also { if (cause != null) it.setCauseId(cause) }</span></span>
 <span id="L46"><span class="lineNum">      46</span> <span class="tlaGNC">           1 :         .addAllBranches(branches)</span></span>
 <span id="L47"><span class="lineNum">      47</span>              :     )</span>
 <span id="L48"><span class="lineNum">      48</span> <span class="tlaGNC">           1 :     .build()</span></span>
@@ -121,7 +121,7 @@
 <span id="L59"><span class="lineNum">      59</span> <span class="tlaGNC">           1 :   TraceTree.newBuilder()</span></span>
 <span id="L60"><span class="lineNum">      60</span> <span class="tlaGNC">           1 :     .addAllEvents(events)</span></span>
 <span id="L61"><span class="lineNum">      61</span> <span class="tlaGNC">           1 :     .setChoice(</span></span>
-<span id="L62"><span class="lineNum">      62</span> <span class="tlaGNC">           1 :       Choice.newBuilder().also { if (cause != null) it.setCause(cause) }.addAllBranches(branches)</span></span>
+<span id="L62"><span class="lineNum">      62</span> <span class="tlaGNC">           1 :       Choice.newBuilder().also { if (cause != null) it.setCauseId(cause) }.addAllBranches(branches)</span></span>
 <span id="L63"><span class="lineNum">      63</span>              :     )</span>
 <span id="L64"><span class="lineNum">      64</span> <span class="tlaGNC">           1 :     .build()</span></span>
 <span id="L65"><span class="lineNum">      65</span>              : </span>
@@ -202,79 +202,80 @@
 <span id="L140"><span class="lineNum">     140</span> <span class="tlaGNC">           1 :     when (node.outcomeCase) {</span></span>
 <span id="L141"><span class="lineNum">     141</span>              :       TraceTree.OutcomeCase.REPLICATION -&gt; {</span>
 <span id="L142"><span class="lineNum">     142</span> <span class="tlaGNC">           1 :         val replication = node.replication.toBuilder().clearBranches()</span></span>
-<span id="L143"><span class="lineNum">     143</span> <span class="tlaGNC">           1 :         if (node.replication.hasCause()) replication.setCause(remapCause(node.replication.cause))</span></span>
-<span id="L144"><span class="lineNum">     144</span> <span class="tlaGNC">           1 :         for (branch in node.replication.branchesList) {</span></span>
-<span id="L145"><span class="lineNum">     145</span> <span class="tlaGNC">           1 :           replication.addBranches(normalizeNode(branch))</span></span>
-<span id="L146"><span class="lineNum">     146</span>              :         }</span>
-<span id="L147"><span class="lineNum">     147</span> <span class="tlaGNC">           1 :         normalized.setReplication(replication)</span></span>
-<span id="L148"><span class="lineNum">     148</span>              :       }</span>
-<span id="L149"><span class="lineNum">     149</span>              :       TraceTree.OutcomeCase.CHOICE -&gt; {</span>
-<span id="L150"><span class="lineNum">     150</span> <span class="tlaGNC">           1 :         val choice = node.choice.toBuilder().clearBranches()</span></span>
-<span id="L151"><span class="lineNum">     151</span> <span class="tlaGNC">           1 :         if (node.choice.hasCause()) choice.setCause(remapCause(node.choice.cause))</span></span>
-<span id="L152"><span class="lineNum">     152</span> <span class="tlaGNC">           1 :         for (branch in node.choice.branchesList) {</span></span>
-<span id="L153"><span class="lineNum">     153</span> <span class="tlaGNC">           1 :           choice.addBranches(normalizeNode(branch))</span></span>
-<span id="L154"><span class="lineNum">     154</span>              :         }</span>
-<span id="L155"><span class="lineNum">     155</span> <span class="tlaGNC">           1 :         normalized.setChoice(choice)</span></span>
-<span id="L156"><span class="lineNum">     156</span>              :       }</span>
-<span id="L157"><span class="lineNum">     157</span>              :       TraceTree.OutcomeCase.CONTINUATION -&gt;</span>
-<span id="L158"><span class="lineNum">     158</span> <span class="tlaGNC">           1 :         normalized.setContinuation(</span></span>
-<span id="L159"><span class="lineNum">     159</span> <span class="tlaGNC">           1 :           node.continuation.toBuilder().setNext(normalizeNode(node.continuation.next))</span></span>
-<span id="L160"><span class="lineNum">     160</span>              :         )</span>
-<span id="L161"><span class="lineNum">     161</span> <span class="tlaGNC">           1 :       TraceTree.OutcomeCase.OUTPUT -&gt; normalized.setOutput(node.output)</span></span>
-<span id="L162"><span class="lineNum">     162</span>              :       TraceTree.OutcomeCase.DROP -&gt; {</span>
-<span id="L163"><span class="lineNum">     163</span> <span class="tlaGNC">           1 :         val drop = node.drop.toBuilder()</span></span>
-<span id="L164"><span class="lineNum">     164</span> <span class="tlaGNC">           1 :         if (node.drop.hasCause()) drop.setCause(remapCause(node.drop.cause))</span></span>
-<span id="L165"><span class="lineNum">     165</span> <span class="tlaGNC">           1 :         normalized.setDrop(drop)</span></span>
-<span id="L166"><span class="lineNum">     166</span>              :       }</span>
-<span id="L167"><span class="lineNum">     167</span>              :       TraceTree.OutcomeCase.OUTCOME_NOT_SET,</span>
-<span id="L168"><span class="lineNum">     168</span>              :       null -&gt; {}</span>
-<span id="L169"><span class="lineNum">     169</span>              :     }</span>
-<span id="L170"><span class="lineNum">     170</span> <span class="tlaGNC">           1 :     return normalized.build()</span></span>
-<span id="L171"><span class="lineNum">     171</span>              :   }</span>
-<span id="L172"><span class="lineNum">     172</span>              : }</span>
-<span id="L173"><span class="lineNum">     173</span>              : </span>
-<span id="L174"><span class="lineNum">     174</span>              : /** Creates a [TraceEvent] recording the packet's ingress port. */</span>
-<span id="L175"><span class="lineNum">     175</span>              : internal fun packetIngressEvent(ingressPort: DataplanePort): TraceEvent =</span>
-<span id="L176"><span class="lineNum">     176</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
-<span id="L177"><span class="lineNum">     177</span> <span class="tlaGNC">           1 :     .setPacketIngress(</span></span>
-<span id="L178"><span class="lineNum">     178</span> <span class="tlaGNC">           1 :       PacketIngressEvent.newBuilder().setDataplaneIngressPort(ingressPort.protoValue)</span></span>
-<span id="L179"><span class="lineNum">     179</span>              :     )</span>
-<span id="L180"><span class="lineNum">     180</span> <span class="tlaGNC">           1 :     .build()</span></span>
-<span id="L181"><span class="lineNum">     181</span>              : </span>
-<span id="L182"><span class="lineNum">     182</span>              : /** Creates a [TraceEvent] marking the entry/exit of a pipeline stage. */</span>
-<span id="L183"><span class="lineNum">     183</span> <span class="tlaGNC">           1 : internal fun stageEvent(</span></span>
-<span id="L184"><span class="lineNum">     184</span>              :   stage: PipelineStage,</span>
-<span id="L185"><span class="lineNum">     185</span>              :   direction: PipelineStageEvent.Direction,</span>
-<span id="L186"><span class="lineNum">     186</span> <span class="tlaGNC">           1 :   dataplanePort: Int? = null,</span></span>
-<span id="L187"><span class="lineNum">     187</span>              : ): TraceEvent =</span>
-<span id="L188"><span class="lineNum">     188</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
-<span id="L189"><span class="lineNum">     189</span> <span class="tlaGNC">           1 :     .setPipelineStage(</span></span>
-<span id="L190"><span class="lineNum">     190</span> <span class="tlaGNC">           1 :       PipelineStageEvent.newBuilder()</span></span>
-<span id="L191"><span class="lineNum">     191</span> <span class="tlaGNC">           1 :         .setStageName(stage.name)</span></span>
-<span id="L192"><span class="lineNum">     192</span> <span class="tlaGNC">           1 :         .setStageKind(stage.kind)</span></span>
-<span id="L193"><span class="lineNum">     193</span> <span class="tlaGNC">           1 :         .setDirection(direction)</span></span>
-<span id="L194"><span class="lineNum">     194</span> <span class="tlaGNC">           1 :         .apply { if (dataplanePort != null) setDataplanePort(dataplanePort) }</span></span>
-<span id="L195"><span class="lineNum">     195</span>              :     )</span>
-<span id="L196"><span class="lineNum">     196</span> <span class="tlaGNC">           1 :     .build()</span></span>
-<span id="L197"><span class="lineNum">     197</span>              : </span>
-<span id="L198"><span class="lineNum">     198</span>              : /** Creates a [TraceEvent] recording a successful multicast group lookup. */</span>
-<span id="L199"><span class="lineNum">     199</span>              : internal fun multicastGroupLookupEvent(groupId: Int, replicaCount: Int): TraceEvent =</span>
-<span id="L200"><span class="lineNum">     200</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
-<span id="L201"><span class="lineNum">     201</span> <span class="tlaGNC">           1 :     .setMulticastGroupLookup(</span></span>
-<span id="L202"><span class="lineNum">     202</span> <span class="tlaGNC">           1 :       MulticastGroupLookupEvent.newBuilder()</span></span>
-<span id="L203"><span class="lineNum">     203</span> <span class="tlaGNC">           1 :         .setMulticastGroupId(groupId)</span></span>
-<span id="L204"><span class="lineNum">     204</span> <span class="tlaGNC">           1 :         .setGroupFound(true)</span></span>
-<span id="L205"><span class="lineNum">     205</span> <span class="tlaGNC">           1 :         .setReplicaCount(replicaCount)</span></span>
-<span id="L206"><span class="lineNum">     206</span>              :     )</span>
-<span id="L207"><span class="lineNum">     207</span> <span class="tlaGNC">           1 :     .build()</span></span>
-<span id="L208"><span class="lineNum">     208</span>              : </span>
-<span id="L209"><span class="lineNum">     209</span>              : /** Creates a [TraceEvent] recording a failed multicast group lookup. */</span>
-<span id="L210"><span class="lineNum">     210</span>              : internal fun multicastGroupMissEvent(groupId: Int): TraceEvent =</span>
-<span id="L211"><span class="lineNum">     211</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
-<span id="L212"><span class="lineNum">     212</span> <span class="tlaGNC">           1 :     .setMulticastGroupLookup(</span></span>
-<span id="L213"><span class="lineNum">     213</span> <span class="tlaGNC">           1 :       MulticastGroupLookupEvent.newBuilder().setMulticastGroupId(groupId).setGroupFound(false)</span></span>
-<span id="L214"><span class="lineNum">     214</span>              :     )</span>
-<span id="L215"><span class="lineNum">     215</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L143"><span class="lineNum">     143</span> <span class="tlaGNC">           1 :         if (node.replication.hasCauseId())</span></span>
+<span id="L144"><span class="lineNum">     144</span> <span class="tlaGNC">           1 :           replication.setCauseId(remapCause(node.replication.causeId))</span></span>
+<span id="L145"><span class="lineNum">     145</span> <span class="tlaGNC">           1 :         for (branch in node.replication.branchesList) {</span></span>
+<span id="L146"><span class="lineNum">     146</span> <span class="tlaGNC">           1 :           replication.addBranches(normalizeNode(branch))</span></span>
+<span id="L147"><span class="lineNum">     147</span>              :         }</span>
+<span id="L148"><span class="lineNum">     148</span> <span class="tlaGNC">           1 :         normalized.setReplication(replication)</span></span>
+<span id="L149"><span class="lineNum">     149</span>              :       }</span>
+<span id="L150"><span class="lineNum">     150</span>              :       TraceTree.OutcomeCase.CHOICE -&gt; {</span>
+<span id="L151"><span class="lineNum">     151</span> <span class="tlaGNC">           1 :         val choice = node.choice.toBuilder().clearBranches()</span></span>
+<span id="L152"><span class="lineNum">     152</span> <span class="tlaGNC">           1 :         if (node.choice.hasCauseId()) choice.setCauseId(remapCause(node.choice.causeId))</span></span>
+<span id="L153"><span class="lineNum">     153</span> <span class="tlaGNC">           1 :         for (branch in node.choice.branchesList) {</span></span>
+<span id="L154"><span class="lineNum">     154</span> <span class="tlaGNC">           1 :           choice.addBranches(normalizeNode(branch))</span></span>
+<span id="L155"><span class="lineNum">     155</span>              :         }</span>
+<span id="L156"><span class="lineNum">     156</span> <span class="tlaGNC">           1 :         normalized.setChoice(choice)</span></span>
+<span id="L157"><span class="lineNum">     157</span>              :       }</span>
+<span id="L158"><span class="lineNum">     158</span>              :       TraceTree.OutcomeCase.CONTINUATION -&gt;</span>
+<span id="L159"><span class="lineNum">     159</span> <span class="tlaGNC">           1 :         normalized.setContinuation(</span></span>
+<span id="L160"><span class="lineNum">     160</span> <span class="tlaGNC">           1 :           node.continuation.toBuilder().setNext(normalizeNode(node.continuation.next))</span></span>
+<span id="L161"><span class="lineNum">     161</span>              :         )</span>
+<span id="L162"><span class="lineNum">     162</span> <span class="tlaGNC">           1 :       TraceTree.OutcomeCase.OUTPUT -&gt; normalized.setOutput(node.output)</span></span>
+<span id="L163"><span class="lineNum">     163</span>              :       TraceTree.OutcomeCase.DROP -&gt; {</span>
+<span id="L164"><span class="lineNum">     164</span> <span class="tlaGNC">           1 :         val drop = node.drop.toBuilder()</span></span>
+<span id="L165"><span class="lineNum">     165</span> <span class="tlaGNC">           1 :         if (node.drop.hasCauseId()) drop.setCauseId(remapCause(node.drop.causeId))</span></span>
+<span id="L166"><span class="lineNum">     166</span> <span class="tlaGNC">           1 :         normalized.setDrop(drop)</span></span>
+<span id="L167"><span class="lineNum">     167</span>              :       }</span>
+<span id="L168"><span class="lineNum">     168</span>              :       TraceTree.OutcomeCase.OUTCOME_NOT_SET,</span>
+<span id="L169"><span class="lineNum">     169</span>              :       null -&gt; {}</span>
+<span id="L170"><span class="lineNum">     170</span>              :     }</span>
+<span id="L171"><span class="lineNum">     171</span> <span class="tlaGNC">           1 :     return normalized.build()</span></span>
+<span id="L172"><span class="lineNum">     172</span>              :   }</span>
+<span id="L173"><span class="lineNum">     173</span>              : }</span>
+<span id="L174"><span class="lineNum">     174</span>              : </span>
+<span id="L175"><span class="lineNum">     175</span>              : /** Creates a [TraceEvent] recording the packet's ingress port. */</span>
+<span id="L176"><span class="lineNum">     176</span>              : internal fun packetIngressEvent(ingressPort: DataplanePort): TraceEvent =</span>
+<span id="L177"><span class="lineNum">     177</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
+<span id="L178"><span class="lineNum">     178</span> <span class="tlaGNC">           1 :     .setPacketIngress(</span></span>
+<span id="L179"><span class="lineNum">     179</span> <span class="tlaGNC">           1 :       PacketIngressEvent.newBuilder().setDataplaneIngressPort(ingressPort.protoValue)</span></span>
+<span id="L180"><span class="lineNum">     180</span>              :     )</span>
+<span id="L181"><span class="lineNum">     181</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L182"><span class="lineNum">     182</span>              : </span>
+<span id="L183"><span class="lineNum">     183</span>              : /** Creates a [TraceEvent] marking the entry/exit of a pipeline stage. */</span>
+<span id="L184"><span class="lineNum">     184</span> <span class="tlaGNC">           1 : internal fun stageEvent(</span></span>
+<span id="L185"><span class="lineNum">     185</span>              :   stage: PipelineStage,</span>
+<span id="L186"><span class="lineNum">     186</span>              :   direction: PipelineStageEvent.Direction,</span>
+<span id="L187"><span class="lineNum">     187</span> <span class="tlaGNC">           1 :   dataplanePort: Int? = null,</span></span>
+<span id="L188"><span class="lineNum">     188</span>              : ): TraceEvent =</span>
+<span id="L189"><span class="lineNum">     189</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
+<span id="L190"><span class="lineNum">     190</span> <span class="tlaGNC">           1 :     .setPipelineStage(</span></span>
+<span id="L191"><span class="lineNum">     191</span> <span class="tlaGNC">           1 :       PipelineStageEvent.newBuilder()</span></span>
+<span id="L192"><span class="lineNum">     192</span> <span class="tlaGNC">           1 :         .setStageName(stage.name)</span></span>
+<span id="L193"><span class="lineNum">     193</span> <span class="tlaGNC">           1 :         .setStageKind(stage.kind)</span></span>
+<span id="L194"><span class="lineNum">     194</span> <span class="tlaGNC">           1 :         .setDirection(direction)</span></span>
+<span id="L195"><span class="lineNum">     195</span> <span class="tlaGNC">           1 :         .apply { if (dataplanePort != null) setDataplanePort(dataplanePort) }</span></span>
+<span id="L196"><span class="lineNum">     196</span>              :     )</span>
+<span id="L197"><span class="lineNum">     197</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L198"><span class="lineNum">     198</span>              : </span>
+<span id="L199"><span class="lineNum">     199</span>              : /** Creates a [TraceEvent] recording a successful multicast group lookup. */</span>
+<span id="L200"><span class="lineNum">     200</span>              : internal fun multicastGroupLookupEvent(groupId: Int, replicaCount: Int): TraceEvent =</span>
+<span id="L201"><span class="lineNum">     201</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
+<span id="L202"><span class="lineNum">     202</span> <span class="tlaGNC">           1 :     .setMulticastGroupLookup(</span></span>
+<span id="L203"><span class="lineNum">     203</span> <span class="tlaGNC">           1 :       MulticastGroupLookupEvent.newBuilder()</span></span>
+<span id="L204"><span class="lineNum">     204</span> <span class="tlaGNC">           1 :         .setMulticastGroupId(groupId)</span></span>
+<span id="L205"><span class="lineNum">     205</span> <span class="tlaGNC">           1 :         .setGroupFound(true)</span></span>
+<span id="L206"><span class="lineNum">     206</span> <span class="tlaGNC">           1 :         .setReplicaCount(replicaCount)</span></span>
+<span id="L207"><span class="lineNum">     207</span>              :     )</span>
+<span id="L208"><span class="lineNum">     208</span> <span class="tlaGNC">           1 :     .build()</span></span>
+<span id="L209"><span class="lineNum">     209</span>              : </span>
+<span id="L210"><span class="lineNum">     210</span>              : /** Creates a [TraceEvent] recording a failed multicast group lookup. */</span>
+<span id="L211"><span class="lineNum">     211</span>              : internal fun multicastGroupMissEvent(groupId: Int): TraceEvent =</span>
+<span id="L212"><span class="lineNum">     212</span> <span class="tlaGNC">           1 :   TraceEvent.newBuilder()</span></span>
+<span id="L213"><span class="lineNum">     213</span> <span class="tlaGNC">           1 :     .setMulticastGroupLookup(</span></span>
+<span id="L214"><span class="lineNum">     214</span> <span class="tlaGNC">           1 :       MulticastGroupLookupEvent.newBuilder().setMulticastGroupId(groupId).setGroupFound(false)</span></span>
+<span id="L215"><span class="lineNum">     215</span>              :     )</span>
+<span id="L216"><span class="lineNum">     216</span> <span class="tlaGNC">           1 :     .build()</span></span>
         </pre>
               </td>
             </tr>
