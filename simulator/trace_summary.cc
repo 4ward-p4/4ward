@@ -319,9 +319,9 @@ void PrintEvent(const fourward::TraceEvent& event, std::ostream* os,
 
 std::string ReplicationCauseName(const fourward::TraceTree& trace,
                                  const fourward::Replication& replication) {
-  if (!replication.has_cause()) return "replication";
+  if (!replication.has_cause_id()) return "replication";
   for (const auto& event : trace.events()) {
-    if (event.id() != replication.cause()) continue;
+    if (event.id() != replication.cause_id()) continue;
     switch (event.event_case()) {
       case fourward::TraceEvent::kCloneSessionLookup:
       case fourward::TraceEvent::kClone:

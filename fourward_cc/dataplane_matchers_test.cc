@@ -777,7 +777,7 @@ TEST(ErrorMessageTest, CompactTraceFailureMatchesGolden) {
   resp.mutable_trace()->add_events()->mutable_clone()->set_session_id(1);
 
   auto* replication = resp.mutable_trace()->mutable_replication();
-  replication->set_cause(265);
+  replication->set_cause_id(265);
   auto* egress = replication->add_branches();
   auto* egress_assignment = egress->add_events();
   egress_assignment->mutable_assignment()->set_target("headers.ipv4.ttl");

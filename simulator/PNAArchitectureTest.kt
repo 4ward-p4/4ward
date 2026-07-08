@@ -577,7 +577,7 @@ class PNAArchitectureTest {
     assertTrue(result.trace.hasReplication())
     assertEquals(2, result.trace.replication.branchesList.size)
     // mirror_packet has no triggering lookup event — cause must be absent.
-    assertFalse(result.trace.replication.hasCause())
+    assertFalse(result.trace.replication.hasCauseId())
   }
 
   @Test

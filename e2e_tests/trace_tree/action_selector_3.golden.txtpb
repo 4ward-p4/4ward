@@ -91,7 +91,7 @@ events {
   }
 }
 choice {
-  cause: 8
+  cause_id: 8
   branches {
     events {
       action_execution {
