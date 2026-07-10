@@ -46,6 +46,7 @@ kt_jvm_test(
     name = "SaiIpInIpWcmpDiffTest",
     srcs = [
         "Bmv2Runner.kt",
+        "BmvTestUtils.kt",
         "SaiIpInIpWcmpDiffTest.kt",
     ],
     data = [
