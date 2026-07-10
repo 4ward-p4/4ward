@@ -15,8 +15,8 @@ import org.junit.Test
  * IP-in-IP packet (outer IPv4 with proto=4 wrapping inner IPv4) through an action selector.
  *
  * The test installs routing entries inline (no STF file on disk) and uses the pre-compiled
- * sai_middleblock BMv2 artifacts. 4ward explores all WCMP paths via fork-all; BMv2 uses
- * round-robin exploration (one packet per member with the group temporarily reduced to 1).
+ * sai_middleblock BMv2 artifacts. 4ward explores all WCMP paths via fork-all; BMv2 uses round-robin
+ * exploration (one packet per member with the group temporarily reduced to 1).
  */
 class SaiIpInIpWcmpDiffTest {
 
@@ -65,9 +65,7 @@ class SaiIpInIpWcmpDiffTest {
 
     val mismatches = mutableListOf<String>()
     if (fourwardSorted.size != bmv2Sorted.size) {
-      mismatches.add(
-        "Output count mismatch: 4ward=${fourwardSorted.size}, bmv2=${bmv2Sorted.size}"
-      )
+      mismatches.add("Output count mismatch: 4ward=${fourwardSorted.size}, bmv2=${bmv2Sorted.size}")
     }
     for (i in 0 until minOf(fourwardSorted.size, bmv2Sorted.size)) {
       val (fPort, fPayload) = fourwardSorted[i]
