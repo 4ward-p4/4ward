@@ -184,9 +184,22 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
   private fun translateAdd(entry: StfAddEntry, groupHandles: Map<Int, Int>): String {
     val table = findTable(entry.tableName, p4Info)
 
-    // Encode match fields in P4Info table key order.
+    // Encode match fields in P4Info table key order. OPTIONAL fields may be absent from the
+    // STF entry; BMv2 compiles P4 OPTIONAL to ternary internally, so a wildcard OPTIONAL is
+    // encoded as 0x00...0 value with 0x00...0 mask (all-zeros ternary = don't-care).
     val matchParts =
-      table.matchFieldsList.map { mf -> encodeMatchForDriver(findStfMatch(entry, mf), mf) }
+      table.matchFieldsList.map { mf ->
+        val stfMatch = findStfMatchOrNull(entry, mf)
+        if (stfMatch != null) {
+          encodeMatchForDriver(stfMatch, mf)
+        } else {
+          check(mf.matchType == P4InfoOuterClass.MatchField.MatchType.OPTIONAL) {
+            "no STF match for P4Info field '${mf.name}' in table '${entry.tableName}'"
+          }
+          val zero = "00".repeat((mf.bitwidth + 7) / 8)
+          "$zero&&&$zero"
+        }
+      }
 
     // Indirect table entry pointing to a group (action selector with group=N).
     if (entry.groupId != null) {
@@ -264,15 +277,18 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
       encodeValue(raw.stripNamedParamPrefix(), paramInfo.bitwidth).toByteArray().hex()
     }
 
-  /** Find the STF match field corresponding to a P4Info match field definition. */
-  private fun findStfMatch(entry: StfAddEntry, mf: P4InfoOuterClass.MatchField): StfMatchField =
+  /** Find the STF match field corresponding to a P4Info match field, or null if not found. */
+  private fun findStfMatchOrNull(
+    entry: StfAddEntry,
+    mf: P4InfoOuterClass.MatchField,
+  ): StfMatchField? =
     entry.matches.find { stf ->
       val norm = stf.fieldName.replace(ARRAY_INDEX_REGEX, "[$1]")
       mf.name == stf.fieldName ||
         mf.name == norm ||
         mf.name.substringAfter(".") == stf.fieldName ||
         mf.name.substringAfter(".") == norm
-    } ?: error("no STF match for P4Info field '${mf.name}' in table '${entry.tableName}'")
+    }
 
   /** Encode a parsed STF match field for the bmv2_driver's command format. */
   private fun encodeMatchForDriver(stf: StfMatchField, mf: P4InfoOuterClass.MatchField): String {

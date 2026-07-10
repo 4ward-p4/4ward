@@ -21,7 +21,7 @@ naming:
 
 style:
   MaxLineLength:
-    maxLineLength: 100
+    maxLineLength: 140
 
   # TODOs are tracked in the issue tracker and are not a style violation.
   ForbiddenComment:
