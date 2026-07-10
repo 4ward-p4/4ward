@@ -1,0 +1,9 @@
+# ip_in_ip_selector.stf — 2-member action selector with an IP-in-IP packet.
+
+member sel 0 set_port port=0x0001
+member sel 1 set_port port=0x0002
+group sel 1 0 1
+add fwd hdr.outer_ipv4.dstAddr:0x0a000001/32 group=1
+
+# Ethernet / outer IPv4 (proto=4, src=10.0.0.2, dst=10.0.0.1) / inner IPv4 (proto=6).
+packet 0 FFFFFFFFFFFF00000000000108004500002800000000400400000a0000020a000001450000140000000040060000c0a80101c0a80102

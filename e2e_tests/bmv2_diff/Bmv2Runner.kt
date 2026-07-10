@@ -9,6 +9,7 @@ import fourward.stf.StfMemberDirective
 import fourward.stf.StfSetDefault
 import fourward.stf.StfTableDirective
 import fourward.stf.allOnesMask
+import fourward.stf.allZerosMask
 import fourward.stf.decodeHex
 import fourward.stf.encodeValue
 import fourward.stf.extractParamName
@@ -186,7 +187,9 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
 
     // Encode match fields in P4Info table key order.
     val matchParts =
-      table.matchFieldsList.map { mf -> encodeMatchForDriver(findStfMatch(entry, mf), mf) }
+      table.matchFieldsList.map { mf ->
+        encodeMatchForDriver(findStfMatchOrNull(entry, mf), mf, entry.tableName)
+      }
 
     // Indirect table entry pointing to a group (action selector with group=N).
     if (entry.groupId != null) {
@@ -264,18 +267,32 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
       encodeValue(raw.stripNamedParamPrefix(), paramInfo.bitwidth).toByteArray().hex()
     }
 
-  /** Find the STF match field corresponding to a P4Info match field definition. */
-  private fun findStfMatch(entry: StfAddEntry, mf: P4InfoOuterClass.MatchField): StfMatchField =
+  /** Find the STF match field corresponding to a P4Info match field, or null if not found. */
+  private fun findStfMatchOrNull(
+    entry: StfAddEntry,
+    mf: P4InfoOuterClass.MatchField,
+  ): StfMatchField? =
     entry.matches.find { stf ->
       val norm = stf.fieldName.replace(ARRAY_INDEX_REGEX, "[$1]")
-      mf.name == stf.fieldName ||
-        mf.name == norm ||
-        mf.name.substringAfter(".") == stf.fieldName ||
-        mf.name.substringAfter(".") == norm
-    } ?: error("no STF match for P4Info field '${mf.name}' in table '${entry.tableName}'")
+      val mfSuffix = mf.name.substringAfter(".")
+      mf.name == stf.fieldName || mf.name == norm || mfSuffix == stf.fieldName || mfSuffix == norm
+    }
 
-  /** Encode a parsed STF match field for the bmv2_driver's command format. */
-  private fun encodeMatchForDriver(stf: StfMatchField, mf: P4InfoOuterClass.MatchField): String {
+  // Encode a match field for the bmv2_driver command format. Accepts null for absent OPTIONAL
+  // fields: BMv2 compiles P4 OPTIONAL to ternary, and a wildcard OPTIONAL is all-zeros value +
+  // all-zeros mask (don't-care ternary).
+  private fun encodeMatchForDriver(
+    stf: StfMatchField?,
+    mf: P4InfoOuterClass.MatchField,
+    tableName: String,
+  ): String {
+    if (stf == null) {
+      check(mf.matchType == P4InfoOuterClass.MatchField.MatchType.OPTIONAL) {
+        "no STF match for P4Info field '${mf.name}' in table '$tableName'"
+      }
+      val zero = allZerosMask(mf.bitwidth)
+      return "$zero&&&$zero"
+    }
     val valueHex = encodeValue(stf.value, mf.bitwidth).toByteArray().hex()
     return when (stf.kind) {
       MatchKind.LPM -> "$valueHex/${stf.prefixLen}"

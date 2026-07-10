@@ -378,6 +378,85 @@ class SaiP4E2ETest {
     assertBytesEqual("dst_ip", DST_IP, output, DST_IP_OFFSET)
   }
 
+  @Test
+  @Suppress("MagicNumber")
+  fun `IP-in-IP packet forwarded via WCMP group produces output on one WCMP port`() {
+    // Set up routing through a WCMP group with two members, each on a different port.
+    harness.installEntry(buildVrfEntry(""))
+    harness.installEntry(buildRouterInterfaceEntry("rif-a", "Ethernet1", RIF_MAC))
+    harness.installEntry(buildRouterInterfaceEntry("rif-b", "Ethernet2", ALT_RIF_MAC))
+    harness.installEntry(buildNeighborEntry("rif-a", NEIGHBOR_ID, NEIGHBOR_MAC))
+    harness.installEntry(buildNeighborEntry("rif-b", NEIGHBOR_ID, ALT_NEIGHBOR_MAC))
+    harness.installEntry(buildNexthopEntry(nexthopId = "nhop-a", routerInterfaceId = "rif-a"))
+    harness.installEntry(buildNexthopEntry(nexthopId = "nhop-b", routerInterfaceId = "rif-b"))
+
+    val wcmpSelector =
+      config.p4Info.actionProfilesList.find { it.preamble.alias == "wcmp_group_selector" }!!
+    val actionProfileId = wcmpSelector.preamble.id
+    val setNexthop = findAction("set_nexthop_id")
+    harness.installEntry(
+      buildActionProfileMember(actionProfileId, memberId = 1, setNexthop, "nhop-a")
+    )
+    harness.installEntry(
+      buildActionProfileMember(actionProfileId, memberId = 2, setNexthop, "nhop-b")
+    )
+    harness.installEntry(buildActionProfileGroup(actionProfileId, groupId = 1, listOf(1, 2)))
+
+    // Install wcmp_group_table entry: when wcmp_group_id="group-1", use group 1.
+    harness.installEntry(buildWcmpGroupTableEntry(wcmpGroupId = "group-1", groupId = 1))
+
+    // Install ipv4_table entry routing the outer dst IP to the WCMP group.
+    val ipv4Table = findTable("ipv4_table")
+    val setWcmpGroupId = findAction("set_wcmp_group_id")
+    harness.installEntry(
+      buildEntry(
+        ipv4Table,
+        setWcmpGroupId,
+        matches =
+          listOf(
+            exactMatch(ipv4Table, "vrf_id", ""),
+            lpmMatch(ipv4Table, "ipv4_dst", byteArrayOf(10, 53, 192.toByte(), 32), prefixLen = 32),
+          ),
+        params = listOf(stringParam(setWcmpGroupId, "wcmp_group_id", "group-1")),
+      )
+    )
+
+    // Build an IP-in-IP packet: outer IPv4 (TTL=32) wrapping inner IPv4 (TTL=0).
+    val outerDstIp = byteArrayOf(10, 53, 192.toByte(), 32)
+    val outerSrcIp = byteArrayOf(192.toByte(), 0, 0, 0)
+    // IP-in-IP: outer protocol = 4.
+    val packet =
+      buildIpInIpPacket(
+        dstMac = UNICAST_MAC,
+        srcMac = SRC_MAC,
+        outerTtl = 32,
+        outerSrc = outerSrcIp,
+        outerDst = outerDstIp,
+      )
+
+    // WCMP produces one branch per member; any member's output is acceptable.
+    val allOutcomes = harness.simulatePacket(ingressPort = 0, payload = packet)
+    assertTrue("expected at least one WCMP branch", allOutcomes.isNotEmpty())
+
+    // Every branch should forward the packet on either Ethernet1 or Ethernet2.
+    val validPorts = setOf("Ethernet1", "Ethernet2")
+    for (outcome in allOutcomes) {
+      assertEquals("each WCMP branch should produce exactly one output", 1, outcome.packetsCount)
+      val pkt = outcome.getPackets(0)
+      assertTrue(
+        "WCMP branch should forward to a valid WCMP port, got ${pkt.p4RtEgressPort.toStringUtf8()}",
+        pkt.p4RtEgressPort.toStringUtf8() in validPorts,
+      )
+      // Outer IPv4 TTL should be decremented from 32 to 31.
+      val payload = pkt.payload.toByteArray()
+      assertEquals(
+        "outer TTL should be decremented to 31",
+        31,
+        payload[TTL_OFFSET].toInt() and 0xFF,
+      )
+    }
+  }
+
   // =========================================================================
   // Port translation: stock v1model has no port newtype
   // =========================================================================
@@ -1908,7 +1987,7 @@ class SaiP4E2ETest {
   // Packet builders and assertions
   // =========================================================================
 
-  /** Builds a minimal Ethernet + IPv4 packet (no payload beyond the IP header). */
+  /** Builds a minimal Ethernet + IPv4 packet with optional extra payload bytes. */
   @Suppress("SameParameterValue", "MagicNumber")
   private fun buildIpv4Packet(
     dstMac: ByteArray,
@@ -1916,8 +1995,10 @@ class SaiP4E2ETest {
     ttl: Int,
     srcIp: ByteArray = SRC_IP,
     dstIp: ByteArray = DST_IP,
+    protocol: Int = 0x06,
+    payloadLen: Int = 0,
   ): ByteArray {
-    val packet = ByteArray(ETHERNET_HEADER_LEN + IPV4_HEADER_LEN)
+    val packet = ByteArray(ETHERNET_HEADER_LEN + IPV4_HEADER_LEN + payloadLen)
     // Ethernet header: dst_mac + src_mac + ethertype (0x0800 = IPv4).
     System.arraycopy(dstMac, 0, packet, 0, MAC_LEN)
     System.arraycopy(srcMac, 0, packet, MAC_LEN, MAC_LEN)
@@ -1925,14 +2006,42 @@ class SaiP4E2ETest {
     packet[13] = 0x00.toByte()
     // IPv4 header (20 bytes, no options).
     packet[14] = 0x45.toByte() // version=4, IHL=5
-    // total length = 20
-    packet[16] = 0x00.toByte()
-    packet[17] = IPV4_HEADER_LEN.toByte()
+    val totalIpLen = IPV4_HEADER_LEN + payloadLen
+    packet[16] = (totalIpLen shr 8).toByte()
+    packet[17] = (totalIpLen and 0xFF).toByte()
     packet[22] = ttl.toByte()
-    packet[23] = 0x06.toByte() // protocol = TCP (arbitrary, not checked)
+    packet[23] = protocol.toByte()
     // Checksum left as 0 — SAI P4 doesn't verify ingress checksums.
     System.arraycopy(srcIp, 0, packet, SRC_IP_OFFSET, 4)
     System.arraycopy(dstIp, 0, packet, DST_IP_OFFSET, 4)
+    return packet
+  }
+
+  /** Builds an Ethernet + outer IPv4 (proto=0x04) + inner IPv4 packet. */
+  @Suppress("SameParameterValue", "MagicNumber")
+  private fun buildIpInIpPacket(
+    dstMac: ByteArray,
+    srcMac: ByteArray,
+    outerTtl: Int,
+    outerSrc: ByteArray,
+    outerDst: ByteArray,
+  ): ByteArray {
+    val packet =
+      buildIpv4Packet(
+        dstMac,
+        srcMac,
+        outerTtl,
+        outerSrc,
+        outerDst,
+        protocol = 0x04,
+        payloadLen = IPV4_HEADER_LEN,
+      )
+    // Inner IPv4 header: minimal valid header, arbitrary src/dst (left as zero).
+    val innerBase = ETHERNET_HEADER_LEN + IPV4_HEADER_LEN
+    packet[innerBase] = 0x45.toByte() // version=4, IHL=5
+    packet[innerBase + 3] = IPV4_HEADER_LEN.toByte() // total length = 20
+    packet[innerBase + 8] = 64.toByte() // inner TTL
+    packet[innerBase + 9] = 0x06.toByte() // protocol = TCP (arbitrary)
     return packet
   }
 
@@ -2155,6 +2264,20 @@ class SaiP4E2ETest {
           )
       )
       .build()
+
+  private fun buildWcmpGroupTableEntry(wcmpGroupId: String, groupId: Int): Entity {
+    val table = findTable("wcmp_group_table")
+    return Entity.newBuilder()
+      .setTableEntry(
+        TableEntry.newBuilder()
+          .setTableId(table.preamble.id)
+          .addMatch(exactMatch(table, "wcmp_group_id", wcmpGroupId))
+          .setAction(
+            p4.v1.P4RuntimeOuterClass.TableAction.newBuilder().setActionProfileGroupId(groupId)
+          )
+      )
+      .build()
+  }
 
   /** Asserts that [expected] bytes match [actual] starting at [offset]. */
   private fun assertBytesEqual(label: String, expected: ByteArray, actual: ByteArray, offset: Int) {

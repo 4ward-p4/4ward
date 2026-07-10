@@ -11,6 +11,8 @@ package(
 exports_files([
     "action_selector_3.p4",
     "action_selector_3.stf",
+    "ip_in_ip_selector.p4",
+    "ip_in_ip_selector.stf",
     "selector_exit.p4",
     "selector_exit.stf",
 ])

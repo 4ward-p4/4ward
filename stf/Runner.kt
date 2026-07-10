@@ -716,6 +716,9 @@ fun allOnesMask(bitwidth: Int): String {
   return value.toString(16).padStart(byteLen * 2, '0')
 }
 
+/** Returns a bare-hex all-zeros mask for the given bitwidth (e.g. 9 → "0000", 16 → "0000"). */
+fun allZerosMask(bitwidth: Int): String = "00".repeat((bitwidth + 7) / 8)
+
 fun findTable(name: String, p4info: P4InfoOuterClass.P4Info): P4InfoOuterClass.Table =
   p4info.tablesList.find { it.preamble.alias == name || it.preamble.name == name }
     ?: p4info.tablesList.find { it.preamble.name.endsWith(".$name") }
