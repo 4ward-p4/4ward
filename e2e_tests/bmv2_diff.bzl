@@ -52,7 +52,6 @@ def bmv2_diff_test_suite(name, tests, local_tests = {}, tags = [], includes = []
     kt_jvm_test(
         name = name,
         srcs = [
-            "BmvTestUtils.kt",
             "Bmv2DiffTest.kt",
             "Bmv2Runner.kt",
         ],

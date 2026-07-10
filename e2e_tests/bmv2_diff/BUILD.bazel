@@ -42,32 +42,6 @@ kt_jvm_test(
     ],
 )
 
-kt_jvm_test(
-    name = "SaiIpInIpWcmpDiffTest",
-    srcs = [
-        "Bmv2Runner.kt",
-        "BmvTestUtils.kt",
-        "SaiIpInIpWcmpDiffTest.kt",
-    ],
-    data = [
-        ":bmv2_driver",
-        "//e2e_tests/sai_p4:sai_middleblock_bmv2",
-        "//e2e_tests/sai_p4:sai_middleblock_bmv2_json",
-    ],
-    tags = ["heavy"],
-    test_class = "fourward.e2e.bmv2.SaiIpInIpWcmpDiffTest",
-    deps = [
-        "//bazel:runfiles",
-        "//simulator",
-        "//simulator:ir_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:simulator_java_proto",
-        "//stf",
-        "@fourward_maven//:com_google_protobuf_protobuf_java",
-        "@fourward_maven//:junit_junit",
-    ],
-)
-
 bmv2_diff_test_suite(
     name = "bmv2_diff_test",
     includes = [
@@ -83,6 +57,7 @@ bmv2_diff_test_suite(
     # would duplicate those side effects.
     local_tests = {
         "action_selector_3": "//e2e_tests/trace_tree",
+        "ip_in_ip_selector": "//e2e_tests/trace_tree",
         "selector_exit": "//e2e_tests/trace_tree",
         "truncate_min": "//e2e_tests/truncate",
     },
