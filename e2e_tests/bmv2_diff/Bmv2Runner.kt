@@ -9,6 +9,7 @@ import fourward.stf.StfMemberDirective
 import fourward.stf.StfSetDefault
 import fourward.stf.StfTableDirective
 import fourward.stf.allOnesMask
+import fourward.stf.allZerosMask
 import fourward.stf.decodeHex
 import fourward.stf.encodeValue
 import fourward.stf.extractParamName
@@ -273,10 +274,8 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
   ): StfMatchField? =
     entry.matches.find { stf ->
       val norm = stf.fieldName.replace(ARRAY_INDEX_REGEX, "[$1]")
-      mf.name == stf.fieldName ||
-        mf.name == norm ||
-        mf.name.substringAfter(".") == stf.fieldName ||
-        mf.name.substringAfter(".") == norm
+      val mfSuffix = mf.name.substringAfter(".")
+      mf.name == stf.fieldName || mf.name == norm || mfSuffix == stf.fieldName || mfSuffix == norm
     }
 
   // Encode a match field for the bmv2_driver command format. Accepts null for absent OPTIONAL
@@ -291,7 +290,7 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
       check(mf.matchType == P4InfoOuterClass.MatchField.MatchType.OPTIONAL) {
         "no STF match for P4Info field '${mf.name}' in table '$tableName'"
       }
-      val zero = "00".repeat((mf.bitwidth + 7) / 8)
+      val zero = allZerosMask(mf.bitwidth)
       return "$zero&&&$zero"
     }
     val valueHex = encodeValue(stf.value, mf.bitwidth).toByteArray().hex()
