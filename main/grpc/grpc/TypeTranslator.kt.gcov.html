@@ -31,13 +31,13 @@
             <td class="headerValue">coverage.lcov</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntryHi">91.8&nbsp;%</td>
+            <td class="headerCovTableEntryHi">92.3&nbsp;%</td>
             <td class="headerCovTableEntry">379</td>
-            <td class="headerCovTableEntry">348</td>
+            <td class="headerCovTableEntry">350</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-07-08 21:27:31</td>
+            <td class="headerValue">2026-07-10 22:37:00</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">97.1&nbsp;%</td>
@@ -449,8 +449,8 @@
 <span id="L387"><span class="lineNum">     387</span> <span class="tlaGNC">           1 :       val translated = translateAction(tableAction.action, direction) ?: return null</span></span>
 <span id="L388"><span class="lineNum">     388</span> <span class="tlaGNC">           1 :       return tableAction.toBuilder().setAction(translated).build()</span></span>
 <span id="L389"><span class="lineNum">     389</span>              :     }</span>
-<span id="L390"><span class="lineNum">     390</span> <span class="tlaUNC tlaBgUNC">           0 :     if (tableAction.hasActionProfileActionSet()) {</span></span>
-<span id="L391"><span class="lineNum">     391</span> <span class="tlaUNC">           0 :       var changed = false</span></span>
+<span id="L390"><span class="lineNum">     390</span> <span class="tlaGNC">           1 :     if (tableAction.hasActionProfileActionSet()) {</span></span>
+<span id="L391"><span class="lineNum">     391</span> <span class="tlaUNC tlaBgUNC">           0 :       var changed = false</span></span>
 <span id="L392"><span class="lineNum">     392</span> <span class="tlaUNC">           0 :       val translatedActions =</span></span>
 <span id="L393"><span class="lineNum">     393</span> <span class="tlaUNC">           0 :         tableAction.actionProfileActionSet.actionProfileActionsList.map { profileAction -&gt;</span></span>
 <span id="L394"><span class="lineNum">     394</span> <span class="tlaUNC">           0 :           val translated = translateAction(profileAction.action, direction)</span></span>
@@ -472,7 +472,7 @@
 <span id="L410"><span class="lineNum">     410</span>              :         )</span>
 <span id="L411"><span class="lineNum">     411</span> <span class="tlaUNC">           0 :         .build()</span></span>
 <span id="L412"><span class="lineNum">     412</span>              :     }</span>
-<span id="L413"><span class="lineNum">     413</span> <span class="tlaUNC">           0 :     return null</span></span>
+<span id="L413"><span class="lineNum">     413</span> <span class="tlaGNC tlaBgGNC">           1 :     return null</span></span>
 <span id="L414"><span class="lineNum">     414</span>              :   }</span>
 <span id="L415"><span class="lineNum">     415</span>              : </span>
 <span id="L416"><span class="lineNum">     416</span>              :   /** Translates params of a single [Action], returning null if no translation was needed. */</span>
@@ -480,7 +480,7 @@
 <span id="L418"><span class="lineNum">     418</span>              :     action: p4.v1.P4RuntimeOuterClass.Action,</span>
 <span id="L419"><span class="lineNum">     419</span>              :     direction: Direction,</span>
 <span id="L420"><span class="lineNum">     420</span>              :   ): p4.v1.P4RuntimeOuterClass.Action? {</span>
-<span id="L421"><span class="lineNum">     421</span> <span class="tlaGNC tlaBgGNC">           1 :     val translated = translateParams(action.actionId, action.paramsList, direction) ?: return null</span></span>
+<span id="L421"><span class="lineNum">     421</span> <span class="tlaGNC">           1 :     val translated = translateParams(action.actionId, action.paramsList, direction) ?: return null</span></span>
 <span id="L422"><span class="lineNum">     422</span> <span class="tlaGNC">           1 :     return action.toBuilder().clearParams().addAllParams(translated).build()</span></span>
 <span id="L423"><span class="lineNum">     423</span>              :   }</span>
 <span id="L424"><span class="lineNum">     424</span>              : </span>
