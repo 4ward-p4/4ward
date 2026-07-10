@@ -2,10 +2,8 @@ package fourward.e2e.bmv2
 
 import fourward.simulator.Simulator
 import fourward.stf.StfFile
-import fourward.stf.hex
 import fourward.stf.installStfEntries
 import fourward.stf.loadPipelineConfig
-import org.junit.Assert
 import org.junit.Test
 
 /**
@@ -54,34 +52,7 @@ class SaiIpInIpWcmpDiffTest {
       }
     }
 
-    // --- Compare outputs ---
-    // Sort by (port, payload hex) for deterministic comparison — cross-port ordering is
-    // unspecified by both simulators.
-    val sortKey: (Pair<Int, ByteArray>) -> String = { (port, payload) ->
-      "%04d:%s".format(port, payload.hex())
-    }
-    val fourwardSorted = fourwardOutputs.sortedBy(sortKey)
-    val bmv2Sorted = bmv2Outputs.sortedBy(sortKey)
-
-    val mismatches = mutableListOf<String>()
-    if (fourwardSorted.size != bmv2Sorted.size) {
-      mismatches.add("Output count mismatch: 4ward=${fourwardSorted.size}, bmv2=${bmv2Sorted.size}")
-    }
-    for (i in 0 until minOf(fourwardSorted.size, bmv2Sorted.size)) {
-      val (fPort, fPayload) = fourwardSorted[i]
-      val (bPort, bPayload) = bmv2Sorted[i]
-      if (fPort != bPort || !fPayload.contentEquals(bPayload)) {
-        mismatches.add(
-          "Output $i differs:\n" +
-            "  4ward: port=$fPort payload=${fPayload.hex()}\n" +
-            "  bmv2:  port=$bPort payload=${bPayload.hex()}"
-        )
-      }
-    }
-
-    if (mismatches.isNotEmpty()) {
-      Assert.fail(mismatches.joinToString("\n"))
-    }
+    assertOutputsMatch(fourwardOutputs, bmv2Outputs)
   }
 
   companion object {

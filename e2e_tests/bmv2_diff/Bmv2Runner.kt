@@ -184,21 +184,10 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
   private fun translateAdd(entry: StfAddEntry, groupHandles: Map<Int, Int>): String {
     val table = findTable(entry.tableName, p4Info)
 
-    // Encode match fields in P4Info table key order. OPTIONAL fields may be absent from the
-    // STF entry; BMv2 compiles P4 OPTIONAL to ternary internally, so a wildcard OPTIONAL is
-    // encoded as 0x00...0 value with 0x00...0 mask (all-zeros ternary = don't-care).
+    // Encode match fields in P4Info table key order.
     val matchParts =
       table.matchFieldsList.map { mf ->
-        val stfMatch = findStfMatchOrNull(entry, mf)
-        if (stfMatch != null) {
-          encodeMatchForDriver(stfMatch, mf)
-        } else {
-          check(mf.matchType == P4InfoOuterClass.MatchField.MatchType.OPTIONAL) {
-            "no STF match for P4Info field '${mf.name}' in table '${entry.tableName}'"
-          }
-          val zero = "00".repeat((mf.bitwidth + 7) / 8)
-          "$zero&&&$zero"
-        }
+        encodeMatchForDriver(findStfMatchOrNull(entry, mf), mf, entry.tableName)
       }
 
     // Indirect table entry pointing to a group (action selector with group=N).
@@ -290,8 +279,21 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
         mf.name.substringAfter(".") == norm
     }
 
-  /** Encode a parsed STF match field for the bmv2_driver's command format. */
-  private fun encodeMatchForDriver(stf: StfMatchField, mf: P4InfoOuterClass.MatchField): String {
+  // Encode a match field for the bmv2_driver command format. Accepts null for absent OPTIONAL
+  // fields: BMv2 compiles P4 OPTIONAL to ternary, and a wildcard OPTIONAL is all-zeros value +
+  // all-zeros mask (don't-care ternary).
+  private fun encodeMatchForDriver(
+    stf: StfMatchField?,
+    mf: P4InfoOuterClass.MatchField,
+    tableName: String,
+  ): String {
+    if (stf == null) {
+      check(mf.matchType == P4InfoOuterClass.MatchField.MatchType.OPTIONAL) {
+        "no STF match for P4Info field '${mf.name}' in table '$tableName'"
+      }
+      val zero = "00".repeat((mf.bitwidth + 7) / 8)
+      return "$zero&&&$zero"
+    }
     val valueHex = encodeValue(stf.value, mf.bitwidth).toByteArray().hex()
     return when (stf.kind) {
       MatchKind.LPM -> "$valueHex/${stf.prefixLen}"
