@@ -834,11 +834,20 @@ namespace internal {
 
 // UniversalPrinter<T>::Print is called before PrintTo overload resolution, so
 // specializing it here is the most direct hook into GoogleTest printing.
-template <typename T>
-  requires(::fourward::internal::HasPossibleOutcomes<T>)
-class UniversalPrinter<T> {
+template <>
+class UniversalPrinter<::fourward::InjectPacketResponse> {
  public:
-  static void Print(const T& value, ::std::ostream* os) {
+  static void Print(const ::fourward::InjectPacketResponse& value,
+                    ::std::ostream* os) {
+    ::fourward::internal::PrintResultSummary(value, os);
+  }
+};
+
+template <>
+class UniversalPrinter<::fourward::ProcessPacketResult> {
+ public:
+  static void Print(const ::fourward::ProcessPacketResult& value,
+                    ::std::ostream* os) {
     ::fourward::internal::PrintResultSummary(value, os);
   }
 };
