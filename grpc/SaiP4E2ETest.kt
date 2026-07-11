@@ -612,6 +612,127 @@ class SaiP4E2ETest {
     }
   }
 
+  @Test
+  @Suppress("MagicNumber")
+  fun `WCMP group selection survives RECONCILE_AND_COMMIT with same pipeline`() {
+    // Regression test for TypeTranslator reset on RECONCILE_AND_COMMIT.
+    //
+    // The bug: RECONCILE_AND_COMMIT preserved simulator entries but created a fresh
+    // TypeTranslator. If WCMP entries were written before the reconcile and the IP route
+    // after, the route's action param used a different (restarted) ID sequence. The result
+    // was that the route resolved to the wrong WCMP group.
+    //
+    // Setup: group-first (2 members → Ethernet1/2) and group-second (3 members → Ethernet3/4/5).
+    // Write WCMP entries first (pre-reconcile), then RECONCILE_AND_COMMIT, then write the
+    // IP route pointing to group-second (post-reconcile). Only Ethernet3/4/5 should appear.
+    harness.installEntry(buildVrfEntry(""))
+    val rifMac1 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x01)
+    val rifMac2 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x02)
+    val rifMac3 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x03)
+    val rifMac4 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x04)
+    val rifMac5 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x05)
+    for (i in 1..5) {
+      harness.installEntry(
+        buildRouterInterfaceEntry(
+          "rif-$i",
+          "Ethernet$i",
+          when (i) {
+            1 -> rifMac1
+            2 -> rifMac2
+            3 -> rifMac3
+            4 -> rifMac4
+            else -> rifMac5
+          },
+        )
+      )
+      harness.installEntry(buildNeighborEntry("rif-$i", NEIGHBOR_ID, NEIGHBOR_MAC))
+      harness.installEntry(buildNexthopEntry(nexthopId = "nhop-$i", routerInterfaceId = "rif-$i"))
+    }
+
+    val setNexthop = findAction("set_nexthop_id")
+    val wcmpTable = findTable("wcmp_group_table")
+
+    fun oneShotWcmpEntry(groupId: String, nexthopIds: List<String>): Entity =
+      Entity.newBuilder()
+        .setTableEntry(
+          TableEntry.newBuilder()
+            .setTableId(wcmpTable.preamble.id)
+            .addMatch(exactMatch(wcmpTable, "wcmp_group_id", groupId))
+            .setAction(
+              P4RuntimeOuterClass.TableAction.newBuilder()
+                .setActionProfileActionSet(
+                  P4RuntimeOuterClass.ActionProfileActionSet.newBuilder().also { set ->
+                    for (nhop in nexthopIds) {
+                      set.addActionProfileActions(
+                        P4RuntimeOuterClass.ActionProfileAction.newBuilder()
+                          .setAction(
+                            P4RuntimeOuterClass.Action.newBuilder()
+                              .setActionId(setNexthop.preamble.id)
+                              .addParams(stringParam(setNexthop, "nexthop_id", nhop))
+                          )
+                          .setWeight(1)
+                      )
+                    }
+                  }
+                )
+            )
+        )
+        .build()
+
+    // Write WCMP entries BEFORE RECONCILE_AND_COMMIT. group-first is seen first by the
+    // TypeTranslator (gets ID 0), group-second second (gets ID 1).
+    harness.installEntry(oneShotWcmpEntry("group-first", listOf("nhop-1", "nhop-2")))
+    harness.installEntry(oneShotWcmpEntry("group-second", listOf("nhop-3", "nhop-4", "nhop-5")))
+
+    // Reload the same pipeline with RECONCILE_AND_COMMIT — simulates a DVaaS-style reload
+    // that preserves forwarding state. Without the fix, a fresh TypeTranslator starts here
+    // and assigns ID 0 to the next string it sees ("group-second"), while group-second's
+    // WCMP entry in the simulator still has match key 1 (from the pre-reconcile translator).
+    runBlocking {
+      harness.stub.setForwardingPipelineConfig(
+        P4RuntimeOuterClass.SetForwardingPipelineConfigRequest.newBuilder()
+          .setDeviceId(1)
+          .setAction(
+            P4RuntimeOuterClass.SetForwardingPipelineConfigRequest.Action.RECONCILE_AND_COMMIT
+          )
+          .setConfig(harness.buildForwardingPipelineConfig(config))
+          .build()
+      )
+    }
+
+    // Write the IP route AFTER RECONCILE_AND_COMMIT, pointing to group-second.
+    // With a fresh (buggy) TypeTranslator: "group-second" → ID 0, but the WCMP entry has
+    // match key 1 → route resolves to group-first (ID 0) instead → wrong outputs.
+    val ipv4Table = findTable("ipv4_table")
+    val setWcmpGroupId = findAction("set_wcmp_group_id")
+    harness.installEntry(
+      buildEntry(
+        ipv4Table,
+        setWcmpGroupId,
+        matches =
+          listOf(
+            exactMatch(ipv4Table, "vrf_id", ""),
+            lpmMatch(ipv4Table, "ipv4_dst", byteArrayOf(10, 0, 0, 0), prefixLen = 8),
+          ),
+        params = listOf(stringParam(setWcmpGroupId, "wcmp_group_id", "group-second")),
+      )
+    )
+
+    val packet = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
+    val allOutcomes = harness.simulatePacket(ingressPort = 0, payload = packet)
+
+    assertEquals(
+      "routing to group-second should produce 3 outcomes (nhop-3/4/5), not 2 (group-first)",
+      3,
+      allOutcomes.size,
+    )
+    val validPorts = setOf("Ethernet3", "Ethernet4", "Ethernet5")
+    for (outcome in allOutcomes) {
+      val port = outcome.getPackets(0).p4RtEgressPort.toStringUtf8()
+      assertTrue("expected output on Ethernet3/4/5, got $port", port in validPorts)
+    }
+  }
+
   // =========================================================================
   // Port translation: stock v1model has no port newtype
   // =========================================================================

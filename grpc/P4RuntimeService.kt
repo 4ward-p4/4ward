@@ -297,9 +297,19 @@ class P4RuntimeService(
 
     // Identical pipeline: update P4Runtime-layer state (cookie, validators) without touching
     // the simulator. This is the common case for DVaaS-style reloads.
+    //
+    // Crucially, we also preserve the old TypeTranslator. verifyPipeline() always creates a
+    // fresh translator, but the simulator's preserved entries already have match keys and action
+    // params encoded with the old translator's auto-allocated IDs. If we switched to a fresh
+    // translator here, subsequent writes would allocate different IDs for the same P4RT strings,
+    // causing lookups to hit the wrong entries (e.g. the wrong WCMP group).
     if (oldState.config == newState.config) {
       oldState.constraintValidator?.close()
-      pipeline = newState.copy(entityReader = oldState.entityReader)
+      pipeline =
+        newState.copy(
+          typeTranslator = oldState.typeTranslator,
+          entityReader = oldState.entityReader,
+        )
       return
     }
 
@@ -325,7 +335,14 @@ class P4RuntimeService(
       }
     }
 
-    activatePipeline(newState) {
+    // Preserve the old TypeTranslator for the same reason as the identical-pipeline case above:
+    // existing entries encode their keys/params with the old translator's IDs, so all future
+    // writes must use those same IDs to stay consistent.
+    //
+    // TODO: if the new pipeline introduces different @p4runtime_translation_mappings for an
+    // existing type, merging T_old and T_new would be required. In practice RECONCILE_AND_COMMIT
+    // is used for backward-compatible updates where translation configs don't change.
+    activatePipeline(newState.copy(typeTranslator = oldState.typeTranslator)) {
       simulator.loadPipelinePreservingEntries(it, newState.resolvedDropPort)
     }
   }
