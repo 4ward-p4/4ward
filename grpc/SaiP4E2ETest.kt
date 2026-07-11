@@ -457,6 +457,161 @@ class SaiP4E2ETest {
     }
   }
 
+  @Test
+  @Suppress("MagicNumber")
+  fun `one-shot WCMP entry produces outputs from all members`() {
+    // Same routing setup as the ActionProfileGroup WCMP test, but uses one-shot
+    // ActionProfileActionSet (as mandated by @oneshot() on wcmp_group_table).
+    harness.installEntry(buildVrfEntry(""))
+    harness.installEntry(buildRouterInterfaceEntry("rif-a", "Ethernet1", RIF_MAC))
+    harness.installEntry(buildRouterInterfaceEntry("rif-b", "Ethernet2", ALT_RIF_MAC))
+    harness.installEntry(buildNeighborEntry("rif-a", NEIGHBOR_ID, NEIGHBOR_MAC))
+    harness.installEntry(buildNeighborEntry("rif-b", NEIGHBOR_ID, ALT_NEIGHBOR_MAC))
+    harness.installEntry(buildNexthopEntry(nexthopId = "nhop-a", routerInterfaceId = "rif-a"))
+    harness.installEntry(buildNexthopEntry(nexthopId = "nhop-b", routerInterfaceId = "rif-b"))
+
+    val setNexthop = findAction("set_nexthop_id")
+    val wcmpTable = findTable("wcmp_group_table")
+
+    // One-shot entry: wcmp_group_id="group-1" → two inline member actions.
+    harness.installEntry(
+      Entity.newBuilder()
+        .setTableEntry(
+          TableEntry.newBuilder()
+            .setTableId(wcmpTable.preamble.id)
+            .addMatch(exactMatch(wcmpTable, "wcmp_group_id", "group-1"))
+            .setAction(
+              P4RuntimeOuterClass.TableAction.newBuilder()
+                .setActionProfileActionSet(
+                  P4RuntimeOuterClass.ActionProfileActionSet.newBuilder()
+                    .addActionProfileActions(
+                      P4RuntimeOuterClass.ActionProfileAction.newBuilder()
+                        .setAction(
+                          P4RuntimeOuterClass.Action.newBuilder()
+                            .setActionId(setNexthop.preamble.id)
+                            .addParams(stringParam(setNexthop, "nexthop_id", "nhop-a"))
+                        )
+                        .setWeight(1)
+                    )
+                    .addActionProfileActions(
+                      P4RuntimeOuterClass.ActionProfileAction.newBuilder()
+                        .setAction(
+                          P4RuntimeOuterClass.Action.newBuilder()
+                            .setActionId(setNexthop.preamble.id)
+                            .addParams(stringParam(setNexthop, "nexthop_id", "nhop-b"))
+                        )
+                        .setWeight(1)
+                    )
+                )
+            )
+        )
+        .build()
+    )
+
+    val ipv4Table = findTable("ipv4_table")
+    val setWcmpGroupId = findAction("set_wcmp_group_id")
+    harness.installEntry(
+      buildEntry(
+        ipv4Table,
+        setWcmpGroupId,
+        matches =
+          listOf(
+            exactMatch(ipv4Table, "vrf_id", ""),
+            lpmMatch(ipv4Table, "ipv4_dst", byteArrayOf(10, 0, 0, 0), prefixLen = 8),
+          ),
+        params = listOf(stringParam(setWcmpGroupId, "wcmp_group_id", "group-1")),
+      )
+    )
+
+    val packet = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
+    val allOutcomes = harness.simulatePacket(ingressPort = 0, payload = packet)
+
+    assertEquals("one-shot WCMP with 2 members should produce 2 outcomes", 2, allOutcomes.size)
+    val validPorts = setOf("Ethernet1", "Ethernet2")
+    for (outcome in allOutcomes) {
+      assertEquals("each outcome should have exactly one packet", 1, outcome.packetsCount)
+      val port = outcome.getPackets(0).p4RtEgressPort.toStringUtf8()
+      assertTrue("WCMP member should forward to a valid port, got $port", port in validPorts)
+    }
+  }
+
+  @Test
+  @Suppress("MagicNumber")
+  fun `correct WCMP group selected when multiple groups are installed`() {
+    // Install infra: VRF, router interfaces, neighbors, nexthops.
+    // Group A (group-large): 4 nexthops → ports Ethernet1..Ethernet4
+    // Group B (group-small): 2 nexthops → ports Ethernet5 and Ethernet6
+    // The IP route points to group-small; only group-small's ports should appear.
+    harness.installEntry(buildVrfEntry(""))
+    val rifMac1 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x01)
+    val rifMac2 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x02)
+    val rifMac3 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x03)
+    val rifMac4 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x04)
+    val rifMac5 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x05)
+    val rifMac6 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x06)
+    harness.installEntry(buildRouterInterfaceEntry("rif-1", "Ethernet1", rifMac1))
+    harness.installEntry(buildRouterInterfaceEntry("rif-2", "Ethernet2", rifMac2))
+    harness.installEntry(buildRouterInterfaceEntry("rif-3", "Ethernet3", rifMac3))
+    harness.installEntry(buildRouterInterfaceEntry("rif-4", "Ethernet4", rifMac4))
+    harness.installEntry(buildRouterInterfaceEntry("rif-5", "Ethernet5", rifMac5))
+    harness.installEntry(buildRouterInterfaceEntry("rif-6", "Ethernet6", rifMac6))
+    for (i in 1..6) {
+      harness.installEntry(buildNeighborEntry("rif-$i", NEIGHBOR_ID, NEIGHBOR_MAC))
+      harness.installEntry(buildNexthopEntry(nexthopId = "nhop-$i", routerInterfaceId = "rif-$i"))
+    }
+
+    val wcmpSelector =
+      config.p4Info.actionProfilesList.find { it.preamble.alias == "wcmp_group_selector" }!!
+    val profileId = wcmpSelector.preamble.id
+    val setNexthop = findAction("set_nexthop_id")
+    for (i in 1..6) {
+      harness.installEntry(buildActionProfileMember(profileId, memberId = i, setNexthop, "nhop-$i"))
+    }
+
+    // group-large: members 1-4
+    harness.installEntry(buildActionProfileGroup(profileId, groupId = 1, listOf(1, 2, 3, 4)))
+    // group-small: members 5-6
+    harness.installEntry(buildActionProfileGroup(profileId, groupId = 2, listOf(5, 6)))
+
+    // wcmp_group_table: "group-large" → groupId 1, "group-small" → groupId 2
+    harness.installEntry(buildWcmpGroupTableEntry(wcmpGroupId = "group-large", groupId = 1))
+    harness.installEntry(buildWcmpGroupTableEntry(wcmpGroupId = "group-small", groupId = 2))
+
+    // IP route points to "group-small"
+    val ipv4Table = findTable("ipv4_table")
+    val setWcmpGroupId = findAction("set_wcmp_group_id")
+    harness.installEntry(
+      buildEntry(
+        ipv4Table,
+        setWcmpGroupId,
+        matches =
+          listOf(
+            exactMatch(ipv4Table, "vrf_id", ""),
+            lpmMatch(ipv4Table, "ipv4_dst", byteArrayOf(10, 0, 0, 0), prefixLen = 8),
+          ),
+        params = listOf(stringParam(setWcmpGroupId, "wcmp_group_id", "group-small")),
+      )
+    )
+
+    val packet = buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64)
+    val allOutcomes = harness.simulatePacket(ingressPort = 0, payload = packet)
+
+    // Must produce exactly 2 outputs (group-small has 2 members), not 4 (group-large).
+    assertEquals(
+      "routing to group-small should produce 2 outcomes, not 4 (group-large)",
+      2,
+      allOutcomes.size,
+    )
+    val validPorts = setOf("Ethernet5", "Ethernet6")
+    for (outcome in allOutcomes) {
+      val port = outcome.getPackets(0).p4RtEgressPort.toStringUtf8()
+      assertTrue(
+        "WCMP member should be from group-small (Ethernet5 or Ethernet6), got $port",
+        port in validPorts,
+      )
+    }
+  }
+
   // =========================================================================
   // Port translation: stock v1model has no port newtype
   // =========================================================================
