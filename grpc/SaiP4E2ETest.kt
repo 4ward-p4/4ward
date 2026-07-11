@@ -29,6 +29,7 @@ import p4.config.v1.P4InfoOuterClass
 import p4.v1.P4RuntimeOuterClass
 import p4.v1.P4RuntimeOuterClass.Entity
 import p4.v1.P4RuntimeOuterClass.FieldMatch
+import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
 import p4.v1.P4RuntimeOuterClass.TableEntry
 
 /**
@@ -470,43 +471,8 @@ class SaiP4E2ETest {
     harness.installEntry(buildNexthopEntry(nexthopId = "nhop-a", routerInterfaceId = "rif-a"))
     harness.installEntry(buildNexthopEntry(nexthopId = "nhop-b", routerInterfaceId = "rif-b"))
 
-    val setNexthop = findAction("set_nexthop_id")
-    val wcmpTable = findTable("wcmp_group_table")
-
     // One-shot entry: wcmp_group_id="group-1" → two inline member actions.
-    harness.installEntry(
-      Entity.newBuilder()
-        .setTableEntry(
-          TableEntry.newBuilder()
-            .setTableId(wcmpTable.preamble.id)
-            .addMatch(exactMatch(wcmpTable, "wcmp_group_id", "group-1"))
-            .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
-                .setActionProfileActionSet(
-                  P4RuntimeOuterClass.ActionProfileActionSet.newBuilder()
-                    .addActionProfileActions(
-                      P4RuntimeOuterClass.ActionProfileAction.newBuilder()
-                        .setAction(
-                          P4RuntimeOuterClass.Action.newBuilder()
-                            .setActionId(setNexthop.preamble.id)
-                            .addParams(stringParam(setNexthop, "nexthop_id", "nhop-a"))
-                        )
-                        .setWeight(1)
-                    )
-                    .addActionProfileActions(
-                      P4RuntimeOuterClass.ActionProfileAction.newBuilder()
-                        .setAction(
-                          P4RuntimeOuterClass.Action.newBuilder()
-                            .setActionId(setNexthop.preamble.id)
-                            .addParams(stringParam(setNexthop, "nexthop_id", "nhop-b"))
-                        )
-                        .setWeight(1)
-                    )
-                )
-            )
-        )
-        .build()
-    )
+    harness.installEntry(buildOneShotWcmpEntry("group-1", listOf("nhop-a", "nhop-b")))
 
     val ipv4Table = findTable("ipv4_table")
     val setWcmpGroupId = findAction("set_wcmp_group_id")
@@ -543,19 +509,9 @@ class SaiP4E2ETest {
     // Group B (group-small): 2 nexthops → ports Ethernet5 and Ethernet6
     // The IP route points to group-small; only group-small's ports should appear.
     harness.installEntry(buildVrfEntry(""))
-    val rifMac1 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x01)
-    val rifMac2 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x02)
-    val rifMac3 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x03)
-    val rifMac4 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x04)
-    val rifMac5 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x05)
-    val rifMac6 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x06)
-    harness.installEntry(buildRouterInterfaceEntry("rif-1", "Ethernet1", rifMac1))
-    harness.installEntry(buildRouterInterfaceEntry("rif-2", "Ethernet2", rifMac2))
-    harness.installEntry(buildRouterInterfaceEntry("rif-3", "Ethernet3", rifMac3))
-    harness.installEntry(buildRouterInterfaceEntry("rif-4", "Ethernet4", rifMac4))
-    harness.installEntry(buildRouterInterfaceEntry("rif-5", "Ethernet5", rifMac5))
-    harness.installEntry(buildRouterInterfaceEntry("rif-6", "Ethernet6", rifMac6))
     for (i in 1..6) {
+      val mac = byteArrayOf(0x02, 0, 0, 0, 0, i.toByte())
+      harness.installEntry(buildRouterInterfaceEntry("rif-$i", "Ethernet$i", mac))
       harness.installEntry(buildNeighborEntry("rif-$i", NEIGHBOR_ID, NEIGHBOR_MAC))
       harness.installEntry(buildNexthopEntry(nexthopId = "nhop-$i", routerInterfaceId = "rif-$i"))
     }
@@ -626,79 +582,26 @@ class SaiP4E2ETest {
     // Write WCMP entries first (pre-reconcile), then RECONCILE_AND_COMMIT, then write the
     // IP route pointing to group-second (post-reconcile). Only Ethernet3/4/5 should appear.
     harness.installEntry(buildVrfEntry(""))
-    val rifMac1 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x01)
-    val rifMac2 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x02)
-    val rifMac3 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x03)
-    val rifMac4 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x04)
-    val rifMac5 = byteArrayOf(0x02, 0x00, 0x00, 0x00, 0x00, 0x05)
     for (i in 1..5) {
-      harness.installEntry(
-        buildRouterInterfaceEntry(
-          "rif-$i",
-          "Ethernet$i",
-          when (i) {
-            1 -> rifMac1
-            2 -> rifMac2
-            3 -> rifMac3
-            4 -> rifMac4
-            else -> rifMac5
-          },
-        )
-      )
+      val mac = byteArrayOf(0x02, 0, 0, 0, 0, i.toByte())
+      harness.installEntry(buildRouterInterfaceEntry("rif-$i", "Ethernet$i", mac))
       harness.installEntry(buildNeighborEntry("rif-$i", NEIGHBOR_ID, NEIGHBOR_MAC))
       harness.installEntry(buildNexthopEntry(nexthopId = "nhop-$i", routerInterfaceId = "rif-$i"))
     }
 
-    val setNexthop = findAction("set_nexthop_id")
-    val wcmpTable = findTable("wcmp_group_table")
-
-    fun oneShotWcmpEntry(groupId: String, nexthopIds: List<String>): Entity =
-      Entity.newBuilder()
-        .setTableEntry(
-          TableEntry.newBuilder()
-            .setTableId(wcmpTable.preamble.id)
-            .addMatch(exactMatch(wcmpTable, "wcmp_group_id", groupId))
-            .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
-                .setActionProfileActionSet(
-                  P4RuntimeOuterClass.ActionProfileActionSet.newBuilder().also { set ->
-                    for (nhop in nexthopIds) {
-                      set.addActionProfileActions(
-                        P4RuntimeOuterClass.ActionProfileAction.newBuilder()
-                          .setAction(
-                            P4RuntimeOuterClass.Action.newBuilder()
-                              .setActionId(setNexthop.preamble.id)
-                              .addParams(stringParam(setNexthop, "nexthop_id", nhop))
-                          )
-                          .setWeight(1)
-                      )
-                    }
-                  }
-                )
-            )
-        )
-        .build()
-
     // Write WCMP entries BEFORE RECONCILE_AND_COMMIT. group-first is seen first by the
     // TypeTranslator (gets ID 0), group-second second (gets ID 1).
-    harness.installEntry(oneShotWcmpEntry("group-first", listOf("nhop-1", "nhop-2")))
-    harness.installEntry(oneShotWcmpEntry("group-second", listOf("nhop-3", "nhop-4", "nhop-5")))
+    harness.installEntry(buildOneShotWcmpEntry("group-first", listOf("nhop-1", "nhop-2")))
+    harness.installEntry(buildOneShotWcmpEntry("group-second", listOf("nhop-3", "nhop-4", "nhop-5")))
 
     // Reload the same pipeline with RECONCILE_AND_COMMIT — simulates a DVaaS-style reload
     // that preserves forwarding state. Without the fix, a fresh TypeTranslator starts here
     // and assigns ID 0 to the next string it sees ("group-second"), while group-second's
     // WCMP entry in the simulator still has match key 1 (from the pre-reconcile translator).
-    runBlocking {
-      harness.stub.setForwardingPipelineConfig(
-        P4RuntimeOuterClass.SetForwardingPipelineConfigRequest.newBuilder()
-          .setDeviceId(1)
-          .setAction(
-            P4RuntimeOuterClass.SetForwardingPipelineConfigRequest.Action.RECONCILE_AND_COMMIT
-          )
-          .setConfig(harness.buildForwardingPipelineConfig(config))
-          .build()
-      )
-    }
+    harness.loadPipeline(
+      config,
+      action = SetForwardingPipelineConfigRequest.Action.RECONCILE_AND_COMMIT,
+    )
 
     // Write the IP route AFTER RECONCILE_AND_COMMIT, pointing to group-second.
     // With a fresh (buggy) TypeTranslator: "group-second" → ID 0, but the WCMP entry has
@@ -2540,6 +2443,36 @@ class SaiP4E2ETest {
           )
       )
       .build()
+
+  private fun buildOneShotWcmpEntry(groupId: String, nexthopIds: List<String>): Entity {
+    val wcmpTable = findTable("wcmp_group_table")
+    val setNexthop = findAction("set_nexthop_id")
+    return Entity.newBuilder()
+      .setTableEntry(
+        TableEntry.newBuilder()
+          .setTableId(wcmpTable.preamble.id)
+          .addMatch(exactMatch(wcmpTable, "wcmp_group_id", groupId))
+          .setAction(
+            P4RuntimeOuterClass.TableAction.newBuilder()
+              .setActionProfileActionSet(
+                P4RuntimeOuterClass.ActionProfileActionSet.newBuilder().also { set ->
+                  for (nhop in nexthopIds) {
+                    set.addActionProfileActions(
+                      P4RuntimeOuterClass.ActionProfileAction.newBuilder()
+                        .setAction(
+                          P4RuntimeOuterClass.Action.newBuilder()
+                            .setActionId(setNexthop.preamble.id)
+                            .addParams(stringParam(setNexthop, "nexthop_id", nhop))
+                        )
+                        .setWeight(1)
+                    )
+                  }
+                }
+              )
+          )
+      )
+      .build()
+  }
 
   private fun buildWcmpGroupTableEntry(wcmpGroupId: String, groupId: Int): Entity {
     val table = findTable("wcmp_group_table")
