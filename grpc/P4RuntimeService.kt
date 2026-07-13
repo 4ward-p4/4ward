@@ -288,12 +288,21 @@ class P4RuntimeService(
    * (counters, registers, meters) is reset; PRE entries and action profiles are preserved.
    */
   private fun reconcileAndCommit(fwdConfig: ForwardingPipelineConfig) {
-    val newState = verifyPipeline(fwdConfig)
+    val verified = verifyPipeline(fwdConfig)
     val oldState = pipeline
     if (oldState == null) {
-      commitPipeline(newState)
+      commitPipeline(verified)
       return
     }
+
+    // TypeTranslator is forwarding state: its auto-allocated IDs are already baked into the
+    // preserved entries. Carry the old translator forward so future writes use the same ID
+    // sequence — verifyPipeline() always produces a fresh one that would restart allocation.
+    //
+    // TODO: if the new pipeline introduces different @p4runtime_translation_mappings for an
+    // existing type, merging T_old and T_new would be required. In practice RECONCILE_AND_COMMIT
+    // is used for backward-compatible updates where translation configs don't change.
+    val newState = verified.copy(typeTranslator = oldState.typeTranslator)
 
     // Identical pipeline: update P4Runtime-layer state (cookie, validators) without touching
     // the simulator. This is the common case for DVaaS-style reloads.

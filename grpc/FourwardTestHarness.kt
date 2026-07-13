@@ -132,11 +132,13 @@ class FourwardTestHarness(
   fun loadPipeline(
     config: PipelineConfig,
     cookie: ForwardingPipelineConfig.Cookie = ForwardingPipelineConfig.Cookie.getDefaultInstance(),
+    action: SetForwardingPipelineConfigRequest.Action =
+      SetForwardingPipelineConfigRequest.Action.VERIFY_AND_COMMIT,
   ): SetForwardingPipelineConfigResponse = runBlocking {
     stub.setForwardingPipelineConfig(
       SetForwardingPipelineConfigRequest.newBuilder()
         .setDeviceId(1)
-        .setAction(SetForwardingPipelineConfigRequest.Action.VERIFY_AND_COMMIT)
+        .setAction(action)
         .setConfig(buildForwardingPipelineConfig(config, cookie))
         .build()
     )
