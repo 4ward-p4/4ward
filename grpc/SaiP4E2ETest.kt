@@ -592,7 +592,9 @@ class SaiP4E2ETest {
     // Write WCMP entries BEFORE RECONCILE_AND_COMMIT. group-first is seen first by the
     // TypeTranslator (gets ID 0), group-second second (gets ID 1).
     harness.installEntry(buildOneShotWcmpEntry("group-first", listOf("nhop-1", "nhop-2")))
-    harness.installEntry(buildOneShotWcmpEntry("group-second", listOf("nhop-3", "nhop-4", "nhop-5")))
+    harness.installEntry(
+      buildOneShotWcmpEntry("group-second", listOf("nhop-3", "nhop-4", "nhop-5"))
+    )
 
     // Reload the same pipeline with RECONCILE_AND_COMMIT — simulates a DVaaS-style reload
     // that preserves forwarding state. Without the fix, a fresh TypeTranslator starts here
