@@ -53,6 +53,9 @@ class DataplaneService(
     val packetHeaderCodec: PacketHeaderCodec?,
   )
 
+  internal suspend fun processForNetwork(request: InjectPacketRequest): ProcessPacketResultProto =
+    processAndEnrich(request, "Network.InjectPacket").first.proto
+
   override suspend fun injectPacket(request: InjectPacketRequest): InjectPacketResponse {
     val (enrichedResult, _) = processAndEnrich(request, "InjectPacket")
     return InjectPacketResponse.newBuilder()

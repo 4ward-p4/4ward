@@ -114,6 +114,52 @@ kt_jvm_grpc_library(
 )
 
 # =============================================================================
+# Network-wide simulation gRPC service
+# =============================================================================
+
+proto_library(
+    name = "network_proto",
+    srcs = ["network.proto"],
+    visibility = ["//visibility:public"],
+    deps = ["//simulator:simulator_proto"],
+)
+
+java_proto_library(
+    name = "network_java_proto",
+    visibility = ["//visibility:public"],
+    deps = [":network_proto"],
+)
+
+cc_proto_library(
+    name = "network_cc_proto",
+    visibility = ["//visibility:public"],
+    deps = [":network_proto"],
+)
+
+cc_grpc_library(
+    name = "network_cc_grpc",
+    srcs = [":network_proto"],
+    features = ["-layering_check"],
+    grpc_only = True,
+    visibility = ["//visibility:public"],
+    deps = [":network_cc_proto"],
+)
+
+java_grpc_library(
+    name = "network_java_grpc",
+    srcs = [":network_proto"],
+    visibility = ["//visibility:public"],
+    deps = [":network_java_proto"],
+)
+
+kt_jvm_grpc_library(
+    name = "network_kt_grpc",
+    srcs = [":network_proto"],
+    visibility = ["//visibility:public"],
+    deps = [":network_java_proto"],
+)
+
+# =============================================================================
 # P4Runtime gRPC stubs (Kotlin)
 # =============================================================================
 
@@ -155,6 +201,8 @@ kt_jvm_library(
         ":dataplane_kt_grpc",
         ":management_java_proto",
         ":management_kt_grpc",
+        ":network_java_proto",
+        ":network_kt_grpc",
         ":p4runtime_kt_grpc",
         "//simulator",
         "//simulator:ir_java_proto",
@@ -673,6 +721,44 @@ kt_jvm_test(
         ":dataplane_java_proto",
         ":dataplane_kt_grpc",
         ":grpc",
+        ":p4runtime_kt_grpc",
+        "//bazel:runfiles",
+        "//simulator",
+        "//simulator:ir_java_proto",
+        "//simulator:p4data_java_proto",
+        "//simulator:p4info_java_proto",
+        "//simulator:p4runtime_java_proto",
+        "//simulator:simulator_java_proto",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@fourward_maven//:io_grpc_grpc_api",
+        "@fourward_maven//:io_grpc_grpc_inprocess",
+        "@fourward_maven//:junit_junit",
+        "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
+        "@googleapis//google/rpc:rpc_java_proto",
+    ],
+)
+
+kt_jvm_test(
+    name = "NetworkServiceTest",
+    srcs = [
+        "FourwardTestHarness.kt",
+        "NetworkServiceTest.kt",
+    ],
+    data = [
+        "//e2e_tests/passthrough",
+        "//e2e_tests/trace_tree:action_selector_3",
+        "//e2e_tests/trace_tree:multicast",
+        "//e2e_tests/translated_port",
+    ],
+    test_class = "fourward.grpc.NetworkServiceTest",
+    deps = [
+        ":dataplane_java_proto",
+        ":dataplane_kt_grpc",
+        ":grpc",
+        ":management_java_proto",
+        ":management_kt_grpc",
+        ":network_java_proto",
+        ":network_kt_grpc",
         ":p4runtime_kt_grpc",
         "//bazel:runfiles",
         "//simulator",
