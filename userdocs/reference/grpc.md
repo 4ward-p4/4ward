@@ -79,6 +79,7 @@ message InjectPacketRequest {
     bytes p4rt_ingress_port = 2;        // e.g., "Ethernet0"
   }
   bytes payload = 3;
+  TraceFilter trace_filter = 6;  // optional; unset returns the full trace
 }
 ```
 
@@ -104,6 +105,44 @@ Each `Outcome` is the packets emitted by a single real execution. The entries
 form a set: programs with only parallel forks (clone, multicast) have exactly
 one entry, action selectors add one entry per alternative, and alternatives that
 emit the same packets collapse to a single entry.
+
+### Filtering trace events
+
+Traces record every decision the simulator made, which is usually more than you
+want to read. `trace_filter` selects which event kinds come back:
+
+```protobuf
+// Only table lookups and parser transitions.
+trace_filter {
+  include { kinds: TABLE_LOOKUP kinds: PARSER_TRANSITION }
+}
+
+// Everything except the noisy ones.
+trace_filter {
+  exclude { kinds: ASSIGNMENT kinds: BRANCH }
+}
+
+// Outcomes only — no events at all.
+trace_filter { include {} }
+```
+
+The kinds are the values of `TraceEvent.Kind`, one per event type.
+
+Filtering is a view, not a different simulation. Only events are removed —
+branches, continuations, and outcomes always come back in full, so a filtered
+trace still tells you what happened to the packet. Two details follow from
+that:
+
+- Events referenced as a `cause_id` by a `Replication`, `Choice`, or `Drop` are
+  always included, even when the filter excludes their kind. Otherwise the
+  outcome would point at an event that isn't in the response.
+- `TraceEvent.id` values are **not** renumbered. Ids match the unfiltered
+  trace, so gaps in the sequence are expected and mean the filter removed
+  something.
+
+`GetReproducer` rejects `trace_filter` with `INVALID_ARGUMENT`: a reproducer
+has to carry the whole trace to replay.
+
 
 ### `InjectPackets`
 
@@ -137,6 +176,7 @@ Server-streaming RPC that delivers results from all packet sources
 ```protobuf
 SubscribeResultsRequest {
   device_id: 0  // optional; unset/0 means the default device
+  trace_filter { ... }  // optional; unset returns full traces
 }
 
 // First message confirms the subscription.
@@ -150,6 +190,14 @@ SubscribeResultsResponse {
   }
 }
 ```
+
+[Trace filtering](#filtering-trace-events) works the same here, but the filter
+belongs to the subscription rather than to any one packet: results arrive from
+every injection source, most of which have no filter of their own. Two
+subscribers can therefore watch the same packets at different levels of
+detail. `InjectPacketRequest.trace_filter` shapes only the trace that
+`InjectPacket` returns inline — it has no effect on results delivered here.
+
 
 ### Matching results to injected packets
 

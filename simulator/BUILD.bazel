@@ -466,3 +466,14 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
     ],
 )
+
+kt_jvm_test(
+    name = "TraceFilterTest",
+    srcs = ["TraceFilterTest.kt"],
+    test_class = "fourward.simulator.TraceFilterTest",
+    deps = [
+        ":simulator",
+        ":simulator_java_proto",
+        "@fourward_maven//:junit_junit",
+    ],
+)

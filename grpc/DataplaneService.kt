@@ -16,11 +16,14 @@ import fourward.Reproducer
 import fourward.SubscribeResultsRequest
 import fourward.SubscribeResultsResponse
 import fourward.SubscriptionActive
+import fourward.TraceFilter
 import fourward.TraceTree
 import fourward.simulator.DataplanePort
 import fourward.simulator.RegisterSeedDependency
 import fourward.simulator.TableStore
 import fourward.simulator.extractReproducerEntities
+import fourward.simulator.filterEvents
+import fourward.simulator.validate
 import io.grpc.Status
 import io.grpc.StatusException
 import kotlinx.coroutines.channels.Channel
@@ -54,14 +57,29 @@ class DataplaneService(
   )
 
   override suspend fun injectPacket(request: InjectPacketRequest): InjectPacketResponse {
+    // Reject a malformed filter before doing the work of simulating the packet.
+    validateTraceFilter(request.traceFilter, "InjectPacket")
     val (enrichedResult, _) = processAndEnrich(request, "InjectPacket")
     return InjectPacketResponse.newBuilder()
       .addAllPossibleOutcomes(enrichedResult.proto.possibleOutcomesList)
-      .setTrace(enrichedResult.proto.trace)
+      // Filtering happens here, at the wire boundary: enrichment above and reproducer
+      // extraction in getReproducer both read the trace and need all of it.
+      .setTrace(enrichedResult.proto.trace.filterEvents(request.traceFilter))
       .build()
   }
 
   override suspend fun getReproducer(request: InjectPacketRequest): Reproducer {
+    // A Reproducer is defined by being self-contained — its entities are extracted from the
+    // trace, and a replay is only meaningful against the whole thing. Rejecting the filter is
+    // the honest answer; quietly ignoring it would hand back something that looks filtered
+    // but isn't.
+    if (request.hasTraceFilter()) {
+      throw Status.INVALID_ARGUMENT.withDescription(
+          "GetReproducer failed: trace_filter is not supported — a Reproducer must carry the " +
+            "complete trace to replay. Use InjectPacket if you want a filtered trace."
+        )
+        .asException()
+    }
     if (pipelineSnapshot() == null) {
       throw Status.FAILED_PRECONDITION.withDescription(
           "No pipeline loaded — call SetForwardingPipelineConfig first"
@@ -149,6 +167,9 @@ class DataplaneService(
 
   override fun subscribeResults(request: SubscribeResultsRequest): Flow<SubscribeResultsResponse> =
     channelFlow {
+      // Validate before announcing the subscription: a bad filter is a setup error, not a
+      // per-packet one, and the client should hear about it once.
+      validateTraceFilter(request.traceFilter, "SubscribeResults")
       send(
         SubscribeResultsResponse.newBuilder()
           .setActive(SubscriptionActive.getDefaultInstance())
@@ -167,9 +188,11 @@ class DataplaneService(
                 subResult.trace,
                 pipelineSnapshot(),
               )
+            val filtered =
+              result.toBuilder().setTrace(result.trace.filterEvents(request.traceFilter)).build()
             // Packet processing waits here when the gRPC subscriber is slow: SubscribeResults is
             // the lossless result channel for batch InjectPackets callers.
-            send(SubscribeResultsResponse.newBuilder().setResult(result).build())
+            send(SubscribeResultsResponse.newBuilder().setResult(filtered).build())
           } catch (
             @Suppress("TooGenericExceptionCaught") // Any translation/encoding failure should
             e: Exception // terminate this subscription stream, not crash the packet sender.
@@ -194,6 +217,17 @@ class DataplaneService(
       }
     }
     return Status.INTERNAL.withDescription(detail).withCause(e).asException()
+  }
+
+  /** Fails the RPC with INVALID_ARGUMENT if [filter] is malformed. */
+  private fun validateTraceFilter(filter: TraceFilter, rpcName: String) {
+    try {
+      filter.validate()
+    } catch (e: IllegalArgumentException) {
+      throw Status.INVALID_ARGUMENT.withDescription("$rpcName failed: ${e.message}")
+        .withCause(e)
+        .asException()
+    }
   }
 
   override fun registerPrePacketHook(

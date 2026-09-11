@@ -172,15 +172,23 @@ class FourwardTestHarness(
 
   /** Injects a packet via the InjectPacket RPC. Returns outputs + trace. */
   fun injectPacket(ingressPort: Int, payload: ByteArray, tag: Long = 0): InjectPacketResponse =
-    runBlocking {
-      dataplaneStub.injectPacket(
-        InjectPacketRequest.newBuilder()
-          .setDataplaneIngressPort(ingressPort)
-          .setPayload(ByteString.copyFrom(payload))
-          .setTag(tag)
-          .build()
-      )
-    }
+    injectPacket(
+      InjectPacketRequest.newBuilder()
+        .setDataplaneIngressPort(ingressPort)
+        .setPayload(ByteString.copyFrom(payload))
+        .setTag(tag)
+        .build()
+    )
+
+  /**
+   * Injects a fully-built [InjectPacketRequest].
+   *
+   * For fields the convenience overload above doesn't cover — a trace filter, a device id — so that
+   * this harness stays independent of the protos those fields live in.
+   */
+  fun injectPacket(request: InjectPacketRequest): InjectPacketResponse = runBlocking {
+    dataplaneStub.injectPacket(request)
+  }
 
   /** Injects a packet and returns a self-contained Reproducer for the trace. */
   fun getReproducer(ingressPort: Int, payload: ByteArray): fourward.Reproducer = runBlocking {

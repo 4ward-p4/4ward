@@ -82,6 +82,19 @@ message InjectPacketRequest {
   // ProcessPacketResult.input_packet. Useful for correlating results with
   // requests when using InjectPackets + SubscribeResults.
   int64 tag = 4;
+
+  // Selects which trace events come back in InjectPacketResponse.trace.
+  // Unset returns the full trace.
+  //
+  // Applies only to the trace this RPC returns inline. Results delivered on a
+  // SubscribeResults stream — everything from InjectPackets, and PacketOut —
+  // are filtered by SubscribeResultsRequest.trace_filter instead, because the
+  // filter belongs to whoever is reading the trace.
+  //
+  // GetReproducer rejects this field with INVALID_ARGUMENT: a Reproducer has
+  // to carry the complete trace to replay, and silently returning an
+  // unfiltered one would be worse than saying no.
+  TraceFilter trace_filter = 6;
 }
 
 // One possible outcome: the packets emitted by a single real execution.
@@ -134,6 +147,15 @@ message SubscribeResultsRequest {
   // unset/0 as "use the server's default device" so single-device clients do
   // not need to know about device IDs.
   uint64 device_id = 1;
+
+  // Selects which trace events appear in results on this stream. Unset
+  // returns full traces.
+  //
+  // The filter is per-subscription, not per-packet: results arrive here from
+  // every injection source (InjectPackets, PacketOut, other callers), most of
+  // which have no filter of their own. Two subscribers can therefore watch the
+  // same packets at different levels of detail.
+  TraceFilter trace_filter = 2;
 }
 
 message SubscribeResultsResponse {

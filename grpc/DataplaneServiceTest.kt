@@ -15,6 +15,8 @@ import fourward.PrePacketHookResponse
 import fourward.StructDecl
 import fourward.SubscribeResultsRequest
 import fourward.SubscribeResultsResponse
+import fourward.TraceEvent
+import fourward.TraceFilter
 import fourward.TraceTree
 import fourward.TranslationEntry
 import fourward.Type
@@ -135,6 +137,112 @@ class DataplaneServiceTest {
       0,
       response.possibleOutcomesList.single().packetsCount,
     )
+  }
+
+  // =========================================================================
+  // InjectPacket trace filtering
+  // =========================================================================
+
+  @Test
+  fun `InjectPacket with an include filter returns only the requested event kinds`() {
+    harness.loadPipeline(loadPassthroughConfig())
+
+    val response =
+      harness.injectPacket(
+        InjectPacketRequest.newBuilder()
+          .setDataplaneIngressPort(0)
+          .setPayload(ByteString.copyFrom(byteArrayOf(0xCA.toByte(), 0xFE.toByte())))
+          .setTraceFilter(
+            TraceFilter.newBuilder()
+              .setInclude(TraceFilter.KindSet.newBuilder().addKinds(TraceEvent.Kind.PACKET_INGRESS))
+          )
+          .build()
+      )
+
+    assertEquals(
+      "only the ingress event should survive the filter",
+      listOf(TraceEvent.EventCase.PACKET_INGRESS),
+      response.trace.eventsList.map { it.eventCase },
+    )
+  }
+
+  @Test
+  fun `InjectPacket with an unfiltered trace still returns pipeline stage events`() {
+    // Guards the include test above: without a filter these events are present, so the
+    // filtered result is really the filter's doing and not an empty pipeline.
+    harness.loadPipeline(loadPassthroughConfig())
+
+    val response = harness.injectPacket(ingressPort = 0, payload = byteArrayOf(0xCA.toByte()))
+
+    assertTrue(
+      "unfiltered trace should contain more than the ingress event",
+      response.trace.eventsList.any { it.eventCase != TraceEvent.EventCase.PACKET_INGRESS },
+    )
+  }
+
+  @Test
+  fun `InjectPacket with an empty include filter returns outcomes without events`() {
+    harness.loadPipeline(loadPassthroughConfig())
+    val payload = byteArrayOf(0xCA.toByte(), 0xFE.toByte())
+
+    val response =
+      harness.injectPacket(
+        InjectPacketRequest.newBuilder()
+          .setDataplaneIngressPort(0)
+          .setPayload(ByteString.copyFrom(payload))
+          .setTraceFilter(
+            TraceFilter.newBuilder().setInclude(TraceFilter.KindSet.getDefaultInstance())
+          )
+          .build()
+      )
+
+    assertEquals("no events requested", 0, response.trace.eventsCount)
+    assertEquals(
+      "outcomes are unaffected by the trace filter",
+      ByteString.copyFrom(payload),
+      response.possibleOutcomesList.single().getPackets(0).payload,
+    )
+  }
+
+  @Test
+  fun `InjectPacket rejects a filter naming KIND_UNSPECIFIED`() {
+    harness.loadPipeline(loadPassthroughConfig())
+
+    assertGrpcError(Status.Code.INVALID_ARGUMENT, "KIND_UNSPECIFIED") {
+      harness.injectPacket(
+        InjectPacketRequest.newBuilder()
+          .setDataplaneIngressPort(0)
+          .setPayload(ByteString.copyFrom(byteArrayOf(0xCA.toByte())))
+          .setTraceFilter(
+            TraceFilter.newBuilder()
+              .setInclude(
+                TraceFilter.KindSet.newBuilder().addKinds(TraceEvent.Kind.KIND_UNSPECIFIED)
+              )
+          )
+          .build()
+      )
+    }
+  }
+
+  @Test
+  fun `GetReproducer rejects a trace filter rather than returning a partial trace`() {
+    harness.loadPipeline(loadPassthroughConfig())
+    val dataplaneStub = DataplaneCoroutineStub(harness.channel)
+
+    assertGrpcError(Status.Code.INVALID_ARGUMENT, "trace_filter is not supported") {
+      runBlocking {
+        dataplaneStub.getReproducer(
+          InjectPacketRequest.newBuilder()
+            .setDataplaneIngressPort(0)
+            .setPayload(ByteString.copyFrom(byteArrayOf(0xCA.toByte())))
+            .setTraceFilter(
+              TraceFilter.newBuilder()
+                .setInclude(TraceFilter.KindSet.newBuilder().addKinds(TraceEvent.Kind.TABLE_LOOKUP))
+            )
+            .build()
+        )
+      }
+    }
   }
 
   @Test
@@ -392,6 +500,59 @@ class DataplaneServiceTest {
 
     job.cancel()
   }
+
+  @Test
+  fun `SubscribeResults applies the subscription trace filter`() = runBlocking {
+    harness.loadPipeline(loadPassthroughConfig())
+    val stub = DataplaneCoroutineStub(harness.channel)
+    val (job, results) =
+      subscribeAndAwaitActive(
+        stub,
+        SubscribeResultsRequest.newBuilder()
+          .setTraceFilter(
+            TraceFilter.newBuilder()
+              .setInclude(TraceFilter.KindSet.newBuilder().addKinds(TraceEvent.Kind.PACKET_INGRESS))
+          )
+          .build(),
+      )
+
+    // The injector asks for nothing; the filter belongs to the subscriber reading the trace.
+    harness.injectPacket(ingressPort = 0, payload = byteArrayOf(0x01))
+
+    val result = withTimeout(5000) { results.receive() }
+    assertEquals(
+      "subscriber sees only the kinds its own filter asked for",
+      listOf(TraceEvent.EventCase.PACKET_INGRESS),
+      result.result.trace.eventsList.map { it.eventCase },
+    )
+
+    job.cancel()
+  }
+
+  @Test
+  fun `SubscribeResults rejects a malformed filter when the subscription is set up`() =
+    runBlocking {
+      harness.loadPipeline(loadPassthroughConfig())
+      val stub = DataplaneCoroutineStub(harness.channel)
+
+      // Fails immediately, before any packet flows — not once per packet.
+      assertGrpcError(Status.Code.INVALID_ARGUMENT, "KIND_UNSPECIFIED") {
+        runBlocking {
+          stub
+            .subscribeResults(
+              SubscribeResultsRequest.newBuilder()
+                .setTraceFilter(
+                  TraceFilter.newBuilder()
+                    .setExclude(
+                      TraceFilter.KindSet.newBuilder().addKinds(TraceEvent.Kind.KIND_UNSPECIFIED)
+                    )
+                )
+                .build()
+            )
+            .first()
+        }
+      }
+    }
 
   // =========================================================================
   // Cross-source SubscribeResults
@@ -1144,14 +1305,11 @@ class DataplaneServiceTest {
    * post-sentinel events.
    */
   private suspend fun CoroutineScope.subscribeAndAwaitActive(
-    stub: DataplaneCoroutineStub
+    stub: DataplaneCoroutineStub,
+    request: SubscribeResultsRequest = SubscribeResultsRequest.getDefaultInstance(),
   ): Pair<Job, Channel<SubscribeResultsResponse>> {
     val results = Channel<SubscribeResultsResponse>(UNLIMITED)
-    val job = launch {
-      stub.subscribeResults(SubscribeResultsRequest.getDefaultInstance()).collect {
-        results.send(it)
-      }
-    }
+    val job = launch { stub.subscribeResults(request).collect { results.send(it) } }
     val first = withTimeout(5000) { results.receive() }
     assertTrue("first message should be SubscriptionActive", first.hasActive())
     return job to results

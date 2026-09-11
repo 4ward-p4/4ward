@@ -126,6 +126,32 @@ message Drop {
 }
 
 message TraceEvent {
+  // Names the `event` oneof cases so callers can talk about event types
+  // without depending on field numbers — see TraceFilter. Exactly one value
+  // per oneof case; `KIND_UNSPECIFIED` is the proto3 default and is never the
+  // kind of an emitted event.
+  //
+  // Nested rather than top-level so the values (BRANCH, CLONE, ASSIGNMENT, …)
+  // scope to TraceEvent instead of colliding in the `fourward` package.
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    PACKET_INGRESS = 1;
+    PIPELINE_STAGE = 2;
+    PARSER_TRANSITION = 3;
+    TABLE_LOOKUP = 4;
+    ACTION_EXECUTION = 5;
+    BRANCH = 6;
+    ASSIGNMENT = 7;
+    EXTERN_CALL = 8;
+    LOG_MESSAGE = 9;
+    ASSERTION = 10;
+    CLONE = 11;
+    CLONE_SESSION_LOOKUP = 12;
+    MULTICAST_GROUP_LOOKUP = 13;
+    MARK_TO_DROP = 14;
+    DEPARSER_EMIT = 15;
+  }
+
   // Trace-global identifier, assigned by the simulator in emission order.
   // Referenced by Replication.cause_id, Choice.cause_id, and Drop.cause_id to
   // identify which event triggered each outcome.
@@ -305,4 +331,41 @@ message DeparserEmitEvent {
 // in TraceEvent.variable_values and TraceEvent.result_value.
 message AssignmentEvent {
   string target = 1;  // LHS field path (e.g. "standard_metadata.egress_spec")
+}
+
+// =============================================================================
+// Trace filtering
+// =============================================================================
+
+// Selects which events appear in a returned TraceTree.
+//
+// A filter is a *view*, not a different simulation: the simulator always builds
+// the complete trace, and the filter is applied last, on the way out. Only
+// `TraceTree.events` entries are ever removed — the tree's structure
+// (branches, continuations, outcomes) is untouched, so a filtered trace still
+// says exactly what happened to the packet, just less about how.
+//
+// Two rules keep a filtered trace internally consistent:
+//
+//   * Events named by Replication.cause_id, Choice.cause_id, or Drop.cause_id
+//     are always retained, whatever the filter says. An outcome that pointed
+//     at a removed event would make the tree self-contradictory.
+//   * TraceEvent.id is never renumbered. Ids stay as they were in the full
+//     trace, so causes keep resolving, filtered and unfiltered traces stay
+//     comparable, and the gaps make it obvious a filter was applied.
+//
+// An unset filter returns the full trace.
+message TraceFilter {
+  message KindSet {
+    repeated TraceEvent.Kind kinds = 1;
+  }
+
+  oneof mode {
+    // Keep only these kinds. Present but empty means "no events at all",
+    // for callers that want the outcomes and nothing else.
+    KindSet include = 1;
+
+    // Keep every kind except these.
+    KindSet exclude = 2;
+  }
 }
