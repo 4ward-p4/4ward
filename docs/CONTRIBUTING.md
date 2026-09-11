@@ -51,6 +51,22 @@ Run `./tools/dev.sh help` for a summary of available developer commands.
 Don't worry about getting it perfect on the first try — that's what review is
 for. CI will post a coverage report on your PR automatically.
 
+## Changes from Google's internal repository
+
+4ward is also developed inside Google, and the two copies are kept in sync
+automatically. Two things are worth knowing:
+
+- Some pull requests are opened on behalf of an internal change rather than by
+  an individual contributor. They go through the same review as everything
+  else, so review them exactly as you would any other PR.
+- Most `BUILD.bazel` files are kept in sync in both directions, so an internal
+  change normally arrives with its build wiring already in place. A few are
+  owned by this repository and are never touched by the sync: the top-level
+  `BUILD.bazel`, everything under `bazel/`, `examples/BUILD.bazel`,
+  `e2e_tests/pipeline_outputs/BUILD.bazel` and `web/BUILD.bazel`, along with
+  `MODULE.bazel`, `REPO.bazel` and every `*.bzl` file. An internal change that
+  needs one of those needs a follow-up PR to add it.
+
 ## Style
 
 We follow the [Google style guides] — in particular the [C++] and
