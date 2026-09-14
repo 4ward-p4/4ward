@@ -46,8 +46,6 @@ cc_proto_library(
 cc_grpc_library(
     name = "dataplane_cc_grpc",
     srcs = [":dataplane_proto"],
-    # cc_grpc_library's generated code #includes many grpcpp headers without
-    # declaring them as deps on the generated target — out of our control.
     features = ["-layering_check"],
     grpc_only = True,
     visibility = ["//visibility:public"],
@@ -167,7 +165,6 @@ kt_jvm_library(
         "@fourward_maven//:io_grpc_grpc_netty",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
-        "@maven//:com_google_api_grpc_proto_google_common_protos",
     ],
 )
 
@@ -223,7 +220,6 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
-        "@maven//:com_google_api_grpc_proto_google_common_protos",
     ],
 )
 
@@ -256,7 +252,6 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
-        "@maven//:com_google_api_grpc_proto_google_common_protos",
     ],
 )
 

@@ -189,7 +189,46 @@ class TableStoreTest {
       .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
       .build()
 
-  private fun optionalEntry(fieldId: Int, value: ByteArray, actionId: Int): TableEntry =
+  private fun ternaryEntry(
+    firstFieldId: Int,
+    firstValue: ByteArray,
+    firstMask: ByteArray,
+    secondFieldId: Int,
+    secondValue: ByteArray,
+    secondMask: ByteArray,
+    priority: Int,
+    actionId: Int,
+  ): TableEntry =
+    TableEntry.newBuilder()
+      .setTableId(TABLE_ID)
+      .addMatch(
+        FieldMatch.newBuilder()
+          .setFieldId(firstFieldId)
+          .setTernary(
+            FieldMatch.Ternary.newBuilder()
+              .setValue(ByteString.copyFrom(firstValue))
+              .setMask(ByteString.copyFrom(firstMask))
+          )
+      )
+      .addMatch(
+        FieldMatch.newBuilder()
+          .setFieldId(secondFieldId)
+          .setTernary(
+            FieldMatch.Ternary.newBuilder()
+              .setValue(ByteString.copyFrom(secondValue))
+              .setMask(ByteString.copyFrom(secondMask))
+          )
+      )
+      .setPriority(priority)
+      .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
+      .build()
+
+  private fun optionalEntry(
+    fieldId: Int,
+    value: ByteArray,
+    priority: Int,
+    actionId: Int,
+  ): TableEntry =
     TableEntry.newBuilder()
       .setTableId(TABLE_ID)
       .addMatch(
@@ -197,6 +236,15 @@ class TableStoreTest {
           .setFieldId(fieldId)
           .setOptional(FieldMatch.Optional.newBuilder().setValue(ByteString.copyFrom(value)))
       )
+      .setPriority(priority)
+      .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
+      .build()
+
+  /** An entry with no match fields at all: every key field is wildcarded. */
+  private fun wildcardEntry(priority: Int, actionId: Int): TableEntry =
+    TableEntry.newBuilder()
+      .setTableId(TABLE_ID)
+      .setPriority(priority)
       .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
       .build()
 
@@ -399,6 +447,30 @@ class TableStoreTest {
   }
 
   @Test
+  fun `ternary priority counts once per entry, not once per match field`() {
+    val ff = byteArrayOf(0xFF.toByte())
+    // Two ternary fields at priority 50, versus one ternary field at priority 60.
+    // Accumulating priority per field would score the first entry 100 and let it win.
+    write(
+      ternaryEntry(
+        firstFieldId = 1,
+        firstValue = ff,
+        firstMask = ff,
+        secondFieldId = 2,
+        secondValue = ff,
+        secondMask = ff,
+        priority = 50,
+        actionId = 100,
+      )
+    )
+    write(ternaryEntry(1, value = ff, mask = ff, priority = 60, actionId = 200))
+
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0xFF, 8), "2" to BitVal(0xFF, 8)))
+    assertTrue(result.hit)
+    assertEquals("action200", result.actionName)
+  }
+
+  @Test
   fun `ternary wildcard mask matches any value`() {
     // All-zeros mask → match anything (value && 0x00 == 0x00 && 0x00)
     write(
@@ -470,7 +542,7 @@ class TableStoreTest {
 
   @Test
   fun `optional match hit on exact value`() {
-    write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), actionId = 42))
+    write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 10, actionId = 42))
     val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8)))
     assertTrue(result.hit)
     assertEquals("action42", result.actionName)
@@ -478,22 +550,52 @@ class TableStoreTest {
 
   @Test
   fun `optional match miss on different value`() {
-    write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), actionId = 42))
+    write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 10, actionId = 42))
     assertFalse(store.lookup(TABLE_NAME, listOf("1" to BitVal(11, 8))).hit)
   }
 
   @Test
   fun `optional wildcard matches any value when field is absent from entry`() {
-    // Entry has no match fields → all keys are wildcarded
-    val entry =
-      TableEntry.newBuilder()
-        .setTableId(TABLE_ID)
-        .setPriority(1)
-        .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(10)))
-        .build()
-    write(entry)
+    write(wildcardEntry(priority = 1, actionId = 10))
     val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0xFF, 8)))
     assertTrue(result.hit)
+  }
+
+  @Test
+  fun `optional highest priority entry wins when both match`() {
+    // Both entries match 0x0A; higher priority wins.
+    write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 5, actionId = 100))
+    write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 10, actionId = 200))
+
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8)))
+    assertTrue(result.hit)
+    assertEquals("action200", result.actionName)
+  }
+
+  @Test
+  fun `optional entry outranks lower-priority wildcard entry installed before it`() {
+    // This is the SAI `acl_pre_ingress_table` shape: a low-priority catch-all installed
+    // first, then a higher-priority entry whose only match field is `optional`. Scoring
+    // `optional` as zero made both entries tie, and the tie went to the catch-all
+    // because it was installed first.
+    write(wildcardEntry(priority = 1149, actionId = 100))
+    write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 1151, actionId = 200))
+
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8)))
+    assertTrue(result.hit)
+    assertEquals("action200", result.actionName)
+  }
+
+  @Test
+  fun `wildcard entry wins over lower-priority optional entry`() {
+    // The converse of the case above: an entry with no match fields still carries a
+    // priority, so it must win when that priority is the higher one.
+    write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 5, actionId = 100))
+    write(wildcardEntry(priority = 10, actionId = 200))
+
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8)))
+    assertTrue(result.hit)
+    assertEquals("action200", result.actionName)
   }
 
   // ---------------------------------------------------------------------------
@@ -585,7 +687,10 @@ class TableStoreTest {
   fun `hasEntryWithFieldValue tracks optional match writes`() {
     val value = byteArrayOf(0x0B)
 
-    assertEquals(WriteResult.Success, store.write(insertUpdate(optionalEntry(1, value, 10))))
+    assertEquals(
+      WriteResult.Success,
+      store.write(insertUpdate(optionalEntry(1, value, priority = 1, actionId = 10))),
+    )
 
     assertTrue(store.hasEntryWithFieldValue(TABLE_ID, fieldId = 1, ByteString.copyFrom(value)))
   }
