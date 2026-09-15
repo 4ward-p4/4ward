@@ -261,7 +261,8 @@ private fun matchBig(bits: BigInteger, width: Int, match: P4RuntimeOuterClass.Fi
 
 /**
  * P4Runtime spec §9.1: two entries match the same key iff they have the same table_id, match
- * fields, and priority (priority is part of the key for ternary/range tables).
+ * fields, and priority (priority is part of the key for tables with ternary, range, or optional
+ * fields).
  */
 fun TableEntry.sameKey(other: TableEntry): Boolean =
   tableId == other.tableId && priority == other.priority && matchList == other.matchList
@@ -273,6 +274,61 @@ private data class TableEntryKey(
 )
 
 private fun TableEntry.key(): TableEntryKey = TableEntryKey(tableId, priority, matchList)
+
+/**
+ * How a table picks a winner when more than one entry matches a lookup key.
+ *
+ * This is a static property of the P4 program, fixed by the table's match-field types (P4Runtime
+ * §9.1.1). It is deliberately *not* derived from the entries the control plane happens to have
+ * installed: an empty match key is a legal wildcard entry, so no set of entries can tell you which
+ * rule a table uses.
+ */
+enum class MatchResolution {
+  /** Exact fields only. Match keys are unique, so at most one entry can ever match. */
+  EXACT,
+
+  /** Exact and LPM fields. The entry with the longest total prefix wins. */
+  LONGEST_PREFIX,
+
+  /**
+   * At least one ternary, range, or optional field. The entry with the highest `priority` wins.
+   *
+   * Prefix length contributes nothing here, even when the table also has LPM fields — the LPM
+   * prefix still decides whether an entry *matches*, but only priority orders the matches. This
+   * mirrors BMv2, which compiles such a table to its ternary match unit (`simple_switch.md`,
+   * "range tables with an lpm field").
+   */
+  PRIORITY,
+}
+
+/**
+ * Derives a table's [MatchResolution] from its p4info match fields.
+ *
+ * Shared with `WriteValidator`, which enforces the matching write-side rule: entries in a
+ * [MatchResolution.PRIORITY] table must carry a priority, and entries in any other table must not.
+ * Keeping one definition means the reader and the writer cannot drift apart.
+ */
+fun matchResolutionOf(matchFields: List<P4InfoOuterClass.MatchField>): MatchResolution =
+  when {
+    matchFields.any { isPriorityMatchType(it.matchType) } -> MatchResolution.PRIORITY
+    matchFields.any { it.matchType == P4InfoOuterClass.MatchField.MatchType.LPM } ->
+      MatchResolution.LONGEST_PREFIX
+    else -> MatchResolution.EXACT
+  }
+
+/** Whether a match type makes its table priority-ordered (P4Runtime §9.1.1). */
+private fun isPriorityMatchType(matchType: P4InfoOuterClass.MatchField.MatchType): Boolean =
+  when (matchType) {
+    P4InfoOuterClass.MatchField.MatchType.TERNARY,
+    P4InfoOuterClass.MatchField.MatchType.RANGE,
+    P4InfoOuterClass.MatchField.MatchType.OPTIONAL -> true
+    P4InfoOuterClass.MatchField.MatchType.EXACT,
+    P4InfoOuterClass.MatchField.MatchType.LPM -> false
+    // UNSPECIFIED means the field uses `other_match_type`, an architecture-specific kind we do
+    // not model. Such a field cannot order entries, so it cannot make the table priority-ordered.
+    P4InfoOuterClass.MatchField.MatchType.UNSPECIFIED,
+    P4InfoOuterClass.MatchField.MatchType.UNRECOGNIZED -> false
+  }
 
 /** Default action state for a table: action name and optional parameters. */
 data class DefaultAction(
@@ -300,7 +356,7 @@ sealed class WriteResult {
  * Stores and looks up P4 table entries for all tables in a loaded pipeline.
  *
  * Supports exact, LPM, ternary, range, and optional match kinds. Entries are stored per-table;
- * lookup returns the highest-priority match.
+ * [lookup] picks between several matching entries according to the table's [MatchResolution].
  *
  * Call [loadMappings] once per pipeline load before any [write] or [lookup] calls.
  */
@@ -420,6 +476,14 @@ class TableStore : TableDataReader {
       rebuildTableFieldValueIndex(tableName)
     }
 
+    /**
+     * Appends [entry] to [tableName].
+     *
+     * **Append order is load-bearing.** [TableStore.lookup] breaks equal-rank ties by taking the
+     * earlier entry in this list, so this list's order is the observable "installed first" order.
+     * Anything that reorders it — storing entries in a map, swap-removing, sorting — changes which
+     * entry wins a tie, and with it whether 4ward still agrees with BMv2.
+     */
     internal fun addTableEntry(tableName: String, entry: TableEntry) {
       val entries = tableEntriesByName.getOrPut(tableName) { mutableListOf() }
       entries.add(entry)
@@ -427,6 +491,7 @@ class TableStore : TableDataReader {
       addFieldValues(tableName, entry)
     }
 
+    /** Replaces the entry at [index] in place, which preserves its position in the tie order. */
     internal fun replaceTableEntry(tableName: String, index: Int, entry: TableEntry) {
       val entries = tableEntriesByName[tableName] ?: error("unknown table '$tableName'")
       val old = entries[index]
@@ -441,6 +506,12 @@ class TableStore : TableDataReader {
         }
     }
 
+    /**
+     * Removes the entry at [index].
+     *
+     * Uses an order-preserving removal, not a swap-remove: shifting the tail down keeps the
+     * surviving entries in installation order, which [TableStore.lookup] relies on to break ties.
+     */
     internal fun removeTableEntry(tableName: String, index: Int): TableEntry {
       val entries = tableEntriesByName[tableName] ?: error("unknown table '$tableName'")
       val removed = entries.removeAt(index)
@@ -688,6 +759,12 @@ class TableStore : TableDataReader {
   /** Match field descriptors per table (behavioral name), for data-plane add_entry. */
   private var tableMatchFields: Map<String, List<P4InfoOuterClass.MatchField>> = emptyMap()
 
+  /**
+   * How each table (behavioral name) breaks ties between matching entries, derived from p4info at
+   * pipeline load so [lookup] never has to infer it from the installed entries.
+   */
+  private var matchResolutionByTable: Map<String, MatchResolution> = emptyMap()
+
   /** Reverse mapping: behavioral action name -> action ID. */
   private var actionIdByName: Map<String, Int> = emptyMap()
 
@@ -723,6 +800,8 @@ class TableStore : TableDataReader {
     this.tableIdByName = nameIndex.tableIdByName
     this.actionParamInfo = nameIndex.actionParamInfo
     this.tableMatchFields = nameIndex.tableMatchFields
+    this.matchResolutionByTable =
+      nameIndex.tableMatchFields.mapValues { matchResolutionOf(it.value) }
     this.registerInfoById =
       p4info.registersList.associate { reg ->
         val bitwidth = reg.typeSpec.bitstring.bit.bitwidth
@@ -2152,8 +2231,8 @@ class TableStore : TableDataReader {
    * Looks up [keyValues] in [tableName]. Returns the best-matching entry or, on a miss, the default
    * action.
    *
-   * For LPM tables, "best match" means the entry with the longest prefix. For ternary tables, "best
-   * match" means the entry with the highest priority.
+   * What "best" means is fixed by the table's [MatchResolution], which comes from p4info — see
+   * [matchResolutionOf].
    */
   fun lookup(tableName: String, keyValues: List<Pair<String, Value>>): LookupResult {
     forcedHits[tableName]?.let {
@@ -2163,22 +2242,28 @@ class TableStore : TableDataReader {
     val entries = snapshot.tableEntries(tableName)
     val default = snapshot.defaultActions[tableName] ?: DefaultAction("NoAction")
 
-    // Index key values by field ID for O(1) array lookup in scoreEntry.
+    // With no entries there is nothing to rank, so the table misses whatever its resolution rule
+    // is. Checking this first is also what lets a TableStore that never loaded a p4info still
+    // serve lookups: without p4info the store cannot resolve a table ID, so it cannot hold any
+    // entries either, and every lookup is a miss by construction.
+    if (entries.isEmpty()) return LookupResult(false, null, default.name, default.params)
+
+    // Index key values by field ID for O(1) array lookup while matching.
     val keyByFieldId =
       if (keyValues.isEmpty()) emptyArray()
       else arrayOfNulls<Value>(keyValues.maxOf { it.first.toInt() } + 1)
     for ((name, value) in keyValues) keyByFieldId[name.toInt()] = value
 
-    var bestEntry: TableEntry? = null
-    var bestScore = -1L
-    for (j in 0 until entries.size) {
-      val entry = entries[j]
-      val score = scoreEntry(entry, keyByFieldId) ?: continue
-      if (score > bestScore) {
-        bestScore = score
-        bestEntry = entry
+    val resolution =
+      matchResolutionByTable[tableName]
+        ?: error("lookup: table '$tableName' has entries but no p4info match fields")
+    val bestEntry =
+      when (resolution) {
+        // Exact match keys are unique, so the first match is the only match.
+        MatchResolution.EXACT -> entries.firstOrNull { matches(it, keyByFieldId) }
+        MatchResolution.LONGEST_PREFIX -> bestMatch(entries, keyByFieldId) { prefixLen(it) }
+        MatchResolution.PRIORITY -> bestMatch(entries, keyByFieldId) { it.priority.toLong() }
       }
-    }
 
     val entry = bestEntry ?: return LookupResult(false, null, default.name, default.params)
     val tableAction = entry.action
@@ -2276,42 +2361,92 @@ class TableStore : TableDataReader {
     tableAliasByName[simulatorName] ?: actionAliasByName[simulatorName] ?: simulatorName
 
   /**
-   * Scores an entry against [keyByFieldId]. Returns null if the entry does not match. Returns a
-   * non-negative score where a higher value means a better match (used to implement LPM
-   * longest-prefix and ternary priority semantics).
+   * Returns whether [entry]'s match key matches the lookup key in [keyByFieldId].
+   *
+   * This answers only "does it match", never "how well". Ranking is [MatchResolution]'s job.
+   * Keeping them apart matters: it is true that an `optional` field contributes nothing to
+   * *matching* beyond a yes/no, and when the two questions share one function it is tempting — and
+   * wrong — to conclude that it therefore contributes nothing to *ranking* either.
+   *
+   * A field the entry omits entirely is a wildcard, so an entry with no match fields matches
+   * everything.
    */
-  private fun scoreEntry(entry: TableEntry, keyByFieldId: Array<Value?>): Long? {
-    var score = 0L
+  private fun matches(entry: TableEntry, keyByFieldId: Array<Value?>): Boolean {
     val matchList = entry.matchList
     for (i in 0 until matchList.size) {
       val match = matchList[i]
-      val value = keyByFieldId.getOrNull(match.fieldId) ?: return null
+      val value = keyByFieldId.getOrNull(match.fieldId) ?: return false
 
       val bits =
         when (value) {
           is BitVal -> value.bits
           is BoolVal -> if (value.value) BOOL_TRUE_BITS else BOOL_FALSE_BITS
-          else -> return null
+          else -> return false
         }
 
-      if (!matchesFieldMatch(bits, match)) return null
+      if (!matchesFieldMatch(bits, match)) return false
+    }
+    return true
+  }
 
-      // Accumulate score for priority-based match kinds.
-      // Exact and optional don't contribute — all exact fields either match or don't.
+  /**
+   * Total prefix length across [entry]'s LPM fields — the rank for
+   * [MatchResolution.LONGEST_PREFIX].
+   *
+   * Summing across fields is what makes a multi-field LPM table order the way P4 requires: an entry
+   * that constrains more bits overall beats one that constrains fewer.
+   */
+  private fun prefixLen(entry: TableEntry): Long {
+    var total = 0L
+    val matchList = entry.matchList
+    for (i in 0 until matchList.size) {
+      val match = matchList[i]
       when (match.fieldMatchTypeCase) {
         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM ->
-          score += match.lpm.prefixLen.toLong()
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY ->
-          score += entry.priority.toLong()
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE -> score += entry.priority.toLong()
+          total += match.lpm.prefixLen.toLong()
+        // Nothing else carries a prefix. Ternary, range and optional cannot appear here at all:
+        // any of them would have made this a MatchResolution.PRIORITY table.
         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT,
+        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY,
+        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE,
         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL,
         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
-        null -> {}
+        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET -> {}
+        null -> error("field match on '${entry.tableId}' has no kind set")
       }
     }
-    return score
+    return total
+  }
+
+  /**
+   * Returns the matching entry in [entries] with the highest [rank], or null if none match.
+   *
+   * **Ties go to the entry that comes first in [entries]**, which is installation order. That is a
+   * deliberate choice, not an accident of the loop: P4Runtime §9.1.1 permits several entries to
+   * share a priority and requires only that *a* highest-priority match be selected, so the
+   * tie-break is ours to pick. We pick BMv2's, because 4ward exists to predict what BMv2 will do.
+   * BMv2 walks its entry list and replaces the incumbent only on a strictly better priority
+   * (`EntryList::lookup` in `lookup_structures.cpp`), and that list is ordered by entry handle,
+   * which is installation order until an entry is deleted. See `docs/LIMITATIONS.md` for the
+   * delete-then-reinstall case, where BMv2 recycles handles and we do not follow it.
+   */
+  private inline fun bestMatch(
+    entries: List<TableEntry>,
+    keyByFieldId: Array<Value?>,
+    rank: (TableEntry) -> Long,
+  ): TableEntry? {
+    var best: TableEntry? = null
+    var bestRank = 0L
+    for (i in 0 until entries.size) {
+      val entry = entries[i]
+      if (!matches(entry, keyByFieldId)) continue
+      val entryRank = rank(entry)
+      if (best == null || entryRank > bestRank) {
+        best = entry
+        bestRank = entryRank
+      }
+    }
+    return best
   }
 
   companion object {

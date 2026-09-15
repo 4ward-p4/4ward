@@ -117,6 +117,18 @@ UNIMPLEMENTED (rejection is tested), **N/A** = out of scope
 | 9.30b | INSERT into const table → INVALID_ARGUMENT | Y | ConformanceTest #114, WriteValidatorTest |
 | 9.30c | MODIFY const table entry → INVALID_ARGUMENT | Y | ConformanceTest #116, WriteValidatorTest |
 | 9.30d | idle_timeout_ns rejected (no wall-clock time) | R | ConformanceTest #117, WriteErrorTest |
+| 9.31a | Lookup: exact-only table matches at most one entry | Y | TableStoreTest |
+| 9.31b | Lookup: LPM table selects the longest total prefix | Y | TableStoreTest |
+| 9.31c | Lookup: ternary/range/optional table selects the highest priority | Y | TableStoreTest |
+| 9.31d | Lookup: LPM mixed with ternary is priority-ordered; prefix length does not rank | Y | TableStoreTest |
+| 9.31e | Lookup: equal-priority ties go to the entry installed first | Y | TableStoreTest |
+
+> **9.31e is a choice, not a requirement.** §9.1.1 permits several entries in a
+> table to share a priority, and requires only that *a* highest-priority matching
+> entry be selected — so the winner is unspecified when two of them match the same
+> packet. 4ward resolves it the way BMv2 does, in installation order, because
+> 4ward exists to predict BMv2. See [LIMITATIONS.md](LIMITATIONS.md) for the one
+> case where the two diverge.
 
 ### Action profiles (spec §9.2)
 

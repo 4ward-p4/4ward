@@ -1,6 +1,8 @@
 package fourward.grpc
 
 import com.google.protobuf.ByteString
+import fourward.simulator.MatchResolution
+import fourward.simulator.matchResolutionOf
 import fourward.simulator.toUnsignedBigInteger
 import io.grpc.Status
 import io.grpc.StatusException
@@ -36,9 +38,11 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
   private val fieldInfoByTable: Map<Int, Map<Int, P4InfoOuterClass.MatchField>> =
     p4Info.tablesList.associate { it.preamble.id to it.matchFieldsList.associateBy { f -> f.id } }
 
+  // A table is priority-ordered iff it has a ternary, range, or optional field (§9.1.1). The
+  // simulator decides the same thing when it resolves a lookup, so both share one definition.
   private val tableRequiresPriority: Map<Int, Boolean> =
     p4Info.tablesList.associate {
-      it.preamble.id to it.matchFieldsList.any { f -> f.matchType in PRIORITY_MATCH_TYPES }
+      it.preamble.id to (matchResolutionOf(it.matchFieldsList) == MatchResolution.PRIORITY)
     }
 
   // Pre-computed per-action: param lookup.
@@ -414,13 +418,6 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
   }
 
   companion object {
-    private val PRIORITY_MATCH_TYPES =
-      setOf(
-        P4InfoOuterClass.MatchField.MatchType.TERNARY,
-        P4InfoOuterClass.MatchField.MatchType.RANGE,
-        P4InfoOuterClass.MatchField.MatchType.OPTIONAL,
-      )
-
     /**
      * §8.3: ternary value bits must be zero where the mask is zero.
      *
