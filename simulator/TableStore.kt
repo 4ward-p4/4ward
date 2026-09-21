@@ -261,7 +261,8 @@ private fun matchBig(bits: BigInteger, width: Int, match: P4RuntimeOuterClass.Fi
 
 /**
  * P4Runtime spec §9.1: two entries match the same key iff they have the same table_id, match
- * fields, and priority (priority is part of the key for ternary/range tables).
+ * fields, and priority (priority is part of the key for tables with ternary, range, or optional
+ * fields).
  */
 fun TableEntry.sameKey(other: TableEntry): Boolean =
   tableId == other.tableId && priority == other.priority && matchList == other.matchList
@@ -2152,8 +2153,9 @@ class TableStore : TableDataReader {
    * Looks up [keyValues] in [tableName]. Returns the best-matching entry or, on a miss, the default
    * action.
    *
-   * For LPM tables, "best match" means the entry with the longest prefix. For ternary tables, "best
-   * match" means the entry with the highest priority.
+   * For LPM tables, "best match" means the entry with the longest prefix. For priority tables —
+   * those with any ternary, range, or optional field — "best match" means the entry with the
+   * highest priority.
    */
   fun lookup(tableName: String, keyValues: List<Pair<String, Value>>): LookupResult {
     forcedHits[tableName]?.let {
@@ -2278,10 +2280,22 @@ class TableStore : TableDataReader {
   /**
    * Scores an entry against [keyByFieldId]. Returns null if the entry does not match. Returns a
    * non-negative score where a higher value means a better match (used to implement LPM
-   * longest-prefix and ternary priority semantics).
+   * longest-prefix and priority-table semantics).
+   *
+   * P4Runtime §9.1.1 splits tables in two. A table with at least one ternary, range, or optional
+   * field is a *priority* table: entries carry a non-zero `priority` and overlapping entries are
+   * resolved by it alone. Every other table leaves `priority` at zero and resolves overlap by
+   * longest prefix. So `priority` being non-zero is exactly the signal that this is a priority
+   * table, which is what lets an entry with no match fields at all — a catch-all, whose `matchList`
+   * is empty — still be ranked correctly.
+   *
+   * `WriteValidator.validatePriority` enforces both halves of that biconditional on the P4Runtime
+   * write path, so the signal is reliable there. Entries written directly through
+   * [Simulator.writeEntry] (the STF and CLI path) skip that check; a priority table populated that
+   * way with `priority` left at zero degrades to insertion order.
    */
   private fun scoreEntry(entry: TableEntry, keyByFieldId: Array<Value?>): Long? {
-    var score = 0L
+    var prefixLenSum = 0L
     val matchList = entry.matchList
     for (i in 0 until matchList.size) {
       val match = matchList[i]
@@ -2296,14 +2310,12 @@ class TableStore : TableDataReader {
 
       if (!matchesFieldMatch(bits, match)) return null
 
-      // Accumulate score for priority-based match kinds.
-      // Exact and optional don't contribute — all exact fields either match or don't.
+      // Only LPM contributes per field; priority-based kinds are scored once, below.
       when (match.fieldMatchTypeCase) {
         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM ->
-          score += match.lpm.prefixLen.toLong()
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY ->
-          score += entry.priority.toLong()
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE -> score += entry.priority.toLong()
+          prefixLenSum += match.lpm.prefixLen.toLong()
+        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY,
+        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE,
         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT,
         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL,
         P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
@@ -2311,7 +2323,7 @@ class TableStore : TableDataReader {
         null -> {}
       }
     }
-    return score
+    return if (entry.priority != 0) entry.priority.toLong() else prefixLenSum
   }
 
   companion object {
