@@ -2446,7 +2446,7 @@ class TableStore : TableDataReader {
         bestRank = entryRank
       }
     }
-    return best
+    return if (entry.priority != 0) entry.priority.toLong() else prefixLenSum
   }
 
   companion object {

@@ -1,14 +1,14 @@
 package fourward.simulator
 
 import com.google.protobuf.ByteString
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.Action
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.TableAction
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
+import com.google.protos.p4.config.v1.P4InfoOuterClass
+import com.google.protos.p4.v1.P4RuntimeOuterClass
+import com.google.protos.p4.v1.P4RuntimeOuterClass.Action
+import com.google.protos.p4.v1.P4RuntimeOuterClass.Entity
+import com.google.protos.p4.v1.P4RuntimeOuterClass.FieldMatch
+import com.google.protos.p4.v1.P4RuntimeOuterClass.TableAction
+import com.google.protos.p4.v1.P4RuntimeOuterClass.TableEntry
+import com.google.protos.p4.v1.P4RuntimeOuterClass.Update
 import fourward.ActionDecl
 import fourward.BehavioralConfig
 import fourward.DeviceConfig
@@ -1929,11 +1929,11 @@ class TableStoreTest {
     P4InfoOuterClass.Register.newBuilder()
       .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name))
       .setTypeSpec(
-        p4.config.v1.P4Types.P4DataTypeSpec.newBuilder()
+        com.google.protos.p4.config.v1.P4Types.P4DataTypeSpec.newBuilder()
           .setBitstring(
-            p4.config.v1.P4Types.P4BitstringLikeTypeSpec.newBuilder()
+            com.google.protos.p4.config.v1.P4Types.P4BitstringLikeTypeSpec.newBuilder()
               .setBit(
-                p4.config.v1.P4Types.P4BitTypeSpec.newBuilder()
+                com.google.protos.p4.config.v1.P4Types.P4BitTypeSpec.newBuilder()
                   .setBitwidth(bitwidth)
               )
           )
@@ -1952,7 +1952,7 @@ class TableStoreTest {
         .setRegisterId(registerId)
         .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(index))
         .setData(
-          p4.v1.P4DataOuterClass.P4Data.newBuilder()
+          com.google.protos.p4.v1.P4DataOuterClass.P4Data.newBuilder()
             .setBitstring(ByteString.copyFrom(longToBytes(value, (REGISTER_BITWIDTH + 7) / 8)))
         )
         .build()
