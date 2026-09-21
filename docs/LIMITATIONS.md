@@ -142,6 +142,21 @@ traffic rates, or asynchronous controller queues.
   genrules to copy headers into the build tree, but runtime linking requires the
   libraries to be installed (e.g. via Homebrew on macOS).
 - **All 186 corpus tests pass.**
+- **Equal-priority ties are broken by installation order, which can diverge from
+  BMv2 after a delete.** When two entries in a priority table both match a packet
+  and carry the same priority, P4Runtime §9.1.1 leaves the winner unspecified —
+  it permits equal priorities and requires only that *a* highest-priority match be
+  selected. 4ward picks the entry installed first, which is what BMv2 does too:
+  BMv2 walks its entry list and replaces the incumbent only on a strictly higher
+  priority, and that list is ordered by entry handle.
+
+  The two part company once an entry is deleted. BMv2 recycles freed handles
+  (`handle_mgr.h`, `release_handle`), so a newly added entry can reclaim a low
+  handle and jump ahead of older entries; 4ward always appends. Reproducing this
+  would mean copying BMv2's handle allocator, which overfits to one target —
+  DVaaS also diffs 4ward against real switches, and no hardware reproduces BMv2's
+  handle arithmetic. Control planes that care should use distinct priorities for
+  any two entries a single packet can match.
 
 ## p4c backend
 
