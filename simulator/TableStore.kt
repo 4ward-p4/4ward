@@ -6,10 +6,10 @@ import fourward.DeviceConfig
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLongArray
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
+import com.google.protos.p4.config.v1.P4InfoOuterClass
+import com.google.protos.p4.v1.P4RuntimeOuterClass
+import com.google.protos.p4.v1.P4RuntimeOuterClass.TableEntry
+import com.google.protos.p4.v1.P4RuntimeOuterClass.Update
 
 /**
  * Cache for wide (>63-bit) ByteString→BigInteger conversions. Identity-keyed: proto ByteStrings
@@ -333,7 +333,7 @@ private fun isPriorityMatchType(matchType: P4InfoOuterClass.MatchField.MatchType
 /** Default action state for a table: action name and optional parameters. */
 data class DefaultAction(
   val name: String,
-  val params: List<p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
+  val params: List<com.google.protos.p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
 )
 
 /** Result of a [TableStore.write] operation. */
@@ -889,7 +889,7 @@ class TableStore : TableDataReader {
         val params =
           if (table.hasInitialDefaultAction())
             table.initialDefaultAction.argumentsList.map { arg ->
-              p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
+              com.google.protos.p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
                 .setParamId(arg.paramId)
                 .setValue(arg.value)
                 .build()
@@ -1082,7 +1082,7 @@ class TableStore : TableDataReader {
   fun setDefaultAction(
     tableName: String,
     actionName: String,
-    params: List<p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
+    params: List<com.google.protos.p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
   ) {
     writeState.defaultActions[tableName] = DefaultAction(actionName, params)
   }
@@ -1367,7 +1367,7 @@ class TableStore : TableDataReader {
         P4RuntimeOuterClass.RegisterEntry.newBuilder()
           .setRegisterId(registerId)
           .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(index.toLong()))
-          .setData(p4.v1.P4DataOuterClass.P4Data.newBuilder().setBitstring(data))
+          .setData(com.google.protos.p4.v1.P4DataOuterClass.P4Data.newBuilder().setBitstring(data))
       )
       .build()
   }
@@ -2223,7 +2223,7 @@ class TableStore : TableDataReader {
     val hit: Boolean,
     val entry: TableEntry?,
     val actionName: String,
-    val actionParams: List<p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
+    val actionParams: List<com.google.protos.p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
     val members: List<MemberAction>? = null,
   )
 
@@ -2446,7 +2446,7 @@ class TableStore : TableDataReader {
         bestRank = entryRank
       }
     }
-    return if (entry.priority != 0) entry.priority.toLong() else prefixLenSum
+    return best
   }
 
   companion object {
@@ -2466,3 +2466,4 @@ internal fun <T> buildPreEntity(
       P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().also { it.setter(entry) }
     )
     .build()
+
