@@ -1735,11 +1735,11 @@ class TableStoreTest {
     P4InfoOuterClass.Register.newBuilder()
       .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name))
       .setTypeSpec(
-        com.google.protos.p4.config.v1.P4Types.P4DataTypeSpec.newBuilder()
+        p4.config.v1.P4Types.P4DataTypeSpec.newBuilder()
           .setBitstring(
-            com.google.protos.p4.config.v1.P4Types.P4BitstringLikeTypeSpec.newBuilder()
+            p4.config.v1.P4Types.P4BitstringLikeTypeSpec.newBuilder()
               .setBit(
-                com.google.protos.p4.config.v1.P4Types.P4BitTypeSpec.newBuilder()
+                p4.config.v1.P4Types.P4BitTypeSpec.newBuilder()
                   .setBitwidth(bitwidth)
               )
           )
@@ -1758,7 +1758,7 @@ class TableStoreTest {
         .setRegisterId(registerId)
         .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(index))
         .setData(
-          com.google.protos.p4.v1.P4DataOuterClass.P4Data.newBuilder()
+          p4.v1.P4DataOuterClass.P4Data.newBuilder()
             .setBitstring(ByteString.copyFrom(longToBytes(value, (REGISTER_BITWIDTH + 7) / 8)))
         )
         .build()
