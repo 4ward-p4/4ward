@@ -1,5 +1,6 @@
 package fourward.simulator
 
+import com.google.protobuf.ByteString
 import fourward.ActionDecl
 import fourward.BehavioralConfig
 import fourward.DeviceConfig
