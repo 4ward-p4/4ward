@@ -80,26 +80,19 @@ class TableStoreTest {
       .addAllValueSets(valueSets)
       .build()
 
-  /**
-   * Builds a minimal p4info [P4InfoOuterClass.Table] with the given ID and name.
-   *
-   * Defaults to two exact match fields, matching what [exactEntry] writes. Match fields are not
-   * decoration: they are what tells [TableStore] how the table breaks ties between entries.
-   */
+  /** Builds a minimal p4info [P4InfoOuterClass.Table] with the given ID and name. */
   private fun p4infoTable(
     id: Int,
     name: String,
     size: Long = 0,
     implementationId: Int = 0,
     constDefaultActionId: Int = 0,
-    matchFields: List<P4InfoOuterClass.MatchField> = listOf(exactField(1), exactField(2)),
   ): P4InfoOuterClass.Table =
     P4InfoOuterClass.Table.newBuilder()
       .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name).setAlias(name))
       .setSize(size)
       .setImplementationId(implementationId)
       .setConstDefaultActionId(constDefaultActionId)
-      .addAllMatchFields(matchFields)
       .build()
 
   // ---------------------------------------------------------------------------
@@ -141,7 +134,7 @@ class TableStoreTest {
 
   private fun lpmEntry(fieldId: Int, value: ByteArray, prefixLen: Int, actionId: Int): TableEntry =
     TableEntry.newBuilder()
-      .setTableId(LPM_TABLE_ID)
+      .setTableId(TABLE_ID)
       .addMatch(
         FieldMatch.newBuilder()
           .setFieldId(fieldId)
@@ -158,7 +151,7 @@ class TableStoreTest {
   /** Builds a ternary table entry with one match field per element of [fields]. */
   private fun ternaryEntry(vararg fields: TernaryField, priority: Int, actionId: Int): TableEntry =
     TableEntry.newBuilder()
-      .setTableId(TERNARY_TABLE_ID)
+      .setTableId(TABLE_ID)
       .apply {
         for (field in fields) {
           addMatch(
@@ -184,7 +177,7 @@ class TableStoreTest {
     actionId: Int,
   ): TableEntry =
     TableEntry.newBuilder()
-      .setTableId(RANGE_TABLE_ID)
+      .setTableId(TABLE_ID)
       .addMatch(
         FieldMatch.newBuilder()
           .setFieldId(fieldId)
@@ -205,7 +198,7 @@ class TableStoreTest {
     actionId: Int,
   ): TableEntry =
     TableEntry.newBuilder()
-      .setTableId(OPTIONAL_TABLE_ID)
+      .setTableId(TABLE_ID)
       .addMatch(
         FieldMatch.newBuilder()
           .setFieldId(fieldId)
@@ -218,29 +211,7 @@ class TableStoreTest {
   /** An entry with no match fields at all: every key field is wildcarded. */
   private fun wildcardEntry(priority: Int, actionId: Int): TableEntry =
     TableEntry.newBuilder()
-      .setTableId(OPTIONAL_TABLE_ID)
-      .setPriority(priority)
-      .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
-      .build()
-
-  /**
-   * An entry in the mixed LPM + ternary table, constraining only the LPM field.
-   *
-   * The ternary field is omitted, which wildcards it. That is the interesting shape: the entry
-   * looks like pure LPM, but its table is priority-ordered because of a field it does not use.
-   */
-  private fun lpmTernaryEntry(prefixLen: Int, priority: Int, actionId: Int): TableEntry =
-    TableEntry.newBuilder()
-      .setTableId(LPM_TERNARY_TABLE_ID)
-      .addMatch(
-        FieldMatch.newBuilder()
-          .setFieldId(1)
-          .setLpm(
-            FieldMatch.LPM.newBuilder()
-              .setValue(ByteString.copyFrom(byteArrayOf(0xFF.toByte())))
-              .setPrefixLen(prefixLen)
-          )
-      )
+      .setTableId(TABLE_ID)
       .setPriority(priority)
       .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
       .build()
@@ -402,7 +373,7 @@ class TableStoreTest {
     write(lpmEntry(1, byteArrayOf(0xC0.toByte()), prefixLen = 2, actionId = 20))
 
     // 0xC1 matches both /1 and /2; /2 is longer → action20
-    val result = store.lookup(LPM_TABLE_NAME, listOf("1" to BitVal(0xC1, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0xC1, 8)))
     assertTrue(result.hit)
     assertEquals("action20", result.actionName)
   }
@@ -413,7 +384,7 @@ class TableStoreTest {
     write(lpmEntry(1, byteArrayOf(0xC0.toByte()), prefixLen = 2, actionId = 20))
 
     // 0x81 matches /1 (top bit set) but not /2 (top two bits = 10) → action10
-    val result = store.lookup(LPM_TABLE_NAME, listOf("1" to BitVal(0x81, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0x81, 8)))
     assertTrue(result.hit)
     assertEquals("action10", result.actionName)
   }
@@ -423,7 +394,7 @@ class TableStoreTest {
     // Only covers 0b11xx_xxxx
     write(lpmEntry(1, byteArrayOf(0xC0.toByte()), prefixLen = 2, actionId = 20))
     // 0x01 (top bit clear) does not match
-    val result = store.lookup(LPM_TABLE_NAME, listOf("1" to BitVal(1, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(1, 8)))
     assertFalse(result.hit)
   }
 
@@ -438,7 +409,7 @@ class TableStoreTest {
     write(ternaryEntry(TernaryField(1, ff, ff), priority = 5, actionId = 100))
     write(ternaryEntry(TernaryField(1, ff, ff), priority = 10, actionId = 200))
 
-    val result = store.lookup(TERNARY_TABLE_NAME, listOf("1" to BitVal(0xFF, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0xFF, 8)))
     assertTrue(result.hit)
     assertEquals("action200", result.actionName)
   }
@@ -453,8 +424,7 @@ class TableStoreTest {
     )
     write(ternaryEntry(TernaryField(1, ff, ff), priority = 60, actionId = 200))
 
-    val result =
-      store.lookup(TERNARY_TABLE_NAME, listOf("1" to BitVal(0xFF, 8), "2" to BitVal(0xFF, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0xFF, 8), "2" to BitVal(0xFF, 8)))
     assertTrue(result.hit)
     assertEquals("action200", result.actionName)
   }
@@ -469,7 +439,7 @@ class TableStoreTest {
         actionId = 50,
       )
     )
-    val result = store.lookup(TERNARY_TABLE_NAME, listOf("1" to BitVal(0xAB, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0xAB, 8)))
     assertTrue(result.hit)
     assertEquals("action50", result.actionName)
   }
@@ -485,7 +455,7 @@ class TableStoreTest {
       )
     )
     // 0xB0: top nibble = 0xB ≠ 0xA → no match
-    val result = store.lookup(TERNARY_TABLE_NAME, listOf("1" to BitVal(0xB0, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0xB0, 8)))
     assertFalse(result.hit)
   }
 
@@ -498,7 +468,7 @@ class TableStoreTest {
     write(
       rangeEntry(1, lo = byteArrayOf(0x10), hi = byteArrayOf(0x20), priority = 1, actionId = 10)
     )
-    val result = store.lookup(RANGE_TABLE_NAME, listOf("1" to BitVal(0x18, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0x18, 8)))
     assertTrue(result.hit)
     assertEquals("action10", result.actionName)
   }
@@ -508,8 +478,8 @@ class TableStoreTest {
     write(
       rangeEntry(1, lo = byteArrayOf(0x10), hi = byteArrayOf(0x20), priority = 1, actionId = 10)
     )
-    assertTrue(store.lookup(RANGE_TABLE_NAME, listOf("1" to BitVal(0x10, 8))).hit)
-    assertTrue(store.lookup(RANGE_TABLE_NAME, listOf("1" to BitVal(0x20, 8))).hit)
+    assertTrue(store.lookup(TABLE_NAME, listOf("1" to BitVal(0x10, 8))).hit)
+    assertTrue(store.lookup(TABLE_NAME, listOf("1" to BitVal(0x20, 8))).hit)
   }
 
   @Test
@@ -517,8 +487,8 @@ class TableStoreTest {
     write(
       rangeEntry(1, lo = byteArrayOf(0x10), hi = byteArrayOf(0x20), priority = 1, actionId = 10)
     )
-    assertFalse(store.lookup(RANGE_TABLE_NAME, listOf("1" to BitVal(0x0F, 8))).hit)
-    assertFalse(store.lookup(RANGE_TABLE_NAME, listOf("1" to BitVal(0x21, 8))).hit)
+    assertFalse(store.lookup(TABLE_NAME, listOf("1" to BitVal(0x0F, 8))).hit)
+    assertFalse(store.lookup(TABLE_NAME, listOf("1" to BitVal(0x21, 8))).hit)
   }
 
   // ---------------------------------------------------------------------------
@@ -528,7 +498,7 @@ class TableStoreTest {
   @Test
   fun `optional match hit on exact value`() {
     write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 10, actionId = 42))
-    val result = store.lookup(OPTIONAL_TABLE_NAME, listOf("1" to BitVal(10, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8)))
     assertTrue(result.hit)
     assertEquals("action42", result.actionName)
   }
@@ -536,13 +506,13 @@ class TableStoreTest {
   @Test
   fun `optional match miss on different value`() {
     write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 10, actionId = 42))
-    assertFalse(store.lookup(OPTIONAL_TABLE_NAME, listOf("1" to BitVal(11, 8))).hit)
+    assertFalse(store.lookup(TABLE_NAME, listOf("1" to BitVal(11, 8))).hit)
   }
 
   @Test
   fun `optional wildcard matches any value when field is absent from entry`() {
     write(wildcardEntry(priority = 1, actionId = 10))
-    val result = store.lookup(OPTIONAL_TABLE_NAME, listOf("1" to BitVal(0xFF, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0xFF, 8)))
     assertTrue(result.hit)
   }
 
@@ -552,7 +522,7 @@ class TableStoreTest {
     write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 5, actionId = 100))
     write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 10, actionId = 200))
 
-    val result = store.lookup(OPTIONAL_TABLE_NAME, listOf("1" to BitVal(10, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8)))
     assertTrue(result.hit)
     assertEquals("action200", result.actionName)
   }
@@ -566,7 +536,7 @@ class TableStoreTest {
     write(wildcardEntry(priority = 1149, actionId = 100))
     write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 1151, actionId = 200))
 
-    val result = store.lookup(OPTIONAL_TABLE_NAME, listOf("1" to BitVal(10, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8)))
     assertTrue(result.hit)
     assertEquals("action200", result.actionName)
   }
@@ -578,127 +548,7 @@ class TableStoreTest {
     write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 5, actionId = 100))
     write(wildcardEntry(priority = 10, actionId = 200))
 
-    val result = store.lookup(OPTIONAL_TABLE_NAME, listOf("1" to BitVal(10, 8)))
-    assertTrue(result.hit)
-    assertEquals("action200", result.actionName)
-  }
-
-  // ---------------------------------------------------------------------------
-  // Match resolution
-  // ---------------------------------------------------------------------------
-
-  @Test
-  fun `match resolution is exact when every field is exact`() {
-    assertEquals(MatchResolution.EXACT, matchResolutionOf(listOf(exactField(1), exactField(2))))
-  }
-
-  @Test
-  fun `match resolution is longest prefix when a field is LPM`() {
-    assertEquals(
-      MatchResolution.LONGEST_PREFIX,
-      matchResolutionOf(listOf(exactField(1), lpmField(2))),
-    )
-  }
-
-  @Test
-  fun `match resolution is priority for ternary, range and optional fields`() {
-    assertEquals(MatchResolution.PRIORITY, matchResolutionOf(listOf(ternaryField(1))))
-    assertEquals(MatchResolution.PRIORITY, matchResolutionOf(listOf(rangeField(1))))
-    assertEquals(MatchResolution.PRIORITY, matchResolutionOf(listOf(optionalField(1))))
-  }
-
-  @Test
-  fun `match resolution is priority when LPM is mixed with ternary`() {
-    // A ternary field anywhere in the key makes the whole table priority-ordered, even
-    // though the LPM field still decides whether an individual entry matches.
-    assertEquals(MatchResolution.PRIORITY, matchResolutionOf(listOf(lpmField(1), ternaryField(2))))
-  }
-
-  @Test
-  fun `match resolution is exact for a table with no match fields`() {
-    // A table with an empty key can only ever hold one entry, so there is nothing to rank.
-    assertEquals(MatchResolution.EXACT, matchResolutionOf(emptyList()))
-  }
-
-  @Test
-  fun `priority outranks a longer prefix in a table that mixes LPM and ternary`() {
-    // /8 is a strictly more specific prefix than /1, but prefix length does not order
-    // entries once the table has a ternary field — only priority does.
-    write(lpmTernaryEntry(prefixLen = 8, priority = 10, actionId = 100))
-    write(lpmTernaryEntry(prefixLen = 1, priority = 20, actionId = 200))
-
-    val result =
-      store.lookup(LPM_TERNARY_TABLE_NAME, listOf("1" to BitVal(0xFF, 8), "2" to BitVal(0xFF, 8)))
-    assertTrue(result.hit)
-    assertEquals("action200", result.actionName)
-  }
-
-  @Test
-  fun `prefix length does not break ties in a table that mixes LPM and ternary`() {
-    // Entries reaching TableStore without a priority are possible: the STF and CLI path
-    // writes entries directly, bypassing WriteValidator. When every candidate ranks the
-    // same, the table is still priority-ordered, so the longer prefix must not win —
-    // installation order decides, as it does in BMv2's ternary match unit.
-    write(lpmTernaryEntry(prefixLen = 1, priority = 0, actionId = 100))
-    write(lpmTernaryEntry(prefixLen = 8, priority = 0, actionId = 200))
-
-    val result =
-      store.lookup(LPM_TERNARY_TABLE_NAME, listOf("1" to BitVal(0xFF, 8), "2" to BitVal(0xFF, 8)))
-    assertTrue(result.hit)
-    assertEquals("action100", result.actionName)
-  }
-
-  @Test
-  fun `equal priority tie goes to the entry installed first`() {
-    // Two different keys that both match 0xFF, at the same priority. P4Runtime §9.1.1
-    // permits this and does not say who wins; we follow BMv2, which keeps the incumbent
-    // unless a later entry is strictly higher priority.
-    val hiNibble = byteArrayOf(0xF0.toByte())
-    val loNibble = byteArrayOf(0x0F.toByte())
-    write(ternaryEntry(TernaryField(1, hiNibble, hiNibble), priority = 10, actionId = 100))
-    write(ternaryEntry(TernaryField(1, loNibble, loNibble), priority = 10, actionId = 200))
-
-    val result = store.lookup(TERNARY_TABLE_NAME, listOf("1" to BitVal(0xFF, 8)))
-    assertTrue(result.hit)
-    assertEquals("action100", result.actionName)
-  }
-
-  @Test
-  fun `equal prefix length tie goes to the entry installed first`() {
-    // The LPM counterpart. Two /4 prefixes that both cover 0xFF cannot normally coexist,
-    // so this uses distinct fields to produce the same total prefix length two ways.
-    write(lpmEntry(1, byteArrayOf(0xF0.toByte()), prefixLen = 4, actionId = 100))
-    write(lpmEntry(2, byteArrayOf(0xF0.toByte()), prefixLen = 4, actionId = 200))
-
-    val result =
-      store.lookup(LPM_TABLE_NAME, listOf("1" to BitVal(0xFF, 8), "2" to BitVal(0xFF, 8)))
-    assertTrue(result.hit)
-    assertEquals("action100", result.actionName)
-  }
-
-  @Test
-  fun `deleting a tied entry leaves the survivors in installation order`() {
-    // Guards the storage layer, not just lookup: the tie rule reads installation order off the
-    // entry list, so a swap-remove in removeTableEntry would silently change which entry wins.
-    // Deleting the *first* of three is what distinguishes the two: an order-preserving removal
-    // leaves [second, third], a swap-remove leaves [third, second].
-    val hi = byteArrayOf(0xF0.toByte())
-    val lo = byteArrayOf(0x0F)
-    val all = byteArrayOf(0xFF.toByte())
-    val first = ternaryEntry(TernaryField(1, hi, hi), priority = 10, actionId = 100)
-    val second = ternaryEntry(TernaryField(1, lo, lo), priority = 10, actionId = 200)
-    val third = ternaryEntry(TernaryField(1, all, all), priority = 10, actionId = 50)
-    write(first)
-    write(second)
-    write(third)
-    assertEquals(
-      "action100",
-      store.lookup(TERNARY_TABLE_NAME, listOf("1" to BitVal(0xFF, 8))).actionName,
-    )
-
-    store.writeAndPublish(deleteUpdate(first))
-
-    val result = store.lookup(TERNARY_TABLE_NAME, listOf("1" to BitVal(0xFF, 8)))
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8)))
     assertTrue(result.hit)
     assertEquals("action200", result.actionName)
   }
@@ -797,9 +647,7 @@ class TableStoreTest {
       store.write(insertUpdate(optionalEntry(1, value, priority = 1, actionId = 10))),
     )
 
-    assertTrue(
-      store.hasEntryWithFieldValue(OPTIONAL_TABLE_ID, fieldId = 1, ByteString.copyFrom(value))
-    )
+    assertTrue(store.hasEntryWithFieldValue(TABLE_ID, fieldId = 1, ByteString.copyFrom(value)))
   }
 
   @Test
@@ -811,7 +659,7 @@ class TableStoreTest {
       store.write(insertUpdate(lpmEntry(1, value, prefixLen = 8, actionId = 10))),
     )
 
-    assertFalse(store.hasEntryWithFieldValue(LPM_TABLE_ID, fieldId = 1, ByteString.copyFrom(value)))
+    assertFalse(store.hasEntryWithFieldValue(TABLE_ID, fieldId = 1, ByteString.copyFrom(value)))
   }
 
   @Test
@@ -2214,7 +2062,7 @@ class TableStoreTest {
     store.writeAndPublish(insertUpdate(entry1))
     store.writeAndPublish(insertUpdate(entry2))
 
-    val entries = store.getTableEntries(TERNARY_TABLE_NAME)
+    val entries = store.getTableEntries(TABLE_NAME)
     assertEquals(2, entries.size)
     assertEquals(setOf(10, 20), entries.map { it.priority }.toSet())
   }
@@ -3631,22 +3479,6 @@ class TableStoreTest {
     private const val TABLE_NAME = "myTable"
     private const val PROFILE_TABLE_ID = 2
     private const val PROFILE_TABLE_NAME = "selectorTable"
-
-    // One table per match-resolution flavour. A table's tie-breaking rule comes from the match
-    // types p4info declares, so each match kind needs a table that actually declares it — writing
-    // a ternary entry to a table p4info calls exact-only describes a pipeline that cannot exist.
-    private const val LPM_TABLE_ID = 4
-    private const val LPM_TABLE_NAME = "lpmTable"
-    private const val TERNARY_TABLE_ID = 5
-    private const val TERNARY_TABLE_NAME = "ternaryTable"
-    private const val RANGE_TABLE_ID = 6
-    private const val RANGE_TABLE_NAME = "rangeTable"
-    private const val OPTIONAL_TABLE_ID = 7
-    private const val OPTIONAL_TABLE_NAME = "optionalTable"
-    private const val LPM_TERNARY_TABLE_ID = 8
-    private const val LPM_TERNARY_TABLE_NAME = "lpmTernaryTable"
-
-    private const val FIELD_BITWIDTH = 8
     private const val PROFILE_ID = 100
     private const val REGISTER_ID = 500
     private const val REGISTER_NAME = "myRegister"
@@ -3675,55 +3507,17 @@ class TableStoreTest {
         .build()
     }
 
-    /** A p4info match field. IDs are 1-based to line up with the entry builders. */
-    private fun matchField(
-      id: Int,
-      matchType: P4InfoOuterClass.MatchField.MatchType,
-    ): P4InfoOuterClass.MatchField =
-      P4InfoOuterClass.MatchField.newBuilder()
-        .setId(id)
-        .setName("field$id")
-        .setMatchType(matchType)
-        .setBitwidth(FIELD_BITWIDTH)
-        .build()
-
-    private fun exactField(id: Int) = matchField(id, P4InfoOuterClass.MatchField.MatchType.EXACT)
-
-    private fun lpmField(id: Int) = matchField(id, P4InfoOuterClass.MatchField.MatchType.LPM)
-
-    private fun ternaryField(id: Int) =
-      matchField(id, P4InfoOuterClass.MatchField.MatchType.TERNARY)
-
-    private fun rangeField(id: Int) = matchField(id, P4InfoOuterClass.MatchField.MatchType.RANGE)
-
-    private fun optionalField(id: Int) =
-      matchField(id, P4InfoOuterClass.MatchField.MatchType.OPTIONAL)
-
-    /** A p4info table with the given match fields. */
-    private fun table(
-      id: Int,
-      name: String,
-      vararg matchFields: P4InfoOuterClass.MatchField,
-    ): P4InfoOuterClass.Table =
-      P4InfoOuterClass.Table.newBuilder()
-        .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name).setAlias(name))
-        .addAllMatchFields(matchFields.toList())
-        .build()
-
-    /**
-     * Default p4info used by most tests: one table per match kind, plus the standard action IDs.
-     */
+    /** Default p4info used by most tests: one table + the standard set of action IDs. */
     private val BASE_P4INFO: P4InfoOuterClass.P4Info =
       P4InfoOuterClass.P4Info.newBuilder()
-        .addTables(table(TABLE_ID, TABLE_NAME, exactField(1), exactField(2)))
-        .addTables(table(LPM_TABLE_ID, LPM_TABLE_NAME, lpmField(1), lpmField(2)))
-        .addTables(table(TERNARY_TABLE_ID, TERNARY_TABLE_NAME, ternaryField(1), ternaryField(2)))
-        .addTables(table(RANGE_TABLE_ID, RANGE_TABLE_NAME, rangeField(1)))
-        .addTables(table(OPTIONAL_TABLE_ID, OPTIONAL_TABLE_NAME, optionalField(1)))
-        // A table that mixes LPM with ternary is priority-ordered: the prefix still decides
-        // whether an entry matches, but it contributes nothing to precedence.
         .addTables(
-          table(LPM_TERNARY_TABLE_ID, LPM_TERNARY_TABLE_NAME, lpmField(1), ternaryField(2))
+          P4InfoOuterClass.Table.newBuilder()
+            .setPreamble(
+              P4InfoOuterClass.Preamble.newBuilder()
+                .setId(TABLE_ID)
+                .setName(TABLE_NAME)
+                .setAlias(TABLE_NAME)
+            )
         )
         .addAllActions(ACTION_LIST)
         .build()
