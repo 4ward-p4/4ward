@@ -19,6 +19,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import p4.config.v1.P4InfoOuterClass
 import p4.v1.P4RuntimeOuterClass
 import p4.v1.P4RuntimeOuterClass.Action
 import p4.v1.P4RuntimeOuterClass.Entity
