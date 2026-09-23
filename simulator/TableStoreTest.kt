@@ -1,14 +1,5 @@
 package fourward.simulator
 
-import com.google.protobuf.ByteString
-import com.google.protos.p4.config.v1.P4InfoOuterClass
-import com.google.protos.p4.v1.P4RuntimeOuterClass
-import com.google.protos.p4.v1.P4RuntimeOuterClass.Action
-import com.google.protos.p4.v1.P4RuntimeOuterClass.Entity
-import com.google.protos.p4.v1.P4RuntimeOuterClass.FieldMatch
-import com.google.protos.p4.v1.P4RuntimeOuterClass.TableAction
-import com.google.protos.p4.v1.P4RuntimeOuterClass.TableEntry
-import com.google.protos.p4.v1.P4RuntimeOuterClass.Update
 import fourward.ActionDecl
 import fourward.BehavioralConfig
 import fourward.DeviceConfig
@@ -27,6 +18,14 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import p4.config.v1.P4InfoOuterClass
+import p4.v1.P4RuntimeOuterClass
+import p4.v1.P4RuntimeOuterClass.Action
+import p4.v1.P4RuntimeOuterClass.Entity
+import p4.v1.P4RuntimeOuterClass.FieldMatch
+import p4.v1.P4RuntimeOuterClass.TableAction
+import p4.v1.P4RuntimeOuterClass.TableEntry
+import p4.v1.P4RuntimeOuterClass.Update
 
 /**
  * Unit tests for [TableStore] covering exact, LPM, and ternary match kinds along with basic
