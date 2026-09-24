@@ -145,24 +145,26 @@ class TableStoreTest {
       .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
       .build()
 
-  private fun ternaryEntry(
-    fieldId: Int,
-    value: ByteArray,
-    mask: ByteArray,
-    priority: Int,
-    actionId: Int,
-  ): TableEntry =
+  /** One ternary match field: [fieldId] matched against [value] under [mask]. */
+  private class TernaryField(val fieldId: Int, val value: ByteArray, val mask: ByteArray)
+
+  /** Builds a ternary table entry with one match field per element of [fields]. */
+  private fun ternaryEntry(vararg fields: TernaryField, priority: Int, actionId: Int): TableEntry =
     TableEntry.newBuilder()
       .setTableId(TABLE_ID)
-      .addMatch(
-        FieldMatch.newBuilder()
-          .setFieldId(fieldId)
-          .setTernary(
-            FieldMatch.Ternary.newBuilder()
-              .setValue(ByteString.copyFrom(value))
-              .setMask(ByteString.copyFrom(mask))
+      .apply {
+        for (field in fields) {
+          addMatch(
+            FieldMatch.newBuilder()
+              .setFieldId(field.fieldId)
+              .setTernary(
+                FieldMatch.Ternary.newBuilder()
+                  .setValue(ByteString.copyFrom(field.value))
+                  .setMask(ByteString.copyFrom(field.mask))
+              )
           )
-      )
+        }
+      }
       .setPriority(priority)
       .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
       .build()
@@ -183,40 +185,6 @@ class TableStoreTest {
             FieldMatch.Range.newBuilder()
               .setLow(ByteString.copyFrom(lo))
               .setHigh(ByteString.copyFrom(hi))
-          )
-      )
-      .setPriority(priority)
-      .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
-      .build()
-
-  private fun ternaryEntry(
-    firstFieldId: Int,
-    firstValue: ByteArray,
-    firstMask: ByteArray,
-    secondFieldId: Int,
-    secondValue: ByteArray,
-    secondMask: ByteArray,
-    priority: Int,
-    actionId: Int,
-  ): TableEntry =
-    TableEntry.newBuilder()
-      .setTableId(TABLE_ID)
-      .addMatch(
-        FieldMatch.newBuilder()
-          .setFieldId(firstFieldId)
-          .setTernary(
-            FieldMatch.Ternary.newBuilder()
-              .setValue(ByteString.copyFrom(firstValue))
-              .setMask(ByteString.copyFrom(firstMask))
-          )
-      )
-      .addMatch(
-        FieldMatch.newBuilder()
-          .setFieldId(secondFieldId)
-          .setTernary(
-            FieldMatch.Ternary.newBuilder()
-              .setValue(ByteString.copyFrom(secondValue))
-              .setMask(ByteString.copyFrom(secondMask))
           )
       )
       .setPriority(priority)
@@ -438,8 +406,8 @@ class TableStoreTest {
   fun `ternary highest priority entry wins when both match`() {
     val ff = byteArrayOf(0xFF.toByte())
     // Both entries match 0xFF exactly (all-ones mask); higher priority wins
-    write(ternaryEntry(1, value = ff, mask = ff, priority = 5, actionId = 100))
-    write(ternaryEntry(1, value = ff, mask = ff, priority = 10, actionId = 200))
+    write(ternaryEntry(TernaryField(1, ff, ff), priority = 5, actionId = 100))
+    write(ternaryEntry(TernaryField(1, ff, ff), priority = 10, actionId = 200))
 
     val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0xFF, 8)))
     assertTrue(result.hit)
@@ -452,18 +420,9 @@ class TableStoreTest {
     // Two ternary fields at priority 50, versus one ternary field at priority 60.
     // Accumulating priority per field would score the first entry 100 and let it win.
     write(
-      ternaryEntry(
-        firstFieldId = 1,
-        firstValue = ff,
-        firstMask = ff,
-        secondFieldId = 2,
-        secondValue = ff,
-        secondMask = ff,
-        priority = 50,
-        actionId = 100,
-      )
+      ternaryEntry(TernaryField(1, ff, ff), TernaryField(2, ff, ff), priority = 50, actionId = 100)
     )
-    write(ternaryEntry(1, value = ff, mask = ff, priority = 60, actionId = 200))
+    write(ternaryEntry(TernaryField(1, ff, ff), priority = 60, actionId = 200))
 
     val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0xFF, 8), "2" to BitVal(0xFF, 8)))
     assertTrue(result.hit)
@@ -475,9 +434,7 @@ class TableStoreTest {
     // All-zeros mask → match anything (value && 0x00 == 0x00 && 0x00)
     write(
       ternaryEntry(
-        1,
-        value = byteArrayOf(0x00),
-        mask = byteArrayOf(0x00),
+        TernaryField(1, byteArrayOf(0x00), byteArrayOf(0x00)),
         priority = 1,
         actionId = 50,
       )
@@ -492,9 +449,7 @@ class TableStoreTest {
     // Matches only if top nibble = 0xA (mask = 0xF0, value = 0xA0)
     write(
       ternaryEntry(
-        1,
-        value = byteArrayOf(0xA0.toByte()),
-        mask = byteArrayOf(0xF0.toByte()),
+        TernaryField(1, byteArrayOf(0xA0.toByte()), byteArrayOf(0xF0.toByte())),
         priority = 1,
         actionId = 77,
       )
@@ -574,10 +529,10 @@ class TableStoreTest {
 
   @Test
   fun `optional entry outranks lower-priority wildcard entry installed before it`() {
-    // This is the SAI `acl_pre_ingress_table` shape: a low-priority catch-all installed
-    // first, then a higher-priority entry whose only match field is `optional`. Scoring
-    // `optional` as zero made both entries tie, and the tie went to the catch-all
-    // because it was installed first.
+    // This is the SAI `acl_pre_ingress_table` shape: a low-priority catch-all installed first, then
+    // a higher-priority entry whose only match field is `optional`.
+    // Required behavior, asserted below: priority is scored once per entry regardless of
+    // match kind, so 1151 beats 1149 and the optional entry wins.
     write(wildcardEntry(priority = 1149, actionId = 100))
     write(optionalEntry(fieldId = 1, value = byteArrayOf(0x0A), priority = 1151, actionId = 200))
 
@@ -2095,17 +2050,13 @@ class TableStoreTest {
   fun `getTableEntries stores ternary entries with different priorities`() {
     val entry1 =
       ternaryEntry(
-        fieldId = 1,
-        value = byteArrayOf(0x0A),
-        mask = byteArrayOf(0xFF.toByte()),
+        TernaryField(1, byteArrayOf(0x0A), byteArrayOf(0xFF.toByte())),
         priority = 10,
         actionId = 10,
       )
     val entry2 =
       ternaryEntry(
-        fieldId = 1,
-        value = byteArrayOf(0x0A),
-        mask = byteArrayOf(0xFF.toByte()),
+        TernaryField(1, byteArrayOf(0x0A), byteArrayOf(0xFF.toByte())),
         priority = 20,
         actionId = 20,
       )
