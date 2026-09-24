@@ -1890,10 +1890,11 @@ class TableStoreTest {
     val s = storeWithRegister()
     s.registerWrite(REGISTER_NAME, 0, BitVal(42, REGISTER_BITWIDTH))
 
-    val captured = s.captureRegisterSeeds {
-      s.registerWrite(REGISTER_NAME, 0, BitVal(7, REGISTER_BITWIDTH))
-      s.registerRead(REGISTER_NAME, 0)
-    }
+    val captured =
+      s.captureRegisterSeeds {
+        s.registerWrite(REGISTER_NAME, 0, BitVal(7, REGISTER_BITWIDTH))
+        s.registerRead(REGISTER_NAME, 0)
+      }
 
     assertEquals(BitVal(7, REGISTER_BITWIDTH), captured.result)
     assertEquals(
@@ -3496,16 +3497,17 @@ class TableStoreTest {
     private const val VALUE_SET_NAME = "myValueSet"
     private const val VALUE_SET_SIZE = 4
     private val ACTION_IDS = listOf(10, 20, 42, 50, 77, 99, 100, 200)
-    private val ACTION_LIST: List<P4InfoOuterClass.Action> = ACTION_IDS.map { id ->
-      P4InfoOuterClass.Action.newBuilder()
-        .setPreamble(
-          P4InfoOuterClass.Preamble.newBuilder()
-            .setId(id)
-            .setName("action$id")
-            .setAlias("action$id")
-        )
-        .build()
-    }
+    private val ACTION_LIST: List<P4InfoOuterClass.Action> =
+      ACTION_IDS.map { id ->
+        P4InfoOuterClass.Action.newBuilder()
+          .setPreamble(
+            P4InfoOuterClass.Preamble.newBuilder()
+              .setId(id)
+              .setName("action$id")
+              .setAlias("action$id")
+          )
+          .build()
+      }
 
     /** Default p4info used by most tests: one table + the standard set of action IDs. */
     private val BASE_P4INFO: P4InfoOuterClass.P4Info =
@@ -3518,3 +3520,8 @@ class TableStoreTest {
                 .setName(TABLE_NAME)
                 .setAlias(TABLE_NAME)
             )
+        )
+        .addAllActions(ACTION_LIST)
+        .build()
+  }
+}
