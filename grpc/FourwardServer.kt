@@ -43,6 +43,7 @@ class FourwardServer(
   private val p4RuntimeService = MultiDeviceP4RuntimeService(registry)
   private val dataplaneService = MultiDeviceDataplaneService(registry, defaultDeviceId = deviceId)
   private val managementService = ManagementService(registry)
+  private val networkService = NetworkService(registry)
 
   private lateinit var server: Server
 
@@ -63,6 +64,7 @@ class FourwardServer(
         .addService(p4RuntimeService)
         .addService(dataplaneService)
         .addService(managementService)
+        .addService(networkService)
         .build()
         .start()
     Runtime.getRuntime().addShutdownHook(Thread { stop() })
