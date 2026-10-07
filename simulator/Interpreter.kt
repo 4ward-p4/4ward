@@ -893,15 +893,26 @@ class Interpreter internal constructor(config: BehavioralConfig) {
             else -> error("isValid on non-header: $target${sourceContext()}")
           }
         }
+        // setValid/setInvalid adjust env.packetLengthDeltaBits only on an actual validity
+        // transition of the target header, mirroring BMv2's add_header/remove_header primitives
+        // (which p4c's BMv2 backend emits for these calls). Side effects that BMv2 does not
+        // count — union sibling invalidation, parser extract, header assignment, stack
+        // push/pop — deliberately leave the delta unchanged.
         "setValid" -> {
           val target = evalExpr(call.target, env) as HeaderVal
           invalidateUnionSiblings(call.target, target, env)
+          if (!target.valid) env.packetLengthDeltaBits += target.bitLength()
           target.valid = true
           UnitVal
         }
         "setInvalid" -> {
           when (val target = evalExpr(call.target, env)) {
-            is HeaderVal -> target.setInvalid()
+            is HeaderVal -> {
+              // Measure before invalidating: setInvalid() zeroes fields, and a varbit field's
+              // runtime width is part of the header's current size.
+              if (target.valid) env.packetLengthDeltaBits -= target.bitLength()
+              target.setInvalid()
+            }
             is StructVal -> target.invalidateUnion()
             else -> error("setInvalid on non-header: $target${sourceContext()}")
           }

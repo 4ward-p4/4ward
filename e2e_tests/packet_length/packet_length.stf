@@ -1,0 +1,12 @@
+# packet_length.stf — STF test for packet_length.p4
+#
+# Output layout: ethernet | len(ingress_packet_length, egress_packet_length) | payload.
+
+# VLAN-tagged: 20-byte input. Ingress sees 20 (0x14); egress sees
+# 20 - 4 (VLAN popped) + 8 (len added) = 24 (0x18).
+packet 0 FFFFFFFFFFFF 000000000001 8100 0000 0800 ABCD
+expect 1 FFFFFFFFFFFF 000000000001 0800 00000014 00000018 ABCD
+
+# Untagged: 16-byte input. Ingress sees 16 (0x10); egress sees 16 + 8 = 24 (0x18).
+packet 0 FFFFFFFFFFFF 000000000001 0800 ABCD
+expect 1 FFFFFFFFFFFF 000000000001 0800 00000010 00000018 ABCD

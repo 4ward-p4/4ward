@@ -416,8 +416,9 @@ class V1ModelArchitecture(
         fork.forkPointPendingOps,
         CLONE_E2E_INSTANCE_TYPE,
         fork.preservedMetadata,
-      ) { _, s ->
+      ) { c, s ->
         resetEgressSpec(s)
+        setEgressPacketLength(c, s)
         runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
         if (egressSpecIsDropPort(s))
           buildDropTrace(
@@ -453,7 +454,6 @@ class V1ModelArchitecture(
           s.standardMetadata.setBitField("instance_type", instanceType)
           s.standardMetadata.setBitField("egress_port", replica.port.toLong())
           s.standardMetadata.setBitField("egress_rid", replica.rid.toLong())
-          s.standardMetadata.setBitField("packet_length", ctx.packet.packetByteLength.toLong())
           applyPreservedMetadata(ctx, s.env, preservedMetadata)
         },
         pipelineTail = pipelineTail,
@@ -695,6 +695,7 @@ class V1ModelArchitecture(
    */
   private fun runEgressAndDeparser(ctx: PipelineContext, s: PipelineState): TraceTree {
     resetEgressSpec(s)
+    setEgressPacketLength(ctx, s)
     setEgressTimestamps(s)
     runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
     postEgressBoundary(ctx, s)
@@ -707,6 +708,26 @@ class V1ModelArchitecture(
     }
 
     return runDeparser(s)
+  }
+
+  /**
+   * Reloads `standard_metadata.packet_length` at egress entry, as BMv2 simple_switch does.
+   *
+   * BMv2 keeps the packet length in a per-packet register that its `add_header` / `remove_header`
+   * primitives (i.e. `setValid()` / `setInvalid()`) adjust by the header's size, and copies that
+   * register into `packet_length` at the start of egress. So e.g. popping a VLAN tag in ingress
+   * makes egress see a packet 4 bytes shorter. SAI P4 relies on this when computing encap lengths
+   * (e.g. `gre_encap.p4`'s outer IPv6 payload_length). The ingress-visible `packet_length` is left
+   * at the original input length, again matching BMv2.
+   */
+  private fun setEgressPacketLength(ctx: PipelineContext, s: PipelineState) {
+    val deltaBits = s.env.packetLengthDeltaBits
+    check(deltaBits % Byte.SIZE_BITS == 0) {
+      "setValid/setInvalid changed the packet length by $deltaBits bits, which is not a whole " +
+        "number of bytes; v1model packet_length is in bytes"
+    }
+    val length = ctx.packet.packetByteLength.toLong() + deltaBits / Byte.SIZE_BITS
+    s.standardMetadata.setBitField("packet_length", length)
   }
 
   /**
