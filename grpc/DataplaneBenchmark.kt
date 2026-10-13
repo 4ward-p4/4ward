@@ -5,13 +5,19 @@ import fourward.PipelineConfig
 import fourward.TranslationEntry
 import fourward.TypeTranslation
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.Action
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.Replica
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 /**
  * Dataplane performance benchmark for SAI P4 middleblock.
@@ -445,7 +451,7 @@ class DataplaneBenchmark {
         harness.installEntry(
           Entity.newBuilder()
             .setActionProfileMember(
-              P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+              ActionProfileMember.newBuilder()
                 .setActionProfileId(profileId)
                 .setMemberId(memberId)
                 .setAction(
@@ -469,15 +475,12 @@ class DataplaneBenchmark {
       harness.installEntry(
         Entity.newBuilder()
           .setActionProfileGroup(
-            P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
+            ActionProfileGroup.newBuilder()
               .setActionProfileId(profileId)
               .setGroupId(1)
               .addAllMembers(
                 (1..wcmpMembers).map { mid ->
-                  P4RuntimeOuterClass.ActionProfileGroup.Member.newBuilder()
-                    .setMemberId(mid)
-                    .setWeight(1)
-                    .build()
+                  ActionProfileGroup.Member.newBuilder().setMemberId(mid).setWeight(1).build()
                 }
               )
           )
@@ -493,7 +496,7 @@ class DataplaneBenchmark {
             TableEntry.newBuilder()
               .setTableId(wcmpTable.preamble.id)
               .addMatch(exactMatch(wcmpTable, "wcmp_group_id", "wcmp-1"))
-              .setAction(P4RuntimeOuterClass.TableAction.newBuilder().setActionProfileGroupId(1))
+              .setAction(TableAction.newBuilder().setActionProfileGroupId(1))
           )
           .build()
       )
@@ -671,12 +674,12 @@ class DataplaneBenchmark {
     harness.installEntry(
       Entity.newBuilder()
         .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+          PacketReplicationEngineEntry.newBuilder()
             .setCloneSessionEntry(
-              P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
+              CloneSessionEntry.newBuilder()
                 .setSessionId(CLONE_SESSION_ID)
                 .addReplicas(
-                  P4RuntimeOuterClass.Replica.newBuilder()
+                  Replica.newBuilder()
                     .setPort(ByteString.copyFromUtf8(CPU_PORT.toString()))
                     .setInstance(1)
                 )
@@ -696,15 +699,15 @@ class DataplaneBenchmark {
 
   private fun findAction(alias: String) = FourwardTestHarness.findAction(config, alias)
 
-  private fun matchFieldId(table: P4InfoOuterClass.Table, name: String) =
+  private fun matchFieldId(table: Table, name: String) =
     FourwardTestHarness.matchFieldId(table, name)
 
-  private fun paramId(action: P4InfoOuterClass.Action, name: String) =
+  private fun paramId(action: P4InfoAction, name: String) =
     FourwardTestHarness.paramId(action, name)
 
   private fun buildEntry(
-    table: P4InfoOuterClass.Table,
-    action: P4InfoOuterClass.Action,
+    table: Table,
+    action: P4InfoAction,
     matches: List<FieldMatch>,
     params: List<Action.Param> = emptyList(),
     priority: Int = 0,
@@ -714,41 +717,30 @@ class DataplaneBenchmark {
         .setTableId(table.preamble.id)
         .addAllMatch(matches)
         .setAction(
-          P4RuntimeOuterClass.TableAction.newBuilder()
+          TableAction.newBuilder()
             .setAction(Action.newBuilder().setActionId(action.preamble.id).addAllParams(params))
         )
     if (priority > 0) entry.setPriority(priority)
     return Entity.newBuilder().setTableEntry(entry).build()
   }
 
-  private fun exactMatch(
-    table: P4InfoOuterClass.Table,
-    fieldName: String,
-    value: ByteArray,
-  ): FieldMatch =
+  private fun exactMatch(table: Table, fieldName: String, value: ByteArray): FieldMatch =
     FieldMatch.newBuilder()
       .setFieldId(matchFieldId(table, fieldName))
       .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(value)))
       .build()
 
-  private fun exactMatch(
-    table: P4InfoOuterClass.Table,
-    fieldName: String,
-    value: String,
-  ): FieldMatch = exactMatch(table, fieldName, value.toByteArray(Charsets.UTF_8))
+  private fun exactMatch(table: Table, fieldName: String, value: String): FieldMatch =
+    exactMatch(table, fieldName, value.toByteArray(Charsets.UTF_8))
 
-  private fun optionalMatch(
-    table: P4InfoOuterClass.Table,
-    fieldName: String,
-    value: ByteArray,
-  ): FieldMatch =
+  private fun optionalMatch(table: Table, fieldName: String, value: ByteArray): FieldMatch =
     FieldMatch.newBuilder()
       .setFieldId(matchFieldId(table, fieldName))
       .setOptional(FieldMatch.Optional.newBuilder().setValue(ByteString.copyFrom(value)))
       .build()
 
   private fun ternaryMatch(
-    table: P4InfoOuterClass.Table,
+    table: Table,
     fieldName: String,
     value: ByteArray,
     mask: ByteArray,
@@ -763,7 +755,7 @@ class DataplaneBenchmark {
       .build()
 
   private fun lpmMatch(
-    table: P4InfoOuterClass.Table,
+    table: Table,
     fieldName: String,
     value: ByteArray,
     prefixLen: Int,
@@ -775,21 +767,13 @@ class DataplaneBenchmark {
       )
       .build()
 
-  private fun stringParam(
-    action: P4InfoOuterClass.Action,
-    paramName: String,
-    value: String,
-  ): Action.Param =
+  private fun stringParam(action: P4InfoAction, paramName: String, value: String): Action.Param =
     Action.Param.newBuilder()
       .setParamId(paramId(action, paramName))
       .setValue(ByteString.copyFromUtf8(value))
       .build()
 
-  private fun bytesParam(
-    action: P4InfoOuterClass.Action,
-    paramName: String,
-    value: ByteArray,
-  ): Action.Param =
+  private fun bytesParam(action: P4InfoAction, paramName: String, value: ByteArray): Action.Param =
     Action.Param.newBuilder()
       .setParamId(paramId(action, paramName))
       .setValue(ByteString.copyFrom(value))

@@ -19,8 +19,8 @@ kt_jvm_library(
     visibility = ["//visibility:private"],
     deps = [
         "//grpc",  # Bytestrings.canonicalizeTableEntry (spec §8.3 padding canonicalization).
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -30,9 +30,9 @@ kt_jvm_test(
     test_class = "fourward.e2e.p4runtimediff.ResponseDiffTest",
     deps = [
         ":response_diff",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -100,9 +100,9 @@ kt_jvm_library(
     deps = [
         "//grpc",
         "//grpc:p4runtime_java_grpc",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:io_grpc_grpc_api",
         "@fourward_maven//:io_grpc_grpc_netty",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -111,10 +111,10 @@ kt_jvm_library(
     srcs = ["P4RuntimeStatus.kt"],
     visibility = ["//visibility:private"],
     deps = [
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -133,9 +133,9 @@ kt_jvm_test(
     deps = [
         ":runners",
         "//bazel:runfiles",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:io_grpc_grpc_api",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -145,8 +145,8 @@ _DIFF_TEST_DEPS = [
     "//bazel:runfiles",
     "//grpc:p4runtime_java_grpc",
     "//simulator:ir_java_proto",
-    "//simulator:p4info_java_proto",
-    "//simulator:p4runtime_java_proto",
+    "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+    "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     "//stf",
     "@fourward_maven//:com_google_protobuf_protobuf_java",
     "@fourward_maven//:io_grpc_grpc_api",

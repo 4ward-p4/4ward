@@ -19,14 +19,28 @@ import fourward.Type
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.Action
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.TableAction
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.ActionProfile
+import org.p4.config.v1.ActionRef
+import org.p4.config.v1.DirectCounter
+import org.p4.config.v1.DirectMeter
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileAction
+import org.p4.v1.ActionProfileActionSet
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.CounterData
+import org.p4.v1.DirectCounterEntry
+import org.p4.v1.DirectMeterEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.MeterConfig
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 class DirectResourceUsageTest {
   @Test
@@ -209,7 +223,7 @@ class DirectResourceUsageTest {
     assertEquals(WriteResult.Success, result)
     val readBack =
       store.readDirectCounterEntries(
-        P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+        DirectCounterEntry.newBuilder()
           .setTableEntry(TableEntry.newBuilder().setTableId(TABLE_ID).setIsDefaultAction(true))
           .build()
       )
@@ -228,7 +242,7 @@ class DirectResourceUsageTest {
     assertEquals(WriteResult.Success, result)
     val readBack =
       store.readDirectMeterEntries(
-        P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+        DirectMeterEntry.newBuilder()
           .setTableEntry(TableEntry.newBuilder().setTableId(TABLE_ID).setIsDefaultAction(true))
           .build()
       )
@@ -248,7 +262,7 @@ class DirectResourceUsageTest {
     assertEquals(WriteResult.Success, result)
     val readBack =
       store.readDirectCounterEntries(
-        P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+        DirectCounterEntry.newBuilder()
           .setTableEntry(TableEntry.newBuilder().setTableId(TABLE_ID).setIsDefaultAction(true))
           .build()
       )
@@ -277,9 +291,9 @@ class DirectResourceUsageTest {
       p4info =
         baseP4InfoBuilder()
           .addDirectCounters(
-            P4InfoOuterClass.DirectCounter.newBuilder()
+            DirectCounter.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(DIRECT_COUNTER_ID)
                   .setName("ingress.my_ctrl.my_counter")
                   .setAlias("my_counter")
@@ -303,9 +317,9 @@ class DirectResourceUsageTest {
       p4info =
         baseP4InfoBuilder()
           .addDirectCounters(
-            P4InfoOuterClass.DirectCounter.newBuilder()
+            DirectCounter.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(DIRECT_COUNTER_ID)
                   .setName("ingress.my_ctrl.my_counter")
                   .setAlias("my_counter")
@@ -329,35 +343,29 @@ class DirectResourceUsageTest {
     val store = TableStore()
     store.loadMappings(
       p4info =
-        P4InfoOuterClass.P4Info.newBuilder()
+        P4Info.newBuilder()
           .addTables(
-            P4InfoOuterClass.Table.newBuilder()
+            Table.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
-                  .setId(tableAId)
-                  .setName("tableA")
-                  .setAlias("tableA")
+                Preamble.newBuilder().setId(tableAId).setName("tableA").setAlias("tableA")
               )
-              .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_10_ID))
-              .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_20_ID))
+              .addActionRefs(ActionRef.newBuilder().setId(ACTION_10_ID))
+              .addActionRefs(ActionRef.newBuilder().setId(ACTION_20_ID))
           )
           .addTables(
-            P4InfoOuterClass.Table.newBuilder()
+            Table.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
-                  .setId(tableBId)
-                  .setName("tableB")
-                  .setAlias("tableB")
+                Preamble.newBuilder().setId(tableBId).setName("tableB").setAlias("tableB")
               )
-              .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_10_ID))
-              .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_20_ID))
+              .addActionRefs(ActionRef.newBuilder().setId(ACTION_10_ID))
+              .addActionRefs(ActionRef.newBuilder().setId(ACTION_20_ID))
           )
           .addActions(action(ACTION_10_ID, "action10"))
           .addActions(action(ACTION_20_ID, "action20"))
           .addDirectCounters(
-            P4InfoOuterClass.DirectCounter.newBuilder()
+            DirectCounter.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(801)
                   .setName("ingress.ctrl.a_counter")
                   .setAlias("a_counter")
@@ -365,9 +373,9 @@ class DirectResourceUsageTest {
               .setDirectTableId(tableAId)
           )
           .addDirectCounters(
-            P4InfoOuterClass.DirectCounter.newBuilder()
+            DirectCounter.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(802)
                   .setName("ingress.ctrl.b_counter")
                   .setAlias("b_counter")
@@ -419,7 +427,7 @@ class DirectResourceUsageTest {
             .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(1))))
         )
         .setAction(tableAction(ACTION_10_ID))
-        .setCounterData(P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(1))
+        .setCounterData(CounterData.newBuilder().setPacketCount(1))
         .build()
     assertEquals(WriteResult.Success, store.writeAndPublish(insertUpdate(entryA)))
 
@@ -432,7 +440,7 @@ class DirectResourceUsageTest {
             .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(2))))
         )
         .setAction(tableAction(ACTION_20_ID))
-        .setCounterData(P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(1))
+        .setCounterData(CounterData.newBuilder().setPacketCount(1))
         .build()
     val result = store.writeAndPublish(insertUpdate(entryA2))
     assertTrue("expected InvalidArgument, got $result", result is WriteResult.InvalidArgument)
@@ -460,10 +468,10 @@ class DirectResourceUsageTest {
       .setAction(
         TableAction.newBuilder()
           .setActionProfileActionSet(
-            P4RuntimeOuterClass.ActionProfileActionSet.newBuilder()
+            ActionProfileActionSet.newBuilder()
               .addAllActionProfileActions(
                 actionIds.map { actionId ->
-                  P4RuntimeOuterClass.ActionProfileAction.newBuilder()
+                  ActionProfileAction.newBuilder()
                     .setAction(Action.newBuilder().setActionId(actionId))
                     .setWeight(1)
                     .build()
@@ -491,16 +499,10 @@ class DirectResourceUsageTest {
       )
 
   private fun withCounterData(entry: TableEntry): TableEntry =
-    entry
-      .toBuilder()
-      .setCounterData(P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(42))
-      .build()
+    entry.toBuilder().setCounterData(CounterData.newBuilder().setPacketCount(42)).build()
 
   private fun withMeterConfig(entry: TableEntry): TableEntry =
-    entry
-      .toBuilder()
-      .setMeterConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(1000))
-      .build()
+    entry.toBuilder().setMeterConfig(MeterConfig.newBuilder().setCir(1000)).build()
 
   private fun insertUpdate(entry: TableEntry): Update = update(Update.Type.INSERT, entry)
 
@@ -518,7 +520,7 @@ class DirectResourceUsageTest {
         .setEntity(
           Entity.newBuilder()
             .setActionProfileMember(
-              P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+              ActionProfileMember.newBuilder()
                 .setActionProfileId(PROFILE_ID)
                 .setMemberId(memberId)
                 .setAction(Action.newBuilder().setActionId(actionId))
@@ -535,12 +537,12 @@ class DirectResourceUsageTest {
         .setEntity(
           Entity.newBuilder()
             .setActionProfileGroup(
-              P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
+              ActionProfileGroup.newBuilder()
                 .setActionProfileId(PROFILE_ID)
                 .setGroupId(groupId)
                 .addAllMembers(
                   memberIds.map { memberId ->
-                    P4RuntimeOuterClass.ActionProfileGroup.Member.newBuilder()
+                    ActionProfileGroup.Member.newBuilder()
                       .setMemberId(memberId)
                       .setWeight(1)
                       .build()
@@ -642,16 +644,11 @@ class DirectResourceUsageTest {
       )
       .build()
 
-  private fun p4infoWithDirectCounter(): P4InfoOuterClass.P4Info =
+  private fun p4infoWithDirectCounter(): P4Info =
     baseP4InfoBuilder()
       .addDirectCounters(
-        P4InfoOuterClass.DirectCounter.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder()
-              .setId(DIRECT_COUNTER_ID)
-              .setName("dc")
-              .setAlias("dc")
-          )
+        DirectCounter.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(DIRECT_COUNTER_ID).setName("dc").setAlias("dc"))
           .setDirectTableId(TABLE_ID)
       )
       .build()
@@ -660,77 +657,57 @@ class DirectResourceUsageTest {
    * Like [p4infoWithDirectCounter], but with a name on the counter preamble so the explicit
    * (non-v1model) path can match it against `directResourceCalls` in the action body.
    */
-  private fun p4infoWithNamedDirectCounter(): P4InfoOuterClass.P4Info =
+  private fun p4infoWithNamedDirectCounter(): P4Info =
     baseP4InfoBuilder()
       .addDirectCounters(
-        P4InfoOuterClass.DirectCounter.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder()
-              .setId(DIRECT_COUNTER_ID)
-              .setName("dc")
-              .setAlias("dc")
-          )
+        DirectCounter.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(DIRECT_COUNTER_ID).setName("dc").setAlias("dc"))
           .setDirectTableId(TABLE_ID)
       )
       .build()
 
-  private fun p4infoWithoutDirectResources(): P4InfoOuterClass.P4Info = baseP4InfoBuilder().build()
+  private fun p4infoWithoutDirectResources(): P4Info = baseP4InfoBuilder().build()
 
-  private fun p4infoWithActionProfileDirectCounter(
-    withSelector: Boolean = false
-  ): P4InfoOuterClass.P4Info =
+  private fun p4infoWithActionProfileDirectCounter(withSelector: Boolean = false): P4Info =
     baseP4InfoBuilder(implementationId = PROFILE_ID)
       .addActionProfiles(
-        P4InfoOuterClass.ActionProfile.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(PROFILE_ID))
+        ActionProfile.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(PROFILE_ID))
           .setWithSelector(withSelector)
       )
       .addDirectCounters(
-        P4InfoOuterClass.DirectCounter.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder()
-              .setId(DIRECT_COUNTER_ID)
-              .setName("dc")
-              .setAlias("dc")
-          )
+        DirectCounter.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(DIRECT_COUNTER_ID).setName("dc").setAlias("dc"))
           .setDirectTableId(TABLE_ID)
       )
       .build()
 
-  private fun p4infoWithDirectMeter(): P4InfoOuterClass.P4Info =
+  private fun p4infoWithDirectMeter(): P4Info =
     baseP4InfoBuilder()
       .addDirectMeters(
-        P4InfoOuterClass.DirectMeter.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder()
-              .setId(DIRECT_METER_ID)
-              .setName("dm")
-              .setAlias("dm")
-          )
+        DirectMeter.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(DIRECT_METER_ID).setName("dm").setAlias("dm"))
           .setDirectTableId(TABLE_ID)
       )
       .build()
 
-  private fun baseP4InfoBuilder(implementationId: Int = 0): P4InfoOuterClass.P4Info.Builder =
-    P4InfoOuterClass.P4Info.newBuilder()
+  private fun baseP4InfoBuilder(implementationId: Int = 0): P4Info.Builder =
+    P4Info.newBuilder()
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
+        Table.newBuilder()
           .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder()
-              .setId(TABLE_ID)
-              .setName(TABLE_NAME)
-              .setAlias(TABLE_NAME)
+            Preamble.newBuilder().setId(TABLE_ID).setName(TABLE_NAME).setAlias(TABLE_NAME)
           )
           .setImplementationId(implementationId)
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_10_ID))
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_20_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(ACTION_10_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(ACTION_20_ID))
       )
       .addActions(action(ACTION_10_ID, "action10"))
       .addActions(action(ACTION_20_ID, "action20"))
 
-  private fun action(id: Int, name: String): P4InfoOuterClass.Action =
-    P4InfoOuterClass.Action.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name).setAlias(name))
+  private fun action(id: Int, name: String): P4InfoAction =
+    P4InfoAction.newBuilder()
+      .setPreamble(Preamble.newBuilder().setId(id).setName(name).setAlias(name))
       .build()
 
   companion object {

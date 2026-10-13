@@ -19,14 +19,42 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.Action
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.TableAction
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.ActionProfile
+import org.p4.config.v1.Counter
+import org.p4.config.v1.DirectCounter
+import org.p4.config.v1.DirectMeter
+import org.p4.config.v1.Meter
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Register
+import org.p4.config.v1.Table
+import org.p4.config.v1.ValueSet
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileAction
+import org.p4.v1.ActionProfileActionSet
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.CounterData
+import org.p4.v1.CounterEntry
+import org.p4.v1.DirectCounterEntry
+import org.p4.v1.DirectMeterEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.Index
+import org.p4.v1.MeterConfig
+import org.p4.v1.MeterCounterData
+import org.p4.v1.MeterEntry
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.RegisterEntry
+import org.p4.v1.Replica
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
+import org.p4.v1.ValueSetEntry
+import org.p4.v1.ValueSetMember
 
 /**
  * Unit tests for [TableStore] covering exact, LPM, and ternary match kinds along with basic
@@ -40,7 +68,7 @@ private fun TableStore.writeAndPublish(update: Update): WriteResult =
 private fun TableStore.setDefaultActionAndPublish(
   tableName: String,
   actionName: String,
-  params: List<P4RuntimeOuterClass.Action.Param> = emptyList(),
+  params: List<Action.Param> = emptyList(),
 ) {
   setDefaultAction(tableName, actionName, params)
   publishSnapshot()
@@ -56,19 +84,19 @@ class TableStoreTest {
     store.loadMappings(p4info = BASE_P4INFO)
   }
 
-  /** Builds a [P4InfoOuterClass.P4Info] from individual entity lists. */
+  /** Builds a [P4Info] from individual entity lists. */
   private fun buildP4Info(
-    tables: List<P4InfoOuterClass.Table> = emptyList(),
-    actions: List<P4InfoOuterClass.Action> = emptyList(),
-    registers: List<P4InfoOuterClass.Register> = emptyList(),
-    actionProfiles: List<P4InfoOuterClass.ActionProfile> = emptyList(),
-    counters: List<P4InfoOuterClass.Counter> = emptyList(),
-    meters: List<P4InfoOuterClass.Meter> = emptyList(),
-    directCounters: List<P4InfoOuterClass.DirectCounter> = emptyList(),
-    directMeters: List<P4InfoOuterClass.DirectMeter> = emptyList(),
-    valueSets: List<P4InfoOuterClass.ValueSet> = emptyList(),
-  ): P4InfoOuterClass.P4Info =
-    P4InfoOuterClass.P4Info.newBuilder()
+    tables: List<Table> = emptyList(),
+    actions: List<P4InfoAction> = emptyList(),
+    registers: List<Register> = emptyList(),
+    actionProfiles: List<ActionProfile> = emptyList(),
+    counters: List<Counter> = emptyList(),
+    meters: List<Meter> = emptyList(),
+    directCounters: List<DirectCounter> = emptyList(),
+    directMeters: List<DirectMeter> = emptyList(),
+    valueSets: List<ValueSet> = emptyList(),
+  ): P4Info =
+    P4Info.newBuilder()
       .addAllTables(tables)
       .addAllActions(actions)
       .addAllRegisters(registers)
@@ -80,16 +108,16 @@ class TableStoreTest {
       .addAllValueSets(valueSets)
       .build()
 
-  /** Builds a minimal p4info [P4InfoOuterClass.Table] with the given ID and name. */
+  /** Builds a minimal p4info [Table] with the given ID and name. */
   private fun p4infoTable(
     id: Int,
     name: String,
     size: Long = 0,
     implementationId: Int = 0,
     constDefaultActionId: Int = 0,
-  ): P4InfoOuterClass.Table =
-    P4InfoOuterClass.Table.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name).setAlias(name))
+  ): Table =
+    Table.newBuilder()
+      .setPreamble(Preamble.newBuilder().setId(id).setName(name).setAlias(name))
       .setSize(size)
       .setImplementationId(implementationId)
       .setConstDefaultActionId(constDefaultActionId)
@@ -229,18 +257,11 @@ class TableStoreTest {
   ): TableEntry =
     entry
       .toBuilder()
-      .setCounterData(
-        P4RuntimeOuterClass.CounterData.newBuilder()
-          .setPacketCount(packetCount)
-          .setByteCount(byteCount)
-      )
+      .setCounterData(CounterData.newBuilder().setPacketCount(packetCount).setByteCount(byteCount))
       .build()
 
   private fun withMeterConfig(entry: TableEntry, cir: Long = 1000, cburst: Long = 100): TableEntry =
-    entry
-      .toBuilder()
-      .setMeterConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(cir).setCburst(cburst))
-      .build()
+    entry.toBuilder().setMeterConfig(MeterConfig.newBuilder().setCir(cir).setCburst(cburst)).build()
 
   private fun withMeterCounterData(
     entry: TableEntry,
@@ -250,12 +271,8 @@ class TableStoreTest {
     entry
       .toBuilder()
       .setMeterCounterData(
-        P4RuntimeOuterClass.MeterCounterData.newBuilder()
-          .setGreen(
-            P4RuntimeOuterClass.CounterData.newBuilder()
-              .setPacketCount(packetCount)
-              .setByteCount(byteCount)
-          )
+        MeterCounterData.newBuilder()
+          .setGreen(CounterData.newBuilder().setPacketCount(packetCount).setByteCount(byteCount))
       )
       .build()
 
@@ -825,8 +842,7 @@ class TableStoreTest {
                   .setTableId(TABLE_ID)
                   .setIsDefaultAction(true)
                   .setAction(
-                    P4RuntimeOuterClass.TableAction.newBuilder()
-                      .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(42))
+                    TableAction.newBuilder().setAction(Action.newBuilder().setActionId(42))
                   )
               )
           )
@@ -839,7 +855,7 @@ class TableStoreTest {
   @Test
   fun `MODIFY default entry with params preserves params`() {
     val param =
-      P4RuntimeOuterClass.Action.Param.newBuilder()
+      Action.Param.newBuilder()
         .setParamId(1)
         .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(0x09)))
         .build()
@@ -854,10 +870,8 @@ class TableStoreTest {
                   .setTableId(TABLE_ID)
                   .setIsDefaultAction(true)
                   .setAction(
-                    P4RuntimeOuterClass.TableAction.newBuilder()
-                      .setAction(
-                        P4RuntimeOuterClass.Action.newBuilder().setActionId(42).addParams(param)
-                      )
+                    TableAction.newBuilder()
+                      .setAction(Action.newBuilder().setActionId(42).addParams(param))
                   )
               )
           )
@@ -888,10 +902,7 @@ class TableStoreTest {
               TableEntry.newBuilder()
                 .setTableId(TABLE_ID)
                 .setIsDefaultAction(true)
-                .setAction(
-                  P4RuntimeOuterClass.TableAction.newBuilder()
-                    .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(42))
-                )
+                .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(42)))
             )
         )
         .build()
@@ -932,7 +943,7 @@ class TableStoreTest {
         .setEntity(
           Entity.newBuilder()
             .setActionProfileMember(
-              P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+              ActionProfileMember.newBuilder()
                 .setActionProfileId(PROFILE_ID)
                 .setMemberId(memberId)
                 .setAction(
@@ -961,15 +972,12 @@ class TableStoreTest {
         .setEntity(
           Entity.newBuilder()
             .setActionProfileGroup(
-              P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
+              ActionProfileGroup.newBuilder()
                 .setActionProfileId(PROFILE_ID)
                 .setGroupId(groupId)
                 .addAllMembers(
                   memberIds.map { mid ->
-                    P4RuntimeOuterClass.ActionProfileGroup.Member.newBuilder()
-                      .setMemberId(mid)
-                      .setWeight(1)
-                      .build()
+                    ActionProfileGroup.Member.newBuilder().setMemberId(mid).setWeight(1).build()
                   }
                 )
             )
@@ -1107,10 +1115,10 @@ class TableStoreTest {
                 .setAction(
                   TableAction.newBuilder()
                     .setActionProfileActionSet(
-                      P4RuntimeOuterClass.ActionProfileActionSet.newBuilder()
+                      ActionProfileActionSet.newBuilder()
                         .addAllActionProfileActions(
                           actions.map { (actionId, paramValue) ->
-                            P4RuntimeOuterClass.ActionProfileAction.newBuilder()
+                            ActionProfileAction.newBuilder()
                               .setAction(
                                 Action.newBuilder()
                                   .setActionId(actionId)
@@ -1189,13 +1197,11 @@ class TableStoreTest {
         .setEntity(
           Entity.newBuilder()
             .setPacketReplicationEngineEntry(
-              P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+              PacketReplicationEngineEntry.newBuilder()
                 .setCloneSessionEntry(
-                  P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
+                  CloneSessionEntry.newBuilder()
                     .setSessionId(sessionId)
-                    .addReplicas(
-                      P4RuntimeOuterClass.Replica.newBuilder().setPort(portToBytes(egressPort))
-                    )
+                    .addReplicas(Replica.newBuilder().setPort(portToBytes(egressPort)))
                 )
             )
         )
@@ -1214,16 +1220,13 @@ class TableStoreTest {
         .setEntity(
           Entity.newBuilder()
             .setPacketReplicationEngineEntry(
-              P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+              PacketReplicationEngineEntry.newBuilder()
                 .setMulticastGroupEntry(
-                  P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+                  MulticastGroupEntry.newBuilder()
                     .setMulticastGroupId(groupId)
                     .addAllReplicas(
                       replicas.map { (rid, port) ->
-                        P4RuntimeOuterClass.Replica.newBuilder()
-                          .setInstance(rid)
-                          .setPort(portToBytes(port))
-                          .build()
+                        Replica.newBuilder().setInstance(rid).setPort(portToBytes(port)).build()
                       }
                     )
                 )
@@ -1362,8 +1365,8 @@ class TableStoreTest {
     writeCloneSession(sessionId = 1, egressPort = 5)
     writeCloneSession(sessionId = 2, egressPort = 6)
     val filter =
-      P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-        .setCloneSessionEntry(P4RuntimeOuterClass.CloneSessionEntry.newBuilder().setSessionId(1))
+      PacketReplicationEngineEntry.newBuilder()
+        .setCloneSessionEntry(CloneSessionEntry.newBuilder().setSessionId(1))
         .build()
     val results = store.readPreEntries(filter)
     assertEquals(1, results.size)
@@ -1375,10 +1378,8 @@ class TableStoreTest {
     writeMulticastGroup(groupId = 1, replicas = listOf(0 to 1))
     writeMulticastGroup(groupId = 2, replicas = listOf(0 to 2))
     val filter =
-      P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-        .setMulticastGroupEntry(
-          P4RuntimeOuterClass.MulticastGroupEntry.newBuilder().setMulticastGroupId(2)
-        )
+      PacketReplicationEngineEntry.newBuilder()
+        .setMulticastGroupEntry(MulticastGroupEntry.newBuilder().setMulticastGroupId(2))
         .build()
     val results = store.readPreEntries(filter)
     assertEquals(1, results.size)
@@ -1388,8 +1389,8 @@ class TableStoreTest {
   @Test
   fun `PRE read non-existent returns empty`() {
     val filter =
-      P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-        .setCloneSessionEntry(P4RuntimeOuterClass.CloneSessionEntry.newBuilder().setSessionId(999))
+      PacketReplicationEngineEntry.newBuilder()
+        .setCloneSessionEntry(CloneSessionEntry.newBuilder().setSessionId(999))
         .build()
     assertEquals(0, store.readPreEntries(filter).size)
   }
@@ -1585,9 +1586,7 @@ class TableStoreTest {
   }
 
   /** Creates a TableStore with an action profile configured via [configure]. */
-  private fun storeWithProfileConfig(
-    configure: P4InfoOuterClass.ActionProfile.Builder.() -> Unit
-  ): TableStore {
+  private fun storeWithProfileConfig(configure: ActionProfile.Builder.() -> Unit): TableStore {
     val store = TableStore()
     store.loadMappings(
       p4info =
@@ -1599,8 +1598,8 @@ class TableStoreTest {
           actions = ACTION_LIST,
           actionProfiles =
             listOf(
-              P4InfoOuterClass.ActionProfile.newBuilder()
-                .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(PROFILE_ID))
+              ActionProfile.newBuilder()
+                .setPreamble(Preamble.newBuilder().setId(PROFILE_ID))
                 .apply(configure)
                 .build()
             ),
@@ -1642,7 +1641,7 @@ class TableStoreTest {
         .setEntity(
           Entity.newBuilder()
             .setActionProfileMember(
-              P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+              ActionProfileMember.newBuilder()
                 .setActionProfileId(999)
                 .setMemberId(1)
                 .setAction(Action.newBuilder().setActionId(10))
@@ -1650,8 +1649,7 @@ class TableStoreTest {
         )
         .build()
     )
-    val filter =
-      P4RuntimeOuterClass.ActionProfileMember.newBuilder().setActionProfileId(PROFILE_ID).build()
+    val filter = ActionProfileMember.newBuilder().setActionProfileId(PROFILE_ID).build()
     val results = s.readProfileMembers(filter)
     assertEquals(1, results.size)
     assertEquals(PROFILE_ID, results[0].actionProfileMember.actionProfileId)
@@ -1663,10 +1661,7 @@ class TableStoreTest {
     writeMember(s, memberId = 1, actionId = 10, paramValue = 1)
     writeMember(s, memberId = 2, actionId = 20, paramValue = 2)
     val filter =
-      P4RuntimeOuterClass.ActionProfileMember.newBuilder()
-        .setActionProfileId(PROFILE_ID)
-        .setMemberId(1)
-        .build()
+      ActionProfileMember.newBuilder().setActionProfileId(PROFILE_ID).setMemberId(1).build()
     val results = s.readProfileMembers(filter)
     assertEquals(1, results.size)
     assertEquals(1, results[0].actionProfileMember.memberId)
@@ -1677,10 +1672,7 @@ class TableStoreTest {
     val s = storeWithProfile()
     writeMember(s, memberId = 1, actionId = 10, paramValue = 1)
     val filter =
-      P4RuntimeOuterClass.ActionProfileMember.newBuilder()
-        .setActionProfileId(PROFILE_ID)
-        .setMemberId(99)
-        .build()
+      ActionProfileMember.newBuilder().setActionProfileId(PROFILE_ID).setMemberId(99).build()
     assertTrue(s.readProfileMembers(filter).isEmpty())
   }
 
@@ -1700,10 +1692,7 @@ class TableStoreTest {
     writeGroup(s, groupId = 1, memberIds = listOf(0))
     writeGroup(s, groupId = 2, memberIds = listOf(0))
     val filter =
-      P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
-        .setActionProfileId(PROFILE_ID)
-        .setGroupId(1)
-        .build()
+      ActionProfileGroup.newBuilder().setActionProfileId(PROFILE_ID).setGroupId(1).build()
     val results = s.readProfileGroups(filter)
     assertEquals(1, results.size)
     assertEquals(1, results[0].actionProfileGroup.groupId)
@@ -1726,19 +1715,14 @@ class TableStoreTest {
     return store
   }
 
-  private fun buildRegisterProto(
-    id: Int,
-    name: String,
-    bitwidth: Int,
-    size: Int,
-  ): P4InfoOuterClass.Register =
-    P4InfoOuterClass.Register.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name))
+  private fun buildRegisterProto(id: Int, name: String, bitwidth: Int, size: Int): Register =
+    Register.newBuilder()
+      .setPreamble(Preamble.newBuilder().setId(id).setName(name))
       .setTypeSpec(
-        p4.config.v1.P4Types.P4DataTypeSpec.newBuilder()
+        org.p4.config.v1.P4DataTypeSpec.newBuilder()
           .setBitstring(
-            p4.config.v1.P4Types.P4BitstringLikeTypeSpec.newBuilder()
-              .setBit(p4.config.v1.P4Types.P4BitTypeSpec.newBuilder().setBitwidth(bitwidth))
+            org.p4.config.v1.P4BitstringLikeTypeSpec.newBuilder()
+              .setBit(org.p4.config.v1.P4BitTypeSpec.newBuilder().setBitwidth(bitwidth))
           )
       )
       .setSize(size)
@@ -1751,11 +1735,11 @@ class TableStoreTest {
     value: Long = 0,
   ): Update {
     val entry =
-      P4RuntimeOuterClass.RegisterEntry.newBuilder()
+      RegisterEntry.newBuilder()
         .setRegisterId(registerId)
-        .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(index))
+        .setIndex(Index.newBuilder().setIndex(index))
         .setData(
-          p4.v1.P4DataOuterClass.P4Data.newBuilder()
+          org.p4.v1.P4Data.newBuilder()
             .setBitstring(ByteString.copyFrom(longToBytes(value, (REGISTER_BITWIDTH + 7) / 8)))
         )
         .build()
@@ -1823,9 +1807,9 @@ class TableStoreTest {
     val s = storeWithRegister()
     s.writeAndPublish(registerUpdate(Update.Type.MODIFY, index = 1, value = 0xABCD))
     val filter =
-      P4RuntimeOuterClass.RegisterEntry.newBuilder()
+      RegisterEntry.newBuilder()
         .setRegisterId(REGISTER_ID)
-        .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(1))
+        .setIndex(Index.newBuilder().setIndex(1))
         .build()
     val results = s.readRegisterEntries(filter)
     assertEquals(1, results.size)
@@ -1842,7 +1826,7 @@ class TableStoreTest {
   fun `readRegisterEntries all indices returns full array with defaults`() {
     val s = storeWithRegister()
     s.writeAndPublish(registerUpdate(Update.Type.MODIFY, index = 2, value = 99))
-    val filter = P4RuntimeOuterClass.RegisterEntry.newBuilder().setRegisterId(REGISTER_ID).build()
+    val filter = RegisterEntry.newBuilder().setRegisterId(REGISTER_ID).build()
     val results = s.readRegisterEntries(filter)
     assertEquals(REGISTER_SIZE, results.size)
     // Index 2 has value 99, others default to 0.
@@ -1872,7 +1856,7 @@ class TableStoreTest {
     s.writeAndPublish(
       registerUpdate(Update.Type.MODIFY, registerId = REGISTER_ID, index = 0, value = 1)
     )
-    val filter = P4RuntimeOuterClass.RegisterEntry.getDefaultInstance()
+    val filter = RegisterEntry.getDefaultInstance()
     val results = s.readRegisterEntries(filter)
     // 2 entries from first register + 1 from second = 3
     assertEquals(3, results.size)
@@ -1881,7 +1865,7 @@ class TableStoreTest {
   @Test
   fun `readRegisterEntries unknown register returns empty`() {
     val s = storeWithRegister()
-    val filter = P4RuntimeOuterClass.RegisterEntry.newBuilder().setRegisterId(999).build()
+    val filter = RegisterEntry.newBuilder().setRegisterId(999).build()
     assertTrue(s.readRegisterEntries(filter).isEmpty())
   }
 
@@ -2127,9 +2111,9 @@ class TableStoreTest {
     return store
   }
 
-  private fun buildCounterProto(id: Int, name: String, size: Int): P4InfoOuterClass.Counter =
-    P4InfoOuterClass.Counter.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name))
+  private fun buildCounterProto(id: Int, name: String, size: Int): Counter =
+    Counter.newBuilder()
+      .setPreamble(Preamble.newBuilder().setId(id).setName(name))
       .setSize(size.toLong())
       .build()
 
@@ -2141,14 +2125,10 @@ class TableStoreTest {
     packetCount: Long = 0,
   ): Update {
     val entry =
-      P4RuntimeOuterClass.CounterEntry.newBuilder()
+      CounterEntry.newBuilder()
         .setCounterId(counterId)
-        .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(index))
-        .setData(
-          P4RuntimeOuterClass.CounterData.newBuilder()
-            .setByteCount(byteCount)
-            .setPacketCount(packetCount)
-        )
+        .setIndex(Index.newBuilder().setIndex(index))
+        .setData(CounterData.newBuilder().setByteCount(byteCount).setPacketCount(packetCount))
         .build()
     return Update.newBuilder()
       .setType(type)
@@ -2165,9 +2145,9 @@ class TableStoreTest {
     )
     val results =
       s.readCounterEntries(
-        P4RuntimeOuterClass.CounterEntry.newBuilder()
+        CounterEntry.newBuilder()
           .setCounterId(COUNTER_ID)
-          .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(0))
+          .setIndex(Index.newBuilder().setIndex(0))
           .build()
       )
     assertEquals(1, results.size)
@@ -2202,9 +2182,9 @@ class TableStoreTest {
     s.writeAndPublish(counterUpdate(Update.Type.MODIFY, byteCount = 10, packetCount = 1))
     s.writeAndPublish(counterUpdate(Update.Type.MODIFY, byteCount = 20, packetCount = 2))
     val filter =
-      P4RuntimeOuterClass.CounterEntry.newBuilder()
+      CounterEntry.newBuilder()
         .setCounterId(COUNTER_ID)
-        .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(0))
+        .setIndex(Index.newBuilder().setIndex(0))
         .build()
     val results = s.readCounterEntries(filter)
     assertEquals(20, results[0].counterEntry.data.byteCount)
@@ -2236,9 +2216,9 @@ class TableStoreTest {
 
     assertFalse(s.lookup(TABLE_NAME, listOf("1" to BitVal(10, 8))).hit)
     val counterFilter =
-      P4RuntimeOuterClass.CounterEntry.newBuilder()
+      CounterEntry.newBuilder()
         .setCounterId(COUNTER_ID)
-        .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(0))
+        .setIndex(Index.newBuilder().setIndex(0))
         .build()
     val counterData = s.readCounterEntries(counterFilter).single().counterEntry.data
     assertEquals(1, counterData.packetCount)
@@ -2258,9 +2238,9 @@ class TableStoreTest {
     val s = storeWithCounter()
     s.writeAndPublish(counterUpdate(Update.Type.MODIFY, index = 1, byteCount = 42, packetCount = 3))
     val filter =
-      P4RuntimeOuterClass.CounterEntry.newBuilder()
+      CounterEntry.newBuilder()
         .setCounterId(COUNTER_ID)
-        .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(1))
+        .setIndex(Index.newBuilder().setIndex(1))
         .build()
     val results = s.readCounterEntries(filter)
     assertEquals(1, results.size)
@@ -2272,7 +2252,7 @@ class TableStoreTest {
   fun `readCounterEntries all indices returns full array with defaults`() {
     val s = storeWithCounter()
     s.writeAndPublish(counterUpdate(Update.Type.MODIFY, index = 2, byteCount = 99))
-    val filter = P4RuntimeOuterClass.CounterEntry.newBuilder().setCounterId(COUNTER_ID).build()
+    val filter = CounterEntry.newBuilder().setCounterId(COUNTER_ID).build()
     val results = s.readCounterEntries(filter)
     assertEquals(COUNTER_SIZE, results.size)
     for (entity in results) {
@@ -2303,7 +2283,7 @@ class TableStoreTest {
   @Test
   fun `readCounterEntries unknown counter returns empty`() {
     val s = storeWithCounter()
-    val filter = P4RuntimeOuterClass.CounterEntry.newBuilder().setCounterId(999).build()
+    val filter = CounterEntry.newBuilder().setCounterId(999).build()
     assertTrue(s.readCounterEntries(filter).isEmpty())
   }
 
@@ -2319,9 +2299,9 @@ class TableStoreTest {
     return store
   }
 
-  private fun buildMeterProto(id: Int, name: String, size: Int): P4InfoOuterClass.Meter =
-    P4InfoOuterClass.Meter.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name))
+  private fun buildMeterProto(id: Int, name: String, size: Int): Meter =
+    Meter.newBuilder()
+      .setPreamble(Preamble.newBuilder().setId(id).setName(name))
       .setSize(size.toLong())
       .build()
 
@@ -2335,15 +2315,11 @@ class TableStoreTest {
     pburst: Long = 0,
   ): Update {
     val entry =
-      P4RuntimeOuterClass.MeterEntry.newBuilder()
+      MeterEntry.newBuilder()
         .setMeterId(meterId)
-        .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(index))
+        .setIndex(Index.newBuilder().setIndex(index))
         .setConfig(
-          P4RuntimeOuterClass.MeterConfig.newBuilder()
-            .setCir(cir)
-            .setCburst(cburst)
-            .setPir(pir)
-            .setPburst(pburst)
+          MeterConfig.newBuilder().setCir(cir).setCburst(cburst).setPir(pir).setPburst(pburst)
         )
         .build()
     return Update.newBuilder()
@@ -2363,9 +2339,9 @@ class TableStoreTest {
     )
     val results =
       s.readMeterEntries(
-        P4RuntimeOuterClass.MeterEntry.newBuilder()
+        MeterEntry.newBuilder()
           .setMeterId(METER_ID)
-          .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(0))
+          .setIndex(Index.newBuilder().setIndex(0))
           .build()
       )
     assertEquals(1, results.size)
@@ -2403,10 +2379,7 @@ class TableStoreTest {
     s.writeAndPublish(meterUpdate(Update.Type.MODIFY, cir = 100))
     s.writeAndPublish(meterUpdate(Update.Type.MODIFY, cir = 200))
     val filter =
-      P4RuntimeOuterClass.MeterEntry.newBuilder()
-        .setMeterId(METER_ID)
-        .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(0))
-        .build()
+      MeterEntry.newBuilder().setMeterId(METER_ID).setIndex(Index.newBuilder().setIndex(0)).build()
     val results = s.readMeterEntries(filter)
     assertEquals(200, results[0].meterEntry.config.cir)
   }
@@ -2427,10 +2400,7 @@ class TableStoreTest {
     val s = storeWithMeter()
     s.writeAndPublish(meterUpdate(Update.Type.MODIFY, index = 1, cir = 500, pir = 1000))
     val filter =
-      P4RuntimeOuterClass.MeterEntry.newBuilder()
-        .setMeterId(METER_ID)
-        .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(1))
-        .build()
+      MeterEntry.newBuilder().setMeterId(METER_ID).setIndex(Index.newBuilder().setIndex(1)).build()
     val results = s.readMeterEntries(filter)
     assertEquals(1, results.size)
     assertEquals(500, results[0].meterEntry.config.cir)
@@ -2441,7 +2411,7 @@ class TableStoreTest {
   fun `readMeterEntries all indices returns full array`() {
     val s = storeWithMeter()
     s.writeAndPublish(meterUpdate(Update.Type.MODIFY, index = 2, cir = 42))
-    val filter = P4RuntimeOuterClass.MeterEntry.newBuilder().setMeterId(METER_ID).build()
+    val filter = MeterEntry.newBuilder().setMeterId(METER_ID).build()
     val results = s.readMeterEntries(filter)
     assertEquals(METER_SIZE, results.size)
     // Index 2 has config, others have no config set.
@@ -2476,7 +2446,7 @@ class TableStoreTest {
   @Test
   fun `readMeterEntries unknown meter returns empty`() {
     val s = storeWithMeter()
-    val filter = P4RuntimeOuterClass.MeterEntry.newBuilder().setMeterId(999).build()
+    val filter = MeterEntry.newBuilder().setMeterId(999).build()
     assertTrue(s.readMeterEntries(filter).isEmpty())
   }
 
@@ -2494,8 +2464,8 @@ class TableStoreTest {
           actions = ACTION_LIST,
           directCounters =
             listOf(
-              P4InfoOuterClass.DirectCounter.newBuilder()
-                .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(DIRECT_COUNTER_ID))
+              DirectCounter.newBuilder()
+                .setPreamble(Preamble.newBuilder().setId(DIRECT_COUNTER_ID))
                 .setDirectTableId(TABLE_ID)
                 .build()
             ),
@@ -2513,12 +2483,9 @@ class TableStoreTest {
           actions = ACTION_LIST,
           directCounters =
             listOf(
-              P4InfoOuterClass.DirectCounter.newBuilder()
+              DirectCounter.newBuilder()
                 .setPreamble(
-                  P4InfoOuterClass.Preamble.newBuilder()
-                    .setId(DIRECT_COUNTER_ID)
-                    .setName("dc")
-                    .setAlias("dc")
+                  Preamble.newBuilder().setId(DIRECT_COUNTER_ID).setName("dc").setAlias("dc")
                 )
                 .setDirectTableId(TABLE_ID)
                 .build()
@@ -2543,9 +2510,7 @@ class TableStoreTest {
     s.directCounterIncrement(TABLE_NAME, entry, 200)
 
     val results =
-      s.readDirectCounterEntries(
-        P4RuntimeOuterClass.DirectCounterEntry.newBuilder().setTableEntry(entry).build()
-      )
+      s.readDirectCounterEntries(DirectCounterEntry.newBuilder().setTableEntry(entry).build())
     assertEquals(1, results.size)
     val data = results[0].directCounterEntry.data
     assertEquals(2, data.packetCount)
@@ -2571,7 +2536,7 @@ class TableStoreTest {
 
     val results =
       s.readDirectCounterEntries(
-        P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+        DirectCounterEntry.newBuilder()
           .setTableEntry(TableEntry.newBuilder().setTableId(TABLE_ID))
           .build()
       )
@@ -2604,9 +2569,7 @@ class TableStoreTest {
     val stored = s.getTableEntries(TABLE_NAME).single()
     assertFalse(stored.hasCounterData())
     val readBack =
-      s.readDirectCounterEntries(
-        P4RuntimeOuterClass.DirectCounterEntry.newBuilder().setTableEntry(stored).build()
-      )
+      s.readDirectCounterEntries(DirectCounterEntry.newBuilder().setTableEntry(stored).build())
     assertEquals(42, readBack[0].directCounterEntry.data.packetCount)
     assertEquals(1000, readBack[0].directCounterEntry.data.byteCount)
   }
@@ -2648,9 +2611,7 @@ class TableStoreTest {
     assertEquals(20, stored.action.action.actionId)
     assertFalse(stored.hasCounterData())
     val readBack =
-      s.readDirectCounterEntries(
-        P4RuntimeOuterClass.DirectCounterEntry.newBuilder().setTableEntry(stored).build()
-      )
+      s.readDirectCounterEntries(DirectCounterEntry.newBuilder().setTableEntry(stored).build())
     assertEquals(42, readBack[0].directCounterEntry.data.packetCount)
     assertEquals(1000, readBack[0].directCounterEntry.data.byteCount)
   }
@@ -2662,9 +2623,9 @@ class TableStoreTest {
     s.writeAndPublish(insertUpdate(entry))
 
     val directCounterEntry =
-      P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+      DirectCounterEntry.newBuilder()
         .setTableEntry(entry)
-        .setData(P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(42).setByteCount(1000))
+        .setData(CounterData.newBuilder().setPacketCount(42).setByteCount(1000))
         .build()
     val result =
       s.writeAndPublish(
@@ -2676,9 +2637,7 @@ class TableStoreTest {
     assertEquals(WriteResult.Success, result)
 
     val readBack =
-      s.readDirectCounterEntries(
-        P4RuntimeOuterClass.DirectCounterEntry.newBuilder().setTableEntry(entry).build()
-      )
+      s.readDirectCounterEntries(DirectCounterEntry.newBuilder().setTableEntry(entry).build())
     assertEquals(42, readBack[0].directCounterEntry.data.packetCount)
     assertEquals(1000, readBack[0].directCounterEntry.data.byteCount)
   }
@@ -2690,9 +2649,9 @@ class TableStoreTest {
     s.writeAndPublish(insertUpdate(entry))
 
     val directCounterEntry =
-      P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+      DirectCounterEntry.newBuilder()
         .setTableEntry(entry)
-        .setData(P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(1))
+        .setData(CounterData.newBuilder().setPacketCount(1))
         .build()
     val result =
       s.writeAndPublish(
@@ -2711,9 +2670,9 @@ class TableStoreTest {
     // Don't insert the entry into the table.
 
     val directCounterEntry =
-      P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+      DirectCounterEntry.newBuilder()
         .setTableEntry(entry)
-        .setData(P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(1))
+        .setData(CounterData.newBuilder().setPacketCount(1))
         .build()
     val result =
       s.writeAndPublish(
@@ -2743,9 +2702,7 @@ class TableStoreTest {
     // Re-insert and verify counter is reset to zero.
     s.writeAndPublish(insertUpdate(entry))
     val results =
-      s.readDirectCounterEntries(
-        P4RuntimeOuterClass.DirectCounterEntry.newBuilder().setTableEntry(entry).build()
-      )
+      s.readDirectCounterEntries(DirectCounterEntry.newBuilder().setTableEntry(entry).build())
     assertEquals(0, results[0].directCounterEntry.data.packetCount)
   }
 
@@ -2763,8 +2720,8 @@ class TableStoreTest {
           actions = ACTION_LIST,
           directMeters =
             listOf(
-              P4InfoOuterClass.DirectMeter.newBuilder()
-                .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(DIRECT_METER_ID))
+              DirectMeter.newBuilder()
+                .setPreamble(Preamble.newBuilder().setId(DIRECT_METER_ID))
                 .setDirectTableId(TABLE_ID)
                 .build()
             ),
@@ -2782,12 +2739,9 @@ class TableStoreTest {
           actions = ACTION_LIST,
           directMeters =
             listOf(
-              P4InfoOuterClass.DirectMeter.newBuilder()
+              DirectMeter.newBuilder()
                 .setPreamble(
-                  P4InfoOuterClass.Preamble.newBuilder()
-                    .setId(DIRECT_METER_ID)
-                    .setName("dm")
-                    .setAlias("dm")
+                  Preamble.newBuilder().setId(DIRECT_METER_ID).setName("dm").setAlias("dm")
                 )
                 .setDirectTableId(TABLE_ID)
                 .build()
@@ -2809,15 +2763,9 @@ class TableStoreTest {
     s.writeAndPublish(insertUpdate(entry))
 
     val directMeterEntry =
-      P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+      DirectMeterEntry.newBuilder()
         .setTableEntry(entry)
-        .setConfig(
-          P4RuntimeOuterClass.MeterConfig.newBuilder()
-            .setCir(1000)
-            .setCburst(100)
-            .setPir(2000)
-            .setPburst(200)
-        )
+        .setConfig(MeterConfig.newBuilder().setCir(1000).setCburst(100).setPir(2000).setPburst(200))
         .build()
     val result =
       s.writeAndPublish(
@@ -2829,9 +2777,7 @@ class TableStoreTest {
     assertEquals(WriteResult.Success, result)
 
     val readBack =
-      s.readDirectMeterEntries(
-        P4RuntimeOuterClass.DirectMeterEntry.newBuilder().setTableEntry(entry).build()
-      )
+      s.readDirectMeterEntries(DirectMeterEntry.newBuilder().setTableEntry(entry).build())
     assertEquals(1, readBack.size)
     val config = readBack[0].directMeterEntry.config
     assertEquals(1000, config.cir)
@@ -2845,9 +2791,9 @@ class TableStoreTest {
     s.writeAndPublish(insertUpdate(entry))
 
     val directMeterEntry =
-      P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+      DirectMeterEntry.newBuilder()
         .setTableEntry(entry)
-        .setConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(100))
+        .setConfig(MeterConfig.newBuilder().setCir(100))
         .build()
     val result =
       s.writeAndPublish(
@@ -2865,9 +2811,9 @@ class TableStoreTest {
     val entry = exactEntry(fieldId = 1, value = byteArrayOf(10), actionId = 10)
 
     val directMeterEntry =
-      P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+      DirectMeterEntry.newBuilder()
         .setTableEntry(entry)
-        .setConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(100))
+        .setConfig(MeterConfig.newBuilder().setCir(100))
         .build()
     val result =
       s.writeAndPublish(
@@ -2887,7 +2833,7 @@ class TableStoreTest {
 
     val results =
       s.readDirectMeterEntries(
-        P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+        DirectMeterEntry.newBuilder()
           .setTableEntry(TableEntry.newBuilder().setTableId(TABLE_ID))
           .build()
       )
@@ -2909,9 +2855,7 @@ class TableStoreTest {
     val stored = s.getTableEntries(TABLE_NAME).single()
     assertFalse(stored.hasMeterConfig())
     val readBack =
-      s.readDirectMeterEntries(
-        P4RuntimeOuterClass.DirectMeterEntry.newBuilder().setTableEntry(stored).build()
-      )
+      s.readDirectMeterEntries(DirectMeterEntry.newBuilder().setTableEntry(stored).build())
     assertEquals(1000, readBack[0].directMeterEntry.config.cir)
     assertEquals(100, readBack[0].directMeterEntry.config.cburst)
   }
@@ -2952,9 +2896,7 @@ class TableStoreTest {
     assertEquals(20, stored.action.action.actionId)
     assertFalse(stored.hasMeterConfig())
     val readBack =
-      s.readDirectMeterEntries(
-        P4RuntimeOuterClass.DirectMeterEntry.newBuilder().setTableEntry(stored).build()
-      )
+      s.readDirectMeterEntries(DirectMeterEntry.newBuilder().setTableEntry(stored).build())
     assertFalse("direct meter should reset to default", readBack[0].directMeterEntry.hasConfig())
   }
 
@@ -2966,9 +2908,9 @@ class TableStoreTest {
 
     // Configure the direct meter.
     val directMeterEntry =
-      P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+      DirectMeterEntry.newBuilder()
         .setTableEntry(entry)
-        .setConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(100))
+        .setConfig(MeterConfig.newBuilder().setCir(100))
         .build()
     s.writeAndPublish(
       Update.newBuilder()
@@ -2988,9 +2930,7 @@ class TableStoreTest {
 
     // Direct meter config should be cleared.
     val results =
-      s.readDirectMeterEntries(
-        P4RuntimeOuterClass.DirectMeterEntry.newBuilder().setTableEntry(entry).build()
-      )
+      s.readDirectMeterEntries(DirectMeterEntry.newBuilder().setTableEntry(entry).build())
     assertFalse(
       "should have no config after delete+re-insert",
       results[0].directMeterEntry.hasConfig(),
@@ -3030,15 +2970,15 @@ class TableStoreTest {
           meters = listOf(buildMeterProto(METER_ID, "myMeter", METER_SIZE)),
           directCounters =
             listOf(
-              P4InfoOuterClass.DirectCounter.newBuilder()
-                .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(DIRECT_COUNTER_ID))
+              DirectCounter.newBuilder()
+                .setPreamble(Preamble.newBuilder().setId(DIRECT_COUNTER_ID))
                 .setDirectTableId(TABLE_ID)
                 .build()
             ),
           directMeters =
             listOf(
-              P4InfoOuterClass.DirectMeter.newBuilder()
-                .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(DIRECT_METER_ID))
+              DirectMeter.newBuilder()
+                .setPreamble(Preamble.newBuilder().setId(DIRECT_METER_ID))
                 .setDirectTableId(TABLE_ID)
                 .build()
             ),
@@ -3057,9 +2997,9 @@ class TableStoreTest {
         .setEntity(
           Entity.newBuilder()
             .setDirectMeterEntry(
-              P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+              DirectMeterEntry.newBuilder()
                 .setTableEntry(entry)
-                .setConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(1000))
+                .setConfig(MeterConfig.newBuilder().setCir(1000))
             )
         )
         .build()
@@ -3076,10 +3016,7 @@ class TableStoreTest {
               TableEntry.newBuilder()
                 .setTableId(TABLE_ID)
                 .setIsDefaultAction(true)
-                .setAction(
-                  P4RuntimeOuterClass.TableAction.newBuilder()
-                    .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(42))
-                )
+                .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(42)))
             )
         )
         .build()
@@ -3188,13 +3125,13 @@ class TableStoreTest {
     assertEquals(BitVal(42, REGISTER_BITWIDTH), s.registerRead(REGISTER_NAME, 0))
 
     // counters: should be 500 bytes / 5 packets
-    val ctrFilter = P4RuntimeOuterClass.CounterEntry.newBuilder().setCounterId(COUNTER_ID).build()
+    val ctrFilter = CounterEntry.newBuilder().setCounterId(COUNTER_ID).build()
     val ctrEntry = s.readCounterEntries(ctrFilter).first().counterEntry.data
     assertEquals(500, ctrEntry.byteCount)
     assertEquals(5, ctrEntry.packetCount)
 
     // meters: should be cir=1000, not 9999
-    val mtrFilter = P4RuntimeOuterClass.MeterEntry.newBuilder().setMeterId(METER_ID).build()
+    val mtrFilter = MeterEntry.newBuilder().setMeterId(METER_ID).build()
     val mtrEntry = s.readMeterEntries(mtrFilter).first().meterEntry.config
     assertEquals(1000, mtrEntry.cir)
 
@@ -3258,19 +3195,15 @@ class TableStoreTest {
         buildP4Info(
           tables =
             listOf(
-              P4InfoOuterClass.Table.newBuilder()
-                .setPreamble(
-                  P4InfoOuterClass.Preamble.newBuilder().setId(TABLE_ID).setAlias(TABLE_NAME)
-                )
+              Table.newBuilder()
+                .setPreamble(Preamble.newBuilder().setId(TABLE_ID).setAlias(TABLE_NAME))
                 .build()
             ),
           actions = ACTION_LIST,
           valueSets =
             listOf(
-              P4InfoOuterClass.ValueSet.newBuilder()
-                .setPreamble(
-                  P4InfoOuterClass.Preamble.newBuilder().setId(valueSetId).setAlias(valueSetName)
-                )
+              ValueSet.newBuilder()
+                .setPreamble(Preamble.newBuilder().setId(valueSetId).setAlias(valueSetName))
                 .setSize(valueSetSize)
                 .build()
             ),
@@ -3282,22 +3215,20 @@ class TableStoreTest {
   private fun valueSetUpdate(
     valueSetId: Int = VALUE_SET_ID,
     type: Update.Type = Update.Type.MODIFY,
-    members: List<P4RuntimeOuterClass.ValueSetMember> = emptyList(),
+    members: List<ValueSetMember> = emptyList(),
   ): Update =
     Update.newBuilder()
       .setType(type)
       .setEntity(
         Entity.newBuilder()
           .setValueSetEntry(
-            P4RuntimeOuterClass.ValueSetEntry.newBuilder()
-              .setValueSetId(valueSetId)
-              .addAllMembers(members)
+            ValueSetEntry.newBuilder().setValueSetId(valueSetId).addAllMembers(members)
           )
       )
       .build()
 
-  private fun exactVsMember(value: ByteArray): P4RuntimeOuterClass.ValueSetMember =
-    P4RuntimeOuterClass.ValueSetMember.newBuilder()
+  private fun exactVsMember(value: ByteArray): ValueSetMember =
+    ValueSetMember.newBuilder()
       .addMatch(
         FieldMatch.newBuilder()
           .setFieldId(1)
@@ -3328,10 +3259,7 @@ class TableStoreTest {
     val s = storeWithValueSet()
     s.writeAndPublish(valueSetUpdate(members = listOf(exactVsMember(byteArrayOf(0x01)))))
     s.writeAndPublish(valueSetUpdate(members = emptyList()))
-    assertEquals(
-      emptyList<P4RuntimeOuterClass.ValueSetMember>(),
-      s.getValueSetMembers(VALUE_SET_NAME),
-    )
+    assertEquals(emptyList<ValueSetMember>(), s.getValueSetMembers(VALUE_SET_NAME))
   }
 
   @Test
@@ -3379,7 +3307,7 @@ class TableStoreTest {
   fun `value_set read by ID returns matching entry`() {
     val s = storeWithValueSet()
     s.writeAndPublish(valueSetUpdate(members = listOf(exactVsMember(byteArrayOf(0x01)))))
-    val filter = P4RuntimeOuterClass.ValueSetEntry.newBuilder().setValueSetId(VALUE_SET_ID).build()
+    val filter = ValueSetEntry.newBuilder().setValueSetId(VALUE_SET_ID).build()
     val results = s.readValueSetEntries(filter)
     assertEquals(1, results.size)
     assertEquals(VALUE_SET_ID, results[0].valueSetEntry.valueSetId)
@@ -3388,7 +3316,7 @@ class TableStoreTest {
   @Test
   fun `value_set read unknown ID returns empty`() {
     val s = storeWithValueSet()
-    val filter = P4RuntimeOuterClass.ValueSetEntry.newBuilder().setValueSetId(999).build()
+    val filter = ValueSetEntry.newBuilder().setValueSetId(999).build()
     assertEquals(0, s.readValueSetEntries(filter).size)
   }
 
@@ -3497,28 +3425,20 @@ class TableStoreTest {
     private const val VALUE_SET_NAME = "myValueSet"
     private const val VALUE_SET_SIZE = 4
     private val ACTION_IDS = listOf(10, 20, 42, 50, 77, 99, 100, 200)
-    private val ACTION_LIST: List<P4InfoOuterClass.Action> =
+    private val ACTION_LIST: List<P4InfoAction> =
       ACTION_IDS.map { id ->
-        P4InfoOuterClass.Action.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder()
-              .setId(id)
-              .setName("action$id")
-              .setAlias("action$id")
-          )
+        P4InfoAction.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(id).setName("action$id").setAlias("action$id"))
           .build()
       }
 
     /** Default p4info used by most tests: one table + the standard set of action IDs. */
-    private val BASE_P4INFO: P4InfoOuterClass.P4Info =
-      P4InfoOuterClass.P4Info.newBuilder()
+    private val BASE_P4INFO: P4Info =
+      P4Info.newBuilder()
         .addTables(
-          P4InfoOuterClass.Table.newBuilder()
+          Table.newBuilder()
             .setPreamble(
-              P4InfoOuterClass.Preamble.newBuilder()
-                .setId(TABLE_ID)
-                .setName(TABLE_NAME)
-                .setAlias(TABLE_NAME)
+              Preamble.newBuilder().setId(TABLE_ID).setName(TABLE_NAME).setAlias(TABLE_NAME)
             )
         )
         .addAllActions(ACTION_LIST)

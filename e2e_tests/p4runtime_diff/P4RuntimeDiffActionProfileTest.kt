@@ -10,20 +10,20 @@ import org.junit.Assume
 import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass.P4Info
-import p4.v1.P4RuntimeOuterClass.Action
-import p4.v1.P4RuntimeOuterClass.ActionProfileGroup
-import p4.v1.P4RuntimeOuterClass.ActionProfileMember
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.ReadResponse
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.TableAction
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
-import p4.v1.P4RuntimeOuterClass.WriteRequest
+import org.p4.config.v1.P4Info
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.ReadRequest
+import org.p4.v1.ReadResponse
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
+import org.p4.v1.WriteRequest
 
 /**
  * P4Runtime differential scenarios for action profiles, using the action_selector_3 fixture. Same
@@ -227,7 +227,7 @@ class P4RuntimeDiffActionProfileTest {
         val table = p4Info.tablesList.single { it.implementationId == profile.preamble.id }
         val exactField =
           table.matchFieldsList.single {
-            it.matchType == p4.config.v1.P4InfoOuterClass.MatchField.MatchType.EXACT
+            it.matchType == org.p4.config.v1.MatchField.MatchType.EXACT
           }
         val actionsById = p4Info.actionsList.associateBy { it.preamble.id }
         val setPort =

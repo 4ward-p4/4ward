@@ -7,10 +7,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.v1.Action
+import org.p4.v1.CounterData
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.MeterConfig
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
 
 /**
  * Unit tests for [EntityReader]'s table entry → Entity proto assembly.
@@ -169,8 +175,8 @@ class EntityReaderTest {
   fun `default entry includes action parameters`() {
     val params =
       listOf(
-        P4RuntimeOuterClass.Action.Param.newBuilder().setParamId(1).setValue(bytes(42)).build(),
-        P4RuntimeOuterClass.Action.Param.newBuilder().setParamId(2).setValue(bytes(7)).build(),
+        Action.Param.newBuilder().setParamId(1).setValue(bytes(42)).build(),
+        Action.Param.newBuilder().setParamId(2).setValue(bytes(7)).build(),
       )
     stub.defaults[TABLE_A_NAME] = DefaultAction("drop", params)
     stub.modifiedDefaults.add(TABLE_A_NAME)
@@ -202,8 +208,7 @@ class EntityReaderTest {
   fun `entry in table with direct counter includes counter data`() {
     stub.directCounters += TABLE_A_NAME
     val entry = stub.addEntry(TABLE_A_NAME, TABLE_A_ID, byteArrayOf(1))
-    stub.counterData[entry] =
-      P4RuntimeOuterClass.CounterData.newBuilder().setByteCount(100).setPacketCount(5).build()
+    stub.counterData[entry] = CounterData.newBuilder().setByteCount(100).setPacketCount(5).build()
 
     val result = readTable(TABLE_A_ID)
     assertEquals(1, result.size)
@@ -216,8 +221,7 @@ class EntityReaderTest {
   fun `entry in table with direct meter includes meter config`() {
     stub.directMeters += TABLE_A_NAME
     val entry = stub.addEntry(TABLE_A_NAME, TABLE_A_ID, byteArrayOf(1))
-    stub.meterData[entry] =
-      P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(1000).setCburst(500).build()
+    stub.meterData[entry] = MeterConfig.newBuilder().setCir(1000).setCburst(500).build()
 
     val result = readTable(TABLE_A_ID)
     assertEquals(1, result.size)
@@ -231,7 +235,7 @@ class EntityReaderTest {
     stub.directCounters += TABLE_A_NAME
     stub.modifiedDefaults.add(TABLE_A_NAME)
     stub.counterData[defaultEntry(TABLE_A_ID)] =
-      P4RuntimeOuterClass.CounterData.newBuilder().setByteCount(100).setPacketCount(5).build()
+      CounterData.newBuilder().setByteCount(100).setPacketCount(5).build()
 
     val result = readDefaultTable(TABLE_A_ID)
 
@@ -246,7 +250,7 @@ class EntityReaderTest {
     stub.directMeters += TABLE_A_NAME
     stub.modifiedDefaults.add(TABLE_A_NAME)
     stub.meterData[defaultEntry(TABLE_A_ID)] =
-      P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(1000).setCburst(500).build()
+      MeterConfig.newBuilder().setCir(1000).setCburst(500).build()
 
     val result = readDefaultTable(TABLE_A_ID)
 
@@ -297,12 +301,9 @@ class EntityReaderTest {
     TableEntry.newBuilder()
       .setTableId(tableId)
       .addMatch(
-        P4RuntimeOuterClass.FieldMatch.newBuilder()
+        FieldMatch.newBuilder()
           .setFieldId(MATCH_FIELD_ID)
-          .setExact(
-            P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
-              .setValue(ByteString.copyFrom(matchValue))
-          )
+          .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(matchValue)))
       )
       .build()
 
@@ -319,23 +320,17 @@ class EntityReaderTest {
     val tableNameById = mapOf(TABLE_A_ID to TABLE_A_NAME, TABLE_B_ID to TABLE_B_NAME)
     val actionNameById = mapOf(NO_ACTION_ID to "NoAction", DROP_ACTION_ID to "drop")
     val p4info =
-      P4InfoOuterClass.P4Info.newBuilder()
+      P4Info.newBuilder()
         .addActions(
-          P4InfoOuterClass.Action.newBuilder()
+          P4InfoAction.newBuilder()
             .setPreamble(
-              P4InfoOuterClass.Preamble.newBuilder()
-                .setId(NO_ACTION_ID)
-                .setName("NoAction")
-                .setAlias("NoAction")
+              Preamble.newBuilder().setId(NO_ACTION_ID).setName("NoAction").setAlias("NoAction")
             )
         )
         .addActions(
-          P4InfoOuterClass.Action.newBuilder()
+          P4InfoAction.newBuilder()
             .setPreamble(
-              P4InfoOuterClass.Preamble.newBuilder()
-                .setId(DROP_ACTION_ID)
-                .setName("drop")
-                .setAlias("drop")
+              Preamble.newBuilder().setId(DROP_ACTION_ID).setName("drop").setAlias("drop")
             )
         )
         .build()
@@ -352,8 +347,8 @@ class EntityReaderTest {
     val modifiedDefaults = mutableSetOf<String>()
     val directCounters = mutableSetOf<String>()
     val directMeters = mutableSetOf<String>()
-    val counterData = mutableMapOf<TableEntry, P4RuntimeOuterClass.CounterData>()
-    val meterData = mutableMapOf<TableEntry, P4RuntimeOuterClass.MeterConfig>()
+    val counterData = mutableMapOf<TableEntry, CounterData>()
+    val meterData = mutableMapOf<TableEntry, MeterConfig>()
 
     /** Adds an entry and returns it (for attaching counter/meter data). */
     fun addEntry(tableName: String, tableId: Int, matchValue: ByteArray): TableEntry {
@@ -361,16 +356,12 @@ class EntityReaderTest {
         TableEntry.newBuilder()
           .setTableId(tableId)
           .addMatch(
-            P4RuntimeOuterClass.FieldMatch.newBuilder()
+            FieldMatch.newBuilder()
               .setFieldId(MATCH_FIELD_ID)
-              .setExact(
-                P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
-                  .setValue(ByteString.copyFrom(matchValue))
-              )
+              .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(matchValue)))
           )
           .setAction(
-            P4RuntimeOuterClass.TableAction.newBuilder()
-              .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(DROP_ACTION_ID))
+            TableAction.newBuilder().setAction(Action.newBuilder().setActionId(DROP_ACTION_ID))
           )
           .build()
       entries.getOrPut(tableName) { mutableListOf() }.add(entry)

@@ -7,19 +7,19 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import p4.v1.P4RuntimeGrpcKt
-import p4.v1.P4RuntimeOuterClass.CapabilitiesRequest
-import p4.v1.P4RuntimeOuterClass.CapabilitiesResponse
-import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigResponse
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.ReadResponse
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigResponse
-import p4.v1.P4RuntimeOuterClass.StreamMessageRequest
-import p4.v1.P4RuntimeOuterClass.StreamMessageResponse
-import p4.v1.P4RuntimeOuterClass.WriteRequest
-import p4.v1.P4RuntimeOuterClass.WriteResponse
+import org.p4.v1.CapabilitiesRequest
+import org.p4.v1.CapabilitiesResponse
+import org.p4.v1.GetForwardingPipelineConfigRequest
+import org.p4.v1.GetForwardingPipelineConfigResponse
+import org.p4.v1.P4RuntimeGrpcKt
+import org.p4.v1.ReadRequest
+import org.p4.v1.ReadResponse
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.SetForwardingPipelineConfigResponse
+import org.p4.v1.StreamMessageRequest
+import org.p4.v1.StreamMessageResponse
+import org.p4.v1.WriteRequest
+import org.p4.v1.WriteResponse
 
 class MultiDeviceP4RuntimeService(private val registry: DeviceRegistry) :
   P4RuntimeGrpcKt.P4RuntimeCoroutineImplBase() {

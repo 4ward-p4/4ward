@@ -285,7 +285,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
      */
     private fun matchesValueSetMember(
       keyValues: List<Value>,
-      member: p4.v1.P4RuntimeOuterClass.ValueSetMember,
+      member: org.p4.v1.ValueSetMember,
     ): Boolean {
       if (member.matchCount != keyValues.size) return false
       return keyValues.zip(member.matchList).all { (value, fieldMatch) ->
@@ -294,10 +294,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
     }
 
     /** Matches a single runtime value against a P4Runtime [FieldMatch]. */
-    private fun matchFieldMatch(
-      value: Value,
-      fieldMatch: p4.v1.P4RuntimeOuterClass.FieldMatch,
-    ): Boolean {
+    private fun matchFieldMatch(value: Value, fieldMatch: org.p4.v1.FieldMatch): Boolean {
       val bits =
         when (value) {
           is BitVal -> value.bits
@@ -1038,7 +1035,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
 
     private fun execAction(
       actionName: String,
-      paramProtos: List<p4.v1.P4RuntimeOuterClass.Action.Param>,
+      paramProtos: List<org.p4.v1.Action.Param>,
       env: Environment,
     ) {
       // NoAction is a P4 built-in no-op (P4 spec §12.7) that is implicitly available in

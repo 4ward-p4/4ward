@@ -20,12 +20,12 @@ import java.util.logging.Level
 import java.util.logging.Logger
 import kotlin.concurrent.thread
 import kotlinx.coroutines.runBlocking
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.WriteRequest
+import org.p4.v1.Entity
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.ReadRequest
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.TableEntry
+import org.p4.v1.WriteRequest
 
 /**
  * HTTP server for the 4ward web playground.
@@ -53,7 +53,7 @@ class WebServer(
   private val jsonParser: JsonFormat.Parser = JsonFormat.parser().ignoringUnknownFields()
   private val textPrinter: TextFormat.Printer = TextFormat.printer().escapingNonAscii(false)
 
-  @Volatile private var loadedP4Info: p4.config.v1.P4InfoOuterClass.P4Info? = null
+  @Volatile private var loadedP4Info: org.p4.config.v1.P4Info? = null
 
   init {
     require(compileTimeout.toMillis() > 0) { "compileTimeout must be at least 1 ms" }

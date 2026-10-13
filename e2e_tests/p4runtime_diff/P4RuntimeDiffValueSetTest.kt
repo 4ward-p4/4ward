@@ -13,18 +13,18 @@ import org.junit.Assume
 import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass.MatchField
-import p4.config.v1.P4InfoOuterClass.P4Info
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.ReadResponse
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.Update
-import p4.v1.P4RuntimeOuterClass.ValueSetEntry
-import p4.v1.P4RuntimeOuterClass.ValueSetMember
-import p4.v1.P4RuntimeOuterClass.WriteRequest
+import org.p4.config.v1.MatchField
+import org.p4.config.v1.P4Info
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.ReadRequest
+import org.p4.v1.ReadResponse
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.Update
+import org.p4.v1.ValueSetEntry
+import org.p4.v1.ValueSetMember
+import org.p4.v1.WriteRequest
 
 /**
  * P4Runtime ValueSetEntry oracle-gap coverage, using a minimal v1model parser fixture.

@@ -34,8 +34,23 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.ActionProfile
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.Replica
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 /**
  * Unit tests for [PSAArchitecture].
@@ -303,21 +318,18 @@ class PSAArchitectureTest {
 
   private fun writeMulticastGroup(store: TableStore, groupId: Int, replicas: List<Pair<Int, Int>>) {
     store.write(
-      P4RuntimeOuterClass.Update.newBuilder()
-        .setType(P4RuntimeOuterClass.Update.Type.INSERT)
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
         .setEntity(
-          P4RuntimeOuterClass.Entity.newBuilder()
+          Entity.newBuilder()
             .setPacketReplicationEngineEntry(
-              P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+              PacketReplicationEngineEntry.newBuilder()
                 .setMulticastGroupEntry(
-                  P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+                  MulticastGroupEntry.newBuilder()
                     .setMulticastGroupId(groupId)
                     .addAllReplicas(
                       replicas.map { (rid, port) ->
-                        P4RuntimeOuterClass.Replica.newBuilder()
-                          .setInstance(rid)
-                          .setPort(portToBytes(port))
-                          .build()
+                        Replica.newBuilder().setInstance(rid).setPort(portToBytes(port)).build()
                       }
                     )
                 )
@@ -888,18 +900,18 @@ class PSAArchitectureTest {
 
   private fun writeCloneSession(store: TableStore, sessionId: Int, replicas: List<Pair<Int, Int>>) {
     store.write(
-      P4RuntimeOuterClass.Update.newBuilder()
-        .setType(P4RuntimeOuterClass.Update.Type.INSERT)
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
         .setEntity(
-          P4RuntimeOuterClass.Entity.newBuilder()
+          Entity.newBuilder()
             .setPacketReplicationEngineEntry(
-              P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+              PacketReplicationEngineEntry.newBuilder()
                 .setCloneSessionEntry(
-                  P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
+                  CloneSessionEntry.newBuilder()
                     .setSessionId(sessionId)
                     .addAllReplicas(
                       replicas.map { (instance, port) ->
-                        P4RuntimeOuterClass.Replica.newBuilder()
+                        Replica.newBuilder()
                           .setInstance(instance)
                           .setPort(portToBytes(port))
                           .build()
@@ -1365,29 +1377,22 @@ class PSAArchitectureTest {
     val store = TableStore()
     store.loadMappings(
       p4info =
-        P4InfoOuterClass.P4Info.newBuilder()
+        P4Info.newBuilder()
           .addTables(
-            P4InfoOuterClass.Table.newBuilder()
-              .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder().setId(AS_TABLE_ID).setAlias(AS_TABLE_NAME)
-              )
+            Table.newBuilder()
+              .setPreamble(Preamble.newBuilder().setId(AS_TABLE_ID).setAlias(AS_TABLE_NAME))
               .setImplementationId(AS_PROFILE_ID)
           )
           .addActions(
-            P4InfoOuterClass.Action.newBuilder()
-              .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder().setId(AS_ACTION_A_ID).setAlias("actionA")
-              )
+            P4InfoAction.newBuilder()
+              .setPreamble(Preamble.newBuilder().setId(AS_ACTION_A_ID).setAlias("actionA"))
           )
           .addActions(
-            P4InfoOuterClass.Action.newBuilder()
-              .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder().setId(AS_ACTION_B_ID).setAlias("actionB")
-              )
+            P4InfoAction.newBuilder()
+              .setPreamble(Preamble.newBuilder().setId(AS_ACTION_B_ID).setAlias("actionB"))
           )
           .addActionProfiles(
-            P4InfoOuterClass.ActionProfile.newBuilder()
-              .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(AS_PROFILE_ID))
+            ActionProfile.newBuilder().setPreamble(Preamble.newBuilder().setId(AS_PROFILE_ID))
           )
           .build()
     )
@@ -1396,15 +1401,15 @@ class PSAArchitectureTest {
 
   private fun writeActionProfileMember(store: TableStore, memberId: Int, actionId: Int) {
     store.write(
-      P4RuntimeOuterClass.Update.newBuilder()
-        .setType(P4RuntimeOuterClass.Update.Type.INSERT)
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
         .setEntity(
-          P4RuntimeOuterClass.Entity.newBuilder()
+          Entity.newBuilder()
             .setActionProfileMember(
-              P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+              ActionProfileMember.newBuilder()
                 .setActionProfileId(AS_PROFILE_ID)
                 .setMemberId(memberId)
-                .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId))
+                .setAction(Action.newBuilder().setActionId(actionId))
             )
         )
         .build()
@@ -1414,20 +1419,17 @@ class PSAArchitectureTest {
 
   private fun writeActionProfileGroup(store: TableStore, groupId: Int, memberIds: List<Int>) {
     store.write(
-      P4RuntimeOuterClass.Update.newBuilder()
-        .setType(P4RuntimeOuterClass.Update.Type.INSERT)
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
         .setEntity(
-          P4RuntimeOuterClass.Entity.newBuilder()
+          Entity.newBuilder()
             .setActionProfileGroup(
-              P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
+              ActionProfileGroup.newBuilder()
                 .setActionProfileId(AS_PROFILE_ID)
                 .setGroupId(groupId)
                 .addAllMembers(
                   memberIds.map { mid ->
-                    P4RuntimeOuterClass.ActionProfileGroup.Member.newBuilder()
-                      .setMemberId(mid)
-                      .setWeight(1)
-                      .build()
+                    ActionProfileGroup.Member.newBuilder().setMemberId(mid).setWeight(1).build()
                   }
                 )
             )
@@ -1439,24 +1441,22 @@ class PSAArchitectureTest {
 
   private fun writeGroupTableEntry(store: TableStore, keyValue: Byte, groupId: Int) {
     store.write(
-      P4RuntimeOuterClass.Update.newBuilder()
-        .setType(P4RuntimeOuterClass.Update.Type.INSERT)
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
         .setEntity(
-          P4RuntimeOuterClass.Entity.newBuilder()
+          Entity.newBuilder()
             .setTableEntry(
-              P4RuntimeOuterClass.TableEntry.newBuilder()
+              TableEntry.newBuilder()
                 .setTableId(AS_TABLE_ID)
                 .addMatch(
-                  P4RuntimeOuterClass.FieldMatch.newBuilder()
+                  FieldMatch.newBuilder()
                     .setFieldId(1)
                     .setExact(
-                      P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+                      FieldMatch.Exact.newBuilder()
                         .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(keyValue)))
                     )
                 )
-                .setAction(
-                  P4RuntimeOuterClass.TableAction.newBuilder().setActionProfileGroupId(groupId)
-                )
+                .setAction(TableAction.newBuilder().setActionProfileGroupId(groupId))
             )
         )
         .build()

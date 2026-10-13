@@ -11,8 +11,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass.P4Info
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
+import org.p4.config.v1.P4Info
+import org.p4.v1.ForwardingPipelineConfig
 
 /**
  * Verifies that `fourward_pipeline` emits each configured output as the expected proto message

@@ -46,7 +46,7 @@ all possible outcomes in a single pass.
 - **v1model, PSA, and PNA** are fully implemented, with support for
   architecture modifications like translated port types.
   [Learn more](concepts/architectures.md).
-- A spec-compliant **[P4Runtime](https://p4lang.github.io/p4runtime/spec/v1.5.0/P4Runtime-Spec.html) server** provides full
+- A spec-compliant **[P4Runtime](https://p4lang.github.io/p4runtime/spec/v1.6.0/P4Runtime-Spec.html) server** provides full
   arbitration, table management, PacketIO, and clone/multicast support.
 - **Actionable error messages** tell you what went wrong, show the value you
   sent, and list the valid options — all 75 error paths are golden-tested.

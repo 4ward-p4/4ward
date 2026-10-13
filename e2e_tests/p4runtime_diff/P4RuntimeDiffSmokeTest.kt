@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume
 import org.junit.Before
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass.CapabilitiesRequest
+import org.p4.v1.CapabilitiesRequest
 
 /**
  * Smoke test: spawn both servers, exchange a `Capabilities` RPC with each, sanity-check P4Runtime

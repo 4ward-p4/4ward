@@ -9,7 +9,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass.Entity
+import org.p4.v1.Entity
 
 /**
  * Tests for @p4runtime_translation support.
@@ -202,28 +202,28 @@ class P4RuntimeTranslationTest {
     val matchField = table.matchFieldsList.first()
 
     val fieldMatch =
-      p4.v1.P4RuntimeOuterClass.FieldMatch.newBuilder()
+      org.p4.v1.FieldMatch.newBuilder()
         .setFieldId(matchField.id)
         .setExact(
-          p4.v1.P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+          org.p4.v1.FieldMatch.Exact.newBuilder()
             .setValue(ByteString.copyFrom(longToBytes(matchValue, (matchField.bitwidth + 7) / 8)))
         )
         .build()
 
     val actionParam =
-      p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
+      org.p4.v1.Action.Param.newBuilder()
         .setParamId(forwardAction.paramsList.first().id)
         .setValue(ByteString.copyFrom(portValue))
         .build()
 
     val tableEntry =
-      p4.v1.P4RuntimeOuterClass.TableEntry.newBuilder()
+      org.p4.v1.TableEntry.newBuilder()
         .setTableId(table.preamble.id)
         .addMatch(fieldMatch)
         .setAction(
-          p4.v1.P4RuntimeOuterClass.TableAction.newBuilder()
+          org.p4.v1.TableAction.newBuilder()
             .setAction(
-              p4.v1.P4RuntimeOuterClass.Action.newBuilder()
+              org.p4.v1.Action.newBuilder()
                 .setActionId(forwardAction.preamble.id)
                 .addParams(actionParam)
             )

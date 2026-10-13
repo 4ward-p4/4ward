@@ -11,7 +11,11 @@ import org.junit.After
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass
+import org.p4.v1.Action
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
 
 /**
  * Golden test for P4RT-enriched trace trees.
@@ -77,32 +81,32 @@ class EnrichedTraceGoldenTest {
     return builder.build()
   }
 
-  private fun buildForwardingEntry(matchValue: Long, portName: String): P4RuntimeOuterClass.Entity {
+  private fun buildForwardingEntry(matchValue: Long, portName: String): Entity {
     val p4info = config.p4Info
     val table = p4info.tablesList.first()
     val forwardAction = p4info.actionsList.find { it.preamble.name.contains("forward") }!!
     val matchField = table.matchFieldsList.first()
 
     val entry =
-      P4RuntimeOuterClass.TableEntry.newBuilder()
+      TableEntry.newBuilder()
         .setTableId(table.preamble.id)
         .addMatch(
-          P4RuntimeOuterClass.FieldMatch.newBuilder()
+          FieldMatch.newBuilder()
             .setFieldId(matchField.id)
             .setExact(
-              P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+              FieldMatch.Exact.newBuilder()
                 .setValue(
                   ByteString.copyFrom(longToBytes(matchValue, (matchField.bitwidth + 7) / 8))
                 )
             )
         )
         .setAction(
-          P4RuntimeOuterClass.TableAction.newBuilder()
+          TableAction.newBuilder()
             .setAction(
-              P4RuntimeOuterClass.Action.newBuilder()
+              Action.newBuilder()
                 .setActionId(forwardAction.preamble.id)
                 .addParams(
-                  P4RuntimeOuterClass.Action.Param.newBuilder()
+                  Action.Param.newBuilder()
                     .setParamId(forwardAction.paramsList.first().id)
                     .setValue(ByteString.copyFromUtf8(portName))
                 )
@@ -110,7 +114,7 @@ class EnrichedTraceGoldenTest {
         )
         .build()
 
-    return P4RuntimeOuterClass.Entity.newBuilder().setTableEntry(entry).build()
+    return Entity.newBuilder().setTableEntry(entry).build()
   }
 
   companion object {

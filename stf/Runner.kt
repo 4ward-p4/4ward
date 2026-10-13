@@ -8,8 +8,23 @@ import fourward.simulator.WriteResult
 import fourward.simulator.portToBytes
 import java.math.BigInteger
 import java.nio.file.Path
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.ActionProfile
+import org.p4.config.v1.MatchField
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.Replica
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 /** BMv2 STF files use `$N` for array indices; normalize to `[N]`. */
 private val ARRAY_INDEX_REGEX = Regex("\\$(\\d+)")
@@ -147,8 +162,8 @@ fun matchOutputAgainstExpects(
  * Installs all STF-declared entries (PRE, action profile members/groups, table entries) into the
  * simulator. Throws [IllegalStateException] on write failure.
  */
-fun installStfEntries(sim: Simulator, stf: StfFile, p4Info: P4InfoOuterClass.P4Info) {
-  fun write(update: P4RuntimeOuterClass.Update, label: String) {
+fun installStfEntries(sim: Simulator, stf: StfFile, p4Info: P4Info) {
+  fun write(update: Update, label: String) {
     val result = sim.writeEntry(update)
     if (result !is WriteResult.Success) {
       error("WriteEntry ($label) failed: ${result.message}")
@@ -485,20 +500,16 @@ data class StfFile(
 // ---------------------------------------------------------------------------
 
 /** Resolves an STF table directive against the p4info to produce a P4Runtime [Update]. */
-fun resolveStfTableEntry(
-  directive: StfTableDirective,
-  p4info: P4InfoOuterClass.P4Info,
-): P4RuntimeOuterClass.Update {
+fun resolveStfTableEntry(directive: StfTableDirective, p4info: P4Info): Update {
   val table = findTable(directive.tableName, p4info)
 
-  val tableEntry = P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(table.preamble.id)
+  val tableEntry = TableEntry.newBuilder().setTableId(table.preamble.id)
 
   // Group reference: set action_profile_group_id instead of a direct action.
   val isGroupEntry = directive is StfAddEntry && directive.groupId != null
   if (isGroupEntry) {
     tableEntry.setAction(
-      P4RuntimeOuterClass.TableAction.newBuilder()
-        .setActionProfileGroupId((directive as StfAddEntry).groupId!!)
+      TableAction.newBuilder().setActionProfileGroupId((directive as StfAddEntry).groupId!!)
     )
   } else {
     val action = findAction(directive.actionName, p4info)
@@ -509,19 +520,15 @@ fun resolveStfTableEntry(
           directive.actionParams.find { it.extractParamName() == paramInfo.name }
             ?: directive.actionParams.getOrNull(i)
             ?: error("missing param ${paramInfo.name} for action ${directive.actionName}")
-        P4RuntimeOuterClass.Action.Param.newBuilder()
+        Action.Param.newBuilder()
           .setParamId(paramInfo.id)
           .setValue(encodeValue(raw.stripNamedParamPrefix(), paramInfo.bitwidth))
           .build()
       }
 
     tableEntry.setAction(
-      P4RuntimeOuterClass.TableAction.newBuilder()
-        .setAction(
-          P4RuntimeOuterClass.Action.newBuilder()
-            .setActionId(action.preamble.id)
-            .addAllParams(paramsList)
-        )
+      TableAction.newBuilder()
+        .setAction(Action.newBuilder().setActionId(action.preamble.id).addAllParams(paramsList))
     )
   }
 
@@ -532,25 +539,19 @@ fun resolveStfTableEntry(
           directive.matches.map { m -> resolveStfMatchField(m, table, directive.tableName) }
         )
         if (directive.priority != null) tableEntry.setPriority(directive.priority)
-        P4RuntimeOuterClass.Update.Type.INSERT
+        Update.Type.INSERT
       }
       is StfSetDefault -> {
         tableEntry.setIsDefaultAction(true)
-        P4RuntimeOuterClass.Update.Type.MODIFY
+        Update.Type.MODIFY
       }
     }
 
-  return update(
-    P4RuntimeOuterClass.Entity.newBuilder().setTableEntry(tableEntry).build(),
-    updateType,
-  )
+  return update(Entity.newBuilder().setTableEntry(tableEntry).build(), updateType)
 }
 
 /** Resolves an STF member directive to a P4Runtime [Update]. */
-fun resolveStfMember(
-  directive: StfMemberDirective,
-  p4info: P4InfoOuterClass.P4Info,
-): P4RuntimeOuterClass.Update {
+fun resolveStfMember(directive: StfMemberDirective, p4info: P4Info): Update {
   val profile = findActionProfile(directive.profileName, p4info)
   val action = findAction(directive.actionName, p4info)
 
@@ -559,64 +560,52 @@ fun resolveStfMember(
       val raw =
         directive.params[paramInfo.name]
           ?: error("missing param ${paramInfo.name} for action ${directive.actionName}")
-      P4RuntimeOuterClass.Action.Param.newBuilder()
+      Action.Param.newBuilder()
         .setParamId(paramInfo.id)
         .setValue(encodeValue(raw, paramInfo.bitwidth))
         .build()
     }
 
   val member =
-    P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+    ActionProfileMember.newBuilder()
       .setActionProfileId(profile.preamble.id)
       .setMemberId(directive.memberId)
-      .setAction(
-        P4RuntimeOuterClass.Action.newBuilder()
-          .setActionId(action.preamble.id)
-          .addAllParams(paramsList)
-      )
+      .setAction(Action.newBuilder().setActionId(action.preamble.id).addAllParams(paramsList))
       .build()
 
-  return update(P4RuntimeOuterClass.Entity.newBuilder().setActionProfileMember(member).build())
+  return update(Entity.newBuilder().setActionProfileMember(member).build())
 }
 
 /** Resolves an STF group directive to a P4Runtime [Update]. */
-fun resolveStfGroup(
-  directive: StfGroupDirective,
-  p4info: P4InfoOuterClass.P4Info,
-): P4RuntimeOuterClass.Update {
+fun resolveStfGroup(directive: StfGroupDirective, p4info: P4Info): Update {
   val profile = findActionProfile(directive.profileName, p4info)
 
   val group =
-    P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
+    ActionProfileGroup.newBuilder()
       .setActionProfileId(profile.preamble.id)
       .setGroupId(directive.groupId)
       .addAllMembers(
         directive.memberIds.map { memberId ->
-          P4RuntimeOuterClass.ActionProfileGroup.Member.newBuilder()
-            .setMemberId(memberId)
-            .setWeight(1)
-            .build()
+          ActionProfileGroup.Member.newBuilder().setMemberId(memberId).setWeight(1).build()
         }
       )
       .build()
 
-  return update(P4RuntimeOuterClass.Entity.newBuilder().setActionProfileGroup(group).build())
+  return update(Entity.newBuilder().setActionProfileGroup(group).build())
 }
 
 /** Resolves a mirroring_add directive to a P4Runtime [Update] (clone session). */
-fun resolveStfMirroringAdd(directive: StfMirroringAdd): P4RuntimeOuterClass.Update {
+fun resolveStfMirroringAdd(directive: StfMirroringAdd): Update {
   val session =
-    P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
+    CloneSessionEntry.newBuilder()
       .setSessionId(directive.sessionId)
-      .addReplicas(
-        P4RuntimeOuterClass.Replica.newBuilder().setPort(portToBytes(directive.egressPort))
-      )
+      .addReplicas(Replica.newBuilder().setPort(portToBytes(directive.egressPort)))
       .build()
 
   return update(
-    P4RuntimeOuterClass.Entity.newBuilder()
+    Entity.newBuilder()
       .setPacketReplicationEngineEntry(
-        P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().setCloneSessionEntry(session)
+        PacketReplicationEngineEntry.newBuilder().setCloneSessionEntry(session)
       )
       .build()
   )
@@ -625,25 +614,25 @@ fun resolveStfMirroringAdd(directive: StfMirroringAdd): P4RuntimeOuterClass.Upda
 /**
  * Resolves a mirroring_add_mc directive (PSA: clone session → multicast group) into a P4Runtime
  * [Update]. Looks up the multicast group's replicas from the parsed STF data and creates a
- * [P4RuntimeOuterClass.CloneSessionEntry] with those replicas.
+ * [CloneSessionEntry] with those replicas.
  */
 fun resolveStfMirroringAddMc(
   directive: StfMirroringAddMc,
   nodes: List<StfMcNodeCreate>,
   associations: List<StfMcNodeAssociate>,
-): P4RuntimeOuterClass.Update {
+): Update {
   val replicas = resolveReplicas(directive.mcGroupId, nodes, associations)
 
   val session =
-    P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
+    CloneSessionEntry.newBuilder()
       .setSessionId(directive.sessionId)
       .addAllReplicas(replicas)
       .build()
 
   return update(
-    P4RuntimeOuterClass.Entity.newBuilder()
+    Entity.newBuilder()
       .setPacketReplicationEngineEntry(
-        P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().setCloneSessionEntry(session)
+        PacketReplicationEngineEntry.newBuilder().setCloneSessionEntry(session)
       )
       .build()
   )
@@ -662,19 +651,16 @@ fun resolveStfMulticastGroup(
   groupId: Int,
   nodes: List<StfMcNodeCreate>,
   associations: List<StfMcNodeAssociate>,
-): P4RuntimeOuterClass.Update {
+): Update {
   val replicas = resolveReplicas(groupId, nodes, associations)
 
   val group =
-    P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
-      .setMulticastGroupId(groupId)
-      .addAllReplicas(replicas)
-      .build()
+    MulticastGroupEntry.newBuilder().setMulticastGroupId(groupId).addAllReplicas(replicas).build()
 
   return update(
-    P4RuntimeOuterClass.Entity.newBuilder()
+    Entity.newBuilder()
       .setPacketReplicationEngineEntry(
-        P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().setMulticastGroupEntry(group)
+        PacketReplicationEngineEntry.newBuilder().setMulticastGroupEntry(group)
       )
       .build()
   )
@@ -688,26 +674,20 @@ private fun resolveReplicas(
   groupId: Int,
   nodes: List<StfMcNodeCreate>,
   associations: List<StfMcNodeAssociate>,
-): List<P4RuntimeOuterClass.Replica> =
+): List<Replica> =
   associations
     .filter { it.groupId == groupId }
     .flatMap { assoc ->
       val node =
         nodes.getOrNull(assoc.nodeHandle) ?: error("unknown mc node handle: ${assoc.nodeHandle}")
       node.ports.map { port ->
-        P4RuntimeOuterClass.Replica.newBuilder()
-          .setPort(portToBytes(port))
-          .setInstance(node.rid)
-          .build()
+        Replica.newBuilder().setPort(portToBytes(port)).setInstance(node.rid).build()
       }
     }
 
 /** Wraps a P4Runtime Entity in an [Update] with the given update type. */
-private fun update(
-  entity: P4RuntimeOuterClass.Entity,
-  type: P4RuntimeOuterClass.Update.Type = P4RuntimeOuterClass.Update.Type.INSERT,
-): P4RuntimeOuterClass.Update =
-  P4RuntimeOuterClass.Update.newBuilder().setType(type).setEntity(entity).build()
+private fun update(entity: Entity, type: Update.Type = Update.Type.INSERT): Update =
+  Update.newBuilder().setType(type).setEntity(entity).build()
 
 /** Returns a bare-hex all-ones mask for the given bitwidth (e.g. 9 → "01ff", 16 → "ffff"). */
 fun allOnesMask(bitwidth: Int): String {
@@ -719,24 +699,21 @@ fun allOnesMask(bitwidth: Int): String {
 /** Returns a bare-hex all-zeros mask for the given bitwidth (e.g. 9 → "0000", 16 → "0000"). */
 fun allZerosMask(bitwidth: Int): String = "00".repeat((bitwidth + 7) / 8)
 
-fun findTable(name: String, p4info: P4InfoOuterClass.P4Info): P4InfoOuterClass.Table =
+fun findTable(name: String, p4info: P4Info): Table =
   p4info.tablesList.find { it.preamble.alias == name || it.preamble.name == name }
     ?: p4info.tablesList.find { it.preamble.name.endsWith(".$name") }
     ?: error(
       "unknown table: $name (available: ${p4info.tablesList.map { it.preamble.name }.sorted().joinToString(", ")})"
     )
 
-fun findAction(name: String, p4info: P4InfoOuterClass.P4Info): P4InfoOuterClass.Action =
+fun findAction(name: String, p4info: P4Info): P4InfoAction =
   p4info.actionsList.find { it.preamble.alias == name || it.preamble.name == name }
     ?: p4info.actionsList.find { it.preamble.name.endsWith(".$name") }
     ?: error(
       "unknown action: $name (available: ${p4info.actionsList.map { it.preamble.name }.sorted().joinToString(", ")})"
     )
 
-fun findActionProfile(
-  name: String,
-  p4info: P4InfoOuterClass.P4Info,
-): P4InfoOuterClass.ActionProfile =
+fun findActionProfile(name: String, p4info: P4Info): ActionProfile =
   p4info.actionProfilesList.find { it.preamble.alias == name || it.preamble.name == name }
     ?: p4info.actionProfilesList.find { it.preamble.name.endsWith(".$name") }
     ?: run {
@@ -744,11 +721,7 @@ fun findActionProfile(
       error("unknown action profile: $name (available: $available)")
     }
 
-private fun resolveStfMatchField(
-  m: StfMatchField,
-  table: P4InfoOuterClass.Table,
-  tableName: String,
-): P4RuntimeOuterClass.FieldMatch {
+private fun resolveStfMatchField(m: StfMatchField, table: Table, tableName: String): FieldMatch {
   // BMv2 STF files strip the outermost struct prefix from field names
   // (e.g. p4info "hdrs.data.f1" → STF "data.f1") and use $N for array
   // indices (p4info "extra[0].h" → STF "extra$0.h").
@@ -763,7 +736,7 @@ private fun resolveStfMatchField(
         val available = table.matchFieldsList.map { it.name }.sorted().joinToString(", ")
         error("unknown match field '${m.fieldName}' in table '$tableName' (available: $available)")
       }
-  val fmBuilder = P4RuntimeOuterClass.FieldMatch.newBuilder().setFieldId(mf.id)
+  val fmBuilder = FieldMatch.newBuilder().setFieldId(mf.id)
   val encodedValue = encodeValue(m.value, mf.bitwidth)
 
   // BMv2 STF values without wildcards parse as EXACT, but the table's
@@ -773,36 +746,24 @@ private fun resolveStfMatchField(
   when {
     m.kind == MatchKind.LPM ->
       fmBuilder.setLpm(
-        P4RuntimeOuterClass.FieldMatch.LPM.newBuilder()
-          .setValue(encodedValue)
-          .setPrefixLen(m.prefixLen!!)
+        FieldMatch.LPM.newBuilder().setValue(encodedValue).setPrefixLen(m.prefixLen!!)
       )
     m.kind == MatchKind.TERNARY ||
-      (m.kind == MatchKind.EXACT &&
-        p4infoType == P4InfoOuterClass.MatchField.MatchType.TERNARY) -> {
+      (m.kind == MatchKind.EXACT && p4infoType == MatchField.MatchType.TERNARY) -> {
       val mask = m.mask ?: "0x${allOnesMask(mf.bitwidth)}"
       fmBuilder.setTernary(
-        P4RuntimeOuterClass.FieldMatch.Ternary.newBuilder()
+        FieldMatch.Ternary.newBuilder()
           .setValue(encodedValue)
           .setMask(encodeValue(mask, mf.bitwidth))
       )
     }
-    m.kind == MatchKind.EXACT && p4infoType == P4InfoOuterClass.MatchField.MatchType.RANGE ->
-      fmBuilder.setRange(
-        P4RuntimeOuterClass.FieldMatch.Range.newBuilder().setLow(encodedValue).setHigh(encodedValue)
-      )
-    m.kind == MatchKind.EXACT && p4infoType == P4InfoOuterClass.MatchField.MatchType.OPTIONAL ->
-      fmBuilder.setOptional(
-        P4RuntimeOuterClass.FieldMatch.Optional.newBuilder().setValue(encodedValue)
-      )
-    m.kind == MatchKind.EXACT && p4infoType == P4InfoOuterClass.MatchField.MatchType.LPM ->
-      fmBuilder.setLpm(
-        P4RuntimeOuterClass.FieldMatch.LPM.newBuilder()
-          .setValue(encodedValue)
-          .setPrefixLen(mf.bitwidth)
-      )
-    else ->
-      fmBuilder.setExact(P4RuntimeOuterClass.FieldMatch.Exact.newBuilder().setValue(encodedValue))
+    m.kind == MatchKind.EXACT && p4infoType == MatchField.MatchType.RANGE ->
+      fmBuilder.setRange(FieldMatch.Range.newBuilder().setLow(encodedValue).setHigh(encodedValue))
+    m.kind == MatchKind.EXACT && p4infoType == MatchField.MatchType.OPTIONAL ->
+      fmBuilder.setOptional(FieldMatch.Optional.newBuilder().setValue(encodedValue))
+    m.kind == MatchKind.EXACT && p4infoType == MatchField.MatchType.LPM ->
+      fmBuilder.setLpm(FieldMatch.LPM.newBuilder().setValue(encodedValue).setPrefixLen(mf.bitwidth))
+    else -> fmBuilder.setExact(FieldMatch.Exact.newBuilder().setValue(encodedValue))
   }
   return fmBuilder.build()
 }

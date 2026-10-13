@@ -28,16 +28,35 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.StreamMessageRequest
-import p4.v1.P4RuntimeOuterClass.Uint128
-import p4.v1.P4RuntimeOuterClass.Update
-import p4.v1.P4RuntimeOuterClass.WriteRequest
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.CounterData
+import org.p4.v1.CounterEntry
+import org.p4.v1.DigestEntry
+import org.p4.v1.DigestListAck
+import org.p4.v1.DirectCounterEntry
+import org.p4.v1.DirectMeterEntry
+import org.p4.v1.Entity
+import org.p4.v1.ExternEntry
+import org.p4.v1.FieldMatch
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.GetForwardingPipelineConfigRequest
+import org.p4.v1.MasterArbitrationUpdate
+import org.p4.v1.MeterConfig
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.ReadRequest
+import org.p4.v1.RegisterEntry
+import org.p4.v1.Replica
+import org.p4.v1.Role
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.StreamMessageRequest
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Uint128
+import org.p4.v1.Update
+import org.p4.v1.ValueSetEntry
+import org.p4.v1.WriteRequest
 
 /**
  * P4Runtime conformance tests.
@@ -178,9 +197,7 @@ class P4RuntimeConformanceTest {
   @Test
   fun `7 - write without pipeline returns error`() {
     val entity =
-      Entity.newBuilder()
-        .setTableEntry(p4.v1.P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(1))
-        .build()
+      Entity.newBuilder().setTableEntry(org.p4.v1.TableEntry.newBuilder().setTableId(1)).build()
     assertGrpcError(Status.Code.FAILED_PRECONDITION) { harness.installEntry(entity) }
   }
 
@@ -188,9 +205,7 @@ class P4RuntimeConformanceTest {
   fun `8 - write with invalid table ID returns error`() {
     harness.loadPipeline(loadBasicTableConfig())
     val entity =
-      Entity.newBuilder()
-        .setTableEntry(p4.v1.P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(99999))
-        .build()
+      Entity.newBuilder().setTableEntry(org.p4.v1.TableEntry.newBuilder().setTableId(99999)).build()
     assertGrpcError(Status.Code.INVALID_ARGUMENT) { harness.installEntry(entity) }
   }
 
@@ -332,7 +347,7 @@ class P4RuntimeConformanceTest {
   @Test
   fun `19 - capabilities returns API version`() {
     val resp = harness.capabilities()
-    assertEquals("1.5.0", resp.p4RuntimeApiVersion)
+    assertEquals("1.6.0", resp.p4RuntimeApiVersion)
   }
 
   // =========================================================================
@@ -353,17 +368,13 @@ class P4RuntimeConformanceTest {
     runBlocking {
       val unused =
         harness.stub.write(
-          p4.v1.P4RuntimeOuterClass.WriteRequest.newBuilder()
+          org.p4.v1.WriteRequest.newBuilder()
             .setDeviceId(1)
             .addUpdates(
-              p4.v1.P4RuntimeOuterClass.Update.newBuilder()
-                .setType(p4.v1.P4RuntimeOuterClass.Update.Type.INSERT)
-                .setEntity(entry1)
+              org.p4.v1.Update.newBuilder().setType(org.p4.v1.Update.Type.INSERT).setEntity(entry1)
             )
             .addUpdates(
-              p4.v1.P4RuntimeOuterClass.Update.newBuilder()
-                .setType(p4.v1.P4RuntimeOuterClass.Update.Type.MODIFY)
-                .setEntity(entry2)
+              org.p4.v1.Update.newBuilder().setType(org.p4.v1.Update.Type.MODIFY).setEntity(entry2)
             )
             .build()
         )
@@ -389,7 +400,7 @@ class P4RuntimeConformanceTest {
     assertGrpcError(Status.Code.INVALID_ARGUMENT, "not a valid DeviceConfig") {
       loadRawPipeline(
         ForwardingPipelineConfig.newBuilder()
-          .setP4Info(p4.config.v1.P4InfoOuterClass.P4Info.getDefaultInstance())
+          .setP4Info(org.p4.config.v1.P4Info.getDefaultInstance())
           .setP4DeviceConfig(com.google.protobuf.ByteString.copyFromUtf8("not-a-proto"))
       )
     }
@@ -400,7 +411,7 @@ class P4RuntimeConformanceTest {
     assertGrpcError(Status.Code.INVALID_ARGUMENT, "must include p4info and p4_device_config") {
       loadRawPipeline(
         ForwardingPipelineConfig.newBuilder()
-          .setP4Info(p4.config.v1.P4InfoOuterClass.P4Info.getDefaultInstance())
+          .setP4Info(org.p4.config.v1.P4Info.getDefaultInstance())
       )
     }
   }
@@ -643,40 +654,40 @@ class P4RuntimeConformanceTest {
 
     // Add a ternary table.
     p4InfoBuilder.addTables(
-      p4.config.v1.P4InfoOuterClass.Table.newBuilder()
+      org.p4.config.v1.Table.newBuilder()
         .setPreamble(
-          p4.config.v1.P4InfoOuterClass.Preamble.newBuilder()
+          org.p4.config.v1.Preamble.newBuilder()
             .setId(MULTI_TERNARY_TABLE_ID)
             .setName("ternary_table")
             .setAlias("ternary_table")
         )
         .addMatchFields(
-          p4.config.v1.P4InfoOuterClass.MatchField.newBuilder()
+          org.p4.config.v1.MatchField.newBuilder()
             .setId(1)
             .setName("f1")
             .setBitwidth(16)
-            .setMatchType(p4.config.v1.P4InfoOuterClass.MatchField.MatchType.TERNARY)
+            .setMatchType(org.p4.config.v1.MatchField.MatchType.TERNARY)
         )
-        .addActionRefs(p4.config.v1.P4InfoOuterClass.ActionRef.newBuilder().setId(dropId))
+        .addActionRefs(org.p4.config.v1.ActionRef.newBuilder().setId(dropId))
     )
     addSyntheticTableBinding("ternary_table")
     // Add an LPM table.
     p4InfoBuilder.addTables(
-      p4.config.v1.P4InfoOuterClass.Table.newBuilder()
+      org.p4.config.v1.Table.newBuilder()
         .setPreamble(
-          p4.config.v1.P4InfoOuterClass.Preamble.newBuilder()
+          org.p4.config.v1.Preamble.newBuilder()
             .setId(MULTI_LPM_TABLE_ID)
             .setName("lpm_table")
             .setAlias("lpm_table")
         )
         .addMatchFields(
-          p4.config.v1.P4InfoOuterClass.MatchField.newBuilder()
+          org.p4.config.v1.MatchField.newBuilder()
             .setId(1)
             .setName("f1")
             .setBitwidth(32)
-            .setMatchType(p4.config.v1.P4InfoOuterClass.MatchField.MatchType.LPM)
+            .setMatchType(org.p4.config.v1.MatchField.MatchType.LPM)
         )
-        .addActionRefs(p4.config.v1.P4InfoOuterClass.ActionRef.newBuilder().setId(dropId))
+        .addActionRefs(org.p4.config.v1.ActionRef.newBuilder().setId(dropId))
     )
     addSyntheticTableBinding("lpm_table")
 
@@ -722,9 +733,7 @@ class P4RuntimeConformanceTest {
         .setDeviceId(1)
         .addEntities(
           Entity.newBuilder()
-            .setTableEntry(
-              P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(MULTI_TERNARY_TABLE_ID)
-            )
+            .setTableEntry(TableEntry.newBuilder().setTableId(MULTI_TERNARY_TABLE_ID))
         )
         .build()
     val results = harness.readEntries(request)
@@ -776,13 +785,13 @@ class P4RuntimeConformanceTest {
     val dropId = FourwardTestHarness.findAction(config, "drop").preamble.id
     return Entity.newBuilder()
       .setTableEntry(
-        P4RuntimeOuterClass.TableEntry.newBuilder()
+        TableEntry.newBuilder()
           .setTableId(tableId)
           .addMatch(
-            P4RuntimeOuterClass.FieldMatch.newBuilder()
+            FieldMatch.newBuilder()
               .setFieldId(1)
               .setTernary(
-                P4RuntimeOuterClass.FieldMatch.Ternary.newBuilder()
+                FieldMatch.Ternary.newBuilder()
                   .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(0x08, 0x00)))
                   .setMask(
                     com.google.protobuf.ByteString.copyFrom(byteArrayOf(0xFF.toByte(), 0x00))
@@ -790,10 +799,7 @@ class P4RuntimeConformanceTest {
               )
           )
           .setPriority(10)
-          .setAction(
-            P4RuntimeOuterClass.TableAction.newBuilder()
-              .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(dropId))
-          )
+          .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(dropId)))
       )
       .build()
   }
@@ -803,23 +809,20 @@ class P4RuntimeConformanceTest {
     val dropId = FourwardTestHarness.findAction(config, "drop").preamble.id
     return Entity.newBuilder()
       .setTableEntry(
-        P4RuntimeOuterClass.TableEntry.newBuilder()
+        TableEntry.newBuilder()
           .setTableId(tableId)
           .addMatch(
-            P4RuntimeOuterClass.FieldMatch.newBuilder()
+            FieldMatch.newBuilder()
               .setFieldId(1)
               .setLpm(
-                P4RuntimeOuterClass.FieldMatch.LPM.newBuilder()
+                FieldMatch.LPM.newBuilder()
                   .setValue(
                     com.google.protobuf.ByteString.copyFrom(byteArrayOf(0x0A, 0x00, 0x00, 0x00))
                   )
                   .setPrefixLen(16)
               )
           )
-          .setAction(
-            P4RuntimeOuterClass.TableAction.newBuilder()
-              .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(dropId))
-          )
+          .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(dropId)))
       )
       .build()
   }
@@ -832,15 +835,13 @@ class P4RuntimeConformanceTest {
     val base = loadBasicTableConfig()
     // Inject a register into the p4info so the simulator creates RegisterInfo.
     val register =
-      p4.config.v1.P4InfoOuterClass.Register.newBuilder()
-        .setPreamble(
-          p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(REG_ID).setName("myReg")
-        )
+      org.p4.config.v1.Register.newBuilder()
+        .setPreamble(org.p4.config.v1.Preamble.newBuilder().setId(REG_ID).setName("myReg"))
         .setTypeSpec(
-          p4.config.v1.P4Types.P4DataTypeSpec.newBuilder()
+          org.p4.config.v1.P4DataTypeSpec.newBuilder()
             .setBitstring(
-              p4.config.v1.P4Types.P4BitstringLikeTypeSpec.newBuilder()
-                .setBit(p4.config.v1.P4Types.P4BitTypeSpec.newBuilder().setBitwidth(REG_BITWIDTH))
+              org.p4.config.v1.P4BitstringLikeTypeSpec.newBuilder()
+                .setBit(org.p4.config.v1.P4BitTypeSpec.newBuilder().setBitwidth(REG_BITWIDTH))
             )
         )
         .setSize(REG_SIZE)
@@ -980,10 +981,8 @@ class P4RuntimeConformanceTest {
   private fun loadConfigWithCounter(): PipelineConfig {
     val base = loadBasicTableConfig()
     val counter =
-      p4.config.v1.P4InfoOuterClass.Counter.newBuilder()
-        .setPreamble(
-          p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(CTR_ID).setName("myCounter")
-        )
+      org.p4.config.v1.Counter.newBuilder()
+        .setPreamble(org.p4.config.v1.Preamble.newBuilder().setId(CTR_ID).setName("myCounter"))
         .setSize(CTR_SIZE.toLong())
         .build()
     return base.toBuilder().setP4Info(base.p4Info.toBuilder().addCounters(counter)).build()
@@ -1026,10 +1025,8 @@ class P4RuntimeConformanceTest {
   private fun loadConfigWithMeter(): PipelineConfig {
     val base = loadBasicTableConfig()
     val meter =
-      p4.config.v1.P4InfoOuterClass.Meter.newBuilder()
-        .setPreamble(
-          p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(MTR_ID).setName("myMeter")
-        )
+      org.p4.config.v1.Meter.newBuilder()
+        .setPreamble(org.p4.config.v1.Preamble.newBuilder().setId(MTR_ID).setName("myMeter"))
         .setSize(MTR_SIZE.toLong())
         .build()
     return base.toBuilder().setP4Info(base.p4Info.toBuilder().addMeters(meter)).build()
@@ -1082,11 +1079,9 @@ class P4RuntimeConformanceTest {
     val base = loadBasicTableConfig()
     val tableId = base.p4Info.tablesList.first().preamble.id
     val directCounter =
-      p4.config.v1.P4InfoOuterClass.DirectCounter.newBuilder()
+      org.p4.config.v1.DirectCounter.newBuilder()
         .setPreamble(
-          p4.config.v1.P4InfoOuterClass.Preamble.newBuilder()
-            .setId(DCTR_ID)
-            .setName("myDirectCounter")
+          org.p4.config.v1.Preamble.newBuilder().setId(DCTR_ID).setName("myDirectCounter")
         )
         .setDirectTableId(tableId)
         .build()
@@ -1107,13 +1102,9 @@ class P4RuntimeConformanceTest {
     val directCounterEntity =
       Entity.newBuilder()
         .setDirectCounterEntry(
-          p4.v1.P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+          org.p4.v1.DirectCounterEntry.newBuilder()
             .setTableEntry(tableEntry.tableEntry)
-            .setData(
-              p4.v1.P4RuntimeOuterClass.CounterData.newBuilder()
-                .setPacketCount(42)
-                .setByteCount(1000)
-            )
+            .setData(org.p4.v1.CounterData.newBuilder().setPacketCount(42).setByteCount(1000))
         )
         .build()
     harness.modifyEntry(directCounterEntity)
@@ -1149,9 +1140,9 @@ class P4RuntimeConformanceTest {
     val directCounterEntity =
       Entity.newBuilder()
         .setDirectCounterEntry(
-          p4.v1.P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+          org.p4.v1.DirectCounterEntry.newBuilder()
             .setTableEntry(tableEntry.tableEntry)
-            .setData(p4.v1.P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(1))
+            .setData(org.p4.v1.CounterData.newBuilder().setPacketCount(1))
         )
         .build()
     assertGrpcError(Status.Code.INVALID_ARGUMENT) { harness.installEntry(directCounterEntity) }
@@ -1170,11 +1161,9 @@ class P4RuntimeConformanceTest {
     val directCounterEntity =
       Entity.newBuilder()
         .setDirectCounterEntry(
-          P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+          DirectCounterEntry.newBuilder()
             .setTableEntry(defaultDirectExternTableEntry(tableId, dropActionId))
-            .setData(
-              P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(42).setByteCount(1000)
-            )
+            .setData(CounterData.newBuilder().setPacketCount(42).setByteCount(1000))
         )
         .build()
     harness.modifyEntry(directCounterEntity)
@@ -1198,12 +1187,8 @@ class P4RuntimeConformanceTest {
     val base = loadBasicTableConfig()
     val tableId = base.p4Info.tablesList.first().preamble.id
     val directMeter =
-      p4.config.v1.P4InfoOuterClass.DirectMeter.newBuilder()
-        .setPreamble(
-          p4.config.v1.P4InfoOuterClass.Preamble.newBuilder()
-            .setId(DMTR_ID)
-            .setName("myDirectMeter")
-        )
+      org.p4.config.v1.DirectMeter.newBuilder()
+        .setPreamble(org.p4.config.v1.Preamble.newBuilder().setId(DMTR_ID).setName("myDirectMeter"))
         .setDirectTableId(tableId)
         .build()
     return base.toBuilder().setP4Info(base.p4Info.toBuilder().addDirectMeters(directMeter)).build()
@@ -1219,10 +1204,10 @@ class P4RuntimeConformanceTest {
     val directMeterEntity =
       Entity.newBuilder()
         .setDirectMeterEntry(
-          p4.v1.P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+          org.p4.v1.DirectMeterEntry.newBuilder()
             .setTableEntry(tableEntry.tableEntry)
             .setConfig(
-              p4.v1.P4RuntimeOuterClass.MeterConfig.newBuilder()
+              org.p4.v1.MeterConfig.newBuilder()
                 .setCir(1000)
                 .setCburst(100)
                 .setPir(2000)
@@ -1266,9 +1251,9 @@ class P4RuntimeConformanceTest {
     val directMeterEntity =
       Entity.newBuilder()
         .setDirectMeterEntry(
-          p4.v1.P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+          org.p4.v1.DirectMeterEntry.newBuilder()
             .setTableEntry(tableEntry.tableEntry)
-            .setConfig(p4.v1.P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(100))
+            .setConfig(org.p4.v1.MeterConfig.newBuilder().setCir(100))
         )
         .build()
     assertGrpcError(Status.Code.INVALID_ARGUMENT) { harness.installEntry(directMeterEntity) }
@@ -1287,14 +1272,10 @@ class P4RuntimeConformanceTest {
     val directMeterEntity =
       Entity.newBuilder()
         .setDirectMeterEntry(
-          P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+          DirectMeterEntry.newBuilder()
             .setTableEntry(defaultDirectExternTableEntry(tableId, dropActionId))
             .setConfig(
-              P4RuntimeOuterClass.MeterConfig.newBuilder()
-                .setCir(1000)
-                .setCburst(500)
-                .setPir(2000)
-                .setPburst(1000)
+              MeterConfig.newBuilder().setCir(1000).setCburst(500).setPir(2000).setPburst(1000)
             )
         )
         .build()
@@ -1362,11 +1343,11 @@ class P4RuntimeConformanceTest {
       runBlocking {
         val unused =
           harness.stub.write(
-            p4.v1.P4RuntimeOuterClass.WriteRequest.newBuilder()
+            org.p4.v1.WriteRequest.newBuilder()
               .setDeviceId(999)
               .addUpdates(
-                p4.v1.P4RuntimeOuterClass.Update.newBuilder()
-                  .setType(p4.v1.P4RuntimeOuterClass.Update.Type.INSERT)
+                org.p4.v1.Update.newBuilder()
+                  .setType(org.p4.v1.Update.Type.INSERT)
                   .setEntity(buildExactEntry(config, matchValue = 0x0800, port = 1))
               )
               .build()
@@ -1384,8 +1365,7 @@ class P4RuntimeConformanceTest {
         ReadRequest.newBuilder()
           .setDeviceId(999)
           .addEntities(
-            Entity.newBuilder()
-              .setTableEntry(p4.v1.P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(0))
+            Entity.newBuilder().setTableEntry(org.p4.v1.TableEntry.newBuilder().setTableId(0))
           )
           .build()
       )
@@ -1589,11 +1569,9 @@ class P4RuntimeConformanceTest {
     val directCounterEntity =
       Entity.newBuilder()
         .setDirectCounterEntry(
-          P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+          DirectCounterEntry.newBuilder()
             .setTableEntry(tableEntry.tableEntry)
-            .setData(
-              P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(42).setByteCount(1000)
-            )
+            .setData(CounterData.newBuilder().setPacketCount(42).setByteCount(1000))
         )
         .build()
     harness.modifyEntry(directCounterEntity)
@@ -1618,14 +1596,10 @@ class P4RuntimeConformanceTest {
     val directMeterEntity =
       Entity.newBuilder()
         .setDirectMeterEntry(
-          P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
+          DirectMeterEntry.newBuilder()
             .setTableEntry(tableEntry.tableEntry)
             .setConfig(
-              P4RuntimeOuterClass.MeterConfig.newBuilder()
-                .setCir(1000)
-                .setCburst(500)
-                .setPir(2000)
-                .setPburst(1000)
+              MeterConfig.newBuilder().setCir(1000).setCburst(500).setPir(2000).setPburst(1000)
             )
         )
         .build()
@@ -1690,9 +1664,7 @@ class P4RuntimeConformanceTest {
         .setTableEntry(
           defaultEntry.tableEntry
             .toBuilder()
-            .setCounterData(
-              P4RuntimeOuterClass.CounterData.newBuilder().setPacketCount(42).setByteCount(1000)
-            )
+            .setCounterData(CounterData.newBuilder().setPacketCount(42).setByteCount(1000))
         )
         .build()
 
@@ -1721,11 +1693,7 @@ class P4RuntimeConformanceTest {
           defaultEntry.tableEntry
             .toBuilder()
             .setMeterConfig(
-              P4RuntimeOuterClass.MeterConfig.newBuilder()
-                .setCir(1000)
-                .setCburst(500)
-                .setPir(2000)
-                .setPburst(1000)
+              MeterConfig.newBuilder().setCir(1000).setCburst(500).setPir(2000).setPburst(1000)
             )
         )
         .build()
@@ -1954,13 +1922,11 @@ class P4RuntimeConformanceTest {
     val mcastGroup =
       Entity.newBuilder()
         .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+          PacketReplicationEngineEntry.newBuilder()
             .setMulticastGroupEntry(
-              P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+              MulticastGroupEntry.newBuilder()
                 .setMulticastGroupId(1)
-                .addReplicas(
-                  P4RuntimeOuterClass.Replica.newBuilder().setPort(portToBytes(1)).setInstance(0)
-                )
+                .addReplicas(Replica.newBuilder().setPort(portToBytes(1)).setInstance(0))
             )
         )
         .build()
@@ -1973,10 +1939,8 @@ class P4RuntimeConformanceTest {
         .addEntities(
           Entity.newBuilder()
             .setPacketReplicationEngineEntry(
-              P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-                .setMulticastGroupEntry(
-                  P4RuntimeOuterClass.MulticastGroupEntry.getDefaultInstance()
-                )
+              PacketReplicationEngineEntry.newBuilder()
+                .setMulticastGroupEntry(MulticastGroupEntry.getDefaultInstance())
             )
         )
         .build()
@@ -2109,8 +2073,7 @@ class P4RuntimeConformanceTest {
       ReadRequest.newBuilder()
         .setDeviceId(1)
         .addEntities(
-          Entity.newBuilder()
-            .setValueSetEntry(P4RuntimeOuterClass.ValueSetEntry.newBuilder().setValueSetId(999))
+          Entity.newBuilder().setValueSetEntry(ValueSetEntry.newBuilder().setValueSetId(999))
         )
         .build()
     val results = harness.readEntries(request)
@@ -2125,8 +2088,7 @@ class P4RuntimeConformanceTest {
       ReadRequest.newBuilder()
         .setDeviceId(1)
         .addEntities(
-          Entity.newBuilder()
-            .setExternEntry(P4RuntimeOuterClass.ExternEntry.newBuilder().setExternTypeId(1))
+          Entity.newBuilder().setExternEntry(ExternEntry.newBuilder().setExternTypeId(1))
         )
         .build()
     assertGrpcError(Status.Code.UNIMPLEMENTED) { harness.readEntries(request) }
@@ -2139,10 +2101,7 @@ class P4RuntimeConformanceTest {
     val request =
       ReadRequest.newBuilder()
         .setDeviceId(1)
-        .addEntities(
-          Entity.newBuilder()
-            .setDigestEntry(P4RuntimeOuterClass.DigestEntry.newBuilder().setDigestId(1))
-        )
+        .addEntities(Entity.newBuilder().setDigestEntry(DigestEntry.newBuilder().setDigestId(1)))
         .build()
     assertGrpcError(Status.Code.UNIMPLEMENTED) { harness.readEntries(request) }
   }
@@ -2165,11 +2124,11 @@ class P4RuntimeConformanceTest {
         val request =
           StreamMessageRequest.newBuilder()
             .setArbitration(
-              P4RuntimeOuterClass.MasterArbitrationUpdate.newBuilder()
+              MasterArbitrationUpdate.newBuilder()
                 .setDeviceId(1)
                 .setElectionId(Uint128.newBuilder().setHigh(0).setLow(1))
                 .setRole(
-                  P4RuntimeOuterClass.Role.newBuilder()
+                  Role.newBuilder()
                     .setName("sdn_controller")
                     .setConfig(ProtoAny.getDefaultInstance())
                 )
@@ -2299,7 +2258,7 @@ class P4RuntimeConformanceTest {
       stream.arbitrate()
       val request =
         StreamMessageRequest.newBuilder()
-          .setDigestAck(P4RuntimeOuterClass.DigestListAck.newBuilder().setDigestId(1))
+          .setDigestAck(DigestListAck.newBuilder().setDigestId(1))
           .build()
       val response = stream.sendRaw(request)
       assertNotNull("expected a StreamError response", response)
@@ -2362,8 +2321,7 @@ class P4RuntimeConformanceTest {
     val directCounter =
       Entity.newBuilder()
         .setDirectCounterEntry(
-          P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
-            .setTableEntry(P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(1))
+          DirectCounterEntry.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(1))
         )
         .build()
     assertGrpcError(Status.Code.PERMISSION_DENIED, "cannot access") {
@@ -2380,8 +2338,7 @@ class P4RuntimeConformanceTest {
         .setDeviceId(1)
         .setRole("sdn_controller")
         .addEntities(
-          Entity.newBuilder()
-            .setCounterEntry(P4RuntimeOuterClass.CounterEntry.newBuilder().setCounterId(CTR_ID))
+          Entity.newBuilder().setCounterEntry(CounterEntry.newBuilder().setCounterId(CTR_ID))
         )
         .build()
     val results = harness.readEntries(request)
@@ -2535,9 +2492,7 @@ class P4RuntimeConformanceTest {
     val constTable = checkNotNull(config.p4Info.tablesList.find { it.isConstTable })
     val entry =
       Entity.newBuilder()
-        .setTableEntry(
-          P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(constTable.preamble.id)
-        )
+        .setTableEntry(TableEntry.newBuilder().setTableId(constTable.preamble.id))
         .build()
     assertGrpcError(Status.Code.INVALID_ARGUMENT) { harness.installEntry(entry) }
   }
@@ -2619,10 +2574,7 @@ class P4RuntimeConformanceTest {
     harness.loadPipeline(config)
     // Insert two entries: one valid, one with bad table_id. CONTINUE_ON_ERROR.
     val good = buildExactEntry(config, matchValue = 0x0800, port = 1)
-    val bad =
-      Entity.newBuilder()
-        .setTableEntry(P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(999999))
-        .build()
+    val bad = Entity.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(999999)).build()
     val request =
       WriteRequest.newBuilder()
         .setDeviceId(1)
@@ -2642,10 +2594,7 @@ class P4RuntimeConformanceTest {
   fun `121 - single-update error has structured details in trailers`() {
     val config = loadBasicTableConfig()
     harness.loadPipeline(config)
-    val bad =
-      Entity.newBuilder()
-        .setTableEntry(P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(999999))
-        .build()
+    val bad = Entity.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(999999)).build()
     val errors = assertBatchError { harness.installEntry(bad) }
     assertEquals(1, errors.size)
     assertTrue("should have non-OK code", errors[0].canonicalCode != 0)
@@ -2660,13 +2609,9 @@ class P4RuntimeConformanceTest {
     val request =
       ReadRequest.newBuilder()
         .setDeviceId(1)
+        .addEntities(Entity.newBuilder().setTableEntry(TableEntry.newBuilder()).build())
         .addEntities(
-          Entity.newBuilder().setTableEntry(P4RuntimeOuterClass.TableEntry.newBuilder()).build()
-        )
-        .addEntities(
-          Entity.newBuilder()
-            .setDigestEntry(P4RuntimeOuterClass.DigestEntry.newBuilder().setDigestId(1))
-            .build()
+          Entity.newBuilder().setDigestEntry(DigestEntry.newBuilder().setDigestId(1)).build()
         )
         .build()
     val errors = assertBatchError { harness.readEntries(request) }
@@ -2712,13 +2657,13 @@ class P4RuntimeConformanceTest {
     val tableEntry =
       Entity.newBuilder()
         .setTableEntry(
-          P4RuntimeOuterClass.TableEntry.newBuilder()
+          TableEntry.newBuilder()
             .setTableId(table.preamble.id)
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(table.matchFieldsList.first().id)
                 .setExact(
-                  P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+                  FieldMatch.Exact.newBuilder()
                     .setValue(
                       ByteString.copyFrom(
                         FourwardTestHarness.longToBytes(
@@ -2729,7 +2674,7 @@ class P4RuntimeConformanceTest {
                     )
                 )
             )
-            .setAction(P4RuntimeOuterClass.TableAction.newBuilder().setActionProfileGroupId(1))
+            .setAction(TableAction.newBuilder().setActionProfileGroupId(1))
             .setPriority(0)
         )
         .build()
@@ -2744,16 +2689,11 @@ class P4RuntimeConformanceTest {
       ReadRequest.newBuilder()
         .setDeviceId(1)
         .addEntities(
-          Entity.newBuilder()
-            .setTableEntry(
-              P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(table.preamble.id)
-            )
+          Entity.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(table.preamble.id))
         )
         .addEntities(
           Entity.newBuilder()
-            .setActionProfileMember(
-              P4RuntimeOuterClass.ActionProfileMember.newBuilder().setActionProfileId(profileId)
-            )
+            .setActionProfileMember(ActionProfileMember.newBuilder().setActionProfileId(profileId))
         )
         .build()
     val results = harness.readEntries(request)
@@ -2772,17 +2712,17 @@ class P4RuntimeConformanceTest {
       regConfig.p4Info
         .toBuilder()
         .addCounters(
-          p4.config.v1.P4InfoOuterClass.Counter.newBuilder()
+          org.p4.config.v1.Counter.newBuilder()
             .setPreamble(
-              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder()
+              org.p4.config.v1.Preamble.newBuilder()
                 .setId(CTR_ID)
                 .setName("my_counter")
                 .setAlias("my_counter")
             )
             .setSize(CTR_SIZE.toLong())
             .setSpec(
-              p4.config.v1.P4InfoOuterClass.CounterSpec.newBuilder()
-                .setUnit(p4.config.v1.P4InfoOuterClass.CounterSpec.Unit.BOTH)
+              org.p4.config.v1.CounterSpec.newBuilder()
+                .setUnit(org.p4.config.v1.CounterSpec.Unit.BOTH)
             )
         )
     val combined = regConfig.toBuilder().setP4Info(counterP4Info).build()
@@ -2798,12 +2738,10 @@ class P4RuntimeConformanceTest {
       ReadRequest.newBuilder()
         .setDeviceId(1)
         .addEntities(
-          Entity.newBuilder()
-            .setCounterEntry(P4RuntimeOuterClass.CounterEntry.newBuilder().setCounterId(CTR_ID))
+          Entity.newBuilder().setCounterEntry(CounterEntry.newBuilder().setCounterId(CTR_ID))
         )
         .addEntities(
-          Entity.newBuilder()
-            .setRegisterEntry(P4RuntimeOuterClass.RegisterEntry.newBuilder().setRegisterId(REG_ID))
+          Entity.newBuilder().setRegisterEntry(RegisterEntry.newBuilder().setRegisterId(REG_ID))
         )
         .build()
     val results = harness.readEntries(request)
@@ -2836,17 +2774,11 @@ class P4RuntimeConformanceTest {
   private fun buildReadFilter(config: PipelineConfig, matchValue: Long): Entity =
     FourwardTestHarness.buildMatchFilter(config, matchValue)
 
-  private fun defaultDirectExternTableEntry(
-    tableId: Int,
-    actionId: Int,
-  ): P4RuntimeOuterClass.TableEntry =
-    P4RuntimeOuterClass.TableEntry.newBuilder()
+  private fun defaultDirectExternTableEntry(tableId: Int, actionId: Int): TableEntry =
+    TableEntry.newBuilder()
       .setTableId(tableId)
       .setIsDefaultAction(true)
-      .setAction(
-        P4RuntimeOuterClass.TableAction.newBuilder()
-          .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId))
-      )
+      .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
       .build()
 
   private fun readDefaultDirectCounterEntry(tableId: Int): List<Entity> =
@@ -2856,12 +2788,8 @@ class P4RuntimeConformanceTest {
         .addEntities(
           Entity.newBuilder()
             .setDirectCounterEntry(
-              P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
-                .setTableEntry(
-                  P4RuntimeOuterClass.TableEntry.newBuilder()
-                    .setTableId(tableId)
-                    .setIsDefaultAction(true)
-                )
+              DirectCounterEntry.newBuilder()
+                .setTableEntry(TableEntry.newBuilder().setTableId(tableId).setIsDefaultAction(true))
             )
         )
         .build()
@@ -2874,12 +2802,8 @@ class P4RuntimeConformanceTest {
         .addEntities(
           Entity.newBuilder()
             .setDirectMeterEntry(
-              P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
-                .setTableEntry(
-                  P4RuntimeOuterClass.TableEntry.newBuilder()
-                    .setTableId(tableId)
-                    .setIsDefaultAction(true)
-                )
+              DirectMeterEntry.newBuilder()
+                .setTableEntry(TableEntry.newBuilder().setTableId(tableId).setIsDefaultAction(true))
             )
         )
         .build()

@@ -5,7 +5,12 @@ import fourward.simulator.toUnsignedBigInteger
 import io.grpc.Status
 import io.grpc.StatusException
 import java.nio.ByteBuffer
-import p4.v1.P4RuntimeOuterClass
+import org.p4.v1.Action
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 /**
  * Helpers for the P4Runtime bytestring encoding rules in spec §8.3.
@@ -88,17 +93,17 @@ fun uint32Bytes(value: Long): ByteString {
  * (a) keeps `TableEntry.sameKey` consistent across encodings of the same logical value, and (b)
  * makes reads return canonical form for free, satisfying the §8.3 read-write symmetry requirement.
  */
-fun canonicalizeMatch(match: P4RuntimeOuterClass.FieldMatch): P4RuntimeOuterClass.FieldMatch {
+fun canonicalizeMatch(match: FieldMatch): FieldMatch {
   // Each branch returns the original `match` unchanged when its bytestring(s) were already
   // canonical (canonicalize preserves instance identity in that case), so the steady-state
   // path for spec-conformant clients is allocation-free.
   return when (match.fieldMatchTypeCase) {
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT -> {
+    FieldMatch.FieldMatchTypeCase.EXACT -> {
       val v = canonicalize(match.exact.value)
       if (v === match.exact.value) match
       else match.toBuilder().apply { exactBuilder.value = v }.build()
     }
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY -> {
+    FieldMatch.FieldMatchTypeCase.TERNARY -> {
       val v = canonicalize(match.ternary.value)
       val m = canonicalize(match.ternary.mask)
       if (v === match.ternary.value && m === match.ternary.mask) match
@@ -111,11 +116,11 @@ fun canonicalizeMatch(match: P4RuntimeOuterClass.FieldMatch): P4RuntimeOuterClas
           }
           .build()
     }
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM -> {
+    FieldMatch.FieldMatchTypeCase.LPM -> {
       val v = canonicalize(match.lpm.value)
       if (v === match.lpm.value) match else match.toBuilder().apply { lpmBuilder.value = v }.build()
     }
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE -> {
+    FieldMatch.FieldMatchTypeCase.RANGE -> {
       val lo = canonicalize(match.range.low)
       val hi = canonicalize(match.range.high)
       if (lo === match.range.low && hi === match.range.high) match
@@ -128,19 +133,19 @@ fun canonicalizeMatch(match: P4RuntimeOuterClass.FieldMatch): P4RuntimeOuterClas
           }
           .build()
     }
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -> {
+    FieldMatch.FieldMatchTypeCase.OPTIONAL -> {
       val v = canonicalize(match.optional.value)
       if (v === match.optional.value) match
       else match.toBuilder().apply { optionalBuilder.value = v }.build()
     }
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
+    FieldMatch.FieldMatchTypeCase.OTHER,
+    FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
     null -> match
   }
 }
 
 /** Returns a copy of [param] with its `value` canonicalized per spec §8.3. */
-fun canonicalizeParam(param: P4RuntimeOuterClass.Action.Param): P4RuntimeOuterClass.Action.Param {
+fun canonicalizeParam(param: Action.Param): Action.Param {
   val v = canonicalize(param.value)
   return if (v === param.value) param else param.toBuilder().setValue(v).build()
 }
@@ -155,15 +160,15 @@ fun canonicalizeParam(param: P4RuntimeOuterClass.Action.Param): P4RuntimeOuterCl
  * is returned unchanged. If a future entity type starts storing client bytestrings as a match key,
  * add a case here — the exhaustive `when` will fail at compile time so it can't be forgotten.
  */
-fun canonicalizeBytestrings(update: P4RuntimeOuterClass.Update): P4RuntimeOuterClass.Update {
+fun canonicalizeBytestrings(update: Update): Update {
   val entity = update.entity
   return when (entity.entityCase) {
-    P4RuntimeOuterClass.Entity.EntityCase.TABLE_ENTRY -> {
+    Entity.EntityCase.TABLE_ENTRY -> {
       val canonical = canonicalizeTableEntry(entity.tableEntry)
       if (canonical === entity.tableEntry) update
       else update.toBuilder().apply { entityBuilder.tableEntry = canonical }.build()
     }
-    P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_MEMBER -> {
+    Entity.EntityCase.ACTION_PROFILE_MEMBER -> {
       val member = entity.actionProfileMember
       val canonical = canonicalizeAction(member.action)
       if (canonical === member.action) update
@@ -174,27 +179,27 @@ fun canonicalizeBytestrings(update: P4RuntimeOuterClass.Update): P4RuntimeOuterC
           .build()
     }
     // Action-profile groups carry only member-ID references — no client bytestrings.
-    P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_GROUP,
+    Entity.EntityCase.ACTION_PROFILE_GROUP,
     // PRE entries (multicast groups, clone sessions) reference replicas by integer port IDs.
-    P4RuntimeOuterClass.Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
+    Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
     // Counters / meters use integer indices and numeric counts, not match keys.
-    P4RuntimeOuterClass.Entity.EntityCase.COUNTER_ENTRY,
-    P4RuntimeOuterClass.Entity.EntityCase.DIRECT_COUNTER_ENTRY,
-    P4RuntimeOuterClass.Entity.EntityCase.METER_ENTRY,
-    P4RuntimeOuterClass.Entity.EntityCase.DIRECT_METER_ENTRY,
+    Entity.EntityCase.COUNTER_ENTRY,
+    Entity.EntityCase.DIRECT_COUNTER_ENTRY,
+    Entity.EntityCase.METER_ENTRY,
+    Entity.EntityCase.DIRECT_METER_ENTRY,
     // Registers, value sets, digests, externs aren't surfaced by 4ward today.
-    P4RuntimeOuterClass.Entity.EntityCase.REGISTER_ENTRY,
-    P4RuntimeOuterClass.Entity.EntityCase.VALUE_SET_ENTRY,
-    P4RuntimeOuterClass.Entity.EntityCase.DIGEST_ENTRY,
-    P4RuntimeOuterClass.Entity.EntityCase.EXTERN_ENTRY,
+    Entity.EntityCase.REGISTER_ENTRY,
+    Entity.EntityCase.VALUE_SET_ENTRY,
+    Entity.EntityCase.DIGEST_ENTRY,
+    Entity.EntityCase.EXTERN_ENTRY,
     // Should not happen: the validator rejects updates with no entity set before we reach here.
-    P4RuntimeOuterClass.Entity.EntityCase.ENTITY_NOT_SET,
+    Entity.EntityCase.ENTITY_NOT_SET,
     null -> update
   }
 }
 
 /** Returns a copy of [entry] with match-field and action-parameter bytestrings canonicalized. */
-fun canonicalizeTableEntry(entry: P4RuntimeOuterClass.TableEntry): P4RuntimeOuterClass.TableEntry {
+fun canonicalizeTableEntry(entry: TableEntry): TableEntry {
   val matches = entry.matchList.map(::canonicalizeMatch)
   val action = if (entry.hasAction()) canonicalizeTableAction(entry.action) else null
   val matchesUnchanged = matches.indices.all { matches[it] === entry.matchList[it] }
@@ -212,15 +217,13 @@ fun canonicalizeTableEntry(entry: P4RuntimeOuterClass.TableEntry): P4RuntimeOute
     .build()
 }
 
-private fun canonicalizeTableAction(
-  action: P4RuntimeOuterClass.TableAction
-): P4RuntimeOuterClass.TableAction =
+private fun canonicalizeTableAction(action: TableAction): TableAction =
   when (action.typeCase) {
-    P4RuntimeOuterClass.TableAction.TypeCase.ACTION -> {
+    TableAction.TypeCase.ACTION -> {
       val a = canonicalizeAction(action.action)
       if (a === action.action) action else action.toBuilder().setAction(a).build()
     }
-    P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_ACTION_SET -> {
+    TableAction.TypeCase.ACTION_PROFILE_ACTION_SET -> {
       val rebuilt =
         action.actionProfileActionSet.actionProfileActionsList.map { profileAction ->
           val a = canonicalizeAction(profileAction.action)
@@ -242,13 +245,13 @@ private fun canonicalizeTableAction(
           .build()
     }
     // ID-only references carry no client bytestrings — nothing to canonicalize.
-    P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID,
-    P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_GROUP_ID,
-    P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET,
+    TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID,
+    TableAction.TypeCase.ACTION_PROFILE_GROUP_ID,
+    TableAction.TypeCase.TYPE_NOT_SET,
     null -> action
   }
 
-private fun canonicalizeAction(action: P4RuntimeOuterClass.Action): P4RuntimeOuterClass.Action {
+private fun canonicalizeAction(action: Action): Action {
   if (action.paramsCount == 0) return action
   val rebuilt = action.paramsList.map(::canonicalizeParam)
   val unchanged = rebuilt.indices.all { rebuilt[it] === action.paramsList[it] }

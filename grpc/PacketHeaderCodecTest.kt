@@ -22,10 +22,10 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass.ControllerPacketMetadata
-import p4.config.v1.P4InfoOuterClass.P4Info
-import p4.config.v1.P4InfoOuterClass.Preamble
-import p4.v1.P4RuntimeOuterClass.PacketMetadata
+import org.p4.config.v1.ControllerPacketMetadata
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.v1.PacketMetadata
 
 /**
  * Unit tests for [PacketHeaderCodec].

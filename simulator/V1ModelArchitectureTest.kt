@@ -32,8 +32,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.Meter
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.Entity
+import org.p4.v1.Index
+import org.p4.v1.MeterConfig
+import org.p4.v1.MeterEntry
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.Replica
+import org.p4.v1.Update
 
 /**
  * Unit tests for [V1ModelArchitecture].
@@ -249,8 +259,8 @@ class V1ModelArchitectureTest {
     egressPort: Int,
     instance: Int = 0,
     usePortBytes: Boolean = false,
-  ): P4RuntimeOuterClass.Replica =
-    P4RuntimeOuterClass.Replica.newBuilder()
+  ): Replica =
+    Replica.newBuilder()
       .setInstance(instance)
       .apply {
         if (usePortBytes) {
@@ -286,14 +296,14 @@ class V1ModelArchitectureTest {
     packetLengthBytes: Int = 0,
   ) {
     store.write(
-      P4RuntimeOuterClass.Update.newBuilder()
-        .setType(P4RuntimeOuterClass.Update.Type.INSERT)
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
         .setEntity(
-          P4RuntimeOuterClass.Entity.newBuilder()
+          Entity.newBuilder()
             .setPacketReplicationEngineEntry(
-              P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+              PacketReplicationEngineEntry.newBuilder()
                 .setCloneSessionEntry(
-                  P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
+                  CloneSessionEntry.newBuilder()
                     .setSessionId(sessionId)
                     .addAllReplicas(
                       replicas.map { (port, instance) ->
@@ -316,14 +326,14 @@ class V1ModelArchitectureTest {
     usePortBytes: Boolean = false,
   ) {
     store.write(
-      P4RuntimeOuterClass.Update.newBuilder()
-        .setType(P4RuntimeOuterClass.Update.Type.INSERT)
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
         .setEntity(
-          P4RuntimeOuterClass.Entity.newBuilder()
+          Entity.newBuilder()
             .setPacketReplicationEngineEntry(
-              P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+              PacketReplicationEngineEntry.newBuilder()
                 .setMulticastGroupEntry(
-                  P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+                  MulticastGroupEntry.newBuilder()
                     .setMulticastGroupId(groupId)
                     .addAllReplicas(
                       replicas.map { (rid, port) ->
@@ -637,10 +647,10 @@ class V1ModelArchitectureTest {
     val tableStore = TableStore()
     tableStore.loadMappings(
       p4info =
-        P4InfoOuterClass.P4Info.newBuilder()
+        P4Info.newBuilder()
           .addMeters(
-            P4InfoOuterClass.Meter.newBuilder()
-              .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(1).setName("my_meter"))
+            Meter.newBuilder()
+              .setPreamble(Preamble.newBuilder().setId(1).setName("my_meter"))
               .setSize(1)
           )
           .build()
@@ -648,15 +658,15 @@ class V1ModelArchitectureTest {
     assertEquals(
       WriteResult.Success,
       tableStore.write(
-        P4RuntimeOuterClass.Update.newBuilder()
-          .setType(P4RuntimeOuterClass.Update.Type.MODIFY)
+        Update.newBuilder()
+          .setType(Update.Type.MODIFY)
           .setEntity(
-            P4RuntimeOuterClass.Entity.newBuilder()
+            Entity.newBuilder()
               .setMeterEntry(
-                P4RuntimeOuterClass.MeterEntry.newBuilder()
+                MeterEntry.newBuilder()
                   .setMeterId(1)
-                  .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(0))
-                  .setConfig(P4RuntimeOuterClass.MeterConfig.newBuilder().setCir(1).setPir(1))
+                  .setIndex(Index.newBuilder().setIndex(0))
+                  .setConfig(MeterConfig.newBuilder().setCir(1).setPir(1))
               )
           )
           .build()

@@ -6,13 +6,13 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.MulticastGroupEntry
-import p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry
-import p4.v1.P4RuntimeOuterClass.ReadResponse
-import p4.v1.P4RuntimeOuterClass.Replica
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.ReadResponse
+import org.p4.v1.Replica
+import org.p4.v1.TableEntry
 
 /**
  * Unit tests for the canonicalize-and-diff helpers in [ResponseDiff]. Always runnable, no
@@ -38,7 +38,7 @@ class ResponseDiffTest {
   fun `canonicalizeEntity is identity for non-table entries`() {
     val entity =
       Entity.newBuilder()
-        .setCounterEntry(p4.v1.P4RuntimeOuterClass.CounterEntry.newBuilder().setCounterId(7))
+        .setCounterEntry(org.p4.v1.CounterEntry.newBuilder().setCounterId(7))
         .build()
     assertSame(entity, canonicalizeEntity(entity))
   }

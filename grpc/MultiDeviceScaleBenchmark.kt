@@ -6,14 +6,15 @@ import fourward.PipelineConfig
 import fourward.grpc.FourwardTestHarness.Companion.loadConfig
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
-import p4.v1.P4RuntimeOuterClass.WriteRequest
+import org.p4.config.v1.Action
+import org.p4.config.v1.Table
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
+import org.p4.v1.WriteRequest
 
 /**
  * Multi-device scale benchmark.
@@ -311,10 +312,10 @@ class MultiDeviceScaleBenchmark {
   }
 
   private fun buildEntry(
-    table: P4InfoOuterClass.Table,
-    action: P4InfoOuterClass.Action,
+    table: Table,
+    action: Action,
     matches: List<FieldMatch>,
-    params: List<p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
+    params: List<org.p4.v1.Action.Param> = emptyList(),
   ): Entity =
     Entity.newBuilder()
       .setTableEntry(
@@ -322,34 +323,25 @@ class MultiDeviceScaleBenchmark {
           .setTableId(table.preamble.id)
           .addAllMatch(matches)
           .setAction(
-            p4.v1.P4RuntimeOuterClass.TableAction.newBuilder()
+            org.p4.v1.TableAction.newBuilder()
               .setAction(
-                p4.v1.P4RuntimeOuterClass.Action.newBuilder()
-                  .setActionId(action.preamble.id)
-                  .addAllParams(params)
+                org.p4.v1.Action.newBuilder().setActionId(action.preamble.id).addAllParams(params)
               )
           )
       )
       .build()
 
-  private fun exactMatch(
-    table: P4InfoOuterClass.Table,
-    fieldName: String,
-    value: String,
-  ): FieldMatch = exactMatch(table, fieldName, value.toByteArray(Charsets.UTF_8))
+  private fun exactMatch(table: Table, fieldName: String, value: String): FieldMatch =
+    exactMatch(table, fieldName, value.toByteArray(Charsets.UTF_8))
 
-  private fun exactMatch(
-    table: P4InfoOuterClass.Table,
-    fieldName: String,
-    value: ByteArray,
-  ): FieldMatch =
+  private fun exactMatch(table: Table, fieldName: String, value: ByteArray): FieldMatch =
     FieldMatch.newBuilder()
       .setFieldId(matchFieldId(table, fieldName))
       .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(value)))
       .build()
 
   private fun lpmMatch(
-    table: P4InfoOuterClass.Table,
+    table: Table,
     fieldName: String,
     value: ByteArray,
     prefixLen: Int,
@@ -362,38 +354,38 @@ class MultiDeviceScaleBenchmark {
       .build()
 
   private fun stringParam(
-    action: P4InfoOuterClass.Action,
+    action: Action,
     paramName: String,
     value: String,
-  ): p4.v1.P4RuntimeOuterClass.Action.Param =
-    p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
+  ): org.p4.v1.Action.Param =
+    org.p4.v1.Action.Param.newBuilder()
       .setParamId(paramId(action, paramName))
       .setValue(ByteString.copyFromUtf8(value))
       .build()
 
   private fun bytesParam(
-    action: P4InfoOuterClass.Action,
+    action: Action,
     paramName: String,
     value: ByteArray,
-  ): p4.v1.P4RuntimeOuterClass.Action.Param =
-    p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
+  ): org.p4.v1.Action.Param =
+    org.p4.v1.Action.Param.newBuilder()
       .setParamId(paramId(action, paramName))
       .setValue(ByteString.copyFrom(value))
       .build()
 
-  private fun findTable(config: PipelineConfig, alias: String): P4InfoOuterClass.Table =
+  private fun findTable(config: PipelineConfig, alias: String): Table =
     config.p4Info.tablesList.find { it.preamble.alias == alias }
       ?: error("table '$alias' not found")
 
-  private fun findAction(config: PipelineConfig, alias: String): P4InfoOuterClass.Action =
+  private fun findAction(config: PipelineConfig, alias: String): Action =
     config.p4Info.actionsList.find { it.preamble.alias == alias }
       ?: error("action '$alias' not found")
 
-  private fun matchFieldId(table: P4InfoOuterClass.Table, name: String): Int =
+  private fun matchFieldId(table: Table, name: String): Int =
     table.matchFieldsList.find { it.name == name }?.id
       ?: error("match field '${table.preamble.alias}.$name' not found")
 
-  private fun paramId(action: P4InfoOuterClass.Action, name: String): Int =
+  private fun paramId(action: Action, name: String): Int =
     action.paramsList.find { it.name == name }?.id
       ?: error("action param '${action.preamble.alias}.$name' not found")
 

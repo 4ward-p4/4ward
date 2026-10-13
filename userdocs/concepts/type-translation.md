@@ -5,10 +5,10 @@ description: "How 4ward translates between P4Runtime SDN values and data-plane v
 # Type Translation
 
 Type translation is a
-[P4Runtime](https://p4lang.github.io/p4runtime/spec/v1.5.0/P4Runtime-Spec.html)
+[P4Runtime](https://p4lang.github.io/p4runtime/spec/v1.6.0/P4Runtime-Spec.html)
 mechanism that decouples controller-facing values from data-plane values. P4
 programs declare translated types with the
-[`@p4runtime_translation`](https://p4lang.github.io/p4runtime/spec/v1.5.0/P4Runtime-Spec.html#sec-user-defined-types)
+[`@p4runtime_translation`](https://p4lang.github.io/p4runtime/spec/v1.6.0/P4Runtime-Spec.html#sec-user-defined-types)
 annotation — but the P4Runtime spec leaves the actual mapping mechanism
 unspecified. Every deployment rolls its own. 4ward ships a built-in
 translation engine that handles this automatically.

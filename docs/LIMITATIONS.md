@@ -83,6 +83,12 @@ traffic rates, or asynchronous controller queues.
   `sdn_string` with explicit, auto-allocate, and hybrid mapping modes.
   `PacketHeaderCodec` handles `packet_in`/`packet_out` header serialization
   per p4info `controller_packet_metadata`, tested E2E on SAI P4.
+- **One-shot `group_action` is not supported.** P4Runtime v1.6.0 added
+  `ActionProfileActionSet.group_action`, a per-group action composed with
+  (executed before) the selected member action. 4ward rejects writes that set
+  it with UNIMPLEMENTED rather than silently ignoring it. The matching
+  `@groupaction` / `ActionRef.Scope.GROUP_ACTION` p4info support is not
+  emitted by p4c yet.
 - **PRE replica ports require explicit port mappings or `Replica.port`.**
   Clone sessions and multicast groups using `Replica.egress_port` (int32,
   deprecated) bypass port translation. When port translation is active,

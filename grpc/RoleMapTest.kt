@@ -5,8 +5,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.config.v1.P4InfoOuterClass.P4Info
+import org.p4.config.v1.ActionProfile
+import org.p4.config.v1.DirectCounter
+import org.p4.config.v1.DirectMeter
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Table
 
 /** Unit tests for [RoleMap]. */
 class RoleMapTest {
@@ -135,9 +139,9 @@ class RoleMapTest {
     val p4info =
       P4Info.newBuilder()
         .addTables(
-          P4InfoOuterClass.Table.newBuilder()
+          Table.newBuilder()
             .setPreamble(
-              P4InfoOuterClass.Preamble.newBuilder()
+              Preamble.newBuilder()
                 .setId(1)
                 .setName("acl_table")
                 .addAnnotations("""@sai_acl(INGRESS)""")
@@ -158,31 +162,30 @@ class RoleMapTest {
     private val builder = P4Info.newBuilder()
 
     fun table(id: Int, name: String, role: String? = null) {
-      val preamble = P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(name)
+      val preamble = Preamble.newBuilder().setId(id).setName(name)
       if (role != null) preamble.addAnnotations("""@p4runtime_role("$role")""")
-      builder.addTables(P4InfoOuterClass.Table.newBuilder().setPreamble(preamble))
+      builder.addTables(Table.newBuilder().setPreamble(preamble))
     }
 
     fun directCounter(id: Int, directTableId: Int) {
       builder.addDirectCounters(
-        P4InfoOuterClass.DirectCounter.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName("dc_$id"))
+        DirectCounter.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(id).setName("dc_$id"))
           .setDirectTableId(directTableId)
       )
     }
 
     fun directMeter(id: Int, directTableId: Int) {
       builder.addDirectMeters(
-        P4InfoOuterClass.DirectMeter.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName("dm_$id"))
+        DirectMeter.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(id).setName("dm_$id"))
           .setDirectTableId(directTableId)
       )
     }
 
     fun actionProfile(id: Int, tableIds: List<Int>) {
       val ap =
-        P4InfoOuterClass.ActionProfile.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName("ap_$id"))
+        ActionProfile.newBuilder().setPreamble(Preamble.newBuilder().setId(id).setName("ap_$id"))
       tableIds.forEach { ap.addTableIds(it) }
       builder.addActionProfiles(ap.build())
     }

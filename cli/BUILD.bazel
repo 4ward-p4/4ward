@@ -33,11 +33,11 @@ kt_jvm_library(
         "//grpc",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4info_java_proto",
         "//simulator:simulator_java_proto",
         "//stf",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:com_google_protobuf_protobuf_java_util",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
     ],
 )
 

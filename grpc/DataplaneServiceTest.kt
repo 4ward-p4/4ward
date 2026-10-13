@@ -52,16 +52,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass.ControllerPacketMetadata
-import p4.config.v1.P4InfoOuterClass.P4Info
-import p4.config.v1.P4InfoOuterClass.Preamble
-import p4.config.v1.P4Types
-import p4.v1.P4RuntimeOuterClass.Action
-import p4.v1.P4RuntimeOuterClass.ActionProfileMember
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.TableAction
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.config.v1.ControllerPacketMetadata
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.P4NewTypeSpec
+import org.p4.config.v1.P4NewTypeTranslation
+import org.p4.config.v1.P4TypeInfo
+import org.p4.config.v1.Preamble
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
 
 class DataplaneServiceTest {
 
@@ -608,14 +610,14 @@ class DataplaneServiceTest {
           baseConfig.p4Info
             .toBuilder()
             .setTypeInfo(
-              P4Types.P4TypeInfo.newBuilder()
+              P4TypeInfo.newBuilder()
                 .putNewTypes(
                   "port_id_t",
-                  P4Types.P4NewTypeSpec.newBuilder()
+                  P4NewTypeSpec.newBuilder()
                     .setTranslatedType(
-                      P4Types.P4NewTypeTranslation.newBuilder()
+                      P4NewTypeTranslation.newBuilder()
                         .setUri("")
-                        .setSdnString(P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance())
+                        .setSdnString(P4NewTypeTranslation.SdnString.getDefaultInstance())
                     )
                     .build(),
                 )
@@ -695,14 +697,14 @@ class DataplaneServiceTest {
           baseConfig.p4Info
             .toBuilder()
             .setTypeInfo(
-              P4Types.P4TypeInfo.newBuilder()
+              P4TypeInfo.newBuilder()
                 .putNewTypes(
                   "port_id_t",
-                  P4Types.P4NewTypeSpec.newBuilder()
+                  P4NewTypeSpec.newBuilder()
                     .setTranslatedType(
-                      P4Types.P4NewTypeTranslation.newBuilder()
+                      P4NewTypeTranslation.newBuilder()
                         .setUri("")
-                        .setSdnString(P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance())
+                        .setSdnString(P4NewTypeTranslation.SdnString.getDefaultInstance())
                     )
                     .build(),
                 )
@@ -1184,14 +1186,14 @@ class DataplaneServiceTest {
         }
       }
       .setTypeInfo(
-        P4Types.P4TypeInfo.newBuilder()
+        P4TypeInfo.newBuilder()
           .putNewTypes(
             "port_name_t",
-            P4Types.P4NewTypeSpec.newBuilder()
+            P4NewTypeSpec.newBuilder()
               .setTranslatedType(
-                P4Types.P4NewTypeTranslation.newBuilder()
+                P4NewTypeTranslation.newBuilder()
                   .setUri("")
-                  .setSdnString(P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance())
+                  .setSdnString(P4NewTypeTranslation.SdnString.getDefaultInstance())
               )
               .build(),
           )

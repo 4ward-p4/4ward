@@ -65,7 +65,7 @@ def bmv2_diff_test_suite(name, tests, local_tests = {}, tags = [], includes = []
         deps = [
             "//bazel:runfiles",
             "//simulator:ir_java_proto",
-            "//simulator:p4info_java_proto",
+            "@p4runtime//proto/p4/config/v1:p4info_java_proto",
             "//simulator:simulator_java_proto",
             "//simulator",
             "//stf",

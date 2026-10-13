@@ -32,14 +32,33 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
-import p4.v1.P4RuntimeOuterClass.WriteRequest
+import org.p4.v1.Action
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.CounterEntry
+import org.p4.v1.DigestEntry
+import org.p4.v1.DigestListAck
+import org.p4.v1.DirectCounterEntry
+import org.p4.v1.DirectMeterEntry
+import org.p4.v1.Entity
+import org.p4.v1.ExternEntry
+import org.p4.v1.FieldMatch
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.GetForwardingPipelineConfigRequest
+import org.p4.v1.MasterArbitrationUpdate
+import org.p4.v1.MeterEntry
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.RegisterEntry
+import org.p4.v1.Role
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.StreamMessageRequest
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Uint128
+import org.p4.v1.Update
+import org.p4.v1.ValueSetEntry
+import org.p4.v1.ValueSetMember
+import org.p4.v1.WriteRequest
 
 /**
  * Golden tests for P4Runtime error messages.
@@ -364,7 +383,7 @@ class GoldenErrorTest(private val testName: String) {
           .setAction(SetForwardingPipelineConfigRequest.Action.VERIFY_AND_COMMIT)
           .setConfig(
             ForwardingPipelineConfig.newBuilder()
-              .setP4Info(p4.config.v1.P4InfoOuterClass.P4Info.getDefaultInstance())
+              .setP4Info(org.p4.config.v1.P4Info.getDefaultInstance())
               .setP4DeviceConfig(ByteString.copyFromUtf8("garbage"))
           )
           .build()
@@ -379,7 +398,7 @@ class GoldenErrorTest(private val testName: String) {
           .setAction(SetForwardingPipelineConfigRequest.Action.VERIFY_AND_COMMIT)
           .setConfig(
             ForwardingPipelineConfig.newBuilder()
-              .setP4Info(p4.config.v1.P4InfoOuterClass.P4Info.getDefaultInstance())
+              .setP4Info(org.p4.config.v1.P4Info.getDefaultInstance())
           )
           .build()
       )
@@ -412,19 +431,14 @@ class GoldenErrorTest(private val testName: String) {
 
   private fun triggerDigestNotSupported() {
     harness.loadPipeline(loadBasicTable())
-    val entity =
-      Entity.newBuilder()
-        .setDigestEntry(P4RuntimeOuterClass.DigestEntry.newBuilder().setDigestId(1))
-        .build()
+    val entity = Entity.newBuilder().setDigestEntry(DigestEntry.newBuilder().setDigestId(1)).build()
     harness.installEntry(entity)
   }
 
   private fun triggerExternEntryNotSupported() {
     harness.loadPipeline(loadBasicTable())
     val entity =
-      Entity.newBuilder()
-        .setExternEntry(P4RuntimeOuterClass.ExternEntry.newBuilder().setExternTypeId(1))
-        .build()
+      Entity.newBuilder().setExternEntry(ExternEntry.newBuilder().setExternTypeId(1)).build()
     harness.installEntry(entity)
   }
 
@@ -537,12 +551,7 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       valid
         .toBuilder()
-        .apply {
-          tableEntryBuilder.setMatch(
-            0,
-            P4RuntimeOuterClass.FieldMatch.newBuilder().setFieldId(matchField.id),
-          )
-        }
+        .apply { tableEntryBuilder.setMatch(0, FieldMatch.newBuilder().setFieldId(matchField.id)) }
         .build()
     harness.installEntry(entity)
   }
@@ -608,7 +617,7 @@ class GoldenErrorTest(private val testName: String) {
         .build()
     val fwdConfig =
       ForwardingPipelineConfig.newBuilder()
-        .setP4Info(p4.config.v1.P4InfoOuterClass.P4Info.getDefaultInstance())
+        .setP4Info(org.p4.config.v1.P4Info.getDefaultInstance())
         .setP4DeviceConfig(deviceConfig.toByteString())
         .build()
     runBlocking {
@@ -638,21 +647,21 @@ class GoldenErrorTest(private val testName: String) {
             .setTableId(table.preamble.id)
             .setPriority(0)
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(matchField.id)
                 .setTernary(
-                  P4RuntimeOuterClass.FieldMatch.Ternary.newBuilder()
+                  FieldMatch.Ternary.newBuilder()
                     .setValue(ByteString.copyFrom(longToBytes(0x06, byteWidth)))
                     .setMask(ByteString.copyFrom(longToBytes(0xFF, byteWidth)))
                 )
             )
             .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
+              TableAction.newBuilder()
                 .setAction(
-                  P4RuntimeOuterClass.Action.newBuilder()
+                  Action.newBuilder()
                     .setActionId(forwardAction.preamble.id)
                     .addParams(
-                      P4RuntimeOuterClass.Action.Param.newBuilder()
+                      Action.Param.newBuilder()
                         .setParamId(forwardAction.paramsList.first().id)
                         .setValue(
                           ByteString.copyFrom(
@@ -683,21 +692,21 @@ class GoldenErrorTest(private val testName: String) {
             .setTableId(table.preamble.id)
             .setPriority(1)
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(matchField.id)
                 .setTernary(
-                  P4RuntimeOuterClass.FieldMatch.Ternary.newBuilder()
+                  FieldMatch.Ternary.newBuilder()
                     .setValue(ByteString.copyFrom(longToBytes(0xFF, byteWidth)))
                     .setMask(ByteString.copyFrom(longToBytes(0x0F, byteWidth)))
                 )
             )
             .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
+              TableAction.newBuilder()
                 .setAction(
-                  P4RuntimeOuterClass.Action.newBuilder()
+                  Action.newBuilder()
                     .setActionId(forwardAction.preamble.id)
                     .addParams(
-                      P4RuntimeOuterClass.Action.Param.newBuilder()
+                      Action.Param.newBuilder()
                         .setParamId(forwardAction.paramsList.first().id)
                         .setValue(
                           ByteString.copyFrom(
@@ -727,21 +736,21 @@ class GoldenErrorTest(private val testName: String) {
           TableEntry.newBuilder()
             .setTableId(table.preamble.id)
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(matchField.id)
                 .setLpm(
-                  P4RuntimeOuterClass.FieldMatch.LPM.newBuilder()
+                  FieldMatch.LPM.newBuilder()
                     .setValue(ByteString.copyFrom(longToBytes(0x0A0000FF, byteWidth)))
                     .setPrefixLen(24)
                 )
             )
             .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
+              TableAction.newBuilder()
                 .setAction(
-                  P4RuntimeOuterClass.Action.newBuilder()
+                  Action.newBuilder()
                     .setActionId(forwardAction.preamble.id)
                     .addParams(
-                      P4RuntimeOuterClass.Action.Param.newBuilder()
+                      Action.Param.newBuilder()
                         .setParamId(forwardAction.paramsList.first().id)
                         .setValue(
                           ByteString.copyFrom(
@@ -760,19 +769,14 @@ class GoldenErrorTest(private val testName: String) {
     val config = loadBasicTable()
     harness.loadPipeline(config)
     val entity =
-      Entity.newBuilder()
-        .setCounterEntry(P4RuntimeOuterClass.CounterEntry.newBuilder().setCounterId(1))
-        .build()
+      Entity.newBuilder().setCounterEntry(CounterEntry.newBuilder().setCounterId(1)).build()
     harness.installEntry(entity)
   }
 
   private fun triggerMeterInsertNotSupported() {
     val config = loadBasicTable()
     harness.loadPipeline(config)
-    val entity =
-      Entity.newBuilder()
-        .setMeterEntry(P4RuntimeOuterClass.MeterEntry.newBuilder().setMeterId(1))
-        .build()
+    val entity = Entity.newBuilder().setMeterEntry(MeterEntry.newBuilder().setMeterId(1)).build()
     harness.installEntry(entity)
   }
 
@@ -781,9 +785,7 @@ class GoldenErrorTest(private val testName: String) {
     harness.loadPipeline(config)
     // INSERT a register entry — registers only support MODIFY.
     val entity =
-      Entity.newBuilder()
-        .setRegisterEntry(P4RuntimeOuterClass.RegisterEntry.newBuilder().setRegisterId(1))
-        .build()
+      Entity.newBuilder().setRegisterEntry(RegisterEntry.newBuilder().setRegisterId(1)).build()
     harness.installEntry(entity)
   }
 
@@ -791,9 +793,7 @@ class GoldenErrorTest(private val testName: String) {
     harness.loadPipeline(loadBasicTable())
     val entity =
       Entity.newBuilder()
-        .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.getDefaultInstance()
-        )
+        .setPacketReplicationEngineEntry(PacketReplicationEngineEntry.getDefaultInstance())
         .build()
     harness.installEntry(entity)
   }
@@ -803,10 +803,8 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-            .setCloneSessionEntry(
-              P4RuntimeOuterClass.CloneSessionEntry.newBuilder().setSessionId(1)
-            )
+          PacketReplicationEngineEntry.newBuilder()
+            .setCloneSessionEntry(CloneSessionEntry.newBuilder().setSessionId(1))
         )
         .build()
     harness.installEntry(entity)
@@ -819,10 +817,8 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-            .setCloneSessionEntry(
-              P4RuntimeOuterClass.CloneSessionEntry.newBuilder().setSessionId(999)
-            )
+          PacketReplicationEngineEntry.newBuilder()
+            .setCloneSessionEntry(CloneSessionEntry.newBuilder().setSessionId(999))
         )
         .build()
     harness.deleteEntry(entity)
@@ -834,10 +830,8 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-            .setMulticastGroupEntry(
-              P4RuntimeOuterClass.MulticastGroupEntry.newBuilder().setMulticastGroupId(42)
-            )
+          PacketReplicationEngineEntry.newBuilder()
+            .setMulticastGroupEntry(MulticastGroupEntry.newBuilder().setMulticastGroupId(42))
         )
         .build()
     harness.installEntry(entity)
@@ -850,10 +844,8 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-            .setMulticastGroupEntry(
-              P4RuntimeOuterClass.MulticastGroupEntry.newBuilder().setMulticastGroupId(999)
-            )
+          PacketReplicationEngineEntry.newBuilder()
+            .setMulticastGroupEntry(MulticastGroupEntry.newBuilder().setMulticastGroupId(999))
         )
         .build()
     harness.deleteEntry(entity)
@@ -863,9 +855,7 @@ class GoldenErrorTest(private val testName: String) {
   private fun triggerUnknownRegisterId() {
     harness.loadPipeline(loadBasicTable())
     val entity =
-      Entity.newBuilder()
-        .setRegisterEntry(P4RuntimeOuterClass.RegisterEntry.newBuilder().setRegisterId(99999))
-        .build()
+      Entity.newBuilder().setRegisterEntry(RegisterEntry.newBuilder().setRegisterId(99999)).build()
     harness.modifyEntry(entity)
   }
 
@@ -873,9 +863,7 @@ class GoldenErrorTest(private val testName: String) {
   private fun triggerUnknownCounterId() {
     harness.loadPipeline(loadBasicTable())
     val entity =
-      Entity.newBuilder()
-        .setCounterEntry(P4RuntimeOuterClass.CounterEntry.newBuilder().setCounterId(99999))
-        .build()
+      Entity.newBuilder().setCounterEntry(CounterEntry.newBuilder().setCounterId(99999)).build()
     harness.modifyEntry(entity)
   }
 
@@ -883,9 +871,7 @@ class GoldenErrorTest(private val testName: String) {
   private fun triggerUnknownMeterId() {
     harness.loadPipeline(loadBasicTable())
     val entity =
-      Entity.newBuilder()
-        .setMeterEntry(P4RuntimeOuterClass.MeterEntry.newBuilder().setMeterId(99999))
-        .build()
+      Entity.newBuilder().setMeterEntry(MeterEntry.newBuilder().setMeterId(99999)).build()
     harness.modifyEntry(entity)
   }
 
@@ -894,8 +880,7 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setDirectCounterEntry(
-          P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
-            .setTableEntry(TableEntry.newBuilder().setTableId(1))
+          DirectCounterEntry.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(1))
         )
         .build()
     harness.installEntry(entity)
@@ -907,8 +892,7 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setDirectCounterEntry(
-          P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
-            .setTableEntry(TableEntry.newBuilder().setTableId(99999))
+          DirectCounterEntry.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(99999))
         )
         .build()
     harness.modifyEntry(entity)
@@ -919,8 +903,7 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setDirectMeterEntry(
-          P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
-            .setTableEntry(TableEntry.newBuilder().setTableId(1))
+          DirectMeterEntry.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(1))
         )
         .build()
     harness.installEntry(entity)
@@ -932,8 +915,7 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setDirectMeterEntry(
-          P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
-            .setTableEntry(TableEntry.newBuilder().setTableId(99999))
+          DirectMeterEntry.newBuilder().setTableEntry(TableEntry.newBuilder().setTableId(99999))
         )
         .build()
     harness.modifyEntry(entity)
@@ -981,21 +963,21 @@ class GoldenErrorTest(private val testName: String) {
             .setTableId(table.preamble.id)
             .setPriority(1)
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(matchField.id)
                 .setRange(
-                  P4RuntimeOuterClass.FieldMatch.Range.newBuilder()
+                  FieldMatch.Range.newBuilder()
                     .setLow(ByteString.copyFrom(longToBytes(0x2000, byteWidth)))
                     .setHigh(ByteString.copyFrom(longToBytes(0x1000, byteWidth)))
                 )
             )
             .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
+              TableAction.newBuilder()
                 .setAction(
-                  P4RuntimeOuterClass.Action.newBuilder()
+                  Action.newBuilder()
                     .setActionId(forwardAction.preamble.id)
                     .addParams(
-                      P4RuntimeOuterClass.Action.Param.newBuilder()
+                      Action.Param.newBuilder()
                         .setParamId(forwardAction.paramsList.first().id)
                         .setValue(
                           ByteString.copyFrom(
@@ -1018,12 +1000,12 @@ class GoldenErrorTest(private val testName: String) {
     // Insert 5 members into a value_set with capacity 4.
     val members =
       (1..5).map { i ->
-        P4RuntimeOuterClass.ValueSetMember.newBuilder()
+        ValueSetMember.newBuilder()
           .addMatch(
-            P4RuntimeOuterClass.FieldMatch.newBuilder()
+            FieldMatch.newBuilder()
               .setFieldId(vs.matchList.first().id)
               .setExact(
-                P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+                FieldMatch.Exact.newBuilder()
                   .setValue(ByteString.copyFrom(longToBytes(i.toLong(), 2)))
               )
           )
@@ -1032,9 +1014,7 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setValueSetEntry(
-          P4RuntimeOuterClass.ValueSetEntry.newBuilder()
-            .setValueSetId(vs.preamble.id)
-            .addAllMembers(members)
+          ValueSetEntry.newBuilder().setValueSetId(vs.preamble.id).addAllMembers(members)
         )
         .build()
     harness.modifyEntry(entity)
@@ -1115,9 +1095,7 @@ class GoldenErrorTest(private val testName: String) {
   private fun triggerValueSetInsertNotSupported() {
     harness.loadPipeline(loadBasicTable())
     val entity =
-      Entity.newBuilder()
-        .setValueSetEntry(P4RuntimeOuterClass.ValueSetEntry.newBuilder().setValueSetId(1))
-        .build()
+      Entity.newBuilder().setValueSetEntry(ValueSetEntry.newBuilder().setValueSetId(1)).build()
     harness.installEntry(entity)
   }
 
@@ -1125,23 +1103,19 @@ class GoldenErrorTest(private val testName: String) {
   private fun triggerUnknownValueSetId() {
     harness.loadPipeline(loadBasicTable())
     val entity =
-      Entity.newBuilder()
-        .setValueSetEntry(P4RuntimeOuterClass.ValueSetEntry.newBuilder().setValueSetId(99999))
-        .build()
+      Entity.newBuilder().setValueSetEntry(ValueSetEntry.newBuilder().setValueSetId(99999)).build()
     harness.modifyEntry(entity)
   }
 
   private fun triggerRoleConfigNotSupported() = runBlocking {
     val request =
-      P4RuntimeOuterClass.StreamMessageRequest.newBuilder()
+      StreamMessageRequest.newBuilder()
         .setArbitration(
-          P4RuntimeOuterClass.MasterArbitrationUpdate.newBuilder()
+          MasterArbitrationUpdate.newBuilder()
             .setDeviceId(1)
-            .setElectionId(P4RuntimeOuterClass.Uint128.newBuilder().setHigh(0).setLow(1))
+            .setElectionId(Uint128.newBuilder().setHigh(0).setLow(1))
             .setRole(
-              P4RuntimeOuterClass.Role.newBuilder()
-                .setName("sdn_controller")
-                .setConfig(ProtoAny.getDefaultInstance())
+              Role.newBuilder().setName("sdn_controller").setConfig(ProtoAny.getDefaultInstance())
             )
         )
         .build()
@@ -1183,8 +1157,8 @@ class GoldenErrorTest(private val testName: String) {
     harness.openStream().use { stream ->
       stream.arbitrate()
       val request =
-        P4RuntimeOuterClass.StreamMessageRequest.newBuilder()
-          .setDigestAck(P4RuntimeOuterClass.DigestListAck.newBuilder().setDigestId(1))
+        StreamMessageRequest.newBuilder()
+          .setDigestAck(DigestListAck.newBuilder().setDigestId(1))
           .build()
       val response =
         stream.sendRaw(request)
@@ -1224,9 +1198,9 @@ class GoldenErrorTest(private val testName: String) {
       config.p4Info
         .toBuilder()
         .addActions(
-          p4.config.v1.P4InfoOuterClass.Action.newBuilder()
+          org.p4.config.v1.Action.newBuilder()
             .setPreamble(
-              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder()
+              org.p4.config.v1.Preamble.newBuilder()
                 .setId(fakeActionId)
                 .setName("fake_action")
                 .setAlias("fake_action")
@@ -1255,16 +1229,15 @@ class GoldenErrorTest(private val testName: String) {
           TableEntry.newBuilder()
             .setTableId(table.preamble.id)
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(table.matchFieldsList.first().id)
                 .setExact(
-                  P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+                  FieldMatch.Exact.newBuilder()
                     .setValue(ByteString.copyFrom(longToBytes(0x0800, 2)))
                 )
             )
             .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
-                .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(fakeActionId))
+              TableAction.newBuilder().setAction(Action.newBuilder().setActionId(fakeActionId))
             )
         )
         .build()
@@ -1282,11 +1255,11 @@ class GoldenErrorTest(private val testName: String) {
       table
         .toBuilder()
         .addMatchFields(
-          p4.config.v1.P4InfoOuterClass.MatchField.newBuilder()
+          org.p4.config.v1.MatchField.newBuilder()
             .setId(99)
             .setName("extra_field")
             .setBitwidth(8)
-            .setMatchType(p4.config.v1.P4InfoOuterClass.MatchField.MatchType.EXACT)
+            .setMatchType(org.p4.config.v1.MatchField.MatchType.EXACT)
         )
         .build()
     val patchedP4Info = config.p4Info.toBuilder().setTables(0, patchedTable).build()
@@ -1312,15 +1285,15 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setDirectCounterEntry(
-          P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+          DirectCounterEntry.newBuilder()
             .setTableEntry(
               TableEntry.newBuilder()
                 .setTableId(tableId)
                 .addMatch(
-                  P4RuntimeOuterClass.FieldMatch.newBuilder()
+                  FieldMatch.newBuilder()
                     .setFieldId(config.p4Info.tablesList.first().matchFieldsList.first().id)
                     .setExact(
-                      P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+                      FieldMatch.Exact.newBuilder()
                         .setValue(ByteString.copyFrom(longToBytes(0x0800, 2)))
                     )
                 )
@@ -1341,15 +1314,15 @@ class GoldenErrorTest(private val testName: String) {
     val entity =
       Entity.newBuilder()
         .setDirectCounterEntry(
-          P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
+          DirectCounterEntry.newBuilder()
             .setTableEntry(
               TableEntry.newBuilder()
                 .setTableId(tableId)
                 .addMatch(
-                  P4RuntimeOuterClass.FieldMatch.newBuilder()
+                  FieldMatch.newBuilder()
                     .setFieldId(config.p4Info.tablesList.first().matchFieldsList.first().id)
                     .setExact(
-                      P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+                      FieldMatch.Exact.newBuilder()
                         .setValue(ByteString.copyFrom(longToBytes(0x0801, 2)))
                     )
                 )
@@ -1380,30 +1353,30 @@ class GoldenErrorTest(private val testName: String) {
               .setTableId(table.preamble.id)
               .setPriority(10)
               .addMatch(
-                P4RuntimeOuterClass.FieldMatch.newBuilder()
+                FieldMatch.newBuilder()
                   .setFieldId(etherTypeFieldId)
                   .setTernary(
-                    P4RuntimeOuterClass.FieldMatch.Ternary.newBuilder()
+                    FieldMatch.Ternary.newBuilder()
                       .setValue(ByteString.copyFrom(longToBytes(0x0806, 2)))
                       .setMask(ByteString.copyFrom(longToBytes(0xFFFF, 2)))
                   )
               )
               .addMatch(
-                P4RuntimeOuterClass.FieldMatch.newBuilder()
+                FieldMatch.newBuilder()
                   .setFieldId(ipv4DstFieldId)
                   .setTernary(
-                    P4RuntimeOuterClass.FieldMatch.Ternary.newBuilder()
+                    FieldMatch.Ternary.newBuilder()
                       .setValue(ByteString.copyFrom(longToBytes(0x0A000001, 4)))
                       .setMask(ByteString.copyFrom(longToBytes(0xFFFFFFFFL, 4)))
                   )
               )
               .setAction(
-                P4RuntimeOuterClass.TableAction.newBuilder()
+                TableAction.newBuilder()
                   .setAction(
-                    P4RuntimeOuterClass.Action.newBuilder()
+                    Action.newBuilder()
                       .setActionId(forwardAction.preamble.id)
                       .addParams(
-                        P4RuntimeOuterClass.Action.Param.newBuilder()
+                        Action.Param.newBuilder()
                           .setParamId(1)
                           .setValue(ByteString.copyFrom(longToBytes(1, 2)))
                       )
@@ -1429,20 +1402,20 @@ class GoldenErrorTest(private val testName: String) {
           TableEntry.newBuilder()
             .setTableId(refTable.preamble.id)
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(srcAddrFieldId)
                 .setExact(
-                  P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+                  FieldMatch.Exact.newBuilder()
                     .setValue(ByteString.copyFrom(longToBytes(0xAABBCCDDEEFFL, 6)))
                 )
             )
             .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
+              TableAction.newBuilder()
                 .setAction(
-                  P4RuntimeOuterClass.Action.newBuilder()
+                  Action.newBuilder()
                     .setActionId(forwardAction.preamble.id)
                     .addParams(
-                      P4RuntimeOuterClass.Action.Param.newBuilder()
+                      Action.Param.newBuilder()
                         .setParamId(paramId(forwardAction, "port"))
                         .setValue(ByteString.copyFrom(longToBytes(1, 2)))
                     )
@@ -1465,15 +1438,15 @@ class GoldenErrorTest(private val testName: String) {
       config.p4Info
         .toBuilder()
         .addActions(
-          p4.config.v1.P4InfoOuterClass.Action.newBuilder()
+          org.p4.config.v1.Action.newBuilder()
             .setPreamble(
-              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder()
+              org.p4.config.v1.Preamble.newBuilder()
                 .setId(mcastActionId)
                 .setName("set_multicast")
                 .setAlias("set_multicast")
             )
             .addParams(
-              p4.config.v1.P4InfoOuterClass.Action.Param.newBuilder()
+              org.p4.config.v1.Action.Param.newBuilder()
                 .setId(mcastParamId)
                 .setName("mcast_group_id")
                 .setBitwidth(16)
@@ -1486,9 +1459,7 @@ class GoldenErrorTest(private val testName: String) {
           0,
           table
             .toBuilder()
-            .addActionRefs(
-              p4.config.v1.P4InfoOuterClass.ActionRef.newBuilder().setId(mcastActionId)
-            ),
+            .addActionRefs(org.p4.config.v1.ActionRef.newBuilder().setId(mcastActionId)),
         )
         .build()
     val patchedDevice =
@@ -1513,20 +1484,20 @@ class GoldenErrorTest(private val testName: String) {
           TableEntry.newBuilder()
             .setTableId(table.preamble.id)
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(table.matchFieldsList.first().id)
                 .setExact(
-                  P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+                  FieldMatch.Exact.newBuilder()
                     .setValue(ByteString.copyFrom(longToBytes(0x0800, 2)))
                 )
             )
             .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
+              TableAction.newBuilder()
                 .setAction(
-                  P4RuntimeOuterClass.Action.newBuilder()
+                  Action.newBuilder()
                     .setActionId(mcastActionId)
                     .addParams(
-                      P4RuntimeOuterClass.Action.Param.newBuilder()
+                      Action.Param.newBuilder()
                         .setParamId(mcastParamId)
                         .setValue(ByteString.copyFrom(longToBytes(42, 2)))
                     )
@@ -1563,20 +1534,20 @@ class GoldenErrorTest(private val testName: String) {
           TableEntry.newBuilder()
             .setTableId(table.preamble.id)
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(table.matchFieldsList.first().id)
                 .setExact(
-                  P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+                  FieldMatch.Exact.newBuilder()
                     .setValue(ByteString.copyFrom(longToBytes(0x0800, 2)))
                 )
             )
             .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
+              TableAction.newBuilder()
                 .setAction(
-                  P4RuntimeOuterClass.Action.newBuilder()
+                  Action.newBuilder()
                     .setActionId(forwardAction.preamble.id)
                     .addParams(
-                      P4RuntimeOuterClass.Action.Param.newBuilder()
+                      Action.Param.newBuilder()
                         .setParamId(forwardAction.paramsList.first().id)
                         .setValue(ByteString.copyFrom(longToBytes(1, 4)))
                     )
@@ -1648,11 +1619,9 @@ class GoldenErrorTest(private val testName: String) {
     val base = loadBasicTable()
     val tableId = base.p4Info.tablesList.first().preamble.id
     val directCounter =
-      p4.config.v1.P4InfoOuterClass.DirectCounter.newBuilder()
+      org.p4.config.v1.DirectCounter.newBuilder()
         .setPreamble(
-          p4.config.v1.P4InfoOuterClass.Preamble.newBuilder()
-            .setId(DCTR_ID)
-            .setName("myDirectCounter")
+          org.p4.config.v1.Preamble.newBuilder().setId(DCTR_ID).setName("myDirectCounter")
         )
         .setDirectTableId(tableId)
         .build()

@@ -1,6 +1,6 @@
 package fourward.grpc
 
-import p4.config.v1.P4InfoOuterClass
+import org.p4.config.v1.P4Info
 
 /**
  * Maps P4 entity IDs to their `@p4runtime_role` (P4Runtime spec §15).
@@ -27,7 +27,7 @@ class RoleMap private constructor(private val entityRoles: Map<Int, String>) {
     private val ROLE_PATTERN = Regex("""@p4runtime_role\("(.+?)"\)""")
 
     /** Parses `@p4runtime_role` annotations from p4info and builds entity-to-role mappings. */
-    fun create(p4info: P4InfoOuterClass.P4Info): RoleMap {
+    fun create(p4info: P4Info): RoleMap {
       val roles = mutableMapOf<Int, String>()
 
       // Tables: direct annotation.
