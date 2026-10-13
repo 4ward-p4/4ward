@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-09-24 07:57:21</td>
+            <td class="headerValue">2026-10-13 20:12:16</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">95.6&nbsp;%</td>
@@ -238,174 +238,170 @@
 <span id="L176"><span class="lineNum">     176</span>              :    *</span>
 <span id="L177"><span class="lineNum">     177</span>              :    * @throws IllegalStateException if no pipeline is loaded.</span>
 <span id="L178"><span class="lineNum">     178</span>              :    */</span>
-<span id="L179"><span class="lineNum">     179</span>              :   fun writeEntry(update: p4.v1.P4RuntimeOuterClass.Update): WriteResult =</span>
-<span id="L180"><span class="lineNum">     180</span> <span class="tlaGNC">           1 :     loaded().tableStore.write(update)</span></span>
-<span id="L181"><span class="lineNum">     181</span>              : </span>
-<span id="L182"><span class="lineNum">     182</span>              :   /** The pipeline config from the currently loaded pipeline, or null if none is loaded. */</span>
-<span id="L183"><span class="lineNum">     183</span>              :   val pipelineConfig: PipelineConfig?</span>
-<span id="L184"><span class="lineNum">     184</span> <span class="tlaGNC">           1 :     get() = current.get()?.config</span></span>
-<span id="L185"><span class="lineNum">     185</span>              : </span>
-<span id="L186"><span class="lineNum">     186</span>              :   /** The table store from the currently loaded pipeline, or null if none is loaded. */</span>
-<span id="L187"><span class="lineNum">     187</span>              :   val tableStore: TableStore?</span>
-<span id="L188"><span class="lineNum">     188</span> <span class="tlaGNC">           1 :     get() = current.get()?.tableStore</span></span>
-<span id="L189"><span class="lineNum">     189</span>              : </span>
-<span id="L190"><span class="lineNum">     190</span>              :   /** Captures a checkpoint of all mutable state for rollback. */</span>
-<span id="L191"><span class="lineNum">     191</span> <span class="tlaGNC">           1 :   fun snapshot(): TableStore.RollbackCheckpoint = loaded().tableStore.snapshot()</span></span>
-<span id="L192"><span class="lineNum">     192</span>              : </span>
-<span id="L193"><span class="lineNum">     193</span>              :   /** Restores all mutable state to a previously captured checkpoint. */</span>
-<span id="L194"><span class="lineNum">     194</span> <span class="tlaGNC">           1 :   fun restore(checkpoint: TableStore.RollbackCheckpoint) = loaded().tableStore.restore(checkpoint)</span></span>
-<span id="L195"><span class="lineNum">     195</span>              : </span>
-<span id="L196"><span class="lineNum">     196</span>              :   /** Publishes the current write-state as a new immutable snapshot for data-plane threads. */</span>
-<span id="L197"><span class="lineNum">     197</span> <span class="tlaGNC">           1 :   fun publishSnapshot() = loaded().tableStore.publishSnapshot()</span></span>
-<span id="L198"><span class="lineNum">     198</span>              : </span>
-<span id="L199"><span class="lineNum">     199</span>              :   /**</span>
-<span id="L200"><span class="lineNum">     200</span>              :    * Returns true if the table with p4info [tableId] has an entry with match field [fieldId] equal</span>
-<span id="L201"><span class="lineNum">     201</span>              :    * to [value].</span>
-<span id="L202"><span class="lineNum">     202</span>              :    *</span>
-<span id="L203"><span class="lineNum">     203</span>              :    * Used by `@refers_to` referential integrity validation.</span>
-<span id="L204"><span class="lineNum">     204</span>              :    */</span>
-<span id="L205"><span class="lineNum">     205</span>              :   fun hasTableEntryWithFieldValue(</span>
-<span id="L206"><span class="lineNum">     206</span>              :     tableId: Int,</span>
-<span id="L207"><span class="lineNum">     207</span>              :     fieldId: Int,</span>
-<span id="L208"><span class="lineNum">     208</span>              :     value: com.google.protobuf.ByteString,</span>
-<span id="L209"><span class="lineNum">     209</span> <span class="tlaGNC">           1 :   ): Boolean = loaded().tableStore.hasEntryWithFieldValue(tableId, fieldId, value)</span></span>
-<span id="L210"><span class="lineNum">     210</span>              : </span>
-<span id="L211"><span class="lineNum">     211</span>              :   /** Returns true if a multicast group with [groupId] exists in the PRE. */</span>
-<span id="L212"><span class="lineNum">     212</span>              :   fun hasMulticastGroup(groupId: Int): Boolean =</span>
-<span id="L213"><span class="lineNum">     213</span> <span class="tlaGNC">           1 :     loaded().tableStore.getMulticastGroup(groupId) != null</span></span>
-<span id="L214"><span class="lineNum">     214</span>              : </span>
-<span id="L215"><span class="lineNum">     215</span>              :   // -------------------------------------------------------------------------</span>
-<span id="L216"><span class="lineNum">     216</span>              :   // Raw data accessors (used by the P4Runtime layer's EntityReader)</span>
-<span id="L217"><span class="lineNum">     217</span>              :   // -------------------------------------------------------------------------</span>
-<span id="L218"><span class="lineNum">     218</span>              : </span>
-<span id="L219"><span class="lineNum">     219</span>              :   /** ID→name maps populated by [loadPipeline], for building P4Runtime Entity protos. */</span>
-<span id="L220"><span class="lineNum">     220</span>              :   val tableNameById: Map&lt;Int, String&gt;</span>
-<span id="L221"><span class="lineNum">     221</span> <span class="tlaGNC">           1 :     get() = loaded().tableStore.tableNameById</span></span>
-<span id="L222"><span class="lineNum">     222</span>              : </span>
-<span id="L223"><span class="lineNum">     223</span>              :   val actionNameById: Map&lt;Int, String&gt;</span>
-<span id="L224"><span class="lineNum">     224</span> <span class="tlaGNC">           1 :     get() = loaded().tableStore.actionNameById</span></span>
-<span id="L225"><span class="lineNum">     225</span>              : </span>
-<span id="L226"><span class="lineNum">     226</span>              :   /** P4info alias names of tables that have at least one installed entry. */</span>
-<span id="L227"><span class="lineNum">     227</span>              :   val populatedTableAliases: Set&lt;String&gt;</span>
-<span id="L228"><span class="lineNum">     228</span> <span class="tlaGNC">           1 :     get() = loaded().tableStore.populatedTableAliases()</span></span>
-<span id="L229"><span class="lineNum">     229</span>              : </span>
-<span id="L230"><span class="lineNum">     230</span> <span class="tlaGNC">           1 :   override fun getTableEntries(tableName: String) = loaded().tableStore.getTableEntries(tableName)</span></span>
-<span id="L231"><span class="lineNum">     231</span>              : </span>
-<span id="L232"><span class="lineNum">     232</span> <span class="tlaGNC">           1 :   override fun getDefaultAction(tableName: String) = loaded().tableStore.getDefaultAction(tableName)</span></span>
-<span id="L233"><span class="lineNum">     233</span>              : </span>
-<span id="L234"><span class="lineNum">     234</span>              :   override fun isDefaultModified(tableName: String) =</span>
-<span id="L235"><span class="lineNum">     235</span> <span class="tlaGNC">           1 :     loaded().tableStore.isDefaultModified(tableName)</span></span>
-<span id="L236"><span class="lineNum">     236</span>              : </span>
-<span id="L237"><span class="lineNum">     237</span>              :   override fun getDirectCounterData(entry: p4.v1.P4RuntimeOuterClass.TableEntry) =</span>
-<span id="L238"><span class="lineNum">     238</span> <span class="tlaGNC">           1 :     loaded().tableStore.getDirectCounterData(entry)</span></span>
-<span id="L239"><span class="lineNum">     239</span>              : </span>
-<span id="L240"><span class="lineNum">     240</span>              :   override fun getDirectMeterData(entry: p4.v1.P4RuntimeOuterClass.TableEntry) =</span>
-<span id="L241"><span class="lineNum">     241</span> <span class="tlaGNC">           1 :     loaded().tableStore.getDirectMeterData(entry)</span></span>
-<span id="L242"><span class="lineNum">     242</span>              : </span>
-<span id="L243"><span class="lineNum">     243</span> <span class="tlaGNC">           1 :   override fun hasDirectCounter(tableName: String) = loaded().tableStore.hasDirectCounter(tableName)</span></span>
-<span id="L244"><span class="lineNum">     244</span>              : </span>
-<span id="L245"><span class="lineNum">     245</span> <span class="tlaGNC">           1 :   override fun hasDirectMeter(tableName: String) = loaded().tableStore.hasDirectMeter(tableName)</span></span>
-<span id="L246"><span class="lineNum">     246</span>              : </span>
-<span id="L247"><span class="lineNum">     247</span>              :   /**</span>
-<span id="L248"><span class="lineNum">     248</span>              :    * Reads non-table entities matching the given filters.</span>
-<span id="L249"><span class="lineNum">     249</span>              :    *</span>
-<span id="L250"><span class="lineNum">     250</span>              :    * Table entries are handled by [fourward.grpc.EntityReader] in the P4Runtime layer; this method</span>
-<span id="L251"><span class="lineNum">     251</span>              :    * handles all other entity types.</span>
-<span id="L252"><span class="lineNum">     252</span>              :    */</span>
-<span id="L253"><span class="lineNum">     253</span>              :   fun readEntries(</span>
-<span id="L254"><span class="lineNum">     254</span>              :     filters: List&lt;p4.v1.P4RuntimeOuterClass.Entity&gt;</span>
-<span id="L255"><span class="lineNum">     255</span>              :   ): List&lt;p4.v1.P4RuntimeOuterClass.Entity&gt; {</span>
-<span id="L256"><span class="lineNum">     256</span> <span class="tlaGNC">           1 :     val tableStore = loaded().tableStore</span></span>
-<span id="L257"><span class="lineNum">     257</span> <span class="tlaGNC">           1 :     return filters.flatMap { entity -&gt;</span></span>
-<span id="L258"><span class="lineNum">     258</span> <span class="tlaGNC">           1 :       when (entity.entityCase) {</span></span>
-<span id="L259"><span class="lineNum">     259</span> <span class="tlaUNC tlaBgUNC">           0 :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.TABLE_ENTRY -&gt; emptyList()</span></span>
-<span id="L260"><span class="lineNum">     260</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_MEMBER -&gt;</span>
-<span id="L261"><span class="lineNum">     261</span> <span class="tlaGNC tlaBgGNC">           1 :           tableStore.readProfileMembers(entity.actionProfileMember)</span></span>
-<span id="L262"><span class="lineNum">     262</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_GROUP -&gt;</span>
-<span id="L263"><span class="lineNum">     263</span> <span class="tlaGNC">           1 :           tableStore.readProfileGroups(entity.actionProfileGroup)</span></span>
-<span id="L264"><span class="lineNum">     264</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.REGISTER_ENTRY -&gt;</span>
-<span id="L265"><span class="lineNum">     265</span> <span class="tlaGNC">           1 :           tableStore.readRegisterEntries(entity.registerEntry)</span></span>
-<span id="L266"><span class="lineNum">     266</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.COUNTER_ENTRY -&gt;</span>
-<span id="L267"><span class="lineNum">     267</span> <span class="tlaGNC">           1 :           tableStore.readCounterEntries(entity.counterEntry)</span></span>
-<span id="L268"><span class="lineNum">     268</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.METER_ENTRY -&gt;</span>
-<span id="L269"><span class="lineNum">     269</span> <span class="tlaGNC">           1 :           tableStore.readMeterEntries(entity.meterEntry)</span></span>
-<span id="L270"><span class="lineNum">     270</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.DIRECT_COUNTER_ENTRY -&gt;</span>
-<span id="L271"><span class="lineNum">     271</span> <span class="tlaGNC">           1 :           tableStore.readDirectCounterEntries(entity.directCounterEntry)</span></span>
-<span id="L272"><span class="lineNum">     272</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.DIRECT_METER_ENTRY -&gt;</span>
-<span id="L273"><span class="lineNum">     273</span> <span class="tlaGNC">           1 :           tableStore.readDirectMeterEntries(entity.directMeterEntry)</span></span>
-<span id="L274"><span class="lineNum">     274</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY -&gt;</span>
-<span id="L275"><span class="lineNum">     275</span> <span class="tlaGNC">           1 :           tableStore.readPreEntries(entity.packetReplicationEngineEntry)</span></span>
-<span id="L276"><span class="lineNum">     276</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.VALUE_SET_ENTRY -&gt;</span>
-<span id="L277"><span class="lineNum">     277</span> <span class="tlaGNC">           1 :           tableStore.readValueSetEntries(entity.valueSetEntry)</span></span>
-<span id="L278"><span class="lineNum">     278</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.EXTERN_ENTRY,</span>
-<span id="L279"><span class="lineNum">     279</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.DIGEST_ENTRY,</span>
-<span id="L280"><span class="lineNum">     280</span>              :         p4.v1.P4RuntimeOuterClass.Entity.EntityCase.ENTITY_NOT_SET,</span>
-<span id="L281"><span class="lineNum">     281</span> <span class="tlaUNC tlaBgUNC">           0 :         null -&gt; error(&quot;unsupported entity type for read: ${entity.entityCase}&quot;)</span></span>
-<span id="L282"><span class="lineNum">     282</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
-<span id="L283"><span class="lineNum">     283</span>              :     }</span>
-<span id="L284"><span class="lineNum">     284</span>              :   }</span>
+<span id="L179"><span class="lineNum">     179</span> <span class="tlaGNC">           1 :   fun writeEntry(update: org.p4.v1.Update): WriteResult = loaded().tableStore.write(update)</span></span>
+<span id="L180"><span class="lineNum">     180</span>              : </span>
+<span id="L181"><span class="lineNum">     181</span>              :   /** The pipeline config from the currently loaded pipeline, or null if none is loaded. */</span>
+<span id="L182"><span class="lineNum">     182</span>              :   val pipelineConfig: PipelineConfig?</span>
+<span id="L183"><span class="lineNum">     183</span> <span class="tlaGNC">           1 :     get() = current.get()?.config</span></span>
+<span id="L184"><span class="lineNum">     184</span>              : </span>
+<span id="L185"><span class="lineNum">     185</span>              :   /** The table store from the currently loaded pipeline, or null if none is loaded. */</span>
+<span id="L186"><span class="lineNum">     186</span>              :   val tableStore: TableStore?</span>
+<span id="L187"><span class="lineNum">     187</span> <span class="tlaGNC">           1 :     get() = current.get()?.tableStore</span></span>
+<span id="L188"><span class="lineNum">     188</span>              : </span>
+<span id="L189"><span class="lineNum">     189</span>              :   /** Captures a checkpoint of all mutable state for rollback. */</span>
+<span id="L190"><span class="lineNum">     190</span> <span class="tlaGNC">           1 :   fun snapshot(): TableStore.RollbackCheckpoint = loaded().tableStore.snapshot()</span></span>
+<span id="L191"><span class="lineNum">     191</span>              : </span>
+<span id="L192"><span class="lineNum">     192</span>              :   /** Restores all mutable state to a previously captured checkpoint. */</span>
+<span id="L193"><span class="lineNum">     193</span> <span class="tlaGNC">           1 :   fun restore(checkpoint: TableStore.RollbackCheckpoint) = loaded().tableStore.restore(checkpoint)</span></span>
+<span id="L194"><span class="lineNum">     194</span>              : </span>
+<span id="L195"><span class="lineNum">     195</span>              :   /** Publishes the current write-state as a new immutable snapshot for data-plane threads. */</span>
+<span id="L196"><span class="lineNum">     196</span> <span class="tlaGNC">           1 :   fun publishSnapshot() = loaded().tableStore.publishSnapshot()</span></span>
+<span id="L197"><span class="lineNum">     197</span>              : </span>
+<span id="L198"><span class="lineNum">     198</span>              :   /**</span>
+<span id="L199"><span class="lineNum">     199</span>              :    * Returns true if the table with p4info [tableId] has an entry with match field [fieldId] equal</span>
+<span id="L200"><span class="lineNum">     200</span>              :    * to [value].</span>
+<span id="L201"><span class="lineNum">     201</span>              :    *</span>
+<span id="L202"><span class="lineNum">     202</span>              :    * Used by `@refers_to` referential integrity validation.</span>
+<span id="L203"><span class="lineNum">     203</span>              :    */</span>
+<span id="L204"><span class="lineNum">     204</span>              :   fun hasTableEntryWithFieldValue(</span>
+<span id="L205"><span class="lineNum">     205</span>              :     tableId: Int,</span>
+<span id="L206"><span class="lineNum">     206</span>              :     fieldId: Int,</span>
+<span id="L207"><span class="lineNum">     207</span>              :     value: com.google.protobuf.ByteString,</span>
+<span id="L208"><span class="lineNum">     208</span> <span class="tlaGNC">           1 :   ): Boolean = loaded().tableStore.hasEntryWithFieldValue(tableId, fieldId, value)</span></span>
+<span id="L209"><span class="lineNum">     209</span>              : </span>
+<span id="L210"><span class="lineNum">     210</span>              :   /** Returns true if a multicast group with [groupId] exists in the PRE. */</span>
+<span id="L211"><span class="lineNum">     211</span>              :   fun hasMulticastGroup(groupId: Int): Boolean =</span>
+<span id="L212"><span class="lineNum">     212</span> <span class="tlaGNC">           1 :     loaded().tableStore.getMulticastGroup(groupId) != null</span></span>
+<span id="L213"><span class="lineNum">     213</span>              : </span>
+<span id="L214"><span class="lineNum">     214</span>              :   // -------------------------------------------------------------------------</span>
+<span id="L215"><span class="lineNum">     215</span>              :   // Raw data accessors (used by the P4Runtime layer's EntityReader)</span>
+<span id="L216"><span class="lineNum">     216</span>              :   // -------------------------------------------------------------------------</span>
+<span id="L217"><span class="lineNum">     217</span>              : </span>
+<span id="L218"><span class="lineNum">     218</span>              :   /** ID→name maps populated by [loadPipeline], for building P4Runtime Entity protos. */</span>
+<span id="L219"><span class="lineNum">     219</span>              :   val tableNameById: Map&lt;Int, String&gt;</span>
+<span id="L220"><span class="lineNum">     220</span> <span class="tlaGNC">           1 :     get() = loaded().tableStore.tableNameById</span></span>
+<span id="L221"><span class="lineNum">     221</span>              : </span>
+<span id="L222"><span class="lineNum">     222</span>              :   val actionNameById: Map&lt;Int, String&gt;</span>
+<span id="L223"><span class="lineNum">     223</span> <span class="tlaGNC">           1 :     get() = loaded().tableStore.actionNameById</span></span>
+<span id="L224"><span class="lineNum">     224</span>              : </span>
+<span id="L225"><span class="lineNum">     225</span>              :   /** P4info alias names of tables that have at least one installed entry. */</span>
+<span id="L226"><span class="lineNum">     226</span>              :   val populatedTableAliases: Set&lt;String&gt;</span>
+<span id="L227"><span class="lineNum">     227</span> <span class="tlaGNC">           1 :     get() = loaded().tableStore.populatedTableAliases()</span></span>
+<span id="L228"><span class="lineNum">     228</span>              : </span>
+<span id="L229"><span class="lineNum">     229</span> <span class="tlaGNC">           1 :   override fun getTableEntries(tableName: String) = loaded().tableStore.getTableEntries(tableName)</span></span>
+<span id="L230"><span class="lineNum">     230</span>              : </span>
+<span id="L231"><span class="lineNum">     231</span> <span class="tlaGNC">           1 :   override fun getDefaultAction(tableName: String) = loaded().tableStore.getDefaultAction(tableName)</span></span>
+<span id="L232"><span class="lineNum">     232</span>              : </span>
+<span id="L233"><span class="lineNum">     233</span>              :   override fun isDefaultModified(tableName: String) =</span>
+<span id="L234"><span class="lineNum">     234</span> <span class="tlaGNC">           1 :     loaded().tableStore.isDefaultModified(tableName)</span></span>
+<span id="L235"><span class="lineNum">     235</span>              : </span>
+<span id="L236"><span class="lineNum">     236</span>              :   override fun getDirectCounterData(entry: org.p4.v1.TableEntry) =</span>
+<span id="L237"><span class="lineNum">     237</span> <span class="tlaGNC">           1 :     loaded().tableStore.getDirectCounterData(entry)</span></span>
+<span id="L238"><span class="lineNum">     238</span>              : </span>
+<span id="L239"><span class="lineNum">     239</span>              :   override fun getDirectMeterData(entry: org.p4.v1.TableEntry) =</span>
+<span id="L240"><span class="lineNum">     240</span> <span class="tlaGNC">           1 :     loaded().tableStore.getDirectMeterData(entry)</span></span>
+<span id="L241"><span class="lineNum">     241</span>              : </span>
+<span id="L242"><span class="lineNum">     242</span> <span class="tlaGNC">           1 :   override fun hasDirectCounter(tableName: String) = loaded().tableStore.hasDirectCounter(tableName)</span></span>
+<span id="L243"><span class="lineNum">     243</span>              : </span>
+<span id="L244"><span class="lineNum">     244</span> <span class="tlaGNC">           1 :   override fun hasDirectMeter(tableName: String) = loaded().tableStore.hasDirectMeter(tableName)</span></span>
+<span id="L245"><span class="lineNum">     245</span>              : </span>
+<span id="L246"><span class="lineNum">     246</span>              :   /**</span>
+<span id="L247"><span class="lineNum">     247</span>              :    * Reads non-table entities matching the given filters.</span>
+<span id="L248"><span class="lineNum">     248</span>              :    *</span>
+<span id="L249"><span class="lineNum">     249</span>              :    * Table entries are handled by [fourward.grpc.EntityReader] in the P4Runtime layer; this method</span>
+<span id="L250"><span class="lineNum">     250</span>              :    * handles all other entity types.</span>
+<span id="L251"><span class="lineNum">     251</span>              :    */</span>
+<span id="L252"><span class="lineNum">     252</span>              :   fun readEntries(filters: List&lt;org.p4.v1.Entity&gt;): List&lt;org.p4.v1.Entity&gt; {</span>
+<span id="L253"><span class="lineNum">     253</span> <span class="tlaGNC">           1 :     val tableStore = loaded().tableStore</span></span>
+<span id="L254"><span class="lineNum">     254</span> <span class="tlaGNC">           1 :     return filters.flatMap { entity -&gt;</span></span>
+<span id="L255"><span class="lineNum">     255</span> <span class="tlaGNC">           1 :       when (entity.entityCase) {</span></span>
+<span id="L256"><span class="lineNum">     256</span> <span class="tlaUNC tlaBgUNC">           0 :         org.p4.v1.Entity.EntityCase.TABLE_ENTRY -&gt; emptyList()</span></span>
+<span id="L257"><span class="lineNum">     257</span>              :         org.p4.v1.Entity.EntityCase.ACTION_PROFILE_MEMBER -&gt;</span>
+<span id="L258"><span class="lineNum">     258</span> <span class="tlaGNC tlaBgGNC">           1 :           tableStore.readProfileMembers(entity.actionProfileMember)</span></span>
+<span id="L259"><span class="lineNum">     259</span>              :         org.p4.v1.Entity.EntityCase.ACTION_PROFILE_GROUP -&gt;</span>
+<span id="L260"><span class="lineNum">     260</span> <span class="tlaGNC">           1 :           tableStore.readProfileGroups(entity.actionProfileGroup)</span></span>
+<span id="L261"><span class="lineNum">     261</span>              :         org.p4.v1.Entity.EntityCase.REGISTER_ENTRY -&gt;</span>
+<span id="L262"><span class="lineNum">     262</span> <span class="tlaGNC">           1 :           tableStore.readRegisterEntries(entity.registerEntry)</span></span>
+<span id="L263"><span class="lineNum">     263</span>              :         org.p4.v1.Entity.EntityCase.COUNTER_ENTRY -&gt;</span>
+<span id="L264"><span class="lineNum">     264</span> <span class="tlaGNC">           1 :           tableStore.readCounterEntries(entity.counterEntry)</span></span>
+<span id="L265"><span class="lineNum">     265</span> <span class="tlaGNC">           1 :         org.p4.v1.Entity.EntityCase.METER_ENTRY -&gt; tableStore.readMeterEntries(entity.meterEntry)</span></span>
+<span id="L266"><span class="lineNum">     266</span>              :         org.p4.v1.Entity.EntityCase.DIRECT_COUNTER_ENTRY -&gt;</span>
+<span id="L267"><span class="lineNum">     267</span> <span class="tlaGNC">           1 :           tableStore.readDirectCounterEntries(entity.directCounterEntry)</span></span>
+<span id="L268"><span class="lineNum">     268</span>              :         org.p4.v1.Entity.EntityCase.DIRECT_METER_ENTRY -&gt;</span>
+<span id="L269"><span class="lineNum">     269</span> <span class="tlaGNC">           1 :           tableStore.readDirectMeterEntries(entity.directMeterEntry)</span></span>
+<span id="L270"><span class="lineNum">     270</span>              :         org.p4.v1.Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY -&gt;</span>
+<span id="L271"><span class="lineNum">     271</span> <span class="tlaGNC">           1 :           tableStore.readPreEntries(entity.packetReplicationEngineEntry)</span></span>
+<span id="L272"><span class="lineNum">     272</span>              :         org.p4.v1.Entity.EntityCase.VALUE_SET_ENTRY -&gt;</span>
+<span id="L273"><span class="lineNum">     273</span> <span class="tlaGNC">           1 :           tableStore.readValueSetEntries(entity.valueSetEntry)</span></span>
+<span id="L274"><span class="lineNum">     274</span>              :         org.p4.v1.Entity.EntityCase.EXTERN_ENTRY,</span>
+<span id="L275"><span class="lineNum">     275</span>              :         org.p4.v1.Entity.EntityCase.DIGEST_ENTRY,</span>
+<span id="L276"><span class="lineNum">     276</span>              :         org.p4.v1.Entity.EntityCase.ENTITY_NOT_SET,</span>
+<span id="L277"><span class="lineNum">     277</span> <span class="tlaUNC tlaBgUNC">           0 :         null -&gt; error(&quot;unsupported entity type for read: ${entity.entityCase}&quot;)</span></span>
+<span id="L278"><span class="lineNum">     278</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
+<span id="L279"><span class="lineNum">     279</span>              :     }</span>
+<span id="L280"><span class="lineNum">     280</span>              :   }</span>
+<span id="L281"><span class="lineNum">     281</span>              : </span>
+<span id="L282"><span class="lineNum">     282</span>              :   /** Returns the short p4info alias for a behavioral name (table or action), or the name itself. */</span>
+<span id="L283"><span class="lineNum">     283</span> <span class="tlaGNC">           1 :   fun displayName(behavioralName: String): String = loaded().tableStore.displayName(behavioralName)</span></span>
+<span id="L284"><span class="lineNum">     284</span>              : }</span>
 <span id="L285"><span class="lineNum">     285</span>              : </span>
-<span id="L286"><span class="lineNum">     286</span>              :   /** Returns the short p4info alias for a behavioral name (table or action), or the name itself. */</span>
-<span id="L287"><span class="lineNum">     287</span> <span class="tlaGNC">           1 :   fun displayName(behavioralName: String): String = loaded().tableStore.displayName(behavioralName)</span></span>
-<span id="L288"><span class="lineNum">     288</span>              : }</span>
-<span id="L289"><span class="lineNum">     289</span>              : </span>
-<span id="L290"><span class="lineNum">     290</span>              : /**</span>
-<span id="L291"><span class="lineNum">     291</span>              :  * Collects the set of possible outcomes from a trace tree, respecting outcome semantics.</span>
-<span id="L292"><span class="lineNum">     292</span>              :  * - **Replication** (clone, multicast): all branches execute simultaneously — Cartesian product.</span>
-<span id="L293"><span class="lineNum">     293</span>              :  * - **Choice** (action selector): exactly one branch executes — union of branch outcomes.</span>
-<span id="L294"><span class="lineNum">     294</span>              :  * - **Continuation** (resubmit, recirculate): same packet, another pass — delegate to next.</span>
-<span id="L295"><span class="lineNum">     295</span>              :  * - **Output:** one possible outcome with one packet.</span>
-<span id="L296"><span class="lineNum">     296</span>              :  * - **Drop:** one possible outcome with no packets.</span>
-<span id="L297"><span class="lineNum">     297</span>              :  *</span>
-<span id="L298"><span class="lineNum">     298</span>              :  * Returns a non-empty, duplicate-free list: each entry is a distinct possible outcome — one</span>
-<span id="L299"><span class="lineNum">     299</span>              :  * complete multiset of output packets that could result from a single real execution. The entries</span>
-<span id="L300"><span class="lineNum">     300</span>              :  * form a *set* (no outcome appears twice); *within* an entry, multiplicity is preserved (a packet</span>
-<span id="L301"><span class="lineNum">     301</span>              :  * emitted twice appears twice) but order is not meaningful.</span>
-<span id="L302"><span class="lineNum">     302</span>              :  */</span>
-<span id="L303"><span class="lineNum">     303</span>              : fun collectPossibleOutcomes(tree: TraceTree): List&lt;List&lt;OutputPacket&gt;&gt; {</span>
-<span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :   val outcomes =</span></span>
-<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :     when (tree.outcomeCase) {</span></span>
-<span id="L306"><span class="lineNum">     306</span> <span class="tlaGNC">           1 :       TraceTree.OutcomeCase.OUTPUT -&gt; listOf(listOf(tree.output))</span></span>
-<span id="L307"><span class="lineNum">     307</span>              :       TraceTree.OutcomeCase.DROP,</span>
-<span id="L308"><span class="lineNum">     308</span>              :       TraceTree.OutcomeCase.OUTCOME_NOT_SET,</span>
-<span id="L309"><span class="lineNum">     309</span> <span class="tlaGNC">           1 :       null -&gt; listOf(emptyList())</span></span>
-<span id="L310"><span class="lineNum">     310</span>              :       TraceTree.OutcomeCase.REPLICATION -&gt; {</span>
-<span id="L311"><span class="lineNum">     311</span>              :         // Cartesian product: for each combination of one outcome per branch, concatenate packets.</span>
-<span id="L312"><span class="lineNum">     312</span> <span class="tlaGNC">           1 :         require(tree.replication.branchesCount &gt; 0) { &quot;Replication must have at least one branch&quot; }</span></span>
-<span id="L313"><span class="lineNum">     313</span> <span class="tlaGNC">           1 :         tree.replication.branchesList</span></span>
-<span id="L314"><span class="lineNum">     314</span> <span class="tlaGNC">           1 :           .map { collectPossibleOutcomes(it) }</span></span>
-<span id="L315"><span class="lineNum">     315</span> <span class="tlaGNC">           1 :           .reduce { acc, next -&gt;</span></span>
-<span id="L316"><span class="lineNum">     316</span> <span class="tlaGNC">           1 :             acc.flatMap { outcome -&gt; next.map { branchOutcome -&gt; outcome + branchOutcome } }</span></span>
-<span id="L317"><span class="lineNum">     317</span>              :           }</span>
-<span id="L318"><span class="lineNum">     318</span>              :       }</span>
-<span id="L319"><span class="lineNum">     319</span>              :       TraceTree.OutcomeCase.CHOICE -&gt; {</span>
-<span id="L320"><span class="lineNum">     320</span>              :         // Each branch is a separate possible outcome; union them.</span>
-<span id="L321"><span class="lineNum">     321</span> <span class="tlaGNC">           1 :         require(tree.choice.branchesCount &gt; 0) { &quot;Choice must have at least one branch&quot; }</span></span>
-<span id="L322"><span class="lineNum">     322</span> <span class="tlaGNC">           1 :         tree.choice.branchesList.flatMap { collectPossibleOutcomes(it) }</span></span>
-<span id="L323"><span class="lineNum">     323</span>              :       }</span>
-<span id="L324"><span class="lineNum">     324</span> <span class="tlaGNC">           1 :       TraceTree.OutcomeCase.CONTINUATION -&gt; collectPossibleOutcomes(tree.continuation.next)</span></span>
-<span id="L325"><span class="lineNum">     325</span>              :     }</span>
-<span id="L326"><span class="lineNum">     326</span>              :   // The possible outcomes are a *set*: two real executions that emit the same packets are one</span>
-<span id="L327"><span class="lineNum">     327</span>              :   // possible outcome, not two. Distinct fork resolutions can produce the same outcome (a multicast</span>
-<span id="L328"><span class="lineNum">     328</span>              :   // whose replicas land on the same ports, symmetric action-selector members, …), and the forks</span>
-<span id="L329"><span class="lineNum">     329</span>              :   // carry no probability, so the multiplicity of identical outcomes is meaningless — only their</span>
-<span id="L330"><span class="lineNum">     330</span>              :   // presence is. [outcomeIdentity] defines when two outcomes are the same.</span>
-<span id="L331"><span class="lineNum">     331</span>              :   //</span>
-<span id="L332"><span class="lineNum">     332</span>              :   // Deduplicate on every return (not once at the top) — this keeps one recursive function and</span>
-<span id="L333"><span class="lineNum">     333</span>              :   // stops the Cartesian product from compounding duplicates across nesting. The repeated work</span>
-<span id="L334"><span class="lineNum">     334</span>              :   // is irrelevant for a simulator: simplicity over performance.</span>
-<span id="L335"><span class="lineNum">     335</span> <span class="tlaGNC">           1 :   return outcomes.distinctBy { it.outcomeIdentity() }</span></span>
-<span id="L336"><span class="lineNum">     336</span>              : }</span>
-<span id="L337"><span class="lineNum">     337</span>              : </span>
-<span id="L338"><span class="lineNum">     338</span>              : /**</span>
-<span id="L339"><span class="lineNum">     339</span>              :  * The identity of an outcome (the output packets from one real execution): the *multiset* of</span>
-<span id="L340"><span class="lineNum">     340</span>              :  * packets it emits, keyed by the observable fields (egress port, payload). Two outcomes are the</span>
-<span id="L341"><span class="lineNum">     341</span>              :  * same iff their identities are equal — order within an outcome is not observable, but multiplicity</span>
-<span id="L342"><span class="lineNum">     342</span>              :  * is (multicast/clone can emit a packet twice), hence a multiset and not a set. Enrichment fields</span>
-<span id="L343"><span class="lineNum">     343</span>              :  * are never populated at this layer, so they don't participate.</span>
-<span id="L344"><span class="lineNum">     344</span>              :  */</span>
-<span id="L345"><span class="lineNum">     345</span>              : fun List&lt;OutputPacket&gt;.outcomeIdentity(): Map&lt;Pair&lt;Int, ByteString&gt;, Int&gt; =</span>
-<span id="L346"><span class="lineNum">     346</span> <span class="tlaGNC">           1 :   groupingBy { it.dataplaneEgressPort to it.payload }.eachCount()</span></span>
+<span id="L286"><span class="lineNum">     286</span>              : /**</span>
+<span id="L287"><span class="lineNum">     287</span>              :  * Collects the set of possible outcomes from a trace tree, respecting outcome semantics.</span>
+<span id="L288"><span class="lineNum">     288</span>              :  * - **Replication** (clone, multicast): all branches execute simultaneously — Cartesian product.</span>
+<span id="L289"><span class="lineNum">     289</span>              :  * - **Choice** (action selector): exactly one branch executes — union of branch outcomes.</span>
+<span id="L290"><span class="lineNum">     290</span>              :  * - **Continuation** (resubmit, recirculate): same packet, another pass — delegate to next.</span>
+<span id="L291"><span class="lineNum">     291</span>              :  * - **Output:** one possible outcome with one packet.</span>
+<span id="L292"><span class="lineNum">     292</span>              :  * - **Drop:** one possible outcome with no packets.</span>
+<span id="L293"><span class="lineNum">     293</span>              :  *</span>
+<span id="L294"><span class="lineNum">     294</span>              :  * Returns a non-empty, duplicate-free list: each entry is a distinct possible outcome — one</span>
+<span id="L295"><span class="lineNum">     295</span>              :  * complete multiset of output packets that could result from a single real execution. The entries</span>
+<span id="L296"><span class="lineNum">     296</span>              :  * form a *set* (no outcome appears twice); *within* an entry, multiplicity is preserved (a packet</span>
+<span id="L297"><span class="lineNum">     297</span>              :  * emitted twice appears twice) but order is not meaningful.</span>
+<span id="L298"><span class="lineNum">     298</span>              :  */</span>
+<span id="L299"><span class="lineNum">     299</span>              : fun collectPossibleOutcomes(tree: TraceTree): List&lt;List&lt;OutputPacket&gt;&gt; {</span>
+<span id="L300"><span class="lineNum">     300</span> <span class="tlaGNC">           1 :   val outcomes =</span></span>
+<span id="L301"><span class="lineNum">     301</span> <span class="tlaGNC">           1 :     when (tree.outcomeCase) {</span></span>
+<span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :       TraceTree.OutcomeCase.OUTPUT -&gt; listOf(listOf(tree.output))</span></span>
+<span id="L303"><span class="lineNum">     303</span>              :       TraceTree.OutcomeCase.DROP,</span>
+<span id="L304"><span class="lineNum">     304</span>              :       TraceTree.OutcomeCase.OUTCOME_NOT_SET,</span>
+<span id="L305"><span class="lineNum">     305</span> <span class="tlaGNC">           1 :       null -&gt; listOf(emptyList())</span></span>
+<span id="L306"><span class="lineNum">     306</span>              :       TraceTree.OutcomeCase.REPLICATION -&gt; {</span>
+<span id="L307"><span class="lineNum">     307</span>              :         // Cartesian product: for each combination of one outcome per branch, concatenate packets.</span>
+<span id="L308"><span class="lineNum">     308</span> <span class="tlaGNC">           1 :         require(tree.replication.branchesCount &gt; 0) { &quot;Replication must have at least one branch&quot; }</span></span>
+<span id="L309"><span class="lineNum">     309</span> <span class="tlaGNC">           1 :         tree.replication.branchesList</span></span>
+<span id="L310"><span class="lineNum">     310</span> <span class="tlaGNC">           1 :           .map { collectPossibleOutcomes(it) }</span></span>
+<span id="L311"><span class="lineNum">     311</span> <span class="tlaGNC">           1 :           .reduce { acc, next -&gt;</span></span>
+<span id="L312"><span class="lineNum">     312</span> <span class="tlaGNC">           1 :             acc.flatMap { outcome -&gt; next.map { branchOutcome -&gt; outcome + branchOutcome } }</span></span>
+<span id="L313"><span class="lineNum">     313</span>              :           }</span>
+<span id="L314"><span class="lineNum">     314</span>              :       }</span>
+<span id="L315"><span class="lineNum">     315</span>              :       TraceTree.OutcomeCase.CHOICE -&gt; {</span>
+<span id="L316"><span class="lineNum">     316</span>              :         // Each branch is a separate possible outcome; union them.</span>
+<span id="L317"><span class="lineNum">     317</span> <span class="tlaGNC">           1 :         require(tree.choice.branchesCount &gt; 0) { &quot;Choice must have at least one branch&quot; }</span></span>
+<span id="L318"><span class="lineNum">     318</span> <span class="tlaGNC">           1 :         tree.choice.branchesList.flatMap { collectPossibleOutcomes(it) }</span></span>
+<span id="L319"><span class="lineNum">     319</span>              :       }</span>
+<span id="L320"><span class="lineNum">     320</span> <span class="tlaGNC">           1 :       TraceTree.OutcomeCase.CONTINUATION -&gt; collectPossibleOutcomes(tree.continuation.next)</span></span>
+<span id="L321"><span class="lineNum">     321</span>              :     }</span>
+<span id="L322"><span class="lineNum">     322</span>              :   // The possible outcomes are a *set*: two real executions that emit the same packets are one</span>
+<span id="L323"><span class="lineNum">     323</span>              :   // possible outcome, not two. Distinct fork resolutions can produce the same outcome (a multicast</span>
+<span id="L324"><span class="lineNum">     324</span>              :   // whose replicas land on the same ports, symmetric action-selector members, …), and the forks</span>
+<span id="L325"><span class="lineNum">     325</span>              :   // carry no probability, so the multiplicity of identical outcomes is meaningless — only their</span>
+<span id="L326"><span class="lineNum">     326</span>              :   // presence is. [outcomeIdentity] defines when two outcomes are the same.</span>
+<span id="L327"><span class="lineNum">     327</span>              :   //</span>
+<span id="L328"><span class="lineNum">     328</span>              :   // Deduplicate on every return (not once at the top) — this keeps one recursive function and</span>
+<span id="L329"><span class="lineNum">     329</span>              :   // stops the Cartesian product from compounding duplicates across nesting. The repeated work</span>
+<span id="L330"><span class="lineNum">     330</span>              :   // is irrelevant for a simulator: simplicity over performance.</span>
+<span id="L331"><span class="lineNum">     331</span> <span class="tlaGNC">           1 :   return outcomes.distinctBy { it.outcomeIdentity() }</span></span>
+<span id="L332"><span class="lineNum">     332</span>              : }</span>
+<span id="L333"><span class="lineNum">     333</span>              : </span>
+<span id="L334"><span class="lineNum">     334</span>              : /**</span>
+<span id="L335"><span class="lineNum">     335</span>              :  * The identity of an outcome (the output packets from one real execution): the *multiset* of</span>
+<span id="L336"><span class="lineNum">     336</span>              :  * packets it emits, keyed by the observable fields (egress port, payload). Two outcomes are the</span>
+<span id="L337"><span class="lineNum">     337</span>              :  * same iff their identities are equal — order within an outcome is not observable, but multiplicity</span>
+<span id="L338"><span class="lineNum">     338</span>              :  * is (multicast/clone can emit a packet twice), hence a multiset and not a set. Enrichment fields</span>
+<span id="L339"><span class="lineNum">     339</span>              :  * are never populated at this layer, so they don't participate.</span>
+<span id="L340"><span class="lineNum">     340</span>              :  */</span>
+<span id="L341"><span class="lineNum">     341</span>              : fun List&lt;OutputPacket&gt;.outcomeIdentity(): Map&lt;Pair&lt;Int, ByteString&gt;, Int&gt; =</span>
+<span id="L342"><span class="lineNum">     342</span> <span class="tlaGNC">           1 :   groupingBy { it.dataplaneEgressPort to it.payload }.eachCount()</span></span>
         </pre>
               </td>
             </tr>

@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-09-24 07:57:21</td>
+            <td class="headerValue">2026-10-13 20:12:16</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -62,7 +62,7 @@
 <pre class="source">
 <span id="L1"><span class="lineNum">       1</span>              : package fourward.grpc</span>
 <span id="L2"><span class="lineNum">       2</span>              : </span>
-<span id="L3"><span class="lineNum">       3</span>              : import p4.config.v1.P4InfoOuterClass</span>
+<span id="L3"><span class="lineNum">       3</span>              : import org.p4.config.v1.P4Info</span>
 <span id="L4"><span class="lineNum">       4</span>              : </span>
 <span id="L5"><span class="lineNum">       5</span>              : /**</span>
 <span id="L6"><span class="lineNum">       6</span>              :  * Maps P4 entity IDs to their `@p4runtime_role` (P4Runtime spec §15).</span>
@@ -89,7 +89,7 @@
 <span id="L27"><span class="lineNum">      27</span> <span class="tlaGNC">           1 :     private val ROLE_PATTERN = Regex(&quot;&quot;&quot;@p4runtime_role\(&quot;(.+?)&quot;\)&quot;&quot;&quot;)</span></span>
 <span id="L28"><span class="lineNum">      28</span>              : </span>
 <span id="L29"><span class="lineNum">      29</span>              :     /** Parses `@p4runtime_role` annotations from p4info and builds entity-to-role mappings. */</span>
-<span id="L30"><span class="lineNum">      30</span>              :     fun create(p4info: P4InfoOuterClass.P4Info): RoleMap {</span>
+<span id="L30"><span class="lineNum">      30</span>              :     fun create(p4info: P4Info): RoleMap {</span>
 <span id="L31"><span class="lineNum">      31</span> <span class="tlaGNC">           1 :       val roles = mutableMapOf&lt;Int, String&gt;()</span></span>
 <span id="L32"><span class="lineNum">      32</span>              : </span>
 <span id="L33"><span class="lineNum">      33</span>              :       // Tables: direct annotation.</span>

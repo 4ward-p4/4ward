@@ -32,12 +32,12 @@
             <td></td>
             <td class="headerItem">Lines:</td>
             <td class="headerCovTableEntryHi">96.8&nbsp;%</td>
-            <td class="headerCovTableEntry">379</td>
-            <td class="headerCovTableEntry">367</td>
+            <td class="headerCovTableEntry">377</td>
+            <td class="headerCovTableEntry">365</td>
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-09-24 07:57:21</td>
+            <td class="headerValue">2026-10-13 20:12:16</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">97.1&nbsp;%</td>
@@ -69,12 +69,12 @@
 <span id="L7"><span class="lineNum">       7</span>              : import java.math.BigInteger</span>
 <span id="L8"><span class="lineNum">       8</span>              : import java.util.concurrent.ConcurrentHashMap</span>
 <span id="L9"><span class="lineNum">       9</span>              : import java.util.logging.Logger</span>
-<span id="L10"><span class="lineNum">      10</span>              : import p4.config.v1.P4InfoOuterClass.P4Info</span>
-<span id="L11"><span class="lineNum">      11</span>              : import p4.config.v1.P4Types</span>
-<span id="L12"><span class="lineNum">      12</span>              : import p4.v1.P4RuntimeOuterClass.Entity</span>
-<span id="L13"><span class="lineNum">      13</span>              : import p4.v1.P4RuntimeOuterClass.PacketIn</span>
-<span id="L14"><span class="lineNum">      14</span>              : import p4.v1.P4RuntimeOuterClass.PacketOut</span>
-<span id="L15"><span class="lineNum">      15</span>              : import p4.v1.P4RuntimeOuterClass.Update</span>
+<span id="L10"><span class="lineNum">      10</span>              : import org.p4.config.v1.P4Info</span>
+<span id="L11"><span class="lineNum">      11</span>              : import org.p4.config.v1.P4NewTypeSpec</span>
+<span id="L12"><span class="lineNum">      12</span>              : import org.p4.v1.Entity</span>
+<span id="L13"><span class="lineNum">      13</span>              : import org.p4.v1.PacketIn</span>
+<span id="L14"><span class="lineNum">      14</span>              : import org.p4.v1.PacketOut</span>
+<span id="L15"><span class="lineNum">      15</span>              : import org.p4.v1.Update</span>
 <span id="L16"><span class="lineNum">      16</span>              : </span>
 <span id="L17"><span class="lineNum">      17</span>              : /** Interprets a [ByteString] as an unsigned big-endian integer. Inverse of [encodeMinWidth]. */</span>
 <span id="L18"><span class="lineNum">      18</span>              : fun ByteString.toUnsignedInt(): Int =</span>
@@ -332,12 +332,12 @@
 <span id="L270"><span class="lineNum">     270</span>              :    * the deprecated `Replica.egress_port` int32) pass through unchanged.</span>
 <span id="L271"><span class="lineNum">     271</span>              :    */</span>
 <span id="L272"><span class="lineNum">     272</span>              :   private fun translatePreReplicas(</span>
-<span id="L273"><span class="lineNum">     273</span>              :     pre: p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry,</span>
+<span id="L273"><span class="lineNum">     273</span>              :     pre: org.p4.v1.PacketReplicationEngineEntry,</span>
 <span id="L274"><span class="lineNum">     274</span>              :     direction: Direction,</span>
-<span id="L275"><span class="lineNum">     275</span>              :   ): p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry? {</span>
+<span id="L275"><span class="lineNum">     275</span>              :   ): org.p4.v1.PacketReplicationEngineEntry? {</span>
 <span id="L276"><span class="lineNum">     276</span> <span class="tlaGNC">           1 :     val pt = portTranslator ?: return null</span></span>
 <span id="L277"><span class="lineNum">     277</span>              : </span>
-<span id="L278"><span class="lineNum">     278</span>              :     fun translate(replica: p4.v1.P4RuntimeOuterClass.Replica): p4.v1.P4RuntimeOuterClass.Replica {</span>
+<span id="L278"><span class="lineNum">     278</span>              :     fun translate(replica: org.p4.v1.Replica): org.p4.v1.Replica {</span>
 <span id="L279"><span class="lineNum">     279</span> <span class="tlaGNC">           1 :       if (replica.port.isEmpty) return replica</span></span>
 <span id="L280"><span class="lineNum">     280</span> <span class="tlaGNC">           1 :       val newPort: ByteString =</span></span>
 <span id="L281"><span class="lineNum">     281</span> <span class="tlaGNC">           1 :         when (direction) {</span></span>
@@ -351,7 +351,7 @@
 <span id="L289"><span class="lineNum">     289</span>              :     }</span>
 <span id="L290"><span class="lineNum">     290</span>              : </span>
 <span id="L291"><span class="lineNum">     291</span> <span class="tlaGNC">           1 :     return when (pre.typeCase) {</span></span>
-<span id="L292"><span class="lineNum">     292</span>              :       p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.MULTICAST_GROUP_ENTRY -&gt; {</span>
+<span id="L292"><span class="lineNum">     292</span>              :       org.p4.v1.PacketReplicationEngineEntry.TypeCase.MULTICAST_GROUP_ENTRY -&gt; {</span>
 <span id="L293"><span class="lineNum">     293</span> <span class="tlaGNC">           1 :         val group = pre.multicastGroupEntry</span></span>
 <span id="L294"><span class="lineNum">     294</span> <span class="tlaGNC">           1 :         pre</span></span>
 <span id="L295"><span class="lineNum">     295</span> <span class="tlaGNC">           1 :           .toBuilder()</span></span>
@@ -360,7 +360,7 @@
 <span id="L298"><span class="lineNum">     298</span>              :           )</span>
 <span id="L299"><span class="lineNum">     299</span> <span class="tlaGNC">           1 :           .build()</span></span>
 <span id="L300"><span class="lineNum">     300</span>              :       }</span>
-<span id="L301"><span class="lineNum">     301</span>              :       p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.CLONE_SESSION_ENTRY -&gt; {</span>
+<span id="L301"><span class="lineNum">     301</span>              :       org.p4.v1.PacketReplicationEngineEntry.TypeCase.CLONE_SESSION_ENTRY -&gt; {</span>
 <span id="L302"><span class="lineNum">     302</span> <span class="tlaGNC">           1 :         val session = pre.cloneSessionEntry</span></span>
 <span id="L303"><span class="lineNum">     303</span> <span class="tlaGNC">           1 :         pre</span></span>
 <span id="L304"><span class="lineNum">     304</span> <span class="tlaGNC">           1 :           .toBuilder()</span></span>
@@ -372,7 +372,7 @@
 <span id="L310"><span class="lineNum">     310</span>              :           )</span>
 <span id="L311"><span class="lineNum">     311</span> <span class="tlaGNC">           1 :           .build()</span></span>
 <span id="L312"><span class="lineNum">     312</span>              :       }</span>
-<span id="L313"><span class="lineNum">     313</span>              :       p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.TYPE_NOT_SET,</span>
+<span id="L313"><span class="lineNum">     313</span>              :       org.p4.v1.PacketReplicationEngineEntry.TypeCase.TYPE_NOT_SET,</span>
 <span id="L314"><span class="lineNum">     314</span> <span class="tlaUNC tlaBgUNC">           0 :       null -&gt; null</span></span>
 <span id="L315"><span class="lineNum">     315</span>              :     }</span>
 <span id="L316"><span class="lineNum">     316</span>              :   }</span>
@@ -382,9 +382,9 @@
 <span id="L320"><span class="lineNum">     320</span>              :    * nothing was translated.</span>
 <span id="L321"><span class="lineNum">     321</span>              :    */</span>
 <span id="L322"><span class="lineNum">     322</span>              :   private fun translateTableEntry(</span>
-<span id="L323"><span class="lineNum">     323</span>              :     entry: p4.v1.P4RuntimeOuterClass.TableEntry,</span>
+<span id="L323"><span class="lineNum">     323</span>              :     entry: org.p4.v1.TableEntry,</span>
 <span id="L324"><span class="lineNum">     324</span>              :     direction: Direction,</span>
-<span id="L325"><span class="lineNum">     325</span>              :   ): p4.v1.P4RuntimeOuterClass.TableEntry? {</span>
+<span id="L325"><span class="lineNum">     325</span>              :   ): org.p4.v1.TableEntry? {</span>
 <span id="L326"><span class="lineNum">     326</span> <span class="tlaGNC tlaBgGNC">           1 :     val translatedMatches = translateMatchFields(entry.tableId, entry.matchList, direction)</span></span>
 <span id="L327"><span class="lineNum">     327</span> <span class="tlaGNC">           1 :     val translatedAction = translateTableAction(entry.action, direction)</span></span>
 <span id="L328"><span class="lineNum">     328</span> <span class="tlaGNC">           1 :     if (translatedMatches == null &amp;&amp; translatedAction == null) return null</span></span>
@@ -442,9 +442,9 @@
 <span id="L380"><span class="lineNum">     380</span>              :    * profile action sets.</span>
 <span id="L381"><span class="lineNum">     381</span>              :    */</span>
 <span id="L382"><span class="lineNum">     382</span>              :   private fun translateTableAction(</span>
-<span id="L383"><span class="lineNum">     383</span>              :     tableAction: p4.v1.P4RuntimeOuterClass.TableAction,</span>
+<span id="L383"><span class="lineNum">     383</span>              :     tableAction: org.p4.v1.TableAction,</span>
 <span id="L384"><span class="lineNum">     384</span>              :     direction: Direction,</span>
-<span id="L385"><span class="lineNum">     385</span>              :   ): p4.v1.P4RuntimeOuterClass.TableAction? {</span>
+<span id="L385"><span class="lineNum">     385</span>              :   ): org.p4.v1.TableAction? {</span>
 <span id="L386"><span class="lineNum">     386</span> <span class="tlaGNC">           1 :     if (tableAction.hasAction()) {</span></span>
 <span id="L387"><span class="lineNum">     387</span> <span class="tlaGNC">           1 :       val translated = translateAction(tableAction.action, direction) ?: return null</span></span>
 <span id="L388"><span class="lineNum">     388</span> <span class="tlaGNC">           1 :       return tableAction.toBuilder().setAction(translated).build()</span></span>
@@ -476,484 +476,477 @@
 <span id="L414"><span class="lineNum">     414</span>              :   }</span>
 <span id="L415"><span class="lineNum">     415</span>              : </span>
 <span id="L416"><span class="lineNum">     416</span>              :   /** Translates params of a single [Action], returning null if no translation was needed. */</span>
-<span id="L417"><span class="lineNum">     417</span>              :   private fun translateAction(</span>
-<span id="L418"><span class="lineNum">     418</span>              :     action: p4.v1.P4RuntimeOuterClass.Action,</span>
-<span id="L419"><span class="lineNum">     419</span>              :     direction: Direction,</span>
-<span id="L420"><span class="lineNum">     420</span>              :   ): p4.v1.P4RuntimeOuterClass.Action? {</span>
-<span id="L421"><span class="lineNum">     421</span> <span class="tlaGNC">           1 :     val translated = translateParams(action.actionId, action.paramsList, direction) ?: return null</span></span>
-<span id="L422"><span class="lineNum">     422</span> <span class="tlaGNC">           1 :     return action.toBuilder().clearParams().addAllParams(translated).build()</span></span>
-<span id="L423"><span class="lineNum">     423</span>              :   }</span>
-<span id="L424"><span class="lineNum">     424</span>              : </span>
-<span id="L425"><span class="lineNum">     425</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L426"><span class="lineNum">     426</span>              :   // Internal translation helpers</span>
-<span id="L427"><span class="lineNum">     427</span>              :   // ---------------------------------------------------------------------------</span>
-<span id="L428"><span class="lineNum">     428</span>              : </span>
-<span id="L429"><span class="lineNum">     429</span>              :   private fun translateParams(</span>
-<span id="L430"><span class="lineNum">     430</span>              :     actionId: Int,</span>
-<span id="L431"><span class="lineNum">     431</span>              :     params: List&lt;p4.v1.P4RuntimeOuterClass.Action.Param&gt;,</span>
-<span id="L432"><span class="lineNum">     432</span>              :     direction: Direction,</span>
-<span id="L433"><span class="lineNum">     433</span>              :   ): List&lt;p4.v1.P4RuntimeOuterClass.Action.Param&gt;? {</span>
-<span id="L434"><span class="lineNum">     434</span> <span class="tlaGNC">           1 :     var changed = false</span></span>
-<span id="L435"><span class="lineNum">     435</span> <span class="tlaGNC">           1 :     val result =</span></span>
-<span id="L436"><span class="lineNum">     436</span> <span class="tlaGNC">           1 :       params.map { param -&gt;</span></span>
-<span id="L437"><span class="lineNum">     437</span> <span class="tlaGNC">           1 :         val typeName = paramTypeNames[packKey(actionId, param.paramId)]</span></span>
-<span id="L438"><span class="lineNum">     438</span> <span class="tlaGNC">           1 :         if (typeName != null) {</span></span>
-<span id="L439"><span class="lineNum">     439</span> <span class="tlaGNC">           1 :           changed = true</span></span>
-<span id="L440"><span class="lineNum">     440</span> <span class="tlaGNC">           1 :           val translated = translateValue(getOrCreateTable(typeName), param.value, direction)</span></span>
-<span id="L441"><span class="lineNum">     441</span> <span class="tlaGNC">           1 :           param.toBuilder().setValue(translated).build()</span></span>
-<span id="L442"><span class="lineNum">     442</span>              :         } else {</span>
-<span id="L443"><span class="lineNum">     443</span> <span class="tlaGNC">           1 :           param</span></span>
-<span id="L444"><span class="lineNum">     444</span> <span class="tlaGNC">           1 :         }</span></span>
-<span id="L445"><span class="lineNum">     445</span>              :       }</span>
-<span id="L446"><span class="lineNum">     446</span> <span class="tlaGNC">           1 :     return if (changed) result else null</span></span>
-<span id="L447"><span class="lineNum">     447</span>              :   }</span>
-<span id="L448"><span class="lineNum">     448</span>              : </span>
-<span id="L449"><span class="lineNum">     449</span>              :   private fun translateMatchFields(</span>
-<span id="L450"><span class="lineNum">     450</span>              :     tableId: Int,</span>
-<span id="L451"><span class="lineNum">     451</span>              :     matches: List&lt;p4.v1.P4RuntimeOuterClass.FieldMatch&gt;,</span>
-<span id="L452"><span class="lineNum">     452</span>              :     direction: Direction,</span>
-<span id="L453"><span class="lineNum">     453</span>              :   ): List&lt;p4.v1.P4RuntimeOuterClass.FieldMatch&gt;? {</span>
-<span id="L454"><span class="lineNum">     454</span> <span class="tlaGNC">           1 :     var changed = false</span></span>
-<span id="L455"><span class="lineNum">     455</span> <span class="tlaGNC">           1 :     val result =</span></span>
-<span id="L456"><span class="lineNum">     456</span> <span class="tlaGNC">           1 :       matches.map { match -&gt;</span></span>
-<span id="L457"><span class="lineNum">     457</span> <span class="tlaGNC">           1 :         val typeName = matchFieldTypeNames[packKey(tableId, match.fieldId)]</span></span>
-<span id="L458"><span class="lineNum">     458</span> <span class="tlaGNC">           1 :         if (typeName != null) {</span></span>
-<span id="L459"><span class="lineNum">     459</span> <span class="tlaGNC">           1 :           changed = true</span></span>
-<span id="L460"><span class="lineNum">     460</span> <span class="tlaGNC">           1 :           val table = getOrCreateTable(typeName)</span></span>
-<span id="L461"><span class="lineNum">     461</span> <span class="tlaGNC">           1 :           when (match.fieldMatchTypeCase) {</span></span>
-<span id="L462"><span class="lineNum">     462</span>              :             p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT -&gt; {</span>
-<span id="L463"><span class="lineNum">     463</span> <span class="tlaGNC">           1 :               val translated = translateValue(table, match.exact.value, direction)</span></span>
-<span id="L464"><span class="lineNum">     464</span> <span class="tlaGNC">           1 :               match</span></span>
-<span id="L465"><span class="lineNum">     465</span> <span class="tlaGNC">           1 :                 .toBuilder()</span></span>
-<span id="L466"><span class="lineNum">     466</span> <span class="tlaGNC">           1 :                 .setExact(</span></span>
-<span id="L467"><span class="lineNum">     467</span> <span class="tlaGNC">           1 :                   p4.v1.P4RuntimeOuterClass.FieldMatch.Exact.newBuilder().setValue(translated)</span></span>
-<span id="L468"><span class="lineNum">     468</span>              :                 )</span>
-<span id="L469"><span class="lineNum">     469</span> <span class="tlaGNC">           1 :                 .build()</span></span>
-<span id="L470"><span class="lineNum">     470</span>              :             }</span>
-<span id="L471"><span class="lineNum">     471</span>              :             p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -&gt; {</span>
-<span id="L472"><span class="lineNum">     472</span> <span class="tlaGNC">           1 :               val translated = translateValue(table, match.optional.value, direction)</span></span>
-<span id="L473"><span class="lineNum">     473</span> <span class="tlaGNC">           1 :               match</span></span>
-<span id="L474"><span class="lineNum">     474</span> <span class="tlaGNC">           1 :                 .toBuilder()</span></span>
-<span id="L475"><span class="lineNum">     475</span> <span class="tlaGNC">           1 :                 .setOptional(</span></span>
-<span id="L476"><span class="lineNum">     476</span> <span class="tlaGNC">           1 :                   p4.v1.P4RuntimeOuterClass.FieldMatch.Optional.newBuilder().setValue(translated)</span></span>
-<span id="L477"><span class="lineNum">     477</span>              :                 )</span>
-<span id="L478"><span class="lineNum">     478</span> <span class="tlaGNC">           1 :                 .build()</span></span>
-<span id="L479"><span class="lineNum">     479</span>              :             }</span>
-<span id="L480"><span class="lineNum">     480</span>              :             // Ternary/LPM/Range on translated types is nonsensical — pass through.</span>
-<span id="L481"><span class="lineNum">     481</span>              :             p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY,</span>
-<span id="L482"><span class="lineNum">     482</span>              :             p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM,</span>
-<span id="L483"><span class="lineNum">     483</span>              :             p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE,</span>
-<span id="L484"><span class="lineNum">     484</span>              :             p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,</span>
-<span id="L485"><span class="lineNum">     485</span>              :             p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,</span>
-<span id="L486"><span class="lineNum">     486</span> <span class="tlaUNC tlaBgUNC">           0 :             null -&gt; match</span></span>
-<span id="L487"><span class="lineNum">     487</span>              :           }</span>
-<span id="L488"><span class="lineNum">     488</span>              :         } else {</span>
-<span id="L489"><span class="lineNum">     489</span> <span class="tlaGNC tlaBgGNC">           1 :           match</span></span>
-<span id="L490"><span class="lineNum">     490</span> <span class="tlaGNC">           1 :         }</span></span>
-<span id="L491"><span class="lineNum">     491</span>              :       }</span>
-<span id="L492"><span class="lineNum">     492</span> <span class="tlaGNC">           1 :     return if (changed) result else null</span></span>
-<span id="L493"><span class="lineNum">     493</span>              :   }</span>
-<span id="L494"><span class="lineNum">     494</span>              : </span>
-<span id="L495"><span class="lineNum">     495</span> <span class="tlaGNC">           1 :   private fun translateMetadata(</span></span>
-<span id="L496"><span class="lineNum">     496</span>              :     typeNameMap: Map&lt;Int, String&gt;,</span>
-<span id="L497"><span class="lineNum">     497</span>              :     metadata: List&lt;p4.v1.P4RuntimeOuterClass.PacketMetadata&gt;,</span>
-<span id="L498"><span class="lineNum">     498</span>              :     direction: Direction,</span>
-<span id="L499"><span class="lineNum">     499</span> <span class="tlaGNC">           1 :     lenient: Boolean = false,</span></span>
-<span id="L500"><span class="lineNum">     500</span>              :   ): List&lt;p4.v1.P4RuntimeOuterClass.PacketMetadata&gt;? {</span>
-<span id="L501"><span class="lineNum">     501</span> <span class="tlaGNC">           1 :     var changed = false</span></span>
-<span id="L502"><span class="lineNum">     502</span> <span class="tlaGNC">           1 :     val result =</span></span>
-<span id="L503"><span class="lineNum">     503</span> <span class="tlaGNC">           1 :       metadata.map { meta -&gt;</span></span>
-<span id="L504"><span class="lineNum">     504</span> <span class="tlaGNC">           1 :         val typeName = typeNameMap[meta.metadataId]</span></span>
-<span id="L505"><span class="lineNum">     505</span> <span class="tlaGNC">           1 :         if (typeName != null) {</span></span>
-<span id="L506"><span class="lineNum">     506</span> <span class="tlaGNC">           1 :           val table = getOrCreateTable(typeName)</span></span>
-<span id="L507"><span class="lineNum">     507</span> <span class="tlaGNC">           1 :           val translated =</span></span>
-<span id="L508"><span class="lineNum">     508</span> <span class="tlaGNC">           1 :             if (lenient) reverseTranslateLenient(table, meta.value, typeName)</span></span>
-<span id="L509"><span class="lineNum">     509</span> <span class="tlaGNC">           1 :             else translateValue(table, meta.value, direction)</span></span>
-<span id="L510"><span class="lineNum">     510</span> <span class="tlaGNC">           1 :           changed = true</span></span>
-<span id="L511"><span class="lineNum">     511</span> <span class="tlaGNC">           1 :           meta.toBuilder().setValue(translated).build()</span></span>
-<span id="L512"><span class="lineNum">     512</span>              :         } else {</span>
-<span id="L513"><span class="lineNum">     513</span> <span class="tlaGNC">           1 :           meta</span></span>
-<span id="L514"><span class="lineNum">     514</span> <span class="tlaGNC">           1 :         }</span></span>
-<span id="L515"><span class="lineNum">     515</span>              :       }</span>
-<span id="L516"><span class="lineNum">     516</span> <span class="tlaGNC">           1 :     return if (changed) result else null</span></span>
-<span id="L517"><span class="lineNum">     517</span>              :   }</span>
-<span id="L518"><span class="lineNum">     518</span>              : </span>
-<span id="L519"><span class="lineNum">     519</span>              :   /**</span>
-<span id="L520"><span class="lineNum">     520</span>              :    * Translates a single ByteString value forward (P4RT→DP) or reverse (DP→P4RT).</span>
-<span id="L521"><span class="lineNum">     521</span>              :    *</span>
-<span id="L522"><span class="lineNum">     522</span>              :    * For `sdn_string` tables, the P4Runtime value is a UTF-8 string encoded in the proto `bytes`</span>
-<span id="L523"><span class="lineNum">     523</span>              :    * field (per P4Runtime spec §8.3 — there is no separate string field).</span>
-<span id="L524"><span class="lineNum">     524</span>              :    */</span>
-<span id="L525"><span class="lineNum">     525</span>              :   private fun translateValue(table: TranslationTable, value: ByteString, direction: Direction) =</span>
-<span id="L526"><span class="lineNum">     526</span> <span class="tlaGNC">           1 :     when (direction) {</span></span>
-<span id="L527"><span class="lineNum">     527</span>              :       Direction.TO_DATAPLANE -&gt;</span>
-<span id="L528"><span class="lineNum">     528</span> <span class="tlaGNC">           1 :         if (table.isStringType) {</span></span>
-<span id="L529"><span class="lineNum">     529</span> <span class="tlaGNC">           1 :           table.lookupOrAllocateString(value.toStringUtf8())</span></span>
-<span id="L530"><span class="lineNum">     530</span>              :         } else {</span>
-<span id="L531"><span class="lineNum">     531</span> <span class="tlaGNC">           1 :           table.lookupOrAllocateBitstring(value)</span></span>
-<span id="L532"><span class="lineNum">     532</span>              :         }</span>
-<span id="L533"><span class="lineNum">     533</span> <span class="tlaGNC">           1 :       Direction.TO_P4RT -&gt; table.reverseLookup(value).toByteString()</span></span>
-<span id="L534"><span class="lineNum">     534</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L535"><span class="lineNum">     535</span>              : </span>
-<span id="L536"><span class="lineNum">     536</span>              :   /**</span>
-<span id="L537"><span class="lineNum">     537</span>              :    * Reverse-translates a PacketIn metadata [value] of type [typeName], tolerating values the</span>
-<span id="L538"><span class="lineNum">     538</span>              :    * control plane never named (e.g. the drop port a punt presents): returns the raw value</span>
-<span id="L539"><span class="lineNum">     539</span>              :    * untranslated and warns once per distinct value instead of throwing. See [translatePacketIn].</span>
-<span id="L540"><span class="lineNum">     540</span>              :    */</span>
-<span id="L541"><span class="lineNum">     541</span>              :   private fun reverseTranslateLenient(</span>
-<span id="L542"><span class="lineNum">     542</span>              :     table: TranslationTable,</span>
-<span id="L543"><span class="lineNum">     543</span>              :     value: ByteString,</span>
-<span id="L544"><span class="lineNum">     544</span>              :     typeName: String,</span>
-<span id="L545"><span class="lineNum">     545</span>              :   ): ByteString {</span>
-<span id="L546"><span class="lineNum">     546</span> <span class="tlaGNC">           1 :     val p4rtValue = table.reverseLookupOrNull(value)</span></span>
-<span id="L547"><span class="lineNum">     547</span> <span class="tlaGNC">           1 :     if (p4rtValue != null) return p4rtValue.toByteString()</span></span>
-<span id="L548"><span class="lineNum">     548</span> <span class="tlaGNC">           1 :     if (warnedUnmappedReverse.add(&quot;$typeName:${value.toHex()}&quot;)) {</span></span>
-<span id="L549"><span class="lineNum">     549</span> <span class="tlaGNC">           1 :       val decimal = BigInteger(1, value.toByteArray())</span></span>
-<span id="L550"><span class="lineNum">     550</span> <span class="tlaGNC">           1 :       logger.warning(</span></span>
-<span id="L551"><span class="lineNum">     551</span> <span class="tlaGNC">           1 :         &quot;no SDN mapping for data-plane value 0x${value.toHex()} ($decimal) of translated type &quot; +</span></span>
-<span id="L552"><span class="lineNum">     552</span> <span class="tlaGNC">           1 :           &quot;'$typeName'; delivering it untranslated in PacketIn metadata&quot;</span></span>
-<span id="L553"><span class="lineNum">     553</span>              :       )</span>
-<span id="L554"><span class="lineNum">     554</span>              :     }</span>
-<span id="L555"><span class="lineNum">     555</span> <span class="tlaGNC">           1 :     return value</span></span>
-<span id="L556"><span class="lineNum">     556</span>              :   }</span>
+<span id="L417"><span class="lineNum">     417</span>              :   private fun translateAction(action: org.p4.v1.Action, direction: Direction): org.p4.v1.Action? {</span>
+<span id="L418"><span class="lineNum">     418</span> <span class="tlaGNC">           1 :     val translated = translateParams(action.actionId, action.paramsList, direction) ?: return null</span></span>
+<span id="L419"><span class="lineNum">     419</span> <span class="tlaGNC">           1 :     return action.toBuilder().clearParams().addAllParams(translated).build()</span></span>
+<span id="L420"><span class="lineNum">     420</span>              :   }</span>
+<span id="L421"><span class="lineNum">     421</span>              : </span>
+<span id="L422"><span class="lineNum">     422</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L423"><span class="lineNum">     423</span>              :   // Internal translation helpers</span>
+<span id="L424"><span class="lineNum">     424</span>              :   // ---------------------------------------------------------------------------</span>
+<span id="L425"><span class="lineNum">     425</span>              : </span>
+<span id="L426"><span class="lineNum">     426</span>              :   private fun translateParams(</span>
+<span id="L427"><span class="lineNum">     427</span>              :     actionId: Int,</span>
+<span id="L428"><span class="lineNum">     428</span>              :     params: List&lt;org.p4.v1.Action.Param&gt;,</span>
+<span id="L429"><span class="lineNum">     429</span>              :     direction: Direction,</span>
+<span id="L430"><span class="lineNum">     430</span>              :   ): List&lt;org.p4.v1.Action.Param&gt;? {</span>
+<span id="L431"><span class="lineNum">     431</span> <span class="tlaGNC">           1 :     var changed = false</span></span>
+<span id="L432"><span class="lineNum">     432</span> <span class="tlaGNC">           1 :     val result =</span></span>
+<span id="L433"><span class="lineNum">     433</span> <span class="tlaGNC">           1 :       params.map { param -&gt;</span></span>
+<span id="L434"><span class="lineNum">     434</span> <span class="tlaGNC">           1 :         val typeName = paramTypeNames[packKey(actionId, param.paramId)]</span></span>
+<span id="L435"><span class="lineNum">     435</span> <span class="tlaGNC">           1 :         if (typeName != null) {</span></span>
+<span id="L436"><span class="lineNum">     436</span> <span class="tlaGNC">           1 :           changed = true</span></span>
+<span id="L437"><span class="lineNum">     437</span> <span class="tlaGNC">           1 :           val translated = translateValue(getOrCreateTable(typeName), param.value, direction)</span></span>
+<span id="L438"><span class="lineNum">     438</span> <span class="tlaGNC">           1 :           param.toBuilder().setValue(translated).build()</span></span>
+<span id="L439"><span class="lineNum">     439</span>              :         } else {</span>
+<span id="L440"><span class="lineNum">     440</span> <span class="tlaGNC">           1 :           param</span></span>
+<span id="L441"><span class="lineNum">     441</span> <span class="tlaGNC">           1 :         }</span></span>
+<span id="L442"><span class="lineNum">     442</span>              :       }</span>
+<span id="L443"><span class="lineNum">     443</span> <span class="tlaGNC">           1 :     return if (changed) result else null</span></span>
+<span id="L444"><span class="lineNum">     444</span>              :   }</span>
+<span id="L445"><span class="lineNum">     445</span>              : </span>
+<span id="L446"><span class="lineNum">     446</span>              :   private fun translateMatchFields(</span>
+<span id="L447"><span class="lineNum">     447</span>              :     tableId: Int,</span>
+<span id="L448"><span class="lineNum">     448</span>              :     matches: List&lt;org.p4.v1.FieldMatch&gt;,</span>
+<span id="L449"><span class="lineNum">     449</span>              :     direction: Direction,</span>
+<span id="L450"><span class="lineNum">     450</span>              :   ): List&lt;org.p4.v1.FieldMatch&gt;? {</span>
+<span id="L451"><span class="lineNum">     451</span> <span class="tlaGNC">           1 :     var changed = false</span></span>
+<span id="L452"><span class="lineNum">     452</span> <span class="tlaGNC">           1 :     val result =</span></span>
+<span id="L453"><span class="lineNum">     453</span> <span class="tlaGNC">           1 :       matches.map { match -&gt;</span></span>
+<span id="L454"><span class="lineNum">     454</span> <span class="tlaGNC">           1 :         val typeName = matchFieldTypeNames[packKey(tableId, match.fieldId)]</span></span>
+<span id="L455"><span class="lineNum">     455</span> <span class="tlaGNC">           1 :         if (typeName != null) {</span></span>
+<span id="L456"><span class="lineNum">     456</span> <span class="tlaGNC">           1 :           changed = true</span></span>
+<span id="L457"><span class="lineNum">     457</span> <span class="tlaGNC">           1 :           val table = getOrCreateTable(typeName)</span></span>
+<span id="L458"><span class="lineNum">     458</span> <span class="tlaGNC">           1 :           when (match.fieldMatchTypeCase) {</span></span>
+<span id="L459"><span class="lineNum">     459</span>              :             org.p4.v1.FieldMatch.FieldMatchTypeCase.EXACT -&gt; {</span>
+<span id="L460"><span class="lineNum">     460</span> <span class="tlaGNC">           1 :               val translated = translateValue(table, match.exact.value, direction)</span></span>
+<span id="L461"><span class="lineNum">     461</span> <span class="tlaGNC">           1 :               match</span></span>
+<span id="L462"><span class="lineNum">     462</span> <span class="tlaGNC">           1 :                 .toBuilder()</span></span>
+<span id="L463"><span class="lineNum">     463</span> <span class="tlaGNC">           1 :                 .setExact(org.p4.v1.FieldMatch.Exact.newBuilder().setValue(translated))</span></span>
+<span id="L464"><span class="lineNum">     464</span> <span class="tlaGNC">           1 :                 .build()</span></span>
+<span id="L465"><span class="lineNum">     465</span>              :             }</span>
+<span id="L466"><span class="lineNum">     466</span>              :             org.p4.v1.FieldMatch.FieldMatchTypeCase.OPTIONAL -&gt; {</span>
+<span id="L467"><span class="lineNum">     467</span> <span class="tlaGNC">           1 :               val translated = translateValue(table, match.optional.value, direction)</span></span>
+<span id="L468"><span class="lineNum">     468</span> <span class="tlaGNC">           1 :               match</span></span>
+<span id="L469"><span class="lineNum">     469</span> <span class="tlaGNC">           1 :                 .toBuilder()</span></span>
+<span id="L470"><span class="lineNum">     470</span> <span class="tlaGNC">           1 :                 .setOptional(org.p4.v1.FieldMatch.Optional.newBuilder().setValue(translated))</span></span>
+<span id="L471"><span class="lineNum">     471</span> <span class="tlaGNC">           1 :                 .build()</span></span>
+<span id="L472"><span class="lineNum">     472</span>              :             }</span>
+<span id="L473"><span class="lineNum">     473</span>              :             // Ternary/LPM/Range on translated types is nonsensical — pass through.</span>
+<span id="L474"><span class="lineNum">     474</span>              :             org.p4.v1.FieldMatch.FieldMatchTypeCase.TERNARY,</span>
+<span id="L475"><span class="lineNum">     475</span>              :             org.p4.v1.FieldMatch.FieldMatchTypeCase.LPM,</span>
+<span id="L476"><span class="lineNum">     476</span>              :             org.p4.v1.FieldMatch.FieldMatchTypeCase.RANGE,</span>
+<span id="L477"><span class="lineNum">     477</span>              :             org.p4.v1.FieldMatch.FieldMatchTypeCase.OTHER,</span>
+<span id="L478"><span class="lineNum">     478</span>              :             org.p4.v1.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,</span>
+<span id="L479"><span class="lineNum">     479</span> <span class="tlaUNC tlaBgUNC">           0 :             null -&gt; match</span></span>
+<span id="L480"><span class="lineNum">     480</span>              :           }</span>
+<span id="L481"><span class="lineNum">     481</span>              :         } else {</span>
+<span id="L482"><span class="lineNum">     482</span> <span class="tlaGNC tlaBgGNC">           1 :           match</span></span>
+<span id="L483"><span class="lineNum">     483</span> <span class="tlaGNC">           1 :         }</span></span>
+<span id="L484"><span class="lineNum">     484</span>              :       }</span>
+<span id="L485"><span class="lineNum">     485</span> <span class="tlaGNC">           1 :     return if (changed) result else null</span></span>
+<span id="L486"><span class="lineNum">     486</span>              :   }</span>
+<span id="L487"><span class="lineNum">     487</span>              : </span>
+<span id="L488"><span class="lineNum">     488</span> <span class="tlaGNC">           1 :   private fun translateMetadata(</span></span>
+<span id="L489"><span class="lineNum">     489</span>              :     typeNameMap: Map&lt;Int, String&gt;,</span>
+<span id="L490"><span class="lineNum">     490</span>              :     metadata: List&lt;org.p4.v1.PacketMetadata&gt;,</span>
+<span id="L491"><span class="lineNum">     491</span>              :     direction: Direction,</span>
+<span id="L492"><span class="lineNum">     492</span> <span class="tlaGNC">           1 :     lenient: Boolean = false,</span></span>
+<span id="L493"><span class="lineNum">     493</span>              :   ): List&lt;org.p4.v1.PacketMetadata&gt;? {</span>
+<span id="L494"><span class="lineNum">     494</span> <span class="tlaGNC">           1 :     var changed = false</span></span>
+<span id="L495"><span class="lineNum">     495</span> <span class="tlaGNC">           1 :     val result =</span></span>
+<span id="L496"><span class="lineNum">     496</span> <span class="tlaGNC">           1 :       metadata.map { meta -&gt;</span></span>
+<span id="L497"><span class="lineNum">     497</span> <span class="tlaGNC">           1 :         val typeName = typeNameMap[meta.metadataId]</span></span>
+<span id="L498"><span class="lineNum">     498</span> <span class="tlaGNC">           1 :         if (typeName != null) {</span></span>
+<span id="L499"><span class="lineNum">     499</span> <span class="tlaGNC">           1 :           val table = getOrCreateTable(typeName)</span></span>
+<span id="L500"><span class="lineNum">     500</span> <span class="tlaGNC">           1 :           val translated =</span></span>
+<span id="L501"><span class="lineNum">     501</span> <span class="tlaGNC">           1 :             if (lenient) reverseTranslateLenient(table, meta.value, typeName)</span></span>
+<span id="L502"><span class="lineNum">     502</span> <span class="tlaGNC">           1 :             else translateValue(table, meta.value, direction)</span></span>
+<span id="L503"><span class="lineNum">     503</span> <span class="tlaGNC">           1 :           changed = true</span></span>
+<span id="L504"><span class="lineNum">     504</span> <span class="tlaGNC">           1 :           meta.toBuilder().setValue(translated).build()</span></span>
+<span id="L505"><span class="lineNum">     505</span>              :         } else {</span>
+<span id="L506"><span class="lineNum">     506</span> <span class="tlaGNC">           1 :           meta</span></span>
+<span id="L507"><span class="lineNum">     507</span> <span class="tlaGNC">           1 :         }</span></span>
+<span id="L508"><span class="lineNum">     508</span>              :       }</span>
+<span id="L509"><span class="lineNum">     509</span> <span class="tlaGNC">           1 :     return if (changed) result else null</span></span>
+<span id="L510"><span class="lineNum">     510</span>              :   }</span>
+<span id="L511"><span class="lineNum">     511</span>              : </span>
+<span id="L512"><span class="lineNum">     512</span>              :   /**</span>
+<span id="L513"><span class="lineNum">     513</span>              :    * Translates a single ByteString value forward (P4RT→DP) or reverse (DP→P4RT).</span>
+<span id="L514"><span class="lineNum">     514</span>              :    *</span>
+<span id="L515"><span class="lineNum">     515</span>              :    * For `sdn_string` tables, the P4Runtime value is a UTF-8 string encoded in the proto `bytes`</span>
+<span id="L516"><span class="lineNum">     516</span>              :    * field (per P4Runtime spec §8.3 — there is no separate string field).</span>
+<span id="L517"><span class="lineNum">     517</span>              :    */</span>
+<span id="L518"><span class="lineNum">     518</span>              :   private fun translateValue(table: TranslationTable, value: ByteString, direction: Direction) =</span>
+<span id="L519"><span class="lineNum">     519</span> <span class="tlaGNC">           1 :     when (direction) {</span></span>
+<span id="L520"><span class="lineNum">     520</span>              :       Direction.TO_DATAPLANE -&gt;</span>
+<span id="L521"><span class="lineNum">     521</span> <span class="tlaGNC">           1 :         if (table.isStringType) {</span></span>
+<span id="L522"><span class="lineNum">     522</span> <span class="tlaGNC">           1 :           table.lookupOrAllocateString(value.toStringUtf8())</span></span>
+<span id="L523"><span class="lineNum">     523</span>              :         } else {</span>
+<span id="L524"><span class="lineNum">     524</span> <span class="tlaGNC">           1 :           table.lookupOrAllocateBitstring(value)</span></span>
+<span id="L525"><span class="lineNum">     525</span>              :         }</span>
+<span id="L526"><span class="lineNum">     526</span> <span class="tlaGNC">           1 :       Direction.TO_P4RT -&gt; table.reverseLookup(value).toByteString()</span></span>
+<span id="L527"><span class="lineNum">     527</span> <span class="tlaGNC">           1 :     }</span></span>
+<span id="L528"><span class="lineNum">     528</span>              : </span>
+<span id="L529"><span class="lineNum">     529</span>              :   /**</span>
+<span id="L530"><span class="lineNum">     530</span>              :    * Reverse-translates a PacketIn metadata [value] of type [typeName], tolerating values the</span>
+<span id="L531"><span class="lineNum">     531</span>              :    * control plane never named (e.g. the drop port a punt presents): returns the raw value</span>
+<span id="L532"><span class="lineNum">     532</span>              :    * untranslated and warns once per distinct value instead of throwing. See [translatePacketIn].</span>
+<span id="L533"><span class="lineNum">     533</span>              :    */</span>
+<span id="L534"><span class="lineNum">     534</span>              :   private fun reverseTranslateLenient(</span>
+<span id="L535"><span class="lineNum">     535</span>              :     table: TranslationTable,</span>
+<span id="L536"><span class="lineNum">     536</span>              :     value: ByteString,</span>
+<span id="L537"><span class="lineNum">     537</span>              :     typeName: String,</span>
+<span id="L538"><span class="lineNum">     538</span>              :   ): ByteString {</span>
+<span id="L539"><span class="lineNum">     539</span> <span class="tlaGNC">           1 :     val p4rtValue = table.reverseLookupOrNull(value)</span></span>
+<span id="L540"><span class="lineNum">     540</span> <span class="tlaGNC">           1 :     if (p4rtValue != null) return p4rtValue.toByteString()</span></span>
+<span id="L541"><span class="lineNum">     541</span> <span class="tlaGNC">           1 :     if (warnedUnmappedReverse.add(&quot;$typeName:${value.toHex()}&quot;)) {</span></span>
+<span id="L542"><span class="lineNum">     542</span> <span class="tlaGNC">           1 :       val decimal = BigInteger(1, value.toByteArray())</span></span>
+<span id="L543"><span class="lineNum">     543</span> <span class="tlaGNC">           1 :       logger.warning(</span></span>
+<span id="L544"><span class="lineNum">     544</span> <span class="tlaGNC">           1 :         &quot;no SDN mapping for data-plane value 0x${value.toHex()} ($decimal) of translated type &quot; +</span></span>
+<span id="L545"><span class="lineNum">     545</span> <span class="tlaGNC">           1 :           &quot;'$typeName'; delivering it untranslated in PacketIn metadata&quot;</span></span>
+<span id="L546"><span class="lineNum">     546</span>              :       )</span>
+<span id="L547"><span class="lineNum">     547</span>              :     }</span>
+<span id="L548"><span class="lineNum">     548</span> <span class="tlaGNC">           1 :     return value</span></span>
+<span id="L549"><span class="lineNum">     549</span>              :   }</span>
+<span id="L550"><span class="lineNum">     550</span>              : </span>
+<span id="L551"><span class="lineNum">     551</span>              :   /** The on-the-wire P4Runtime bytes for a reverse-translated value (string → UTF-8, else raw). */</span>
+<span id="L552"><span class="lineNum">     552</span>              :   private fun P4rtValue.toByteString(): ByteString =</span>
+<span id="L553"><span class="lineNum">     553</span> <span class="tlaGNC">           1 :     when (this) {</span></span>
+<span id="L554"><span class="lineNum">     554</span> <span class="tlaGNC">           1 :       is P4rtValue.Bitstring -&gt; value</span></span>
+<span id="L555"><span class="lineNum">     555</span> <span class="tlaGNC">           1 :       is P4rtValue.Str -&gt; ByteString.copyFromUtf8(value)</span></span>
+<span id="L556"><span class="lineNum">     556</span> <span class="tlaGNC">           1 :     }</span></span>
 <span id="L557"><span class="lineNum">     557</span>              : </span>
-<span id="L558"><span class="lineNum">     558</span>              :   /** The on-the-wire P4Runtime bytes for a reverse-translated value (string → UTF-8, else raw). */</span>
-<span id="L559"><span class="lineNum">     559</span>              :   private fun P4rtValue.toByteString(): ByteString =</span>
-<span id="L560"><span class="lineNum">     560</span> <span class="tlaGNC">           1 :     when (this) {</span></span>
-<span id="L561"><span class="lineNum">     561</span> <span class="tlaGNC">           1 :       is P4rtValue.Bitstring -&gt; value</span></span>
-<span id="L562"><span class="lineNum">     562</span> <span class="tlaGNC">           1 :       is P4rtValue.Str -&gt; ByteString.copyFromUtf8(value)</span></span>
-<span id="L563"><span class="lineNum">     563</span> <span class="tlaGNC">           1 :     }</span></span>
-<span id="L564"><span class="lineNum">     564</span>              : </span>
-<span id="L565"><span class="lineNum">     565</span>              :   companion object {</span>
-<span id="L566"><span class="lineNum">     566</span> <span class="tlaGNC">           1 :     private val logger = Logger.getLogger(TypeTranslator::class.java.name)</span></span>
-<span id="L567"><span class="lineNum">     567</span>              : </span>
-<span id="L568"><span class="lineNum">     568</span>              :     /**</span>
-<span id="L569"><span class="lineNum">     569</span>              :      * Creates a TypeTranslator from translation configurations.</span>
-<span id="L570"><span class="lineNum">     570</span>              :      *</span>
-<span id="L571"><span class="lineNum">     571</span>              :      * For use without p4info — the translator supports direct type-name-based lookups via</span>
-<span id="L572"><span class="lineNum">     572</span>              :      * [p4rtToDataplane] and [dataplaneToP4rt], but not message-level translation methods (which</span>
-<span id="L573"><span class="lineNum">     573</span>              :      * require p4info to map field IDs to type names).</span>
-<span id="L574"><span class="lineNum">     574</span>              :      */</span>
-<span id="L575"><span class="lineNum">     575</span> <span class="tlaGNC">           1 :     fun create(translations: List&lt;TypeTranslation&gt; = emptyList()): TypeTranslator =</span></span>
-<span id="L576"><span class="lineNum">     576</span> <span class="tlaGNC">           1 :       TypeTranslator(</span></span>
-<span id="L577"><span class="lineNum">     577</span> <span class="tlaGNC">           1 :         buildTables(translations, resolveKey = { it.resolveKey() }),</span></span>
-<span id="L578"><span class="lineNum">     578</span> <span class="tlaGNC">           1 :         paramTypeNames = emptyMap(),</span></span>
-<span id="L579"><span class="lineNum">     579</span> <span class="tlaGNC">           1 :         matchFieldTypeNames = emptyMap(),</span></span>
-<span id="L580"><span class="lineNum">     580</span> <span class="tlaGNC">           1 :         packetOutMetadataTypeNames = emptyMap(),</span></span>
-<span id="L581"><span class="lineNum">     581</span> <span class="tlaGNC">           1 :         packetInMetadataTypeNames = emptyMap(),</span></span>
-<span id="L582"><span class="lineNum">     582</span> <span class="tlaGNC">           1 :         portTranslator = null,</span></span>
-<span id="L583"><span class="lineNum">     583</span> <span class="tlaGNC">           1 :       )</span></span>
-<span id="L584"><span class="lineNum">     584</span>              : </span>
-<span id="L585"><span class="lineNum">     585</span>              :     /**</span>
-<span id="L586"><span class="lineNum">     586</span>              :      * Creates a TypeTranslator from p4info and translation configurations.</span>
-<span id="L587"><span class="lineNum">     587</span>              :      *</span>
-<span id="L588"><span class="lineNum">     588</span>              :      * Discovers translated types from p4info and maps field IDs to type names, enabling translation</span>
-<span id="L589"><span class="lineNum">     589</span>              :      * of action parameters, match fields, and PacketIO metadata in P4Runtime messages.</span>
-<span id="L590"><span class="lineNum">     590</span>              :      *</span>
-<span id="L591"><span class="lineNum">     591</span>              :      * @param portTypeName the fully qualified P4 type name for ports (from</span>
-<span id="L592"><span class="lineNum">     592</span>              :      *   `Architecture.port_type_name` in the compiled IR). Empty if ports use a bare `bit&lt;N&gt;` (no</span>
-<span id="L593"><span class="lineNum">     593</span>              :      *   newtype). A [PortTranslator] is created only when this type also has</span>
-<span id="L594"><span class="lineNum">     594</span>              :      *   `@p4runtime_translation`.</span>
-<span id="L595"><span class="lineNum">     595</span>              :      */</span>
-<span id="L596"><span class="lineNum">     596</span> <span class="tlaGNC">           1 :     fun create(</span></span>
-<span id="L597"><span class="lineNum">     597</span>              :       p4info: P4Info,</span>
-<span id="L598"><span class="lineNum">     598</span> <span class="tlaGNC">           1 :       translations: List&lt;TypeTranslation&gt; = emptyList(),</span></span>
-<span id="L599"><span class="lineNum">     599</span> <span class="tlaGNC">           1 :       portTypeName: String = &quot;&quot;,</span></span>
-<span id="L600"><span class="lineNum">     600</span>              :     ): TypeTranslator {</span>
-<span id="L601"><span class="lineNum">     601</span> <span class="tlaGNC">           1 :       val translatedTypes =</span></span>
-<span id="L602"><span class="lineNum">     602</span> <span class="tlaGNC">           1 :         p4info.typeInfo.newTypesMap.filter { (_, spec) -&gt; spec.hasTranslatedType() }</span></span>
-<span id="L603"><span class="lineNum">     603</span>              : </span>
-<span id="L604"><span class="lineNum">     604</span>              :       // Build URI → type name index for resolving TypeTranslation entries that use type_uri.</span>
-<span id="L605"><span class="lineNum">     605</span> <span class="tlaGNC">           1 :       val uriToTypeNames = mutableMapOf&lt;String, MutableList&lt;String&gt;&gt;()</span></span>
-<span id="L606"><span class="lineNum">     606</span> <span class="tlaGNC">           1 :       for ((name, spec) in translatedTypes) {</span></span>
-<span id="L607"><span class="lineNum">     607</span> <span class="tlaGNC">           1 :         val uri = spec.translatedType.uri</span></span>
-<span id="L608"><span class="lineNum">     608</span> <span class="tlaGNC">           1 :         if (uri.isNotEmpty()) {</span></span>
-<span id="L609"><span class="lineNum">     609</span> <span class="tlaGNC">           1 :           uriToTypeNames.getOrPut(uri) { mutableListOf() }.add(name)</span></span>
-<span id="L610"><span class="lineNum">     610</span>              :         }</span>
-<span id="L611"><span class="lineNum">     611</span>              :       }</span>
-<span id="L612"><span class="lineNum">     612</span>              : </span>
-<span id="L613"><span class="lineNum">     613</span> <span class="tlaGNC">           1 :       val paramTypeNames = buildParamTypeNames(p4info, translatedTypes)</span></span>
-<span id="L614"><span class="lineNum">     614</span> <span class="tlaGNC">           1 :       val matchFieldTypeNames = buildMatchFieldTypeNames(p4info, translatedTypes)</span></span>
-<span id="L615"><span class="lineNum">     615</span> <span class="tlaGNC">           1 :       val (packetOutMetadataTypeNames, packetInMetadataTypeNames) =</span></span>
-<span id="L616"><span class="lineNum">     616</span> <span class="tlaGNC">           1 :         buildPacketMetadataTypeNames(p4info, translatedTypes)</span></span>
-<span id="L617"><span class="lineNum">     617</span>              : </span>
-<span id="L618"><span class="lineNum">     618</span> <span class="tlaGNC">           1 :       val stringTypeNames =</span></span>
-<span id="L619"><span class="lineNum">     619</span> <span class="tlaGNC">           1 :         translatedTypes.filter { (_, spec) -&gt; spec.translatedType.hasSdnString() }.keys.toSet()</span></span>
-<span id="L620"><span class="lineNum">     620</span>              : </span>
-<span id="L621"><span class="lineNum">     621</span> <span class="tlaGNC">           1 :       val tables =</span></span>
-<span id="L622"><span class="lineNum">     622</span> <span class="tlaGNC">           1 :         buildTables(translations, stringTypeNames) { translation -&gt;</span></span>
-<span id="L623"><span class="lineNum">     623</span> <span class="tlaGNC">           1 :           resolveTranslationKey(translation, uriToTypeNames)</span></span>
-<span id="L624"><span class="lineNum">     624</span>              :         }</span>
-<span id="L625"><span class="lineNum">     625</span>              :       // Pre-create tables for string types that have no translation config,</span>
-<span id="L626"><span class="lineNum">     626</span>              :       // so getOrCreateTable finds them with the correct isStringType.</span>
-<span id="L627"><span class="lineNum">     627</span> <span class="tlaGNC">           1 :       for (typeName in stringTypeNames) {</span></span>
-<span id="L628"><span class="lineNum">     628</span> <span class="tlaGNC">           1 :         tables.computeIfAbsent(typeName) {</span></span>
-<span id="L629"><span class="lineNum">     629</span> <span class="tlaGNC">           1 :           TranslationTable(autoAllocate = true, isStringType = true)</span></span>
-<span id="L630"><span class="lineNum">     630</span>              :         }</span>
-<span id="L631"><span class="lineNum">     631</span>              :       }</span>
-<span id="L632"><span class="lineNum">     632</span>              : </span>
-<span id="L633"><span class="lineNum">     633</span>              :       // Create PortTranslator if the port type has @p4runtime_translation.</span>
-<span id="L634"><span class="lineNum">     634</span> <span class="tlaGNC">           1 :       val portTranslator =</span></span>
-<span id="L635"><span class="lineNum">     635</span> <span class="tlaGNC">           1 :         if (portTypeName.isNotEmpty() &amp;&amp; portTypeName in translatedTypes) {</span></span>
-<span id="L636"><span class="lineNum">     636</span> <span class="tlaGNC">           1 :           val isStringType = portTypeName in stringTypeNames</span></span>
-<span id="L637"><span class="lineNum">     637</span> <span class="tlaGNC">           1 :           val portTable =</span></span>
-<span id="L638"><span class="lineNum">     638</span> <span class="tlaGNC">           1 :             tables.computeIfAbsent(portTypeName) {</span></span>
-<span id="L639"><span class="lineNum">     639</span> <span class="tlaUNC tlaBgUNC">           0 :               TranslationTable(autoAllocate = true, isStringType = isStringType)</span></span>
-<span id="L640"><span class="lineNum">     640</span>              :             }</span>
-<span id="L641"><span class="lineNum">     641</span> <span class="tlaGNC tlaBgGNC">           1 :           PortTranslator(portTable)</span></span>
-<span id="L642"><span class="lineNum">     642</span>              :         } else {</span>
-<span id="L643"><span class="lineNum">     643</span> <span class="tlaGNC">           1 :           null</span></span>
-<span id="L644"><span class="lineNum">     644</span>              :         }</span>
-<span id="L645"><span class="lineNum">     645</span>              : </span>
-<span id="L646"><span class="lineNum">     646</span> <span class="tlaGNC">           1 :       return TypeTranslator(</span></span>
-<span id="L647"><span class="lineNum">     647</span> <span class="tlaGNC">           1 :         tables,</span></span>
-<span id="L648"><span class="lineNum">     648</span> <span class="tlaGNC">           1 :         paramTypeNames,</span></span>
-<span id="L649"><span class="lineNum">     649</span> <span class="tlaGNC">           1 :         matchFieldTypeNames,</span></span>
-<span id="L650"><span class="lineNum">     650</span> <span class="tlaGNC">           1 :         packetOutMetadataTypeNames,</span></span>
-<span id="L651"><span class="lineNum">     651</span> <span class="tlaGNC">           1 :         packetInMetadataTypeNames,</span></span>
-<span id="L652"><span class="lineNum">     652</span> <span class="tlaGNC">           1 :         portTranslator,</span></span>
-<span id="L653"><span class="lineNum">     653</span>              :       )</span>
-<span id="L654"><span class="lineNum">     654</span>              :     }</span>
-<span id="L655"><span class="lineNum">     655</span>              : </span>
-<span id="L656"><span class="lineNum">     656</span>              :     private fun buildParamTypeNames(</span>
-<span id="L657"><span class="lineNum">     657</span>              :       p4info: P4Info,</span>
-<span id="L658"><span class="lineNum">     658</span>              :       translatedTypes: Map&lt;String, P4Types.P4NewTypeSpec&gt;,</span>
-<span id="L659"><span class="lineNum">     659</span>              :     ): Map&lt;Long, String&gt; {</span>
-<span id="L660"><span class="lineNum">     660</span> <span class="tlaGNC">           1 :       val typeNames = mutableMapOf&lt;Long, String&gt;()</span></span>
-<span id="L661"><span class="lineNum">     661</span> <span class="tlaGNC">           1 :       for (action in p4info.actionsList) {</span></span>
-<span id="L662"><span class="lineNum">     662</span> <span class="tlaGNC">           1 :         for (param in action.paramsList) {</span></span>
-<span id="L663"><span class="lineNum">     663</span> <span class="tlaGNC">           1 :           if (!param.hasTypeName()) continue</span></span>
-<span id="L664"><span class="lineNum">     664</span> <span class="tlaGNC">           1 :           if (param.typeName.name !in translatedTypes) continue</span></span>
-<span id="L665"><span class="lineNum">     665</span> <span class="tlaGNC">           1 :           typeNames[packKey(action.preamble.id, param.id)] = param.typeName.name</span></span>
-<span id="L666"><span class="lineNum">     666</span>              :         }</span>
-<span id="L667"><span class="lineNum">     667</span>              :       }</span>
-<span id="L668"><span class="lineNum">     668</span> <span class="tlaGNC">           1 :       return typeNames</span></span>
-<span id="L669"><span class="lineNum">     669</span>              :     }</span>
-<span id="L670"><span class="lineNum">     670</span>              : </span>
-<span id="L671"><span class="lineNum">     671</span>              :     private fun buildMatchFieldTypeNames(</span>
-<span id="L672"><span class="lineNum">     672</span>              :       p4info: P4Info,</span>
-<span id="L673"><span class="lineNum">     673</span>              :       translatedTypes: Map&lt;String, P4Types.P4NewTypeSpec&gt;,</span>
-<span id="L674"><span class="lineNum">     674</span>              :     ): Map&lt;Long, String&gt; {</span>
-<span id="L675"><span class="lineNum">     675</span> <span class="tlaGNC">           1 :       val typeNames = mutableMapOf&lt;Long, String&gt;()</span></span>
-<span id="L676"><span class="lineNum">     676</span> <span class="tlaGNC">           1 :       for (table in p4info.tablesList) {</span></span>
-<span id="L677"><span class="lineNum">     677</span> <span class="tlaGNC">           1 :         for (matchField in table.matchFieldsList) {</span></span>
-<span id="L678"><span class="lineNum">     678</span> <span class="tlaGNC">           1 :           if (!matchField.hasTypeName()) continue</span></span>
-<span id="L679"><span class="lineNum">     679</span> <span class="tlaGNC">           1 :           if (matchField.typeName.name !in translatedTypes) continue</span></span>
-<span id="L680"><span class="lineNum">     680</span> <span class="tlaGNC">           1 :           typeNames[packKey(table.preamble.id, matchField.id)] = matchField.typeName.name</span></span>
-<span id="L681"><span class="lineNum">     681</span>              :         }</span>
-<span id="L682"><span class="lineNum">     682</span>              :       }</span>
-<span id="L683"><span class="lineNum">     683</span> <span class="tlaGNC">           1 :       return typeNames</span></span>
-<span id="L684"><span class="lineNum">     684</span>              :     }</span>
-<span id="L685"><span class="lineNum">     685</span>              : </span>
-<span id="L686"><span class="lineNum">     686</span>              :     /**</span>
-<span id="L687"><span class="lineNum">     687</span>              :      * Builds per-direction metadata type name maps. IDs can overlap between packet_out and</span>
-<span id="L688"><span class="lineNum">     688</span>              :      * packet_in (both start @id(1)), so a flat map would cause untranslated fields (like</span>
-<span id="L689"><span class="lineNum">     689</span>              :      * submit_to_ingress) to be incorrectly translated.</span>
-<span id="L690"><span class="lineNum">     690</span>              :      */</span>
-<span id="L691"><span class="lineNum">     691</span>              :     private fun buildPacketMetadataTypeNames(</span>
-<span id="L692"><span class="lineNum">     692</span>              :       p4info: P4Info,</span>
-<span id="L693"><span class="lineNum">     693</span>              :       translatedTypes: Map&lt;String, P4Types.P4NewTypeSpec&gt;,</span>
-<span id="L694"><span class="lineNum">     694</span>              :     ): Pair&lt;Map&lt;Int, String&gt;, Map&lt;Int, String&gt;&gt; {</span>
-<span id="L695"><span class="lineNum">     695</span> <span class="tlaGNC">           1 :       val packetOut = mutableMapOf&lt;Int, String&gt;()</span></span>
-<span id="L696"><span class="lineNum">     696</span> <span class="tlaGNC">           1 :       val packetIn = mutableMapOf&lt;Int, String&gt;()</span></span>
-<span id="L697"><span class="lineNum">     697</span> <span class="tlaGNC">           1 :       for (controllerMeta in p4info.controllerPacketMetadataList) {</span></span>
-<span id="L698"><span class="lineNum">     698</span> <span class="tlaGNC">           1 :         val target =</span></span>
-<span id="L699"><span class="lineNum">     699</span> <span class="tlaGNC">           1 :           when (controllerMeta.preamble.name) {</span></span>
-<span id="L700"><span class="lineNum">     700</span> <span class="tlaGNC">           1 :             &quot;packet_out&quot; -&gt; packetOut</span></span>
-<span id="L701"><span class="lineNum">     701</span> <span class="tlaGNC">           1 :             &quot;packet_in&quot; -&gt; packetIn</span></span>
-<span id="L702"><span class="lineNum">     702</span> <span class="tlaUNC tlaBgUNC">           0 :             else -&gt; continue</span></span>
-<span id="L703"><span class="lineNum">     703</span>              :           }</span>
-<span id="L704"><span class="lineNum">     704</span> <span class="tlaGNC tlaBgGNC">           1 :         for (metadata in controllerMeta.metadataList) {</span></span>
-<span id="L705"><span class="lineNum">     705</span> <span class="tlaGNC">           1 :           if (!metadata.hasTypeName()) continue</span></span>
-<span id="L706"><span class="lineNum">     706</span> <span class="tlaGNC">           1 :           if (metadata.typeName.name !in translatedTypes) continue</span></span>
-<span id="L707"><span class="lineNum">     707</span> <span class="tlaGNC">           1 :           target[metadata.id] = metadata.typeName.name</span></span>
-<span id="L708"><span class="lineNum">     708</span>              :         }</span>
-<span id="L709"><span class="lineNum">     709</span>              :       }</span>
-<span id="L710"><span class="lineNum">     710</span> <span class="tlaGNC">           1 :       return packetOut to packetIn</span></span>
-<span id="L711"><span class="lineNum">     711</span>              :     }</span>
-<span id="L712"><span class="lineNum">     712</span>              : </span>
-<span id="L713"><span class="lineNum">     713</span> <span class="tlaGNC">           1 :     private fun buildTables(</span></span>
-<span id="L714"><span class="lineNum">     714</span>              :       translations: List&lt;TypeTranslation&gt;,</span>
-<span id="L715"><span class="lineNum">     715</span> <span class="tlaGNC">           1 :       stringTypeNames: Set&lt;String&gt; = emptySet(),</span></span>
-<span id="L716"><span class="lineNum">     716</span>              :       resolveKey: (TypeTranslation) -&gt; String,</span>
-<span id="L717"><span class="lineNum">     717</span>              :     ): ConcurrentHashMap&lt;String, TranslationTable&gt; {</span>
-<span id="L718"><span class="lineNum">     718</span> <span class="tlaGNC">           1 :       val tables = ConcurrentHashMap&lt;String, TranslationTable&gt;()</span></span>
-<span id="L719"><span class="lineNum">     719</span> <span class="tlaGNC">           1 :       for (translation in translations) {</span></span>
-<span id="L720"><span class="lineNum">     720</span> <span class="tlaGNC">           1 :         val key = resolveKey(translation)</span></span>
-<span id="L721"><span class="lineNum">     721</span> <span class="tlaGNC">           1 :         tables[key] = TranslationTable.fromProto(translation, isStringType = key in stringTypeNames)</span></span>
-<span id="L722"><span class="lineNum">     722</span>              :       }</span>
-<span id="L723"><span class="lineNum">     723</span> <span class="tlaGNC">           1 :       return tables</span></span>
-<span id="L724"><span class="lineNum">     724</span>              :     }</span>
-<span id="L725"><span class="lineNum">     725</span>              : </span>
-<span id="L726"><span class="lineNum">     726</span>              :     /**</span>
-<span id="L727"><span class="lineNum">     727</span>              :      * Resolves a [TypeTranslation]'s key using the URI → type name index from p4info. If the</span>
-<span id="L728"><span class="lineNum">     728</span>              :      * translation specifies `type_name`, uses it directly. If it specifies `type_uri`, resolves it</span>
-<span id="L729"><span class="lineNum">     729</span>              :      * to a type name; errors if the URI is ambiguous (maps to multiple types).</span>
-<span id="L730"><span class="lineNum">     730</span>              :      */</span>
-<span id="L731"><span class="lineNum">     731</span>              :     private fun resolveTranslationKey(</span>
-<span id="L732"><span class="lineNum">     732</span>              :       translation: TypeTranslation,</span>
-<span id="L733"><span class="lineNum">     733</span>              :       uriToTypeNames: Map&lt;String, List&lt;String&gt;&gt;,</span>
-<span id="L734"><span class="lineNum">     734</span>              :     ): String =</span>
-<span id="L735"><span class="lineNum">     735</span> <span class="tlaGNC">           1 :       when (translation.typeCase) {</span></span>
-<span id="L736"><span class="lineNum">     736</span> <span class="tlaGNC">           1 :         TypeTranslation.TypeCase.TYPE_NAME -&gt; translation.typeName</span></span>
-<span id="L737"><span class="lineNum">     737</span>              :         TypeTranslation.TypeCase.TYPE_URI -&gt; {</span>
-<span id="L738"><span class="lineNum">     738</span> <span class="tlaGNC">           1 :           val uri = translation.typeUri</span></span>
-<span id="L739"><span class="lineNum">     739</span> <span class="tlaGNC">           1 :           val names = uriToTypeNames[uri]</span></span>
-<span id="L740"><span class="lineNum">     740</span> <span class="tlaGNC">           1 :           when {</span></span>
-<span id="L741"><span class="lineNum">     741</span> <span class="tlaGNC">           1 :             names == null || names.isEmpty() -&gt;</span></span>
-<span id="L742"><span class="lineNum">     742</span> <span class="tlaGNC">           1 :               throw IllegalArgumentException(</span></span>
-<span id="L743"><span class="lineNum">     743</span> <span class="tlaGNC">           1 :                 &quot;TypeTranslation type_uri '$uri' does not match any translated type in p4info&quot;</span></span>
-<span id="L744"><span class="lineNum">     744</span>              :               )</span>
-<span id="L745"><span class="lineNum">     745</span> <span class="tlaGNC">           1 :             names.size &gt; 1 -&gt;</span></span>
-<span id="L746"><span class="lineNum">     746</span> <span class="tlaGNC">           1 :               throw IllegalArgumentException(</span></span>
-<span id="L747"><span class="lineNum">     747</span> <span class="tlaGNC">           1 :                 &quot;TypeTranslation type_uri '$uri' is ambiguous — matches types: &quot; +</span></span>
-<span id="L748"><span class="lineNum">     748</span> <span class="tlaGNC">           1 :                   &quot;${names.joinToString()}. Use type_name instead.&quot;</span></span>
-<span id="L749"><span class="lineNum">     749</span>              :               )</span>
-<span id="L750"><span class="lineNum">     750</span> <span class="tlaGNC">           1 :             else -&gt; names.single()</span></span>
-<span id="L751"><span class="lineNum">     751</span>              :           }</span>
-<span id="L752"><span class="lineNum">     752</span>              :         }</span>
-<span id="L753"><span class="lineNum">     753</span>              :         TypeTranslation.TypeCase.TYPE_NOT_SET,</span>
-<span id="L754"><span class="lineNum">     754</span> <span class="tlaUNC tlaBgUNC">           0 :         null -&gt; throw IllegalArgumentException(&quot;TypeTranslation must specify type_name or type_uri&quot;)</span></span>
-<span id="L755"><span class="lineNum">     755</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
-<span id="L756"><span class="lineNum">     756</span>              : </span>
-<span id="L757"><span class="lineNum">     757</span>              :     /**</span>
-<span id="L758"><span class="lineNum">     758</span>              :      * Resolves key from a [TypeTranslation] without p4info. Only `type_name` is accepted —</span>
-<span id="L759"><span class="lineNum">     759</span>              :      * resolving `type_uri` requires p4info, which is not available in this context.</span>
-<span id="L760"><span class="lineNum">     760</span>              :      */</span>
-<span id="L761"><span class="lineNum">     761</span>              :     private fun TypeTranslation.resolveKey(): String =</span>
-<span id="L762"><span class="lineNum">     762</span> <span class="tlaGNC">           1 :       when (typeCase) {</span></span>
-<span id="L763"><span class="lineNum">     763</span> <span class="tlaGNC">           1 :         TypeTranslation.TypeCase.TYPE_NAME -&gt; typeName</span></span>
-<span id="L764"><span class="lineNum">     764</span>              :         TypeTranslation.TypeCase.TYPE_URI -&gt;</span>
-<span id="L765"><span class="lineNum">     765</span> <span class="tlaGNC">           1 :           throw IllegalArgumentException(</span></span>
-<span id="L766"><span class="lineNum">     766</span> <span class="tlaGNC">           1 :             &quot;TypeTranslation with type_uri requires p4info for resolution; use type_name instead&quot;</span></span>
-<span id="L767"><span class="lineNum">     767</span>              :           )</span>
-<span id="L768"><span class="lineNum">     768</span>              :         TypeTranslation.TypeCase.TYPE_NOT_SET,</span>
-<span id="L769"><span class="lineNum">     769</span> <span class="tlaUNC tlaBgUNC">           0 :         null -&gt; throw IllegalArgumentException(&quot;TypeTranslation must specify type_name or type_uri&quot;)</span></span>
-<span id="L770"><span class="lineNum">     770</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
-<span id="L771"><span class="lineNum">     771</span>              : </span>
-<span id="L772"><span class="lineNum">     772</span>              :     /** Packs two IDs into a single Long for fast compound-key lookup. */</span>
-<span id="L773"><span class="lineNum">     773</span>              :     private fun packKey(high: Int, low: Int): Long =</span>
-<span id="L774"><span class="lineNum">     774</span> <span class="tlaGNC">           1 :       (high.toLong() shl 32) or (low.toLong() and 0xFFFFFFFFL)</span></span>
-<span id="L775"><span class="lineNum">     775</span>              :   }</span>
-<span id="L776"><span class="lineNum">     776</span>              : }</span>
-<span id="L777"><span class="lineNum">     777</span>              : </span>
-<span id="L778"><span class="lineNum">     778</span>              : /**</span>
-<span id="L779"><span class="lineNum">     779</span>              :  * Bidirectional mapping table for a single translated type.</span>
-<span id="L780"><span class="lineNum">     780</span>              :  *</span>
-<span id="L781"><span class="lineNum">     781</span>              :  * Thread-safe: all mutating operations are synchronized.</span>
-<span id="L782"><span class="lineNum">     782</span>              :  */</span>
-<span id="L783"><span class="lineNum">     783</span> <span class="tlaGNC">           1 : internal class TranslationTable(</span></span>
-<span id="L784"><span class="lineNum">     784</span> <span class="tlaGNC">           1 :   private val autoAllocate: Boolean,</span></span>
-<span id="L785"><span class="lineNum">     785</span>              :   /** True if this table's P4Runtime values are strings (UTF-8 encoded in proto bytes fields). */</span>
-<span id="L786"><span class="lineNum">     786</span> <span class="tlaGNC">           1 :   val isStringType: Boolean = false,</span></span>
-<span id="L787"><span class="lineNum">     787</span> <span class="tlaGNC">           1 : ) {</span></span>
+<span id="L558"><span class="lineNum">     558</span>              :   companion object {</span>
+<span id="L559"><span class="lineNum">     559</span> <span class="tlaGNC">           1 :     private val logger = Logger.getLogger(TypeTranslator::class.java.name)</span></span>
+<span id="L560"><span class="lineNum">     560</span>              : </span>
+<span id="L561"><span class="lineNum">     561</span>              :     /**</span>
+<span id="L562"><span class="lineNum">     562</span>              :      * Creates a TypeTranslator from translation configurations.</span>
+<span id="L563"><span class="lineNum">     563</span>              :      *</span>
+<span id="L564"><span class="lineNum">     564</span>              :      * For use without p4info — the translator supports direct type-name-based lookups via</span>
+<span id="L565"><span class="lineNum">     565</span>              :      * [p4rtToDataplane] and [dataplaneToP4rt], but not message-level translation methods (which</span>
+<span id="L566"><span class="lineNum">     566</span>              :      * require p4info to map field IDs to type names).</span>
+<span id="L567"><span class="lineNum">     567</span>              :      */</span>
+<span id="L568"><span class="lineNum">     568</span> <span class="tlaGNC">           1 :     fun create(translations: List&lt;TypeTranslation&gt; = emptyList()): TypeTranslator =</span></span>
+<span id="L569"><span class="lineNum">     569</span> <span class="tlaGNC">           1 :       TypeTranslator(</span></span>
+<span id="L570"><span class="lineNum">     570</span> <span class="tlaGNC">           1 :         buildTables(translations, resolveKey = { it.resolveKey() }),</span></span>
+<span id="L571"><span class="lineNum">     571</span> <span class="tlaGNC">           1 :         paramTypeNames = emptyMap(),</span></span>
+<span id="L572"><span class="lineNum">     572</span> <span class="tlaGNC">           1 :         matchFieldTypeNames = emptyMap(),</span></span>
+<span id="L573"><span class="lineNum">     573</span> <span class="tlaGNC">           1 :         packetOutMetadataTypeNames = emptyMap(),</span></span>
+<span id="L574"><span class="lineNum">     574</span> <span class="tlaGNC">           1 :         packetInMetadataTypeNames = emptyMap(),</span></span>
+<span id="L575"><span class="lineNum">     575</span> <span class="tlaGNC">           1 :         portTranslator = null,</span></span>
+<span id="L576"><span class="lineNum">     576</span> <span class="tlaGNC">           1 :       )</span></span>
+<span id="L577"><span class="lineNum">     577</span>              : </span>
+<span id="L578"><span class="lineNum">     578</span>              :     /**</span>
+<span id="L579"><span class="lineNum">     579</span>              :      * Creates a TypeTranslator from p4info and translation configurations.</span>
+<span id="L580"><span class="lineNum">     580</span>              :      *</span>
+<span id="L581"><span class="lineNum">     581</span>              :      * Discovers translated types from p4info and maps field IDs to type names, enabling translation</span>
+<span id="L582"><span class="lineNum">     582</span>              :      * of action parameters, match fields, and PacketIO metadata in P4Runtime messages.</span>
+<span id="L583"><span class="lineNum">     583</span>              :      *</span>
+<span id="L584"><span class="lineNum">     584</span>              :      * @param portTypeName the fully qualified P4 type name for ports (from</span>
+<span id="L585"><span class="lineNum">     585</span>              :      *   `Architecture.port_type_name` in the compiled IR). Empty if ports use a bare `bit&lt;N&gt;` (no</span>
+<span id="L586"><span class="lineNum">     586</span>              :      *   newtype). A [PortTranslator] is created only when this type also has</span>
+<span id="L587"><span class="lineNum">     587</span>              :      *   `@p4runtime_translation`.</span>
+<span id="L588"><span class="lineNum">     588</span>              :      */</span>
+<span id="L589"><span class="lineNum">     589</span> <span class="tlaGNC">           1 :     fun create(</span></span>
+<span id="L590"><span class="lineNum">     590</span>              :       p4info: P4Info,</span>
+<span id="L591"><span class="lineNum">     591</span> <span class="tlaGNC">           1 :       translations: List&lt;TypeTranslation&gt; = emptyList(),</span></span>
+<span id="L592"><span class="lineNum">     592</span> <span class="tlaGNC">           1 :       portTypeName: String = &quot;&quot;,</span></span>
+<span id="L593"><span class="lineNum">     593</span>              :     ): TypeTranslator {</span>
+<span id="L594"><span class="lineNum">     594</span> <span class="tlaGNC">           1 :       val translatedTypes =</span></span>
+<span id="L595"><span class="lineNum">     595</span> <span class="tlaGNC">           1 :         p4info.typeInfo.newTypesMap.filter { (_, spec) -&gt; spec.hasTranslatedType() }</span></span>
+<span id="L596"><span class="lineNum">     596</span>              : </span>
+<span id="L597"><span class="lineNum">     597</span>              :       // Build URI → type name index for resolving TypeTranslation entries that use type_uri.</span>
+<span id="L598"><span class="lineNum">     598</span> <span class="tlaGNC">           1 :       val uriToTypeNames = mutableMapOf&lt;String, MutableList&lt;String&gt;&gt;()</span></span>
+<span id="L599"><span class="lineNum">     599</span> <span class="tlaGNC">           1 :       for ((name, spec) in translatedTypes) {</span></span>
+<span id="L600"><span class="lineNum">     600</span> <span class="tlaGNC">           1 :         val uri = spec.translatedType.uri</span></span>
+<span id="L601"><span class="lineNum">     601</span> <span class="tlaGNC">           1 :         if (uri.isNotEmpty()) {</span></span>
+<span id="L602"><span class="lineNum">     602</span> <span class="tlaGNC">           1 :           uriToTypeNames.getOrPut(uri) { mutableListOf() }.add(name)</span></span>
+<span id="L603"><span class="lineNum">     603</span>              :         }</span>
+<span id="L604"><span class="lineNum">     604</span>              :       }</span>
+<span id="L605"><span class="lineNum">     605</span>              : </span>
+<span id="L606"><span class="lineNum">     606</span> <span class="tlaGNC">           1 :       val paramTypeNames = buildParamTypeNames(p4info, translatedTypes)</span></span>
+<span id="L607"><span class="lineNum">     607</span> <span class="tlaGNC">           1 :       val matchFieldTypeNames = buildMatchFieldTypeNames(p4info, translatedTypes)</span></span>
+<span id="L608"><span class="lineNum">     608</span> <span class="tlaGNC">           1 :       val (packetOutMetadataTypeNames, packetInMetadataTypeNames) =</span></span>
+<span id="L609"><span class="lineNum">     609</span> <span class="tlaGNC">           1 :         buildPacketMetadataTypeNames(p4info, translatedTypes)</span></span>
+<span id="L610"><span class="lineNum">     610</span>              : </span>
+<span id="L611"><span class="lineNum">     611</span> <span class="tlaGNC">           1 :       val stringTypeNames =</span></span>
+<span id="L612"><span class="lineNum">     612</span> <span class="tlaGNC">           1 :         translatedTypes.filter { (_, spec) -&gt; spec.translatedType.hasSdnString() }.keys.toSet()</span></span>
+<span id="L613"><span class="lineNum">     613</span>              : </span>
+<span id="L614"><span class="lineNum">     614</span> <span class="tlaGNC">           1 :       val tables =</span></span>
+<span id="L615"><span class="lineNum">     615</span> <span class="tlaGNC">           1 :         buildTables(translations, stringTypeNames) { translation -&gt;</span></span>
+<span id="L616"><span class="lineNum">     616</span> <span class="tlaGNC">           1 :           resolveTranslationKey(translation, uriToTypeNames)</span></span>
+<span id="L617"><span class="lineNum">     617</span>              :         }</span>
+<span id="L618"><span class="lineNum">     618</span>              :       // Pre-create tables for string types that have no translation config,</span>
+<span id="L619"><span class="lineNum">     619</span>              :       // so getOrCreateTable finds them with the correct isStringType.</span>
+<span id="L620"><span class="lineNum">     620</span> <span class="tlaGNC">           1 :       for (typeName in stringTypeNames) {</span></span>
+<span id="L621"><span class="lineNum">     621</span> <span class="tlaGNC">           1 :         tables.computeIfAbsent(typeName) {</span></span>
+<span id="L622"><span class="lineNum">     622</span> <span class="tlaGNC">           1 :           TranslationTable(autoAllocate = true, isStringType = true)</span></span>
+<span id="L623"><span class="lineNum">     623</span>              :         }</span>
+<span id="L624"><span class="lineNum">     624</span>              :       }</span>
+<span id="L625"><span class="lineNum">     625</span>              : </span>
+<span id="L626"><span class="lineNum">     626</span>              :       // Create PortTranslator if the port type has @p4runtime_translation.</span>
+<span id="L627"><span class="lineNum">     627</span> <span class="tlaGNC">           1 :       val portTranslator =</span></span>
+<span id="L628"><span class="lineNum">     628</span> <span class="tlaGNC">           1 :         if (portTypeName.isNotEmpty() &amp;&amp; portTypeName in translatedTypes) {</span></span>
+<span id="L629"><span class="lineNum">     629</span> <span class="tlaGNC">           1 :           val isStringType = portTypeName in stringTypeNames</span></span>
+<span id="L630"><span class="lineNum">     630</span> <span class="tlaGNC">           1 :           val portTable =</span></span>
+<span id="L631"><span class="lineNum">     631</span> <span class="tlaGNC">           1 :             tables.computeIfAbsent(portTypeName) {</span></span>
+<span id="L632"><span class="lineNum">     632</span> <span class="tlaUNC tlaBgUNC">           0 :               TranslationTable(autoAllocate = true, isStringType = isStringType)</span></span>
+<span id="L633"><span class="lineNum">     633</span>              :             }</span>
+<span id="L634"><span class="lineNum">     634</span> <span class="tlaGNC tlaBgGNC">           1 :           PortTranslator(portTable)</span></span>
+<span id="L635"><span class="lineNum">     635</span>              :         } else {</span>
+<span id="L636"><span class="lineNum">     636</span> <span class="tlaGNC">           1 :           null</span></span>
+<span id="L637"><span class="lineNum">     637</span>              :         }</span>
+<span id="L638"><span class="lineNum">     638</span>              : </span>
+<span id="L639"><span class="lineNum">     639</span> <span class="tlaGNC">           1 :       return TypeTranslator(</span></span>
+<span id="L640"><span class="lineNum">     640</span> <span class="tlaGNC">           1 :         tables,</span></span>
+<span id="L641"><span class="lineNum">     641</span> <span class="tlaGNC">           1 :         paramTypeNames,</span></span>
+<span id="L642"><span class="lineNum">     642</span> <span class="tlaGNC">           1 :         matchFieldTypeNames,</span></span>
+<span id="L643"><span class="lineNum">     643</span> <span class="tlaGNC">           1 :         packetOutMetadataTypeNames,</span></span>
+<span id="L644"><span class="lineNum">     644</span> <span class="tlaGNC">           1 :         packetInMetadataTypeNames,</span></span>
+<span id="L645"><span class="lineNum">     645</span> <span class="tlaGNC">           1 :         portTranslator,</span></span>
+<span id="L646"><span class="lineNum">     646</span>              :       )</span>
+<span id="L647"><span class="lineNum">     647</span>              :     }</span>
+<span id="L648"><span class="lineNum">     648</span>              : </span>
+<span id="L649"><span class="lineNum">     649</span>              :     private fun buildParamTypeNames(</span>
+<span id="L650"><span class="lineNum">     650</span>              :       p4info: P4Info,</span>
+<span id="L651"><span class="lineNum">     651</span>              :       translatedTypes: Map&lt;String, P4NewTypeSpec&gt;,</span>
+<span id="L652"><span class="lineNum">     652</span>              :     ): Map&lt;Long, String&gt; {</span>
+<span id="L653"><span class="lineNum">     653</span> <span class="tlaGNC">           1 :       val typeNames = mutableMapOf&lt;Long, String&gt;()</span></span>
+<span id="L654"><span class="lineNum">     654</span> <span class="tlaGNC">           1 :       for (action in p4info.actionsList) {</span></span>
+<span id="L655"><span class="lineNum">     655</span> <span class="tlaGNC">           1 :         for (param in action.paramsList) {</span></span>
+<span id="L656"><span class="lineNum">     656</span> <span class="tlaGNC">           1 :           if (!param.hasTypeName()) continue</span></span>
+<span id="L657"><span class="lineNum">     657</span> <span class="tlaGNC">           1 :           if (param.typeName.name !in translatedTypes) continue</span></span>
+<span id="L658"><span class="lineNum">     658</span> <span class="tlaGNC">           1 :           typeNames[packKey(action.preamble.id, param.id)] = param.typeName.name</span></span>
+<span id="L659"><span class="lineNum">     659</span>              :         }</span>
+<span id="L660"><span class="lineNum">     660</span>              :       }</span>
+<span id="L661"><span class="lineNum">     661</span> <span class="tlaGNC">           1 :       return typeNames</span></span>
+<span id="L662"><span class="lineNum">     662</span>              :     }</span>
+<span id="L663"><span class="lineNum">     663</span>              : </span>
+<span id="L664"><span class="lineNum">     664</span>              :     private fun buildMatchFieldTypeNames(</span>
+<span id="L665"><span class="lineNum">     665</span>              :       p4info: P4Info,</span>
+<span id="L666"><span class="lineNum">     666</span>              :       translatedTypes: Map&lt;String, P4NewTypeSpec&gt;,</span>
+<span id="L667"><span class="lineNum">     667</span>              :     ): Map&lt;Long, String&gt; {</span>
+<span id="L668"><span class="lineNum">     668</span> <span class="tlaGNC">           1 :       val typeNames = mutableMapOf&lt;Long, String&gt;()</span></span>
+<span id="L669"><span class="lineNum">     669</span> <span class="tlaGNC">           1 :       for (table in p4info.tablesList) {</span></span>
+<span id="L670"><span class="lineNum">     670</span> <span class="tlaGNC">           1 :         for (matchField in table.matchFieldsList) {</span></span>
+<span id="L671"><span class="lineNum">     671</span> <span class="tlaGNC">           1 :           if (!matchField.hasTypeName()) continue</span></span>
+<span id="L672"><span class="lineNum">     672</span> <span class="tlaGNC">           1 :           if (matchField.typeName.name !in translatedTypes) continue</span></span>
+<span id="L673"><span class="lineNum">     673</span> <span class="tlaGNC">           1 :           typeNames[packKey(table.preamble.id, matchField.id)] = matchField.typeName.name</span></span>
+<span id="L674"><span class="lineNum">     674</span>              :         }</span>
+<span id="L675"><span class="lineNum">     675</span>              :       }</span>
+<span id="L676"><span class="lineNum">     676</span> <span class="tlaGNC">           1 :       return typeNames</span></span>
+<span id="L677"><span class="lineNum">     677</span>              :     }</span>
+<span id="L678"><span class="lineNum">     678</span>              : </span>
+<span id="L679"><span class="lineNum">     679</span>              :     /**</span>
+<span id="L680"><span class="lineNum">     680</span>              :      * Builds per-direction metadata type name maps. IDs can overlap between packet_out and</span>
+<span id="L681"><span class="lineNum">     681</span>              :      * packet_in (both start @id(1)), so a flat map would cause untranslated fields (like</span>
+<span id="L682"><span class="lineNum">     682</span>              :      * submit_to_ingress) to be incorrectly translated.</span>
+<span id="L683"><span class="lineNum">     683</span>              :      */</span>
+<span id="L684"><span class="lineNum">     684</span>              :     private fun buildPacketMetadataTypeNames(</span>
+<span id="L685"><span class="lineNum">     685</span>              :       p4info: P4Info,</span>
+<span id="L686"><span class="lineNum">     686</span>              :       translatedTypes: Map&lt;String, P4NewTypeSpec&gt;,</span>
+<span id="L687"><span class="lineNum">     687</span>              :     ): Pair&lt;Map&lt;Int, String&gt;, Map&lt;Int, String&gt;&gt; {</span>
+<span id="L688"><span class="lineNum">     688</span> <span class="tlaGNC">           1 :       val packetOut = mutableMapOf&lt;Int, String&gt;()</span></span>
+<span id="L689"><span class="lineNum">     689</span> <span class="tlaGNC">           1 :       val packetIn = mutableMapOf&lt;Int, String&gt;()</span></span>
+<span id="L690"><span class="lineNum">     690</span> <span class="tlaGNC">           1 :       for (controllerMeta in p4info.controllerPacketMetadataList) {</span></span>
+<span id="L691"><span class="lineNum">     691</span> <span class="tlaGNC">           1 :         val target =</span></span>
+<span id="L692"><span class="lineNum">     692</span> <span class="tlaGNC">           1 :           when (controllerMeta.preamble.name) {</span></span>
+<span id="L693"><span class="lineNum">     693</span> <span class="tlaGNC">           1 :             &quot;packet_out&quot; -&gt; packetOut</span></span>
+<span id="L694"><span class="lineNum">     694</span> <span class="tlaGNC">           1 :             &quot;packet_in&quot; -&gt; packetIn</span></span>
+<span id="L695"><span class="lineNum">     695</span> <span class="tlaUNC tlaBgUNC">           0 :             else -&gt; continue</span></span>
+<span id="L696"><span class="lineNum">     696</span>              :           }</span>
+<span id="L697"><span class="lineNum">     697</span> <span class="tlaGNC tlaBgGNC">           1 :         for (metadata in controllerMeta.metadataList) {</span></span>
+<span id="L698"><span class="lineNum">     698</span> <span class="tlaGNC">           1 :           if (!metadata.hasTypeName()) continue</span></span>
+<span id="L699"><span class="lineNum">     699</span> <span class="tlaGNC">           1 :           if (metadata.typeName.name !in translatedTypes) continue</span></span>
+<span id="L700"><span class="lineNum">     700</span> <span class="tlaGNC">           1 :           target[metadata.id] = metadata.typeName.name</span></span>
+<span id="L701"><span class="lineNum">     701</span>              :         }</span>
+<span id="L702"><span class="lineNum">     702</span>              :       }</span>
+<span id="L703"><span class="lineNum">     703</span> <span class="tlaGNC">           1 :       return packetOut to packetIn</span></span>
+<span id="L704"><span class="lineNum">     704</span>              :     }</span>
+<span id="L705"><span class="lineNum">     705</span>              : </span>
+<span id="L706"><span class="lineNum">     706</span> <span class="tlaGNC">           1 :     private fun buildTables(</span></span>
+<span id="L707"><span class="lineNum">     707</span>              :       translations: List&lt;TypeTranslation&gt;,</span>
+<span id="L708"><span class="lineNum">     708</span> <span class="tlaGNC">           1 :       stringTypeNames: Set&lt;String&gt; = emptySet(),</span></span>
+<span id="L709"><span class="lineNum">     709</span>              :       resolveKey: (TypeTranslation) -&gt; String,</span>
+<span id="L710"><span class="lineNum">     710</span>              :     ): ConcurrentHashMap&lt;String, TranslationTable&gt; {</span>
+<span id="L711"><span class="lineNum">     711</span> <span class="tlaGNC">           1 :       val tables = ConcurrentHashMap&lt;String, TranslationTable&gt;()</span></span>
+<span id="L712"><span class="lineNum">     712</span> <span class="tlaGNC">           1 :       for (translation in translations) {</span></span>
+<span id="L713"><span class="lineNum">     713</span> <span class="tlaGNC">           1 :         val key = resolveKey(translation)</span></span>
+<span id="L714"><span class="lineNum">     714</span> <span class="tlaGNC">           1 :         tables[key] = TranslationTable.fromProto(translation, isStringType = key in stringTypeNames)</span></span>
+<span id="L715"><span class="lineNum">     715</span>              :       }</span>
+<span id="L716"><span class="lineNum">     716</span> <span class="tlaGNC">           1 :       return tables</span></span>
+<span id="L717"><span class="lineNum">     717</span>              :     }</span>
+<span id="L718"><span class="lineNum">     718</span>              : </span>
+<span id="L719"><span class="lineNum">     719</span>              :     /**</span>
+<span id="L720"><span class="lineNum">     720</span>              :      * Resolves a [TypeTranslation]'s key using the URI → type name index from p4info. If the</span>
+<span id="L721"><span class="lineNum">     721</span>              :      * translation specifies `type_name`, uses it directly. If it specifies `type_uri`, resolves it</span>
+<span id="L722"><span class="lineNum">     722</span>              :      * to a type name; errors if the URI is ambiguous (maps to multiple types).</span>
+<span id="L723"><span class="lineNum">     723</span>              :      */</span>
+<span id="L724"><span class="lineNum">     724</span>              :     private fun resolveTranslationKey(</span>
+<span id="L725"><span class="lineNum">     725</span>              :       translation: TypeTranslation,</span>
+<span id="L726"><span class="lineNum">     726</span>              :       uriToTypeNames: Map&lt;String, List&lt;String&gt;&gt;,</span>
+<span id="L727"><span class="lineNum">     727</span>              :     ): String =</span>
+<span id="L728"><span class="lineNum">     728</span> <span class="tlaGNC">           1 :       when (translation.typeCase) {</span></span>
+<span id="L729"><span class="lineNum">     729</span> <span class="tlaGNC">           1 :         TypeTranslation.TypeCase.TYPE_NAME -&gt; translation.typeName</span></span>
+<span id="L730"><span class="lineNum">     730</span>              :         TypeTranslation.TypeCase.TYPE_URI -&gt; {</span>
+<span id="L731"><span class="lineNum">     731</span> <span class="tlaGNC">           1 :           val uri = translation.typeUri</span></span>
+<span id="L732"><span class="lineNum">     732</span> <span class="tlaGNC">           1 :           val names = uriToTypeNames[uri]</span></span>
+<span id="L733"><span class="lineNum">     733</span> <span class="tlaGNC">           1 :           when {</span></span>
+<span id="L734"><span class="lineNum">     734</span> <span class="tlaGNC">           1 :             names == null || names.isEmpty() -&gt;</span></span>
+<span id="L735"><span class="lineNum">     735</span> <span class="tlaGNC">           1 :               throw IllegalArgumentException(</span></span>
+<span id="L736"><span class="lineNum">     736</span> <span class="tlaGNC">           1 :                 &quot;TypeTranslation type_uri '$uri' does not match any translated type in p4info&quot;</span></span>
+<span id="L737"><span class="lineNum">     737</span>              :               )</span>
+<span id="L738"><span class="lineNum">     738</span> <span class="tlaGNC">           1 :             names.size &gt; 1 -&gt;</span></span>
+<span id="L739"><span class="lineNum">     739</span> <span class="tlaGNC">           1 :               throw IllegalArgumentException(</span></span>
+<span id="L740"><span class="lineNum">     740</span> <span class="tlaGNC">           1 :                 &quot;TypeTranslation type_uri '$uri' is ambiguous — matches types: &quot; +</span></span>
+<span id="L741"><span class="lineNum">     741</span> <span class="tlaGNC">           1 :                   &quot;${names.joinToString()}. Use type_name instead.&quot;</span></span>
+<span id="L742"><span class="lineNum">     742</span>              :               )</span>
+<span id="L743"><span class="lineNum">     743</span> <span class="tlaGNC">           1 :             else -&gt; names.single()</span></span>
+<span id="L744"><span class="lineNum">     744</span>              :           }</span>
+<span id="L745"><span class="lineNum">     745</span>              :         }</span>
+<span id="L746"><span class="lineNum">     746</span>              :         TypeTranslation.TypeCase.TYPE_NOT_SET,</span>
+<span id="L747"><span class="lineNum">     747</span> <span class="tlaUNC tlaBgUNC">           0 :         null -&gt; throw IllegalArgumentException(&quot;TypeTranslation must specify type_name or type_uri&quot;)</span></span>
+<span id="L748"><span class="lineNum">     748</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
+<span id="L749"><span class="lineNum">     749</span>              : </span>
+<span id="L750"><span class="lineNum">     750</span>              :     /**</span>
+<span id="L751"><span class="lineNum">     751</span>              :      * Resolves key from a [TypeTranslation] without p4info. Only `type_name` is accepted —</span>
+<span id="L752"><span class="lineNum">     752</span>              :      * resolving `type_uri` requires p4info, which is not available in this context.</span>
+<span id="L753"><span class="lineNum">     753</span>              :      */</span>
+<span id="L754"><span class="lineNum">     754</span>              :     private fun TypeTranslation.resolveKey(): String =</span>
+<span id="L755"><span class="lineNum">     755</span> <span class="tlaGNC">           1 :       when (typeCase) {</span></span>
+<span id="L756"><span class="lineNum">     756</span> <span class="tlaGNC">           1 :         TypeTranslation.TypeCase.TYPE_NAME -&gt; typeName</span></span>
+<span id="L757"><span class="lineNum">     757</span>              :         TypeTranslation.TypeCase.TYPE_URI -&gt;</span>
+<span id="L758"><span class="lineNum">     758</span> <span class="tlaGNC">           1 :           throw IllegalArgumentException(</span></span>
+<span id="L759"><span class="lineNum">     759</span> <span class="tlaGNC">           1 :             &quot;TypeTranslation with type_uri requires p4info for resolution; use type_name instead&quot;</span></span>
+<span id="L760"><span class="lineNum">     760</span>              :           )</span>
+<span id="L761"><span class="lineNum">     761</span>              :         TypeTranslation.TypeCase.TYPE_NOT_SET,</span>
+<span id="L762"><span class="lineNum">     762</span> <span class="tlaUNC tlaBgUNC">           0 :         null -&gt; throw IllegalArgumentException(&quot;TypeTranslation must specify type_name or type_uri&quot;)</span></span>
+<span id="L763"><span class="lineNum">     763</span> <span class="tlaGNC tlaBgGNC">           1 :       }</span></span>
+<span id="L764"><span class="lineNum">     764</span>              : </span>
+<span id="L765"><span class="lineNum">     765</span>              :     /** Packs two IDs into a single Long for fast compound-key lookup. */</span>
+<span id="L766"><span class="lineNum">     766</span>              :     private fun packKey(high: Int, low: Int): Long =</span>
+<span id="L767"><span class="lineNum">     767</span> <span class="tlaGNC">           1 :       (high.toLong() shl 32) or (low.toLong() and 0xFFFFFFFFL)</span></span>
+<span id="L768"><span class="lineNum">     768</span>              :   }</span>
+<span id="L769"><span class="lineNum">     769</span>              : }</span>
+<span id="L770"><span class="lineNum">     770</span>              : </span>
+<span id="L771"><span class="lineNum">     771</span>              : /**</span>
+<span id="L772"><span class="lineNum">     772</span>              :  * Bidirectional mapping table for a single translated type.</span>
+<span id="L773"><span class="lineNum">     773</span>              :  *</span>
+<span id="L774"><span class="lineNum">     774</span>              :  * Thread-safe: all mutating operations are synchronized.</span>
+<span id="L775"><span class="lineNum">     775</span>              :  */</span>
+<span id="L776"><span class="lineNum">     776</span> <span class="tlaGNC">           1 : internal class TranslationTable(</span></span>
+<span id="L777"><span class="lineNum">     777</span> <span class="tlaGNC">           1 :   private val autoAllocate: Boolean,</span></span>
+<span id="L778"><span class="lineNum">     778</span>              :   /** True if this table's P4Runtime values are strings (UTF-8 encoded in proto bytes fields). */</span>
+<span id="L779"><span class="lineNum">     779</span> <span class="tlaGNC">           1 :   val isStringType: Boolean = false,</span></span>
+<span id="L780"><span class="lineNum">     780</span> <span class="tlaGNC">           1 : ) {</span></span>
+<span id="L781"><span class="lineNum">     781</span>              : </span>
+<span id="L782"><span class="lineNum">     782</span>              :   // Forward maps: P4Runtime → data-plane.</span>
+<span id="L783"><span class="lineNum">     783</span> <span class="tlaGNC">           1 :   private val bitstringForward = mutableMapOf&lt;ByteString, ByteString&gt;()</span></span>
+<span id="L784"><span class="lineNum">     784</span> <span class="tlaGNC">           1 :   private val stringForward = mutableMapOf&lt;String, ByteString&gt;()</span></span>
+<span id="L785"><span class="lineNum">     785</span>              : </span>
+<span id="L786"><span class="lineNum">     786</span>              :   // Reverse map: data-plane → P4Runtime.</span>
+<span id="L787"><span class="lineNum">     787</span> <span class="tlaGNC">           1 :   private val reverse = mutableMapOf&lt;ByteString, P4rtValue&gt;()</span></span>
 <span id="L788"><span class="lineNum">     788</span>              : </span>
-<span id="L789"><span class="lineNum">     789</span>              :   // Forward maps: P4Runtime → data-plane.</span>
-<span id="L790"><span class="lineNum">     790</span> <span class="tlaGNC">           1 :   private val bitstringForward = mutableMapOf&lt;ByteString, ByteString&gt;()</span></span>
-<span id="L791"><span class="lineNum">     791</span> <span class="tlaGNC">           1 :   private val stringForward = mutableMapOf&lt;String, ByteString&gt;()</span></span>
+<span id="L789"><span class="lineNum">     789</span>              :   // Data-plane values claimed by explicit entries (auto-allocator skips these).</span>
+<span id="L790"><span class="lineNum">     790</span>              :   // Stored as integers (not ByteStrings) so width differences don't cause missed collisions.</span>
+<span id="L791"><span class="lineNum">     791</span> <span class="tlaGNC">           1 :   private val reservedValues = mutableSetOf&lt;Int&gt;()</span></span>
 <span id="L792"><span class="lineNum">     792</span>              : </span>
-<span id="L793"><span class="lineNum">     793</span>              :   // Reverse map: data-plane → P4Runtime.</span>
-<span id="L794"><span class="lineNum">     794</span> <span class="tlaGNC">           1 :   private val reverse = mutableMapOf&lt;ByteString, P4rtValue&gt;()</span></span>
+<span id="L793"><span class="lineNum">     793</span>              :   // Counter for sequential auto-allocation.</span>
+<span id="L794"><span class="lineNum">     794</span>              :   private var nextValue = 0</span>
 <span id="L795"><span class="lineNum">     795</span>              : </span>
-<span id="L796"><span class="lineNum">     796</span>              :   // Data-plane values claimed by explicit entries (auto-allocator skips these).</span>
-<span id="L797"><span class="lineNum">     797</span>              :   // Stored as integers (not ByteStrings) so width differences don't cause missed collisions.</span>
-<span id="L798"><span class="lineNum">     798</span> <span class="tlaGNC">           1 :   private val reservedValues = mutableSetOf&lt;Int&gt;()</span></span>
-<span id="L799"><span class="lineNum">     799</span>              : </span>
-<span id="L800"><span class="lineNum">     800</span>              :   // Counter for sequential auto-allocation.</span>
-<span id="L801"><span class="lineNum">     801</span>              :   private var nextValue = 0</span>
-<span id="L802"><span class="lineNum">     802</span>              : </span>
-<span id="L803"><span class="lineNum">     803</span>              :   /** Looks up or auto-allocates a data-plane value for a P4Runtime bitstring. */</span>
-<span id="L804"><span class="lineNum">     804</span>              :   @Synchronized</span>
-<span id="L805"><span class="lineNum">     805</span>              :   fun lookupOrAllocateBitstring(p4rtValue: ByteString): ByteString =</span>
-<span id="L806"><span class="lineNum">     806</span> <span class="tlaGNC">           1 :     lookupOrAllocate(</span></span>
-<span id="L807"><span class="lineNum">     807</span> <span class="tlaGNC">           1 :       bitstringForward,</span></span>
-<span id="L808"><span class="lineNum">     808</span> <span class="tlaGNC">           1 :       p4rtValue,</span></span>
-<span id="L809"><span class="lineNum">     809</span> <span class="tlaGNC">           1 :       P4rtValue::Bitstring,</span></span>
-<span id="L810"><span class="lineNum">     810</span> <span class="tlaGNC">           1 :       &quot;no mapping for P4Runtime bitstring 0x${p4rtValue.toHex()} (auto-allocate off)&quot;,</span></span>
-<span id="L811"><span class="lineNum">     811</span> <span class="tlaGNC">           1 :     )</span></span>
-<span id="L812"><span class="lineNum">     812</span>              : </span>
-<span id="L813"><span class="lineNum">     813</span>              :   /** Looks up or auto-allocates a data-plane value for a P4Runtime string. */</span>
-<span id="L814"><span class="lineNum">     814</span>              :   @Synchronized</span>
-<span id="L815"><span class="lineNum">     815</span>              :   fun lookupOrAllocateString(p4rtStr: String): ByteString =</span>
-<span id="L816"><span class="lineNum">     816</span> <span class="tlaGNC">           1 :     lookupOrAllocate(</span></span>
-<span id="L817"><span class="lineNum">     817</span> <span class="tlaGNC">           1 :       stringForward,</span></span>
-<span id="L818"><span class="lineNum">     818</span> <span class="tlaGNC">           1 :       p4rtStr,</span></span>
-<span id="L819"><span class="lineNum">     819</span> <span class="tlaGNC">           1 :       P4rtValue::Str,</span></span>
-<span id="L820"><span class="lineNum">     820</span> <span class="tlaGNC">           1 :       &quot;no mapping for P4Runtime string '$p4rtStr' (auto-allocate off)&quot;,</span></span>
-<span id="L821"><span class="lineNum">     821</span> <span class="tlaGNC">           1 :     )</span></span>
-<span id="L822"><span class="lineNum">     822</span>              : </span>
-<span id="L823"><span class="lineNum">     823</span>              :   private fun putReverse(dataplaneValue: ByteString, p4rtValue: P4rtValue) {</span>
-<span id="L824"><span class="lineNum">     824</span> <span class="tlaGNC">           1 :     reverse[canonicalize(dataplaneValue)] = p4rtValue</span></span>
-<span id="L825"><span class="lineNum">     825</span> <span class="tlaGNC">           1 :   }</span></span>
-<span id="L826"><span class="lineNum">     826</span>              : </span>
-<span id="L827"><span class="lineNum">     827</span>              :   /** Reverse-translates a data-plane value to its P4Runtime representation. */</span>
-<span id="L828"><span class="lineNum">     828</span>              :   @Synchronized</span>
-<span id="L829"><span class="lineNum">     829</span>              :   fun reverseLookup(dataplaneValue: ByteString): P4rtValue =</span>
-<span id="L830"><span class="lineNum">     830</span> <span class="tlaGNC">           1 :     reverse[canonicalize(dataplaneValue)]</span></span>
-<span id="L831"><span class="lineNum">     831</span> <span class="tlaGNC">           1 :       ?: throw TranslationException(</span></span>
-<span id="L832"><span class="lineNum">     832</span> <span class="tlaGNC">           1 :         &quot;no reverse mapping for data-plane value 0x${dataplaneValue.toHex()}&quot;</span></span>
-<span id="L833"><span class="lineNum">     833</span> <span class="tlaGNC">           1 :       )</span></span>
+<span id="L796"><span class="lineNum">     796</span>              :   /** Looks up or auto-allocates a data-plane value for a P4Runtime bitstring. */</span>
+<span id="L797"><span class="lineNum">     797</span>              :   @Synchronized</span>
+<span id="L798"><span class="lineNum">     798</span>              :   fun lookupOrAllocateBitstring(p4rtValue: ByteString): ByteString =</span>
+<span id="L799"><span class="lineNum">     799</span> <span class="tlaGNC">           1 :     lookupOrAllocate(</span></span>
+<span id="L800"><span class="lineNum">     800</span> <span class="tlaGNC">           1 :       bitstringForward,</span></span>
+<span id="L801"><span class="lineNum">     801</span> <span class="tlaGNC">           1 :       p4rtValue,</span></span>
+<span id="L802"><span class="lineNum">     802</span> <span class="tlaGNC">           1 :       P4rtValue::Bitstring,</span></span>
+<span id="L803"><span class="lineNum">     803</span> <span class="tlaGNC">           1 :       &quot;no mapping for P4Runtime bitstring 0x${p4rtValue.toHex()} (auto-allocate off)&quot;,</span></span>
+<span id="L804"><span class="lineNum">     804</span> <span class="tlaGNC">           1 :     )</span></span>
+<span id="L805"><span class="lineNum">     805</span>              : </span>
+<span id="L806"><span class="lineNum">     806</span>              :   /** Looks up or auto-allocates a data-plane value for a P4Runtime string. */</span>
+<span id="L807"><span class="lineNum">     807</span>              :   @Synchronized</span>
+<span id="L808"><span class="lineNum">     808</span>              :   fun lookupOrAllocateString(p4rtStr: String): ByteString =</span>
+<span id="L809"><span class="lineNum">     809</span> <span class="tlaGNC">           1 :     lookupOrAllocate(</span></span>
+<span id="L810"><span class="lineNum">     810</span> <span class="tlaGNC">           1 :       stringForward,</span></span>
+<span id="L811"><span class="lineNum">     811</span> <span class="tlaGNC">           1 :       p4rtStr,</span></span>
+<span id="L812"><span class="lineNum">     812</span> <span class="tlaGNC">           1 :       P4rtValue::Str,</span></span>
+<span id="L813"><span class="lineNum">     813</span> <span class="tlaGNC">           1 :       &quot;no mapping for P4Runtime string '$p4rtStr' (auto-allocate off)&quot;,</span></span>
+<span id="L814"><span class="lineNum">     814</span> <span class="tlaGNC">           1 :     )</span></span>
+<span id="L815"><span class="lineNum">     815</span>              : </span>
+<span id="L816"><span class="lineNum">     816</span>              :   private fun putReverse(dataplaneValue: ByteString, p4rtValue: P4rtValue) {</span>
+<span id="L817"><span class="lineNum">     817</span> <span class="tlaGNC">           1 :     reverse[canonicalize(dataplaneValue)] = p4rtValue</span></span>
+<span id="L818"><span class="lineNum">     818</span> <span class="tlaGNC">           1 :   }</span></span>
+<span id="L819"><span class="lineNum">     819</span>              : </span>
+<span id="L820"><span class="lineNum">     820</span>              :   /** Reverse-translates a data-plane value to its P4Runtime representation. */</span>
+<span id="L821"><span class="lineNum">     821</span>              :   @Synchronized</span>
+<span id="L822"><span class="lineNum">     822</span>              :   fun reverseLookup(dataplaneValue: ByteString): P4rtValue =</span>
+<span id="L823"><span class="lineNum">     823</span> <span class="tlaGNC">           1 :     reverse[canonicalize(dataplaneValue)]</span></span>
+<span id="L824"><span class="lineNum">     824</span> <span class="tlaGNC">           1 :       ?: throw TranslationException(</span></span>
+<span id="L825"><span class="lineNum">     825</span> <span class="tlaGNC">           1 :         &quot;no reverse mapping for data-plane value 0x${dataplaneValue.toHex()}&quot;</span></span>
+<span id="L826"><span class="lineNum">     826</span> <span class="tlaGNC">           1 :       )</span></span>
+<span id="L827"><span class="lineNum">     827</span>              : </span>
+<span id="L828"><span class="lineNum">     828</span>              :   /** Like [reverseLookup] but returns null instead of throwing. */</span>
+<span id="L829"><span class="lineNum">     829</span>              :   @Synchronized</span>
+<span id="L830"><span class="lineNum">     830</span>              :   fun reverseLookupOrNull(dataplaneValue: ByteString): P4rtValue? =</span>
+<span id="L831"><span class="lineNum">     831</span> <span class="tlaGNC">           1 :     reverse[canonicalize(dataplaneValue)]</span></span>
+<span id="L832"><span class="lineNum">     832</span>              : </span>
+<span id="L833"><span class="lineNum">     833</span> <span class="tlaGNC">           1 :   @Synchronized fun lookupStringExplicit(p4rtStr: String): ByteString? = stringForward[p4rtStr]</span></span>
 <span id="L834"><span class="lineNum">     834</span>              : </span>
-<span id="L835"><span class="lineNum">     835</span>              :   /** Like [reverseLookup] but returns null instead of throwing. */</span>
-<span id="L836"><span class="lineNum">     836</span>              :   @Synchronized</span>
-<span id="L837"><span class="lineNum">     837</span>              :   fun reverseLookupOrNull(dataplaneValue: ByteString): P4rtValue? =</span>
-<span id="L838"><span class="lineNum">     838</span> <span class="tlaGNC">           1 :     reverse[canonicalize(dataplaneValue)]</span></span>
-<span id="L839"><span class="lineNum">     839</span>              : </span>
-<span id="L840"><span class="lineNum">     840</span> <span class="tlaGNC">           1 :   @Synchronized fun lookupStringExplicit(p4rtStr: String): ByteString? = stringForward[p4rtStr]</span></span>
-<span id="L841"><span class="lineNum">     841</span>              : </span>
-<span id="L842"><span class="lineNum">     842</span>              :   private fun &lt;K&gt; lookupOrAllocate(</span>
-<span id="L843"><span class="lineNum">     843</span>              :     forward: MutableMap&lt;K, ByteString&gt;,</span>
-<span id="L844"><span class="lineNum">     844</span>              :     key: K,</span>
-<span id="L845"><span class="lineNum">     845</span>              :     wrapP4rt: (K) -&gt; P4rtValue,</span>
-<span id="L846"><span class="lineNum">     846</span>              :     errorMsg: String,</span>
-<span id="L847"><span class="lineNum">     847</span>              :   ): ByteString {</span>
-<span id="L848"><span class="lineNum">     848</span> <span class="tlaGNC">           1 :     forward[key]?.let {</span></span>
-<span id="L849"><span class="lineNum">     849</span> <span class="tlaGNC">           1 :       return it</span></span>
-<span id="L850"><span class="lineNum">     850</span>              :     }</span>
-<span id="L851"><span class="lineNum">     851</span> <span class="tlaGNC">           1 :     if (!autoAllocate) throw TranslationException(errorMsg)</span></span>
-<span id="L852"><span class="lineNum">     852</span> <span class="tlaGNC">           1 :     val dp = allocateNext()</span></span>
-<span id="L853"><span class="lineNum">     853</span> <span class="tlaGNC">           1 :     forward[key] = dp</span></span>
-<span id="L854"><span class="lineNum">     854</span> <span class="tlaGNC">           1 :     putReverse(dp, wrapP4rt(key))</span></span>
-<span id="L855"><span class="lineNum">     855</span> <span class="tlaGNC">           1 :     return dp</span></span>
-<span id="L856"><span class="lineNum">     856</span>              :   }</span>
-<span id="L857"><span class="lineNum">     857</span>              : </span>
-<span id="L858"><span class="lineNum">     858</span>              :   /** Allocates the next available data-plane value, skipping reserved ones. */</span>
-<span id="L859"><span class="lineNum">     859</span>              :   private fun allocateNext(): ByteString {</span>
-<span id="L860"><span class="lineNum">     860</span> <span class="tlaGNC">           1 :     while (true) {</span></span>
-<span id="L861"><span class="lineNum">     861</span> <span class="tlaGNC">           1 :       val candidate = nextValue++</span></span>
-<span id="L862"><span class="lineNum">     862</span> <span class="tlaGNC">           1 :       if (candidate !in reservedValues) return encodeMinWidth(candidate)</span></span>
-<span id="L863"><span class="lineNum">     863</span>              :     }</span>
-<span id="L864"><span class="lineNum">     864</span>              :   }</span>
-<span id="L865"><span class="lineNum">     865</span>              : </span>
-<span id="L866"><span class="lineNum">     866</span>              :   companion object {</span>
-<span id="L867"><span class="lineNum">     867</span>              :     /** Builds a TranslationTable from a proto config, pre-populating explicit entries. */</span>
-<span id="L868"><span class="lineNum">     868</span> <span class="tlaUNC tlaBgUNC">           0 :     fun fromProto(proto: TypeTranslation, isStringType: Boolean = false): TranslationTable {</span></span>
-<span id="L869"><span class="lineNum">     869</span> <span class="tlaGNC tlaBgGNC">           1 :       val table = TranslationTable(autoAllocate = proto.autoAllocate, isStringType = isStringType)</span></span>
-<span id="L870"><span class="lineNum">     870</span> <span class="tlaGNC">           1 :       for (entry in proto.entriesList) {</span></span>
-<span id="L871"><span class="lineNum">     871</span> <span class="tlaGNC">           1 :         val dp = entry.dataplaneValue</span></span>
-<span id="L872"><span class="lineNum">     872</span>              :         // Normalize to minimum-width so reverse lookups (which use</span>
-<span id="L873"><span class="lineNum">     873</span>              :         // canonical bytes) match regardless of the config's byte width.</span>
-<span id="L874"><span class="lineNum">     874</span> <span class="tlaGNC">           1 :         val dpNorm = canonicalize(dp)</span></span>
-<span id="L875"><span class="lineNum">     875</span> <span class="tlaGNC">           1 :         table.reservedValues.add(dp.toUnsignedInt())</span></span>
-<span id="L876"><span class="lineNum">     876</span> <span class="tlaGNC">           1 :         table.putReverse(</span></span>
-<span id="L877"><span class="lineNum">     877</span> <span class="tlaGNC">           1 :           dpNorm,</span></span>
-<span id="L878"><span class="lineNum">     878</span> <span class="tlaGNC">           1 :           when (entry.sdnValueCase) {</span></span>
-<span id="L879"><span class="lineNum">     879</span>              :             TranslationEntry.SdnValueCase.SDN_BITSTRING -&gt; {</span>
-<span id="L880"><span class="lineNum">     880</span> <span class="tlaGNC">           1 :               table.bitstringForward[entry.sdnBitstring] = dpNorm</span></span>
-<span id="L881"><span class="lineNum">     881</span> <span class="tlaGNC">           1 :               P4rtValue.Bitstring(entry.sdnBitstring)</span></span>
-<span id="L882"><span class="lineNum">     882</span>              :             }</span>
-<span id="L883"><span class="lineNum">     883</span>              :             TranslationEntry.SdnValueCase.SDN_STR -&gt; {</span>
-<span id="L884"><span class="lineNum">     884</span> <span class="tlaGNC">           1 :               table.stringForward[entry.sdnStr] = dpNorm</span></span>
-<span id="L885"><span class="lineNum">     885</span> <span class="tlaGNC">           1 :               P4rtValue.Str(entry.sdnStr)</span></span>
-<span id="L886"><span class="lineNum">     886</span>              :             }</span>
-<span id="L887"><span class="lineNum">     887</span> <span class="tlaUNC tlaBgUNC">           0 :             else -&gt; throw IllegalArgumentException(&quot;TranslationEntry must have an sdn_value&quot;)</span></span>
-<span id="L888"><span class="lineNum">     888</span>              :           },</span>
-<span id="L889"><span class="lineNum">     889</span>              :         )</span>
-<span id="L890"><span class="lineNum">     890</span>              :       }</span>
-<span id="L891"><span class="lineNum">     891</span> <span class="tlaGNC tlaBgGNC">           1 :       return table</span></span>
-<span id="L892"><span class="lineNum">     892</span>              :     }</span>
-<span id="L893"><span class="lineNum">     893</span>              :   }</span>
-<span id="L894"><span class="lineNum">     894</span>              : }</span>
+<span id="L835"><span class="lineNum">     835</span>              :   private fun &lt;K&gt; lookupOrAllocate(</span>
+<span id="L836"><span class="lineNum">     836</span>              :     forward: MutableMap&lt;K, ByteString&gt;,</span>
+<span id="L837"><span class="lineNum">     837</span>              :     key: K,</span>
+<span id="L838"><span class="lineNum">     838</span>              :     wrapP4rt: (K) -&gt; P4rtValue,</span>
+<span id="L839"><span class="lineNum">     839</span>              :     errorMsg: String,</span>
+<span id="L840"><span class="lineNum">     840</span>              :   ): ByteString {</span>
+<span id="L841"><span class="lineNum">     841</span> <span class="tlaGNC">           1 :     forward[key]?.let {</span></span>
+<span id="L842"><span class="lineNum">     842</span> <span class="tlaGNC">           1 :       return it</span></span>
+<span id="L843"><span class="lineNum">     843</span>              :     }</span>
+<span id="L844"><span class="lineNum">     844</span> <span class="tlaGNC">           1 :     if (!autoAllocate) throw TranslationException(errorMsg)</span></span>
+<span id="L845"><span class="lineNum">     845</span> <span class="tlaGNC">           1 :     val dp = allocateNext()</span></span>
+<span id="L846"><span class="lineNum">     846</span> <span class="tlaGNC">           1 :     forward[key] = dp</span></span>
+<span id="L847"><span class="lineNum">     847</span> <span class="tlaGNC">           1 :     putReverse(dp, wrapP4rt(key))</span></span>
+<span id="L848"><span class="lineNum">     848</span> <span class="tlaGNC">           1 :     return dp</span></span>
+<span id="L849"><span class="lineNum">     849</span>              :   }</span>
+<span id="L850"><span class="lineNum">     850</span>              : </span>
+<span id="L851"><span class="lineNum">     851</span>              :   /** Allocates the next available data-plane value, skipping reserved ones. */</span>
+<span id="L852"><span class="lineNum">     852</span>              :   private fun allocateNext(): ByteString {</span>
+<span id="L853"><span class="lineNum">     853</span> <span class="tlaGNC">           1 :     while (true) {</span></span>
+<span id="L854"><span class="lineNum">     854</span> <span class="tlaGNC">           1 :       val candidate = nextValue++</span></span>
+<span id="L855"><span class="lineNum">     855</span> <span class="tlaGNC">           1 :       if (candidate !in reservedValues) return encodeMinWidth(candidate)</span></span>
+<span id="L856"><span class="lineNum">     856</span>              :     }</span>
+<span id="L857"><span class="lineNum">     857</span>              :   }</span>
+<span id="L858"><span class="lineNum">     858</span>              : </span>
+<span id="L859"><span class="lineNum">     859</span>              :   companion object {</span>
+<span id="L860"><span class="lineNum">     860</span>              :     /** Builds a TranslationTable from a proto config, pre-populating explicit entries. */</span>
+<span id="L861"><span class="lineNum">     861</span> <span class="tlaUNC tlaBgUNC">           0 :     fun fromProto(proto: TypeTranslation, isStringType: Boolean = false): TranslationTable {</span></span>
+<span id="L862"><span class="lineNum">     862</span> <span class="tlaGNC tlaBgGNC">           1 :       val table = TranslationTable(autoAllocate = proto.autoAllocate, isStringType = isStringType)</span></span>
+<span id="L863"><span class="lineNum">     863</span> <span class="tlaGNC">           1 :       for (entry in proto.entriesList) {</span></span>
+<span id="L864"><span class="lineNum">     864</span> <span class="tlaGNC">           1 :         val dp = entry.dataplaneValue</span></span>
+<span id="L865"><span class="lineNum">     865</span>              :         // Normalize to minimum-width so reverse lookups (which use</span>
+<span id="L866"><span class="lineNum">     866</span>              :         // canonical bytes) match regardless of the config's byte width.</span>
+<span id="L867"><span class="lineNum">     867</span> <span class="tlaGNC">           1 :         val dpNorm = canonicalize(dp)</span></span>
+<span id="L868"><span class="lineNum">     868</span> <span class="tlaGNC">           1 :         table.reservedValues.add(dp.toUnsignedInt())</span></span>
+<span id="L869"><span class="lineNum">     869</span> <span class="tlaGNC">           1 :         table.putReverse(</span></span>
+<span id="L870"><span class="lineNum">     870</span> <span class="tlaGNC">           1 :           dpNorm,</span></span>
+<span id="L871"><span class="lineNum">     871</span> <span class="tlaGNC">           1 :           when (entry.sdnValueCase) {</span></span>
+<span id="L872"><span class="lineNum">     872</span>              :             TranslationEntry.SdnValueCase.SDN_BITSTRING -&gt; {</span>
+<span id="L873"><span class="lineNum">     873</span> <span class="tlaGNC">           1 :               table.bitstringForward[entry.sdnBitstring] = dpNorm</span></span>
+<span id="L874"><span class="lineNum">     874</span> <span class="tlaGNC">           1 :               P4rtValue.Bitstring(entry.sdnBitstring)</span></span>
+<span id="L875"><span class="lineNum">     875</span>              :             }</span>
+<span id="L876"><span class="lineNum">     876</span>              :             TranslationEntry.SdnValueCase.SDN_STR -&gt; {</span>
+<span id="L877"><span class="lineNum">     877</span> <span class="tlaGNC">           1 :               table.stringForward[entry.sdnStr] = dpNorm</span></span>
+<span id="L878"><span class="lineNum">     878</span> <span class="tlaGNC">           1 :               P4rtValue.Str(entry.sdnStr)</span></span>
+<span id="L879"><span class="lineNum">     879</span>              :             }</span>
+<span id="L880"><span class="lineNum">     880</span> <span class="tlaUNC tlaBgUNC">           0 :             else -&gt; throw IllegalArgumentException(&quot;TranslationEntry must have an sdn_value&quot;)</span></span>
+<span id="L881"><span class="lineNum">     881</span>              :           },</span>
+<span id="L882"><span class="lineNum">     882</span>              :         )</span>
+<span id="L883"><span class="lineNum">     883</span>              :       }</span>
+<span id="L884"><span class="lineNum">     884</span> <span class="tlaGNC tlaBgGNC">           1 :       return table</span></span>
+<span id="L885"><span class="lineNum">     885</span>              :     }</span>
+<span id="L886"><span class="lineNum">     886</span>              :   }</span>
+<span id="L887"><span class="lineNum">     887</span>              : }</span>
         </pre>
               </td>
             </tr>

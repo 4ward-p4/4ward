@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-09-24 07:57:21</td>
+            <td class="headerValue">2026-10-13 20:12:16</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">100.0&nbsp;%</td>
@@ -71,7 +71,7 @@
 <span id="L9"><span class="lineNum">       9</span>              : import fourward.TypeDecl</span>
 <span id="L10"><span class="lineNum">      10</span>              : import java.math.BigInteger</span>
 <span id="L11"><span class="lineNum">      11</span>              : import java.util.concurrent.ThreadLocalRandom</span>
-<span id="L12"><span class="lineNum">      12</span>              : import p4.v1.P4RuntimeOuterClass</span>
+<span id="L12"><span class="lineNum">      12</span>              : import org.p4.v1.Replica</span>
 <span id="L13"><span class="lineNum">      13</span>              : </span>
 <span id="L14"><span class="lineNum">      14</span>              : /** Simplified parameter descriptor: just name and type. */</span>
 <span id="L15"><span class="lineNum">      15</span> <span class="tlaGNC tlaBgGNC">           1 : internal data class BlockParam(val name: String, val typeName: String)</span></span>
@@ -87,12 +87,12 @@
 <span id="L25"><span class="lineNum">      25</span>              : }</span>
 <span id="L26"><span class="lineNum">      26</span>              : </span>
 <span id="L27"><span class="lineNum">      27</span>              : /**</span>
-<span id="L28"><span class="lineNum">      28</span>              :  * Reads the egress port from a [P4RuntimeOuterClass.Replica], supporting both `port` (bytes,</span>
-<span id="L29"><span class="lineNum">      29</span>              :  * P4Runtime v1.4+) and the deprecated `egress_port` (uint32). On the per-packet hot path; written</span>
-<span id="L30"><span class="lineNum">      30</span>              :  * as a plain loop to avoid the IntRange + lambda allocation of a `fold`.</span>
+<span id="L28"><span class="lineNum">      28</span>              :  * Reads the egress port from a [Replica], supporting both `port` (bytes, P4Runtime v1.4+) and the</span>
+<span id="L29"><span class="lineNum">      29</span>              :  * deprecated `egress_port` (uint32). On the per-packet hot path; written as a plain loop to avoid</span>
+<span id="L30"><span class="lineNum">      30</span>              :  * the IntRange + lambda allocation of a `fold`.</span>
 <span id="L31"><span class="lineNum">      31</span>              :  */</span>
 <span id="L32"><span class="lineNum">      32</span>              : @Suppress(&quot;DEPRECATION&quot;)</span>
-<span id="L33"><span class="lineNum">      33</span>              : fun replicaPort(replica: P4RuntimeOuterClass.Replica): Int {</span>
+<span id="L33"><span class="lineNum">      33</span>              : fun replicaPort(replica: Replica): Int {</span>
 <span id="L34"><span class="lineNum">      34</span> <span class="tlaGNC">           1 :   val port = replica.port</span></span>
 <span id="L35"><span class="lineNum">      35</span> <span class="tlaGNC">           1 :   if (port.isEmpty) return replica.egressPort</span></span>
 <span id="L36"><span class="lineNum">      36</span> <span class="tlaGNC">           1 :   var acc = 0</span></span>
