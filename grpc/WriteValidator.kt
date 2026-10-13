@@ -5,8 +5,17 @@ import fourward.simulator.toUnsignedBigInteger
 import io.grpc.Status
 import io.grpc.StatusException
 import java.math.BigInteger
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.ActionProfile
+import org.p4.config.v1.MatchField
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 /**
  * Validates P4Runtime Write updates against the p4info schema.
@@ -21,7 +30,7 @@ import p4.v1.P4RuntimeOuterClass
  * Constructed once per pipeline load; call [validate] for each update before type translation so
  * SDN-visible values are checked against their P4-program bitwidths (§8.3).
  */
-class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
+class WriteValidator(p4Info: P4Info) {
 
   private val tableInfoById = p4Info.tablesList.associateBy { it.preamble.id }
   private val actionInfoById = p4Info.actionsList.associateBy { it.preamble.id }
@@ -33,7 +42,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
   private val actionRefIdsByTable: Map<Int, Set<Int>> =
     p4Info.tablesList.associate { it.preamble.id to it.actionRefsList.map { r -> r.id }.toSet() }
 
-  private val fieldInfoByTable: Map<Int, Map<Int, P4InfoOuterClass.MatchField>> =
+  private val fieldInfoByTable: Map<Int, Map<Int, MatchField>> =
     p4Info.tablesList.associate { it.preamble.id to it.matchFieldsList.associateBy { f -> f.id } }
 
   private val tableRequiresPriority: Map<Int, Boolean> =
@@ -42,11 +51,11 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
     }
 
   // Pre-computed per-action: param lookup.
-  private val paramInfoByAction: Map<Int, Map<Int, P4InfoOuterClass.Action.Param>> =
+  private val paramInfoByAction: Map<Int, Map<Int, P4InfoAction.Param>> =
     p4Info.actionsList.associate { it.preamble.id to it.paramsList.associateBy { p -> p.id } }
 
   // Pre-computed per-action-profile: ID lookup and valid action IDs (union from associated tables).
-  private val actionProfileInfoById: Map<Int, P4InfoOuterClass.ActionProfile> =
+  private val actionProfileInfoById: Map<Int, ActionProfile> =
     p4Info.actionProfilesList.associateBy { it.preamble.id }
 
   private val actionRefIdsByProfile: Map<Int, Set<Int>> =
@@ -59,22 +68,22 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
    * Validates an update against the p4info schema. Dispatches to entity-specific validation based
    * on the entity type. Throws [StatusException] on spec violations.
    */
-  fun validate(update: P4RuntimeOuterClass.Update) {
+  fun validate(update: Update) {
     val entity = update.entity
     when (entity.entityCase) {
-      P4RuntimeOuterClass.Entity.EntityCase.TABLE_ENTRY -> validateTableEntry(update)
-      P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_MEMBER -> validateMember(update)
-      P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_GROUP -> validateGroup(update)
-      P4RuntimeOuterClass.Entity.EntityCase.EXTERN_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.COUNTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.DIRECT_COUNTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.METER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.DIRECT_METER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.REGISTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.VALUE_SET_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.DIGEST_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.ENTITY_NOT_SET,
+      Entity.EntityCase.TABLE_ENTRY -> validateTableEntry(update)
+      Entity.EntityCase.ACTION_PROFILE_MEMBER -> validateMember(update)
+      Entity.EntityCase.ACTION_PROFILE_GROUP -> validateGroup(update)
+      Entity.EntityCase.EXTERN_ENTRY,
+      Entity.EntityCase.COUNTER_ENTRY,
+      Entity.EntityCase.DIRECT_COUNTER_ENTRY,
+      Entity.EntityCase.METER_ENTRY,
+      Entity.EntityCase.DIRECT_METER_ENTRY,
+      Entity.EntityCase.REGISTER_ENTRY,
+      Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
+      Entity.EntityCase.VALUE_SET_ENTRY,
+      Entity.EntityCase.DIGEST_ENTRY,
+      Entity.EntityCase.ENTITY_NOT_SET,
       null -> {}
     }
   }
@@ -83,7 +92,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
   // Table entry validation (§9.1)
   // ---------------------------------------------------------------------------
 
-  private fun validateTableEntry(update: P4RuntimeOuterClass.Update) {
+  private fun validateTableEntry(update: Update) {
     val entry = update.entity.tableEntry
     val tableInfo =
       tableInfoById[entry.tableId]
@@ -108,7 +117,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
     validateMatchFields(entry, tableInfo)
 
     // P4Runtime spec §9.1: DELETE only needs the match key; skip content validation.
-    if (update.type == P4RuntimeOuterClass.Update.Type.DELETE) return
+    if (update.type == Update.Type.DELETE) return
 
     // Idle timeout is not supported — reject rather than silently ignoring.
     if (entry.idleTimeoutNs != 0L) {
@@ -118,16 +127,24 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
     if (entry.hasAction()) {
       val tableAction = entry.action
       when (tableAction.typeCase) {
-        P4RuntimeOuterClass.TableAction.TypeCase.ACTION ->
-          validateAction(tableAction.action, tableInfo)
+        TableAction.TypeCase.ACTION -> validateAction(tableAction.action, tableInfo)
         // P4Runtime spec §9.2.3: validate each action in a one-shot action set.
-        P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_ACTION_SET ->
+        TableAction.TypeCase.ACTION_PROFILE_ACTION_SET -> {
+          // TODO: support group actions (P4Runtime v1.6.0). Until then, reject
+          // rather than silently dropping the group action on the floor.
+          if (tableAction.actionProfileActionSet.hasGroupAction()) {
+            throw unimplemented(
+              "group_action in ActionProfileActionSet is not supported " +
+                "(table '${tableInfo.tableName}')"
+            )
+          }
           for (profileAction in tableAction.actionProfileActionSet.actionProfileActionsList) {
             validateAction(profileAction.action, tableInfo)
           }
-        P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID,
-        P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_GROUP_ID,
-        P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET,
+        }
+        TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID,
+        TableAction.TypeCase.ACTION_PROFILE_GROUP_ID,
+        TableAction.TypeCase.TYPE_NOT_SET,
         null -> {}
       }
     }
@@ -138,14 +155,10 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
   // Default entry validation (§9.1)
   // ---------------------------------------------------------------------------
 
-  private fun validateDefaultEntry(
-    update: P4RuntimeOuterClass.Update,
-    entry: P4RuntimeOuterClass.TableEntry,
-    tableInfo: P4InfoOuterClass.Table,
-  ) {
+  private fun validateDefaultEntry(update: Update, entry: TableEntry, tableInfo: Table) {
     val name = tableInfo.tableName
     // §9.1: default entries only support MODIFY.
-    if (update.type != P4RuntimeOuterClass.Update.Type.MODIFY) {
+    if (update.type != Update.Type.MODIFY) {
       throw invalidArg("default entry for table '$name' only supports MODIFY, got ${update.type}")
     }
     // §9.1: default entries must not have match fields.
@@ -161,10 +174,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
   // Action validation (§9.1.2)
   // ---------------------------------------------------------------------------
 
-  private fun validateAction(
-    action: P4RuntimeOuterClass.Action,
-    tableInfo: P4InfoOuterClass.Table,
-  ) {
+  private fun validateAction(action: Action, tableInfo: Table) {
     val validRefIds = actionRefIdsByTable[tableInfo.preamble.id] ?: emptySet()
     val validActionDescs =
       validRefIds.mapNotNull { id -> actionInfoById[id]?.let { "'${it.preamble.name}' ($id)" } }
@@ -188,10 +198,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
     validateActionParams(action, actionInfo)
   }
 
-  private fun validateActionParams(
-    action: P4RuntimeOuterClass.Action,
-    actionInfo: P4InfoOuterClass.Action,
-  ) {
+  private fun validateActionParams(action: Action, actionInfo: P4InfoAction) {
     val expected = actionInfo.paramsList
     if (action.paramsCount != expected.size) {
       throw invalidArg(
@@ -219,10 +226,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
   // Match field validation (§9.1.1)
   // ---------------------------------------------------------------------------
 
-  private fun validateMatchFields(
-    entry: P4RuntimeOuterClass.TableEntry,
-    tableInfo: P4InfoOuterClass.Table,
-  ) {
+  private fun validateMatchFields(entry: TableEntry, tableInfo: Table) {
     val expectedFields = tableInfo.matchFieldsList
     if (expectedFields.isEmpty()) return
 
@@ -250,10 +254,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
 
     // EXACT fields must be present; omission is not allowed.
     for (fieldInfo in expectedFields) {
-      if (
-        fieldInfo.matchType == P4InfoOuterClass.MatchField.MatchType.EXACT &&
-          fieldInfo.id !in presentFieldIds
-      ) {
+      if (fieldInfo.matchType == MatchField.MatchType.EXACT && fieldInfo.id !in presentFieldIds) {
         throw invalidArg(
           "missing required exact match field '${fieldInfo.name}' in table '${tableInfo.tableName}'"
         )
@@ -261,24 +262,16 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
     }
   }
 
-  private fun validateMatchKind(
-    fm: P4RuntimeOuterClass.FieldMatch,
-    fieldInfo: P4InfoOuterClass.MatchField,
-  ) {
+  private fun validateMatchKind(fm: FieldMatch, fieldInfo: MatchField) {
     val actual =
       when (fm.fieldMatchTypeCase) {
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT ->
-          P4InfoOuterClass.MatchField.MatchType.EXACT
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY ->
-          P4InfoOuterClass.MatchField.MatchType.TERNARY
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM ->
-          P4InfoOuterClass.MatchField.MatchType.LPM
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE ->
-          P4InfoOuterClass.MatchField.MatchType.RANGE
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL ->
-          P4InfoOuterClass.MatchField.MatchType.OPTIONAL
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
+        FieldMatch.FieldMatchTypeCase.EXACT -> MatchField.MatchType.EXACT
+        FieldMatch.FieldMatchTypeCase.TERNARY -> MatchField.MatchType.TERNARY
+        FieldMatch.FieldMatchTypeCase.LPM -> MatchField.MatchType.LPM
+        FieldMatch.FieldMatchTypeCase.RANGE -> MatchField.MatchType.RANGE
+        FieldMatch.FieldMatchTypeCase.OPTIONAL -> MatchField.MatchType.OPTIONAL
+        FieldMatch.FieldMatchTypeCase.OTHER,
+        FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
         null -> throw invalidArg("match field '${fieldInfo.name}' has no value set")
       }
     if (actual != fieldInfo.matchType) {
@@ -288,22 +281,19 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
     }
   }
 
-  private fun validateMatchWidth(
-    fm: P4RuntimeOuterClass.FieldMatch,
-    fieldInfo: P4InfoOuterClass.MatchField,
-  ) {
+  private fun validateMatchWidth(fm: FieldMatch, fieldInfo: MatchField) {
     val w = fieldInfo.bitwidth
     val f = fieldInfo.name
     when (fm.fieldMatchTypeCase) {
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT ->
+      FieldMatch.FieldMatchTypeCase.EXACT ->
         requireFitsInBitwidth(fm.exact.value, w, "match field '$f' value")
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY -> {
+      FieldMatch.FieldMatchTypeCase.TERNARY -> {
         requireFitsInBitwidth(fm.ternary.value, w, "match field '$f' value")
         requireFitsInBitwidth(fm.ternary.mask, w, "match field '$f' mask")
         // §8.3: bits where mask is 0 must also be 0 in value.
         checkTernaryMaskedBits(fm.ternary.value, fm.ternary.mask, f)
       }
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM -> {
+      FieldMatch.FieldMatchTypeCase.LPM -> {
         requireFitsInBitwidth(fm.lpm.value, w, "match field '$f' value")
         // §9.1.1: prefix_len must be in [0, W].
         if (fm.lpm.prefixLen < 0 || fm.lpm.prefixLen > w) {
@@ -314,16 +304,16 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
         // §8.3: bits beyond prefix_len must be zero.
         checkLpmTrailingBits(fm.lpm.value, fm.lpm.prefixLen, w, f)
       }
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE -> {
+      FieldMatch.FieldMatchTypeCase.RANGE -> {
         requireFitsInBitwidth(fm.range.low, w, "match field '$f' low")
         requireFitsInBitwidth(fm.range.high, w, "match field '$f' high")
         // P4Runtime spec §9.1.1: low must be <= high.
         checkRangeOrder(fm.range.low, fm.range.high, f)
       }
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL ->
+      FieldMatch.FieldMatchTypeCase.OPTIONAL ->
         requireFitsInBitwidth(fm.optional.value, w, "match field '$f' value")
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
+      FieldMatch.FieldMatchTypeCase.OTHER,
+      FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
       null -> {}
     }
   }
@@ -332,10 +322,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
   // Priority validation (§9.1.1)
   // ---------------------------------------------------------------------------
 
-  private fun validatePriority(
-    entry: P4RuntimeOuterClass.TableEntry,
-    tableInfo: P4InfoOuterClass.Table,
-  ) {
+  private fun validatePriority(entry: TableEntry, tableInfo: Table) {
     val hasPriorityFields = tableRequiresPriority[tableInfo.preamble.id] ?: false
     val name = tableInfo.tableName
     if (hasPriorityFields && entry.priority <= 0) {
@@ -352,7 +339,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
   // Action profile member validation (§9.2.1)
   // ---------------------------------------------------------------------------
 
-  private fun validateMember(update: P4RuntimeOuterClass.Update) {
+  private fun validateMember(update: Update) {
     val member = update.entity.actionProfileMember
     val profileId = member.actionProfileId
     val profileInfo =
@@ -367,7 +354,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
         )
 
     // DELETE only needs the key (profile_id + member_id); skip content validation.
-    if (update.type == P4RuntimeOuterClass.Update.Type.DELETE) return
+    if (update.type == Update.Type.DELETE) return
 
     val action = member.action
     val validActionIds = actionRefIdsByProfile[profileId] ?: emptySet()
@@ -396,7 +383,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
   // Action profile group validation (§9.2.2)
   // ---------------------------------------------------------------------------
 
-  private fun validateGroup(update: P4RuntimeOuterClass.Update) {
+  private fun validateGroup(update: Update) {
     val group = update.entity.actionProfileGroup
     val profileId = group.actionProfileId
     if (profileId !in actionProfileInfoById) {
@@ -415,11 +402,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
 
   companion object {
     private val PRIORITY_MATCH_TYPES =
-      setOf(
-        P4InfoOuterClass.MatchField.MatchType.TERNARY,
-        P4InfoOuterClass.MatchField.MatchType.RANGE,
-        P4InfoOuterClass.MatchField.MatchType.OPTIONAL,
-      )
+      setOf(MatchField.MatchType.TERNARY, MatchField.MatchType.RANGE, MatchField.MatchType.OPTIONAL)
 
     /**
      * §8.3: ternary value bits must be zero where the mask is zero.
@@ -468,7 +451,7 @@ class WriteValidator(p4Info: P4InfoOuterClass.P4Info) {
       }
     }
 
-    private val P4InfoOuterClass.Table.tableName: String
+    private val Table.tableName: String
       get() = preamble.alias.ifEmpty { preamble.name }
 
     private const val MAX_LISTED_OPTIONS = 10

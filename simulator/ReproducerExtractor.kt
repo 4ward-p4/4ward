@@ -2,9 +2,9 @@ package fourward.simulator
 
 import fourward.TraceEvent
 import fourward.TraceTree
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
+import org.p4.v1.Entity
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 /**
  * Extracts the minimal set of P4Runtime entities needed to reproduce a trace.
@@ -125,12 +125,12 @@ private fun collectActionProfileEntities(
   val profileId = tableStore.actionProfileIdForTable(entry.tableId) ?: return
   val tableAction = entry.action
   when (tableAction.typeCase) {
-    p4.v1.P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID -> {
+    org.p4.v1.TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID -> {
       snapshot.profileMembers[profileId]?.get(tableAction.actionProfileMemberId)?.let { member ->
         out += Entity.newBuilder().setActionProfileMember(member).build()
       }
     }
-    p4.v1.P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_GROUP_ID -> {
+    org.p4.v1.TableAction.TypeCase.ACTION_PROFILE_GROUP_ID -> {
       snapshot.profileGroups[profileId]?.get(tableAction.actionProfileGroupId)?.let { group ->
         out += Entity.newBuilder().setActionProfileGroup(group).build()
         for (memberRef in group.membersList) {
@@ -140,9 +140,9 @@ private fun collectActionProfileEntities(
         }
       }
     }
-    p4.v1.P4RuntimeOuterClass.TableAction.TypeCase.ACTION,
-    p4.v1.P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_ACTION_SET,
-    p4.v1.P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET,
+    org.p4.v1.TableAction.TypeCase.ACTION,
+    org.p4.v1.TableAction.TypeCase.ACTION_PROFILE_ACTION_SET,
+    org.p4.v1.TableAction.TypeCase.TYPE_NOT_SET,
     null -> {}
   }
 }

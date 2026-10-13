@@ -4,7 +4,7 @@ import com.google.protobuf.ByteString
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass.FieldMatch
+import org.p4.v1.FieldMatch
 
 /** Unit tests for [matchesFieldMatch]. */
 class MatchesFieldMatchTest {

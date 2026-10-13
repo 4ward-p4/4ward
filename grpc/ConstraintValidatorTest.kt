@@ -7,8 +7,8 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableEntry
 
 /** Unit tests for [ConstraintValidator] — the p4-constraints subprocess client. */
 class ConstraintValidatorTest {
@@ -88,7 +88,7 @@ class ConstraintValidatorTest {
   // Helpers
   // =========================================================================
 
-  private fun loadP4Info(configPath: String): p4.config.v1.P4InfoOuterClass.P4Info {
+  private fun loadP4Info(configPath: String): org.p4.config.v1.P4Info {
     val path = fourward.bazel.repoRoot.resolve(configPath)
     val builder = PipelineConfig.newBuilder()
     com.google.protobuf.TextFormat.merge(path.toFile().readText(), builder)
@@ -98,7 +98,7 @@ class ConstraintValidatorTest {
   /** Builds a ternary ACL entry for the constrained_table fixture. */
   @Suppress("LongParameterList")
   private fun buildAclEntry(
-    p4info: p4.config.v1.P4InfoOuterClass.P4Info,
+    p4info: org.p4.config.v1.P4Info,
     etherType: Int? = null,
     ipv4Dst: Long? = null,
     port: Int = 1,
@@ -136,12 +136,12 @@ class ConstraintValidatorTest {
     }
 
     entry.setAction(
-      p4.v1.P4RuntimeOuterClass.TableAction.newBuilder()
+      org.p4.v1.TableAction.newBuilder()
         .setAction(
-          p4.v1.P4RuntimeOuterClass.Action.newBuilder()
+          org.p4.v1.Action.newBuilder()
             .setActionId(forwardAction.preamble.id)
             .addParams(
-              p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
+              org.p4.v1.Action.Param.newBuilder()
                 .setParamId(1)
                 .setValue(ByteString.copyFrom(longToBytes(port.toLong(), 2)))
             )

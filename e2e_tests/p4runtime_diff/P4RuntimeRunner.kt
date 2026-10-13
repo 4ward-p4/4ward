@@ -2,7 +2,7 @@ package fourward.e2e.p4runtimediff
 
 import java.io.Closeable
 import java.net.ServerSocket
-import p4.v1.P4RuntimeGrpc
+import org.p4.v1.P4RuntimeGrpc
 
 /**
  * Uniform handle on a P4Runtime gRPC server, used by the differential harness to drive 4ward and

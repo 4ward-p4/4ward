@@ -28,26 +28,32 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import p4.v1.P4RuntimeGrpcKt
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.CapabilitiesRequest
-import p4.v1.P4RuntimeOuterClass.CapabilitiesResponse
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigResponse
-import p4.v1.P4RuntimeOuterClass.MasterArbitrationUpdate
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.ReadResponse
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigResponse
-import p4.v1.P4RuntimeOuterClass.StreamMessageRequest
-import p4.v1.P4RuntimeOuterClass.StreamMessageResponse
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Uint128
-import p4.v1.P4RuntimeOuterClass.Update
-import p4.v1.P4RuntimeOuterClass.WriteRequest
-import p4.v1.P4RuntimeOuterClass.WriteResponse
+import org.p4.v1.CapabilitiesRequest
+import org.p4.v1.CapabilitiesResponse
+import org.p4.v1.DigestListAckError
+import org.p4.v1.Entity
+import org.p4.v1.Error
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.GetForwardingPipelineConfigRequest
+import org.p4.v1.GetForwardingPipelineConfigResponse
+import org.p4.v1.MasterArbitrationUpdate
+import org.p4.v1.P4RuntimeGrpcKt
+import org.p4.v1.PacketOutError
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.ReadRequest
+import org.p4.v1.ReadResponse
+import org.p4.v1.Role
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.SetForwardingPipelineConfigResponse
+import org.p4.v1.StreamError
+import org.p4.v1.StreamMessageRequest
+import org.p4.v1.StreamMessageResponse
+import org.p4.v1.StreamOtherError
+import org.p4.v1.TableEntry
+import org.p4.v1.Uint128
+import org.p4.v1.Update
+import org.p4.v1.WriteRequest
+import org.p4.v1.WriteResponse
 
 /**
  * Compares two [Uint128] values as unsigned 128-bit integers. Returns negative if [a] < [b], zero
@@ -345,8 +351,8 @@ class P4RuntimeService(
    * by p4info alias; only verifies field and action compatibility.
    */
   private fun tablesSchemaCompatible(
-    old: p4.config.v1.P4InfoOuterClass.Table,
-    new: p4.config.v1.P4InfoOuterClass.Table,
+    old: org.p4.config.v1.Table,
+    new: org.p4.config.v1.Table,
   ): Boolean {
     if (old.matchFieldsList.size != new.matchFieldsList.size) return false
     val oldFields = old.matchFieldsList.sortedBy { it.id }
@@ -398,7 +404,7 @@ class P4RuntimeService(
   }
 
   /** Returns the P4Info from the loaded pipeline, or null if no pipeline is loaded. */
-  fun p4Info(): p4.config.v1.P4InfoOuterClass.P4Info? = pipeline?.config?.p4Info
+  fun p4Info(): org.p4.config.v1.P4Info? = pipeline?.config?.p4Info
 
   /**
    * Returns all P4Runtime entities currently installed. Called by [DataplaneService] while holding
@@ -412,9 +418,7 @@ class P4RuntimeService(
       simulator.readEntries(
         listOf(
           Entity.newBuilder()
-            .setPacketReplicationEngineEntry(
-              P4RuntimeOuterClass.PacketReplicationEngineEntry.getDefaultInstance()
-            )
+            .setPacketReplicationEngineEntry(PacketReplicationEngineEntry.getDefaultInstance())
             .build()
         )
       )
@@ -450,15 +454,15 @@ class P4RuntimeService(
   /**
    * CONTINUE_ON_ERROR (P4Runtime spec §12.2): attempt all updates, report per-update status.
    *
-   * Per §12.3: if any update fails, the gRPC status is UNKNOWN with one [P4RuntimeOuterClass.Error]
-   * per update packed into `google.rpc.Status.details`.
+   * Per §12.3: if any update fails, the gRPC status is UNKNOWN with one [Error] per update packed
+   * into `google.rpc.Status.details`.
    */
   private fun writeContinueOnError(
     updates: List<Update>,
     state: PipelineState,
     roleName: String,
   ): WriteResponse {
-    val errors = ArrayList<P4RuntimeOuterClass.Error>(updates.size)
+    val errors = ArrayList<Error>(updates.size)
     var hasError = false
     for (rawUpdate in updates) {
       try {
@@ -515,7 +519,7 @@ class P4RuntimeService(
     updateCount: Int,
     failedIndex: Int,
     cause: StatusException,
-  ): List<P4RuntimeOuterClass.Error> =
+  ): List<Error> =
     List(updateCount) { index ->
       if (index == failedIndex) batchItemError(cause) else abortedBatchItemError(failedIndex)
     }
@@ -584,7 +588,7 @@ class P4RuntimeService(
     // Table entries are assembled by EntityReader (P4Runtime presentation layer);
     // all other entity types are read directly from the simulator.
     val entities = mutableListOf<Entity>()
-    val errors = ArrayList<P4RuntimeOuterClass.Error>(request.entitiesCount)
+    val errors = ArrayList<Error>(request.entitiesCount)
     var hasError = false
     for (entity in request.entitiesList) {
       try {
@@ -673,10 +677,10 @@ class P4RuntimeService(
               send(
                 StreamMessageResponse.newBuilder()
                   .setError(
-                    P4RuntimeOuterClass.StreamError.newBuilder()
+                    StreamError.newBuilder()
                       .setCanonicalCode(Code.UNIMPLEMENTED_VALUE)
                       .setMessage(DIGEST_NOT_SUPPORTED)
-                      .setDigestListAck(P4RuntimeOuterClass.DigestListAckError.getDefaultInstance())
+                      .setDigestListAck(DigestListAckError.getDefaultInstance())
                   )
                   .build()
               )
@@ -687,10 +691,10 @@ class P4RuntimeService(
               send(
                 StreamMessageResponse.newBuilder()
                   .setError(
-                    P4RuntimeOuterClass.StreamError.newBuilder()
+                    StreamError.newBuilder()
                       .setCanonicalCode(Code.INVALID_ARGUMENT_VALUE)
                       .setMessage("unrecognized stream message")
-                      .setOther(P4RuntimeOuterClass.StreamOtherError.getDefaultInstance())
+                      .setOther(StreamOtherError.getDefaultInstance())
                   )
                   .build()
               )
@@ -714,18 +718,16 @@ class P4RuntimeService(
    * Returns a [StreamError] response on failure (P4Runtime spec §16.6), or null on success. A
    * single bad PacketOut must not terminate arbitration or PacketIn delivery on the stream.
    */
-  private suspend fun handlePacketOut(
-    packet: p4.v1.P4RuntimeOuterClass.PacketOut
-  ): StreamMessageResponse? {
+  private suspend fun handlePacketOut(packet: org.p4.v1.PacketOut): StreamMessageResponse? {
     val state = pipeline ?: return null
 
     fun packetOutError(code: Int, message: String?): StreamMessageResponse =
       StreamMessageResponse.newBuilder()
         .setError(
-          P4RuntimeOuterClass.StreamError.newBuilder()
+          StreamError.newBuilder()
             .setCanonicalCode(code)
             .setMessage("PacketOut processing failed: ${message ?: "unknown error"}")
-            .setPacketOut(P4RuntimeOuterClass.PacketOutError.newBuilder().setPacketOut(packet))
+            .setPacketOut(PacketOutError.newBuilder().setPacketOut(packet))
         )
         .build()
 
@@ -789,9 +791,7 @@ class P4RuntimeService(
   }
 
   /** Extracts ingress port from PacketOut metadata, defaulting to port 0. */
-  private fun extractIngressPort(
-    metadata: List<p4.v1.P4RuntimeOuterClass.PacketMetadata>
-  ): DataplanePort {
+  private fun extractIngressPort(metadata: List<org.p4.v1.PacketMetadata>): DataplanePort {
     val portMeta = metadata.find { it.metadataId == INGRESS_PORT_METADATA_ID }
     return DataplanePort.fromProto(portMeta?.value?.toUnsignedInt() ?: 0)
   }
@@ -991,7 +991,7 @@ class P4RuntimeService(
             .setCode(if (isPrimary) Code.OK_VALUE else Code.ALREADY_EXISTS_VALUE)
         )
     if (roleName.isNotEmpty()) {
-      arb.setRole(P4RuntimeOuterClass.Role.newBuilder().setName(roleName))
+      arb.setRole(Role.newBuilder().setName(roleName))
     }
     return StreamMessageResponse.newBuilder().setArbitration(arb).build()
   }
@@ -1022,11 +1022,7 @@ class P4RuntimeService(
    * Wildcard requests (entity ID = 0) are skipped here — results are filtered post-read by
    * [filterByRole] instead.
    */
-  private fun requireEntityAccess(
-    entity: P4RuntimeOuterClass.Entity,
-    roleMap: RoleMap,
-    roleName: String,
-  ) {
+  private fun requireEntityAccess(entity: Entity, roleMap: RoleMap, roleName: String) {
     if (roleName.isEmpty()) return // default role = full access
     val entityId =
       entityIdForRole(entity) ?: return // unknown entity type — let later validation handle it
@@ -1047,10 +1043,10 @@ class P4RuntimeService(
    * Used for wildcard reads where the request entity doesn't specify a particular ID.
    */
   private fun filterByRole(
-    entities: List<P4RuntimeOuterClass.Entity>,
+    entities: List<Entity>,
     roleMap: RoleMap,
     roleName: String,
-  ): List<P4RuntimeOuterClass.Entity> =
+  ): List<Entity> =
     entities.filter { entity ->
       val id = entityIdForRole(entity) ?: return@filter true // unscoped types (counters, etc.)
       roleMap.role(id) == roleName
@@ -1064,48 +1060,44 @@ class P4RuntimeService(
    * associated tables in [RoleMap]). Returns null for entity types that don't have role annotations
    * (standalone counters, meters, registers, PRE entries).
    */
-  private fun entityIdForRole(entity: P4RuntimeOuterClass.Entity): Int? =
+  private fun entityIdForRole(entity: Entity): Int? =
     when (entity.entityCase) {
-      P4RuntimeOuterClass.Entity.EntityCase.TABLE_ENTRY -> entity.tableEntry.tableId
-      P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_MEMBER ->
-        entity.actionProfileMember.actionProfileId
-      P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_GROUP ->
-        entity.actionProfileGroup.actionProfileId
-      P4RuntimeOuterClass.Entity.EntityCase.DIRECT_COUNTER_ENTRY ->
-        entity.directCounterEntry.tableEntry.tableId
-      P4RuntimeOuterClass.Entity.EntityCase.DIRECT_METER_ENTRY ->
-        entity.directMeterEntry.tableEntry.tableId
+      Entity.EntityCase.TABLE_ENTRY -> entity.tableEntry.tableId
+      Entity.EntityCase.ACTION_PROFILE_MEMBER -> entity.actionProfileMember.actionProfileId
+      Entity.EntityCase.ACTION_PROFILE_GROUP -> entity.actionProfileGroup.actionProfileId
+      Entity.EntityCase.DIRECT_COUNTER_ENTRY -> entity.directCounterEntry.tableEntry.tableId
+      Entity.EntityCase.DIRECT_METER_ENTRY -> entity.directMeterEntry.tableEntry.tableId
       // Standalone counters, meters, registers, PRE, and unimplemented types: no role annotations.
-      P4RuntimeOuterClass.Entity.EntityCase.COUNTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.METER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.REGISTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.VALUE_SET_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.DIGEST_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.EXTERN_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.ENTITY_NOT_SET,
+      Entity.EntityCase.COUNTER_ENTRY,
+      Entity.EntityCase.METER_ENTRY,
+      Entity.EntityCase.REGISTER_ENTRY,
+      Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
+      Entity.EntityCase.VALUE_SET_ENTRY,
+      Entity.EntityCase.DIGEST_ENTRY,
+      Entity.EntityCase.EXTERN_ENTRY,
+      Entity.EntityCase.ENTITY_NOT_SET,
       null -> null
     }
 
   /** Rejects entity types that are documented but not implemented. */
-  private fun rejectUnsupportedEntity(entity: P4RuntimeOuterClass.Entity) {
+  private fun rejectUnsupportedEntity(entity: Entity) {
     when (entity.entityCase) {
-      P4RuntimeOuterClass.Entity.EntityCase.DIGEST_ENTRY ->
+      Entity.EntityCase.DIGEST_ENTRY ->
         throw Status.UNIMPLEMENTED.withDescription(DIGEST_NOT_SUPPORTED).asException()
-      P4RuntimeOuterClass.Entity.EntityCase.EXTERN_ENTRY ->
+      Entity.EntityCase.EXTERN_ENTRY ->
         throw Status.UNIMPLEMENTED.withDescription(EXTERN_ENTRY_NOT_SUPPORTED).asException()
       // All other entity types are handled via the normal write/read path.
-      P4RuntimeOuterClass.Entity.EntityCase.TABLE_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_MEMBER,
-      P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_GROUP,
-      P4RuntimeOuterClass.Entity.EntityCase.COUNTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.DIRECT_COUNTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.METER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.DIRECT_METER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.REGISTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.VALUE_SET_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.ENTITY_NOT_SET,
+      Entity.EntityCase.TABLE_ENTRY,
+      Entity.EntityCase.ACTION_PROFILE_MEMBER,
+      Entity.EntityCase.ACTION_PROFILE_GROUP,
+      Entity.EntityCase.COUNTER_ENTRY,
+      Entity.EntityCase.DIRECT_COUNTER_ENTRY,
+      Entity.EntityCase.METER_ENTRY,
+      Entity.EntityCase.DIRECT_METER_ENTRY,
+      Entity.EntityCase.REGISTER_ENTRY,
+      Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
+      Entity.EntityCase.VALUE_SET_ENTRY,
+      Entity.EntityCase.ENTITY_NOT_SET,
       null -> {}
     }
   }
@@ -1115,13 +1107,13 @@ class P4RuntimeService(
   // ---------------------------------------------------------------------------
 
   /**
-   * Builds a gRPC UNKNOWN error with one [P4RuntimeOuterClass.Error] detail per batch item.
+   * Builds a gRPC UNKNOWN error with one [Error] detail per batch item.
    *
    * The `google.rpc.Status` is attached via the standard `grpc-status-details-bin` trailer so
    * clients can extract per-item results (P4Runtime spec §10, §12.3, §13.3).
    */
   private fun buildBatchError(
-    errors: List<P4RuntimeOuterClass.Error>,
+    errors: List<Error>,
     itemName: String,
     itemNamePlural: String,
   ): StatusException {
@@ -1143,16 +1135,16 @@ class P4RuntimeService(
     return Status.UNKNOWN.withDescription(message).asException(metadata)
   }
 
-  private fun batchItemError(e: StatusException): P4RuntimeOuterClass.Error =
-    P4RuntimeOuterClass.Error.newBuilder()
+  private fun batchItemError(e: StatusException): Error =
+    Error.newBuilder()
       .setCanonicalCode(e.status.code.value())
       .setMessage(e.status.description ?: "")
       .setSpace(P4RT_ERROR_SPACE)
       .setCode(e.status.code.value())
       .build()
 
-  private fun abortedBatchItemError(failedIndex: Int): P4RuntimeOuterClass.Error =
-    P4RuntimeOuterClass.Error.newBuilder()
+  private fun abortedBatchItemError(failedIndex: Int): Error =
+    Error.newBuilder()
       .setCanonicalCode(Code.ABORTED_VALUE)
       .setMessage("batch rolled back because update #${failedIndex + 1} failed")
       .setSpace(P4RT_ERROR_SPACE)
@@ -1208,7 +1200,7 @@ class P4RuntimeService(
     private const val INGRESS_PORT_METADATA_ID = 1
 
     // Matches the p4runtime proto version declared in MODULE.bazel.
-    internal const val P4RUNTIME_API_VERSION = "1.5.0"
+    internal const val P4RUNTIME_API_VERSION = "1.6.0"
 
     private const val NO_PIPELINE_MESSAGE =
       "no pipeline loaded; call SetForwardingPipelineConfig first"
@@ -1223,8 +1215,7 @@ class P4RuntimeService(
 
     private const val OK_CODE = Code.OK_VALUE
 
-    private val OK_BATCH_ITEM_ERROR =
-      P4RuntimeOuterClass.Error.newBuilder().setCanonicalCode(OK_CODE).build()
+    private val OK_BATCH_ITEM_ERROR = Error.newBuilder().setCanonicalCode(OK_CODE).build()
 
     // P4Runtime spec §12.3: the error space for P4Runtime-specific errors.
     private const val P4RT_ERROR_SPACE = "p4.v1"

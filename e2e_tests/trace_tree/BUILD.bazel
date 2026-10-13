@@ -108,7 +108,7 @@ kt_jvm_test(
         "-Dfourward.trace_tree_goldens=" + ",".join(sorted(_PASSING)),
     ],
     test_class = "fourward.e2e.tracetree.GoldenTraceTreeTest",
-    deps = _TEST_DEPS + ["//simulator:p4info_java_proto"],
+    deps = _TEST_DEPS + ["@p4runtime//proto/p4/config/v1:p4info_java_proto"],
 )
 
 kt_jvm_test(
@@ -120,5 +120,5 @@ kt_jvm_test(
         "-Dfourward.trace_tree_programs=" + ",".join(sorted(_P4_PROGRAMS)),
     ],
     test_class = "fourward.e2e.tracetree.TraceTreeConsistencyTest",
-    deps = _TEST_DEPS + ["//simulator:p4info_java_proto"],
+    deps = _TEST_DEPS + ["@p4runtime//proto/p4/config/v1:p4info_java_proto"],
 )

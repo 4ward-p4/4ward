@@ -25,12 +25,26 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileAction
+import org.p4.v1.ActionProfileActionSet
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketIn
+import org.p4.v1.PacketMetadata
+import org.p4.v1.PacketOut
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.Replica
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.StreamMessageRequest
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
 
 /**
  * End-to-end test of the P4Runtime server with SAI P4 (middleblock).
@@ -941,7 +955,7 @@ class SaiP4E2ETest {
         .removeMetadata(0)
         .addMetadata(
           0,
-          P4RuntimeOuterClass.PacketMetadata.newBuilder()
+          PacketMetadata.newBuilder()
             .setMetadataId(egressPortId)
             .setValue(ByteString.copyFromUtf8("Ethernet999"))
             .build(),
@@ -956,7 +970,7 @@ class SaiP4E2ETest {
       assertEquals(com.google.rpc.Code.INVALID_ARGUMENT_VALUE, response.error.canonicalCode)
       assertTrue("details should use packet_out oneof", response.error.hasPacketOut())
 
-      val stillOpen = session.sendRaw(P4RuntimeOuterClass.StreamMessageRequest.getDefaultInstance())
+      val stillOpen = session.sendRaw(StreamMessageRequest.getDefaultInstance())
       assertNotNull("stream should remain usable after PacketOut StreamError", stillOpen)
       assertTrue("follow-up response should be StreamError", stillOpen!!.hasError())
       assertEquals(com.google.rpc.Code.INVALID_ARGUMENT_VALUE, stillOpen.error.canonicalCode)
@@ -1954,50 +1968,36 @@ class SaiP4E2ETest {
 
   private fun findAction(alias: String) = FourwardTestHarness.findAction(config, alias)
 
-  private fun matchFieldId(table: P4InfoOuterClass.Table, name: String) =
+  private fun matchFieldId(table: Table, name: String) =
     FourwardTestHarness.matchFieldId(table, name)
 
-  private fun paramId(action: P4InfoOuterClass.Action, name: String) =
+  private fun paramId(action: P4InfoAction, name: String) =
     FourwardTestHarness.paramId(action, name)
 
   // =========================================================================
   // Match field and action param builders
   // =========================================================================
 
-  private fun exactMatch(
-    table: P4InfoOuterClass.Table,
-    fieldName: String,
-    value: ByteArray,
-  ): FieldMatch =
+  private fun exactMatch(table: Table, fieldName: String, value: ByteArray): FieldMatch =
     FieldMatch.newBuilder()
       .setFieldId(matchFieldId(table, fieldName))
       .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(value)))
       .build()
 
-  private fun exactMatch(
-    table: P4InfoOuterClass.Table,
-    fieldName: String,
-    value: String,
-  ): FieldMatch = exactMatch(table, fieldName, value.toByteArray(Charsets.UTF_8))
+  private fun exactMatch(table: Table, fieldName: String, value: String): FieldMatch =
+    exactMatch(table, fieldName, value.toByteArray(Charsets.UTF_8))
 
-  private fun optionalMatch(
-    table: P4InfoOuterClass.Table,
-    fieldName: String,
-    value: ByteArray,
-  ): FieldMatch =
+  private fun optionalMatch(table: Table, fieldName: String, value: ByteArray): FieldMatch =
     FieldMatch.newBuilder()
       .setFieldId(matchFieldId(table, fieldName))
       .setOptional(FieldMatch.Optional.newBuilder().setValue(ByteString.copyFrom(value)))
       .build()
 
-  private fun optionalMatch(
-    table: P4InfoOuterClass.Table,
-    fieldName: String,
-    value: String,
-  ): FieldMatch = optionalMatch(table, fieldName, value.toByteArray(Charsets.UTF_8))
+  private fun optionalMatch(table: Table, fieldName: String, value: String): FieldMatch =
+    optionalMatch(table, fieldName, value.toByteArray(Charsets.UTF_8))
 
   private fun ternaryMatch(
-    table: P4InfoOuterClass.Table,
+    table: Table,
     fieldName: String,
     value: ByteArray,
     mask: ByteArray,
@@ -2012,7 +2012,7 @@ class SaiP4E2ETest {
       .build()
 
   private fun lpmMatch(
-    table: P4InfoOuterClass.Table,
+    table: Table,
     fieldName: String,
     value: ByteArray,
     prefixLen: Int,
@@ -2025,21 +2025,21 @@ class SaiP4E2ETest {
       .build()
 
   private fun stringParam(
-    action: P4InfoOuterClass.Action,
+    action: P4InfoAction,
     paramName: String,
     value: String,
-  ): p4.v1.P4RuntimeOuterClass.Action.Param =
-    p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
+  ): org.p4.v1.Action.Param =
+    org.p4.v1.Action.Param.newBuilder()
       .setParamId(paramId(action, paramName))
       .setValue(ByteString.copyFromUtf8(value))
       .build()
 
   private fun bytesParam(
-    action: P4InfoOuterClass.Action,
+    action: P4InfoAction,
     paramName: String,
     value: ByteArray,
-  ): p4.v1.P4RuntimeOuterClass.Action.Param =
-    p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
+  ): org.p4.v1.Action.Param =
+    org.p4.v1.Action.Param.newBuilder()
       .setParamId(paramId(action, paramName))
       .setValue(ByteString.copyFrom(value))
       .build()
@@ -2050,10 +2050,10 @@ class SaiP4E2ETest {
 
   /** Builds a table entry with the given matches, action params, and optional priority. */
   private fun buildEntry(
-    table: P4InfoOuterClass.Table,
-    action: P4InfoOuterClass.Action,
+    table: Table,
+    action: P4InfoAction,
     matches: List<FieldMatch>,
-    params: List<p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
+    params: List<org.p4.v1.Action.Param> = emptyList(),
     priority: Int = 0,
   ): Entity {
     val entry =
@@ -2061,11 +2061,9 @@ class SaiP4E2ETest {
         .setTableId(table.preamble.id)
         .addAllMatch(matches)
         .setAction(
-          p4.v1.P4RuntimeOuterClass.TableAction.newBuilder()
+          org.p4.v1.TableAction.newBuilder()
             .setAction(
-              p4.v1.P4RuntimeOuterClass.Action.newBuilder()
-                .setActionId(action.preamble.id)
-                .addAllParams(params)
+              org.p4.v1.Action.newBuilder().setActionId(action.preamble.id).addAllParams(params)
             )
         )
     if (priority > 0) entry.setPriority(priority)
@@ -2228,29 +2226,29 @@ class SaiP4E2ETest {
 
   /** Builds a PacketOut with SAI P4 metadata for CPU-port injection. */
   @Suppress("MagicNumber")
-  private fun buildCpuPacketOut(submitToIngress: Boolean): P4RuntimeOuterClass.PacketOut {
+  private fun buildCpuPacketOut(submitToIngress: Boolean): PacketOut {
     val packetOutMeta =
       config.p4Info.controllerPacketMetadataList.find { it.preamble.name == "packet_out" }!!
     val egressPortId = packetOutMeta.metadataList.find { it.name == "egress_port" }!!.id
     val submitToIngressId = packetOutMeta.metadataList.find { it.name == "submit_to_ingress" }!!.id
     val unusedPadId = packetOutMeta.metadataList.find { it.name == "unused_pad" }!!.id
 
-    return P4RuntimeOuterClass.PacketOut.newBuilder()
+    return PacketOut.newBuilder()
       .setPayload(
         ByteString.copyFrom(buildIpv4Packet(dstMac = UNICAST_MAC, srcMac = SRC_MAC, ttl = 64))
       )
       .addMetadata(
-        P4RuntimeOuterClass.PacketMetadata.newBuilder()
+        PacketMetadata.newBuilder()
           .setMetadataId(egressPortId)
           .setValue(ByteString.copyFromUtf8("Ethernet1"))
       )
       .addMetadata(
-        P4RuntimeOuterClass.PacketMetadata.newBuilder()
+        PacketMetadata.newBuilder()
           .setMetadataId(submitToIngressId)
           .setValue(ByteString.copyFrom(byteArrayOf(if (submitToIngress) 1 else 0)))
       )
       .addMetadata(
-        P4RuntimeOuterClass.PacketMetadata.newBuilder()
+        PacketMetadata.newBuilder()
           .setMetadataId(unusedPadId)
           .setValue(ByteString.copyFrom(byteArrayOf(0)))
       )
@@ -2268,7 +2266,7 @@ class SaiP4E2ETest {
 
   /** Installs an ACL ingress entry matching dst_ip=10.0.0.1 with the given action. */
   @Suppress("MagicNumber")
-  private fun installAclEntry(action: P4InfoOuterClass.Action) {
+  private fun installAclEntry(action: P4InfoAction) {
     val aclTable = findTable("acl_ingress_table")
     harness.installEntry(
       buildEntry(
@@ -2339,18 +2337,16 @@ class SaiP4E2ETest {
   @Suppress("MagicNumber", "SameParameterValue")
   private fun installCloneSession(sessionId: Int, p4rtPort: String, instance: Int = 1) {
     val entry =
-      P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
+      CloneSessionEntry.newBuilder()
         .setSessionId(sessionId)
         .addReplicas(
-          P4RuntimeOuterClass.Replica.newBuilder()
-            .setPort(ByteString.copyFromUtf8(p4rtPort))
-            .setInstance(instance)
+          Replica.newBuilder().setPort(ByteString.copyFromUtf8(p4rtPort)).setInstance(instance)
         )
         .build()
     harness.installEntry(
       Entity.newBuilder()
         .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().setCloneSessionEntry(entry)
+          PacketReplicationEngineEntry.newBuilder().setCloneSessionEntry(entry)
         )
         .build()
     )
@@ -2364,16 +2360,14 @@ class SaiP4E2ETest {
   @Suppress("MagicNumber", "SameParameterValue", "DEPRECATION")
   private fun installCloneSessionDeprecated(sessionId: Int, egressPort: Int) {
     val entry =
-      P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
+      CloneSessionEntry.newBuilder()
         .setSessionId(sessionId)
-        .addReplicas(
-          P4RuntimeOuterClass.Replica.newBuilder().setEgressPort(egressPort).setInstance(1)
-        )
+        .addReplicas(Replica.newBuilder().setEgressPort(egressPort).setInstance(1))
         .build()
     harness.installEntry(
       Entity.newBuilder()
         .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().setCloneSessionEntry(entry)
+          PacketReplicationEngineEntry.newBuilder().setCloneSessionEntry(entry)
         )
         .build()
     )
@@ -2383,22 +2377,18 @@ class SaiP4E2ETest {
   @Suppress("MagicNumber")
   private fun installMulticastGroup(groupId: Int, p4rtPorts: List<String>) {
     val entry =
-      P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+      MulticastGroupEntry.newBuilder()
         .setMulticastGroupId(groupId)
         .addAllReplicas(
           p4rtPorts.mapIndexed { idx, port ->
-            P4RuntimeOuterClass.Replica.newBuilder()
-              .setPort(ByteString.copyFromUtf8(port))
-              .setInstance(idx)
-              .build()
+            Replica.newBuilder().setPort(ByteString.copyFromUtf8(port)).setInstance(idx).build()
           }
         )
         .build()
     val preEntity =
       Entity.newBuilder()
         .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
-            .setMulticastGroupEntry(entry)
+          PacketReplicationEngineEntry.newBuilder().setMulticastGroupEntry(entry)
         )
         .build()
     harness.installEntry(preEntity)
@@ -2408,16 +2398,16 @@ class SaiP4E2ETest {
   private fun buildActionProfileMember(
     actionProfileId: Int,
     memberId: Int,
-    action: P4InfoOuterClass.Action,
+    action: P4InfoAction,
     nexthopId: String,
   ): Entity =
     Entity.newBuilder()
       .setActionProfileMember(
-        P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+        ActionProfileMember.newBuilder()
           .setActionProfileId(actionProfileId)
           .setMemberId(memberId)
           .setAction(
-            P4RuntimeOuterClass.Action.newBuilder()
+            Action.newBuilder()
               .setActionId(action.preamble.id)
               .addParams(stringParam(action, "nexthop_id", nexthopId))
           )
@@ -2432,15 +2422,12 @@ class SaiP4E2ETest {
   ): Entity =
     Entity.newBuilder()
       .setActionProfileGroup(
-        P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
+        ActionProfileGroup.newBuilder()
           .setActionProfileId(actionProfileId)
           .setGroupId(groupId)
           .addAllMembers(
             memberIds.map { mid ->
-              P4RuntimeOuterClass.ActionProfileGroup.Member.newBuilder()
-                .setMemberId(mid)
-                .setWeight(1)
-                .build()
+              ActionProfileGroup.Member.newBuilder().setMemberId(mid).setWeight(1).build()
             }
           )
       )
@@ -2455,14 +2442,14 @@ class SaiP4E2ETest {
           .setTableId(wcmpTable.preamble.id)
           .addMatch(exactMatch(wcmpTable, "wcmp_group_id", groupId))
           .setAction(
-            P4RuntimeOuterClass.TableAction.newBuilder()
+            TableAction.newBuilder()
               .setActionProfileActionSet(
-                P4RuntimeOuterClass.ActionProfileActionSet.newBuilder().also { set ->
+                ActionProfileActionSet.newBuilder().also { set ->
                   for (nhop in nexthopIds) {
                     set.addActionProfileActions(
-                      P4RuntimeOuterClass.ActionProfileAction.newBuilder()
+                      ActionProfileAction.newBuilder()
                         .setAction(
-                          P4RuntimeOuterClass.Action.newBuilder()
+                          Action.newBuilder()
                             .setActionId(setNexthop.preamble.id)
                             .addParams(stringParam(setNexthop, "nexthop_id", nhop))
                         )
@@ -2483,9 +2470,7 @@ class SaiP4E2ETest {
         TableEntry.newBuilder()
           .setTableId(table.preamble.id)
           .addMatch(exactMatch(table, "wcmp_group_id", wcmpGroupId))
-          .setAction(
-            p4.v1.P4RuntimeOuterClass.TableAction.newBuilder().setActionProfileGroupId(groupId)
-          )
+          .setAction(org.p4.v1.TableAction.newBuilder().setActionProfileGroupId(groupId))
       )
       .build()
   }
@@ -2506,7 +2491,7 @@ class SaiP4E2ETest {
   }
 
   /** Returns the P4RT (string) value of the named `packet_in` metadata field. */
-  private fun packetInMetaValue(packetIn: P4RuntimeOuterClass.PacketIn, name: String): String =
+  private fun packetInMetaValue(packetIn: PacketIn, name: String): String =
     packetIn.metadataList
       .first { findPacketInMetadataName(it.metadataId) == name }
       .value

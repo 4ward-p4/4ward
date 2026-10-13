@@ -6,9 +6,10 @@ import fourward.Expr
 import fourward.Expr.KindCase as ExprKind
 import fourward.Stmt
 import fourward.Stmt.KindCase as StmtKind
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
 
 internal data class DirectResourceActions(
   val counterActionsByTable: Map<String, Set<String>>,
@@ -62,7 +63,7 @@ internal fun validateInlineDirectResourceActions(
 }
 
 private fun selectedActionNames(
-  tableAction: P4RuntimeOuterClass.TableAction,
+  tableAction: TableAction,
   tableName: String,
   context: DirectResourceActionValidationContext,
 ): List<String> {
@@ -73,13 +74,12 @@ private fun selectedActionNames(
 
   val profileId = context.tableActionProfile[tableName]
   return when (tableAction.typeCase) {
-    P4RuntimeOuterClass.TableAction.TypeCase.ACTION ->
-      listOfNotNull(resolve(tableAction.action.actionId))
-    P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID ->
+    TableAction.TypeCase.ACTION -> listOfNotNull(resolve(tableAction.action.actionId))
+    TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID ->
       profileId
         ?.let { context.writeState.profileMembers[it]?.get(tableAction.actionProfileMemberId) }
         ?.let { listOfNotNull(resolve(it.action.actionId)) } ?: emptyList()
-    P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_GROUP_ID -> {
+    TableAction.TypeCase.ACTION_PROFILE_GROUP_ID -> {
       val members =
         profileId
           ?.let { context.writeState.profileGroups[it]?.get(tableAction.actionProfileGroupId) }
@@ -90,18 +90,18 @@ private fun selectedActionNames(
         }
       }
     }
-    P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_ACTION_SET ->
+    TableAction.TypeCase.ACTION_PROFILE_ACTION_SET ->
       tableAction.actionProfileActionSet.actionProfileActionsList.mapNotNull {
         resolve(it.action.actionId)
       }
-    P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET,
+    TableAction.TypeCase.TYPE_NOT_SET,
     null -> emptyList()
   }
 }
 
 internal fun deriveDirectResourceActions(
   behavioral: BehavioralConfig,
-  p4info: P4InfoOuterClass.P4Info,
+  p4info: P4Info,
   tableNameById: Map<Int, String>,
   actionNameById: Map<Int, String>,
   tableActionOverrides: Map<String, Map<String, String>>,
@@ -123,7 +123,7 @@ internal fun deriveDirectResourceActions(
 }
 
 private fun deriveV1ModelDirectResourceActions(
-  p4info: P4InfoOuterClass.P4Info,
+  p4info: P4Info,
   tableNameById: Map<Int, String>,
   actionNameById: Map<Int, String>,
   tableActionOverrides: Map<String, Map<String, String>>,
@@ -152,7 +152,7 @@ private fun deriveV1ModelDirectResourceActions(
 
 private fun deriveExplicitDirectResourceActions(
   behavioral: BehavioralConfig,
-  p4info: P4InfoOuterClass.P4Info,
+  p4info: P4Info,
   tableNameById: Map<Int, String>,
   actions: List<ActionDecl>,
 ): DirectResourceActions {
@@ -163,7 +163,7 @@ private fun deriveExplicitDirectResourceActions(
     behavioral.controlsList.flatMap { it.externInstancesList }.groupBy({ it.typeName }, { it.name })
 
   fun deriveForResource(
-    p4infoEntries: List<Pair<P4InfoOuterClass.Preamble, Int>>,
+    p4infoEntries: List<Pair<Preamble, Int>>,
     externType: String,
     method: String,
   ): Map<String, Set<String>> {
@@ -210,7 +210,7 @@ private fun ActionDecl.p4RuntimeNames(): List<String> =
 // match any simple normalization of the p4info name ("ctrl_ctrl_counter").
 // Including matching IR instance names closes the gap.
 private fun directResourceInstanceNames(
-  preamble: P4InfoOuterClass.Preamble,
+  preamble: Preamble,
   irInstanceNames: List<String>?,
 ): Set<String> = buildSet {
   val p4infoNames = buildSet {

@@ -4,13 +4,13 @@ import com.google.protobuf.ByteString
 import com.google.protobuf.Message
 import com.google.protobuf.TextFormat
 import fourward.grpc.canonicalizeTableEntry as canonicalizeTableEntryBytestrings
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.MulticastGroupEntry
-import p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry
-import p4.v1.P4RuntimeOuterClass.ReadResponse
-import p4.v1.P4RuntimeOuterClass.Replica
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.ReadResponse
+import org.p4.v1.Replica
+import org.p4.v1.TableEntry
 
 /**
  * Canonicalize-then-compare logic for P4Runtime responses, per `designs/p4runtime_diff.md`

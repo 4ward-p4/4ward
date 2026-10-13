@@ -4,7 +4,7 @@ import fourward.grpc.FourwardTestHarness.Companion.uint128
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass.Uint128
+import org.p4.v1.Uint128
 
 /** Unit tests for [P4RuntimeService] helpers. */
 class P4RuntimeServiceTest {

@@ -11,9 +11,9 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableEntry
 
 /**
  * Tests for p4-constraints validation in the P4Runtime Write RPC.
@@ -88,12 +88,12 @@ class P4RuntimeConstraintTest {
     }
 
     tableEntry.setAction(
-      p4.v1.P4RuntimeOuterClass.TableAction.newBuilder()
+      org.p4.v1.TableAction.newBuilder()
         .setAction(
-          p4.v1.P4RuntimeOuterClass.Action.newBuilder()
+          org.p4.v1.Action.newBuilder()
             .setActionId(forwardActionId())
             .addParams(
-              p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
+              org.p4.v1.Action.Param.newBuilder()
                 .setParamId(1)
                 .setValue(ByteString.copyFrom(longToBytes(port.toLong(), 2)))
             )

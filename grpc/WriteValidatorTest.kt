@@ -6,8 +6,23 @@ import io.grpc.StatusException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.ActionProfile
+import org.p4.config.v1.ActionRef
+import org.p4.config.v1.MatchField
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileAction
+import org.p4.v1.ActionProfileActionSet
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 /**
  * Unit tests for [WriteValidator].
@@ -34,7 +49,7 @@ class WriteValidatorTest {
     val v = validator()
     v.validate(
       tableUpdate(
-        P4RuntimeOuterClass.Update.Type.DELETE,
+        Update.Type.DELETE,
         EXACT_TABLE_ID,
         listOf(exactMatch(MATCH_FIELD_ID, bytes(2))),
         action(actionId = 99999),
@@ -441,7 +456,7 @@ class WriteValidatorTest {
       assertThrows(StatusException::class.java) {
         v.validate(
           tableUpdate(
-            P4RuntimeOuterClass.Update.Type.MODIFY,
+            Update.Type.MODIFY,
             CONST_TABLE_ID,
             listOf(exactMatch(CONST_FIELD_ID, bytes(2))),
             action(),
@@ -459,7 +474,7 @@ class WriteValidatorTest {
       assertThrows(StatusException::class.java) {
         v.validate(
           tableUpdate(
-            P4RuntimeOuterClass.Update.Type.DELETE,
+            Update.Type.DELETE,
             CONST_TABLE_ID,
             listOf(exactMatch(CONST_FIELD_ID, bytes(2))),
             action(),
@@ -478,12 +493,7 @@ class WriteValidatorTest {
   fun `default entry MODIFY without match fields passes`() {
     val v = validator()
     v.validate(
-      tableUpdate(
-        P4RuntimeOuterClass.Update.Type.MODIFY,
-        EXACT_TABLE_ID,
-        action = action(),
-        isDefaultAction = true,
-      )
+      tableUpdate(Update.Type.MODIFY, EXACT_TABLE_ID, action = action(), isDefaultAction = true)
     )
   }
 
@@ -493,12 +503,7 @@ class WriteValidatorTest {
     val e =
       assertThrows(StatusException::class.java) {
         v.validate(
-          tableUpdate(
-            P4RuntimeOuterClass.Update.Type.INSERT,
-            EXACT_TABLE_ID,
-            action = action(),
-            isDefaultAction = true,
-          )
+          tableUpdate(Update.Type.INSERT, EXACT_TABLE_ID, action = action(), isDefaultAction = true)
         )
       }
     assertEquals(Status.Code.INVALID_ARGUMENT, e.status.code)
@@ -510,13 +515,7 @@ class WriteValidatorTest {
     val v = validator()
     val e =
       assertThrows(StatusException::class.java) {
-        v.validate(
-          tableUpdate(
-            P4RuntimeOuterClass.Update.Type.DELETE,
-            EXACT_TABLE_ID,
-            isDefaultAction = true,
-          )
-        )
+        v.validate(tableUpdate(Update.Type.DELETE, EXACT_TABLE_ID, isDefaultAction = true))
       }
     assertEquals(Status.Code.INVALID_ARGUMENT, e.status.code)
     assert(e.status.description!!.contains("MODIFY"))
@@ -529,7 +528,7 @@ class WriteValidatorTest {
       assertThrows(StatusException::class.java) {
         v.validate(
           tableUpdate(
-            P4RuntimeOuterClass.Update.Type.MODIFY,
+            Update.Type.MODIFY,
             EXACT_TABLE_ID,
             listOf(exactMatch(MATCH_FIELD_ID, bytes(2))),
             action(),
@@ -577,6 +576,23 @@ class WriteValidatorTest {
         )
       }
     assertEquals(Status.Code.INVALID_ARGUMENT, e.status.code)
+  }
+
+  @Test
+  fun `one-shot with group_action returns UNIMPLEMENTED`() {
+    val v = validator()
+    val base = oneShotUpdate(EXACT_TABLE_ID, exactMatch(MATCH_FIELD_ID, bytes(2)), action())
+    val update =
+      base
+        .toBuilder()
+        .apply {
+          entityBuilder.tableEntryBuilder.actionBuilder.actionProfileActionSetBuilder
+            .setGroupAction(action())
+        }
+        .build()
+    val e = assertThrows(StatusException::class.java) { v.validate(update) }
+    assertEquals(Status.Code.UNIMPLEMENTED, e.status.code)
+    assert(e.status.description!!.contains("group_action"))
   }
 
   // =========================================================================
@@ -762,14 +778,14 @@ class WriteValidatorTest {
   @Test
   fun `valid member insert passes validation`() {
     val v = validator()
-    v.validate(memberUpdate(P4RuntimeOuterClass.Update.Type.INSERT, action()))
+    v.validate(memberUpdate(Update.Type.INSERT, action()))
   }
 
   @Test
   fun `member delete skips content validation`() {
     val v = validator()
     // DELETE with a bogus action — should pass because DELETE only needs the key.
-    v.validate(memberUpdate(P4RuntimeOuterClass.Update.Type.DELETE, action(actionId = 99999)))
+    v.validate(memberUpdate(Update.Type.DELETE, action(actionId = 99999)))
   }
 
   @Test
@@ -778,7 +794,7 @@ class WriteValidatorTest {
     // MODIFY should validate action just like INSERT.
     val e =
       assertThrows(StatusException::class.java) {
-        v.validate(memberUpdate(P4RuntimeOuterClass.Update.Type.MODIFY, action(actionId = 99)))
+        v.validate(memberUpdate(Update.Type.MODIFY, action(actionId = 99)))
       }
     assertEquals(Status.Code.INVALID_ARGUMENT, e.status.code)
     assert(e.status.description!!.contains("unknown action ID"))
@@ -789,7 +805,7 @@ class WriteValidatorTest {
     val v = validator()
     val e =
       assertThrows(StatusException::class.java) {
-        v.validate(memberUpdate(P4RuntimeOuterClass.Update.Type.INSERT, action(), profileId = 99))
+        v.validate(memberUpdate(Update.Type.INSERT, action(), profileId = 99))
       }
     assertEquals(Status.Code.NOT_FOUND, e.status.code)
     assert(e.status.description!!.contains("action_profile_id"))
@@ -800,7 +816,7 @@ class WriteValidatorTest {
     val v = validator()
     val e =
       assertThrows(StatusException::class.java) {
-        v.validate(memberUpdate(P4RuntimeOuterClass.Update.Type.INSERT, action(actionId = 99)))
+        v.validate(memberUpdate(Update.Type.INSERT, action(actionId = 99)))
       }
     assertEquals(Status.Code.INVALID_ARGUMENT, e.status.code)
     assert(e.status.description!!.contains("unknown action ID"))
@@ -815,7 +831,7 @@ class WriteValidatorTest {
       assertThrows(StatusException::class.java) {
         v.validate(
           memberUpdate(
-            P4RuntimeOuterClass.Update.Type.INSERT,
+            Update.Type.INSERT,
             action(actionId = TERNARY_ACTION_ID, params = emptyList()),
           )
         )
@@ -829,9 +845,7 @@ class WriteValidatorTest {
     val v = validator()
     val e =
       assertThrows(StatusException::class.java) {
-        v.validate(
-          memberUpdate(P4RuntimeOuterClass.Update.Type.INSERT, action(params = emptyList()))
-        )
+        v.validate(memberUpdate(Update.Type.INSERT, action(params = emptyList())))
       }
     assertEquals(Status.Code.INVALID_ARGUMENT, e.status.code)
     assert(e.status.description!!.contains("expects"))
@@ -844,7 +858,7 @@ class WriteValidatorTest {
       assertThrows(StatusException::class.java) {
         v.validate(
           memberUpdate(
-            P4RuntimeOuterClass.Update.Type.INSERT,
+            Update.Type.INSERT,
             action(params = listOf(param(value = byteArrayOf(0x01, 0x00, 0x00)))),
           )
         )
@@ -859,7 +873,7 @@ class WriteValidatorTest {
   @Test
   fun `valid group insert passes validation`() {
     val v = validator()
-    v.validate(groupUpdate(P4RuntimeOuterClass.Update.Type.INSERT))
+    v.validate(groupUpdate(Update.Type.INSERT))
   }
 
   @Test
@@ -867,7 +881,7 @@ class WriteValidatorTest {
     val v = validator()
     val e =
       assertThrows(StatusException::class.java) {
-        v.validate(groupUpdate(P4RuntimeOuterClass.Update.Type.INSERT, profileId = 99))
+        v.validate(groupUpdate(Update.Type.INSERT, profileId = 99))
       }
     assertEquals(Status.Code.NOT_FOUND, e.status.code)
     assert(e.status.description!!.contains("action_profile_id"))
@@ -876,7 +890,7 @@ class WriteValidatorTest {
   @Test
   fun `group delete with valid profile ID passes`() {
     val v = validator()
-    v.validate(groupUpdate(P4RuntimeOuterClass.Update.Type.DELETE))
+    v.validate(groupUpdate(Update.Type.DELETE))
   }
 
   @Test
@@ -884,7 +898,7 @@ class WriteValidatorTest {
     val v = validator()
     val e =
       assertThrows(StatusException::class.java) {
-        v.validate(groupUpdate(P4RuntimeOuterClass.Update.Type.DELETE, profileId = 99))
+        v.validate(groupUpdate(Update.Type.DELETE, profileId = 99))
       }
     assertEquals(Status.Code.NOT_FOUND, e.status.code)
     assert(e.status.description!!.contains("action_profile_id"))
@@ -1007,149 +1021,127 @@ class WriteValidatorTest {
 
   private fun bitwidthValidator(): WriteValidator = WriteValidator(testP4InfoWithBitwidths())
 
-  private fun testP4Info(): P4InfoOuterClass.P4Info =
-    P4InfoOuterClass.P4Info.newBuilder()
+  private fun testP4Info(): P4Info =
+    P4Info.newBuilder()
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(EXACT_TABLE_ID).setName("exact_table")
-          )
+        Table.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(EXACT_TABLE_ID).setName("exact_table"))
           .addMatchFields(
-            P4InfoOuterClass.MatchField.newBuilder()
+            MatchField.newBuilder()
               .setId(MATCH_FIELD_ID)
               .setName("f1")
               .setBitwidth(MATCH_BITWIDTH)
-              .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
+              .setMatchType(MatchField.MatchType.EXACT)
           )
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(ACTION_ID))
       )
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(TERNARY_TABLE_ID).setName("ternary_table")
-          )
+        Table.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(TERNARY_TABLE_ID).setName("ternary_table"))
           .addMatchFields(
-            P4InfoOuterClass.MatchField.newBuilder()
+            MatchField.newBuilder()
               .setId(TERNARY_FIELD_ID)
               .setName("f2")
               .setBitwidth(MATCH_BITWIDTH)
-              .setMatchType(P4InfoOuterClass.MatchField.MatchType.TERNARY)
+              .setMatchType(MatchField.MatchType.TERNARY)
           )
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(TERNARY_ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(TERNARY_ACTION_ID))
       )
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(LPM_TABLE_ID).setName("lpm_table")
-          )
+        Table.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(LPM_TABLE_ID).setName("lpm_table"))
           .addMatchFields(
-            P4InfoOuterClass.MatchField.newBuilder()
+            MatchField.newBuilder()
               .setId(LPM_FIELD_ID)
               .setName("f3")
               .setBitwidth(MATCH_BITWIDTH)
-              .setMatchType(P4InfoOuterClass.MatchField.MatchType.LPM)
+              .setMatchType(MatchField.MatchType.LPM)
           )
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(TERNARY_ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(TERNARY_ACTION_ID))
       )
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(CONST_TABLE_ID).setName("const_table")
-          )
+        Table.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(CONST_TABLE_ID).setName("const_table"))
           .addMatchFields(
-            P4InfoOuterClass.MatchField.newBuilder()
+            MatchField.newBuilder()
               .setId(CONST_FIELD_ID)
               .setName("f4")
               .setBitwidth(MATCH_BITWIDTH)
-              .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
+              .setMatchType(MatchField.MatchType.EXACT)
           )
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(ACTION_ID))
           .setIsConstTable(true)
       )
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(RANGE_TABLE_ID).setName("range_table")
-          )
+        Table.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(RANGE_TABLE_ID).setName("range_table"))
           .addMatchFields(
-            P4InfoOuterClass.MatchField.newBuilder()
+            MatchField.newBuilder()
               .setId(RANGE_FIELD_ID)
               .setName("f5")
               .setBitwidth(MATCH_BITWIDTH)
-              .setMatchType(P4InfoOuterClass.MatchField.MatchType.RANGE)
+              .setMatchType(MatchField.MatchType.RANGE)
           )
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(TERNARY_ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(TERNARY_ACTION_ID))
       )
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder()
-              .setId(OPTIONAL_TABLE_ID)
-              .setName("optional_table")
-          )
+        Table.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(OPTIONAL_TABLE_ID).setName("optional_table"))
           .addMatchFields(
-            P4InfoOuterClass.MatchField.newBuilder()
+            MatchField.newBuilder()
               .setId(OPTIONAL_FIELD_ID)
               .setName("f6")
               .setBitwidth(MATCH_BITWIDTH)
-              .setMatchType(P4InfoOuterClass.MatchField.MatchType.OPTIONAL)
+              .setMatchType(MatchField.MatchType.OPTIONAL)
           )
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(TERNARY_ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(TERNARY_ACTION_ID))
       )
       .addActions(
-        P4InfoOuterClass.Action.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(ACTION_ID).setName("forward"))
+        P4InfoAction.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(ACTION_ID).setName("forward"))
           .addParams(
-            P4InfoOuterClass.Action.Param.newBuilder()
+            P4InfoAction.Param.newBuilder()
               .setId(PARAM_ID)
               .setName("port")
               .setBitwidth(PARAM_BITWIDTH)
           )
       )
       .addActions(
-        P4InfoOuterClass.Action.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(OTHER_ACTION_ID).setName("other")
-          )
+        P4InfoAction.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(OTHER_ACTION_ID).setName("other"))
       )
       .addActions(
-        P4InfoOuterClass.Action.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(TERNARY_ACTION_ID).setName("drop")
-          )
+        P4InfoAction.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(TERNARY_ACTION_ID).setName("drop"))
       )
       .addActionProfiles(
-        P4InfoOuterClass.ActionProfile.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(ACTION_PROFILE_ID).setName("test_profile")
-          )
+        ActionProfile.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(ACTION_PROFILE_ID).setName("test_profile"))
           // Associated with exact_table — valid actions are ACTION_ID only.
           .addTableIds(EXACT_TABLE_ID)
           .setSize(64)
       )
       .build()
 
-  private fun testP4InfoWithZeroBitwidthParam(): P4InfoOuterClass.P4Info =
-    P4InfoOuterClass.P4Info.newBuilder()
+  private fun testP4InfoWithZeroBitwidthParam(): P4Info =
+    P4Info.newBuilder()
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(EXACT_TABLE_ID).setName("exact_table")
-          )
+        Table.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(EXACT_TABLE_ID).setName("exact_table"))
           .addMatchFields(
-            P4InfoOuterClass.MatchField.newBuilder()
+            MatchField.newBuilder()
               .setId(MATCH_FIELD_ID)
               .setName("f1")
               .setBitwidth(MATCH_BITWIDTH)
-              .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
+              .setMatchType(MatchField.MatchType.EXACT)
           )
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(ACTION_ID))
       )
       .addActions(
-        P4InfoOuterClass.Action.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(ACTION_ID).setName("forward"))
+        P4InfoAction.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(ACTION_ID).setName("forward"))
           .addParams(
-            P4InfoOuterClass.Action.Param.newBuilder()
+            P4InfoAction.Param.newBuilder()
               .setId(PARAM_ID)
               .setName("port")
               .setBitwidth(0) // sdn_string translation — bitwidth 0
@@ -1158,55 +1150,49 @@ class WriteValidatorTest {
       .build()
 
   /** P4info with tables using bit<1>, bit<7>, and bit<128> match fields for encoding edge cases. */
-  private fun testP4InfoWithBitwidths(): P4InfoOuterClass.P4Info =
-    P4InfoOuterClass.P4Info.newBuilder()
+  private fun testP4InfoWithBitwidths(): P4Info =
+    P4Info.newBuilder()
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(BIT1_TABLE_ID).setName("bit1_table")
-          )
+        Table.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(BIT1_TABLE_ID).setName("bit1_table"))
           .addMatchFields(
-            P4InfoOuterClass.MatchField.newBuilder()
+            MatchField.newBuilder()
               .setId(BIT1_FIELD_ID)
               .setName("f_bit1")
               .setBitwidth(1)
-              .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
+              .setMatchType(MatchField.MatchType.EXACT)
           )
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(ACTION_ID))
       )
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(BIT7_TABLE_ID).setName("bit7_table")
-          )
+        Table.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(BIT7_TABLE_ID).setName("bit7_table"))
           .addMatchFields(
-            P4InfoOuterClass.MatchField.newBuilder()
+            MatchField.newBuilder()
               .setId(BIT7_FIELD_ID)
               .setName("f_bit7")
               .setBitwidth(7)
-              .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
+              .setMatchType(MatchField.MatchType.EXACT)
           )
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(ACTION_ID))
       )
       .addTables(
-        P4InfoOuterClass.Table.newBuilder()
-          .setPreamble(
-            P4InfoOuterClass.Preamble.newBuilder().setId(BIT128_TABLE_ID).setName("bit128_table")
-          )
+        Table.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(BIT128_TABLE_ID).setName("bit128_table"))
           .addMatchFields(
-            P4InfoOuterClass.MatchField.newBuilder()
+            MatchField.newBuilder()
               .setId(BIT128_FIELD_ID)
               .setName("f_bit128")
               .setBitwidth(128)
-              .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
+              .setMatchType(MatchField.MatchType.EXACT)
           )
-          .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(ACTION_ID))
       )
       .addActions(
-        P4InfoOuterClass.Action.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(ACTION_ID).setName("forward"))
+        P4InfoAction.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(ACTION_ID).setName("forward"))
           .addParams(
-            P4InfoOuterClass.Action.Param.newBuilder()
+            P4InfoAction.Param.newBuilder()
               .setId(PARAM_ID)
               .setName("port")
               .setBitwidth(PARAM_BITWIDTH)
@@ -1220,42 +1206,31 @@ class WriteValidatorTest {
 
   private fun bytes(len: Int): ByteArray = ByteArray(len)
 
-  private fun exactMatch(
-    fieldId: Int = MATCH_FIELD_ID,
-    value: ByteArray,
-  ): P4RuntimeOuterClass.FieldMatch =
-    P4RuntimeOuterClass.FieldMatch.newBuilder()
+  private fun exactMatch(fieldId: Int = MATCH_FIELD_ID, value: ByteArray): FieldMatch =
+    FieldMatch.newBuilder()
       .setFieldId(fieldId)
-      .setExact(
-        P4RuntimeOuterClass.FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(value))
-      )
+      .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(value)))
       .build()
 
   private fun ternaryMatch(
     fieldId: Int = TERNARY_FIELD_ID,
     value: ByteArray,
     mask: ByteArray = value,
-  ): P4RuntimeOuterClass.FieldMatch =
-    P4RuntimeOuterClass.FieldMatch.newBuilder()
+  ): FieldMatch =
+    FieldMatch.newBuilder()
       .setFieldId(fieldId)
       .setTernary(
-        P4RuntimeOuterClass.FieldMatch.Ternary.newBuilder()
+        FieldMatch.Ternary.newBuilder()
           .setValue(ByteString.copyFrom(value))
           .setMask(ByteString.copyFrom(mask))
       )
       .build()
 
-  private fun lpmMatch(
-    fieldId: Int,
-    value: ByteArray,
-    prefixLen: Int,
-  ): P4RuntimeOuterClass.FieldMatch =
-    P4RuntimeOuterClass.FieldMatch.newBuilder()
+  private fun lpmMatch(fieldId: Int, value: ByteArray, prefixLen: Int): FieldMatch =
+    FieldMatch.newBuilder()
       .setFieldId(fieldId)
       .setLpm(
-        P4RuntimeOuterClass.FieldMatch.LPM.newBuilder()
-          .setValue(ByteString.copyFrom(value))
-          .setPrefixLen(prefixLen)
+        FieldMatch.LPM.newBuilder().setValue(ByteString.copyFrom(value)).setPrefixLen(prefixLen)
       )
       .build()
 
@@ -1263,97 +1238,85 @@ class WriteValidatorTest {
     fieldId: Int = RANGE_FIELD_ID,
     low: ByteArray,
     high: ByteArray,
-  ): P4RuntimeOuterClass.FieldMatch =
-    P4RuntimeOuterClass.FieldMatch.newBuilder()
+  ): FieldMatch =
+    FieldMatch.newBuilder()
       .setFieldId(fieldId)
       .setRange(
-        P4RuntimeOuterClass.FieldMatch.Range.newBuilder()
+        FieldMatch.Range.newBuilder()
           .setLow(ByteString.copyFrom(low))
           .setHigh(ByteString.copyFrom(high))
       )
       .build()
 
-  private fun optionalMatch(
-    fieldId: Int = OPTIONAL_FIELD_ID,
-    value: ByteArray,
-  ): P4RuntimeOuterClass.FieldMatch =
-    P4RuntimeOuterClass.FieldMatch.newBuilder()
+  private fun optionalMatch(fieldId: Int = OPTIONAL_FIELD_ID, value: ByteArray): FieldMatch =
+    FieldMatch.newBuilder()
       .setFieldId(fieldId)
-      .setOptional(
-        P4RuntimeOuterClass.FieldMatch.Optional.newBuilder().setValue(ByteString.copyFrom(value))
-      )
+      .setOptional(FieldMatch.Optional.newBuilder().setValue(ByteString.copyFrom(value)))
       .build()
 
   private fun param(
     paramId: Int = PARAM_ID,
     value: ByteArray = bytes(PARAM_BITWIDTH / 8),
-  ): P4RuntimeOuterClass.Action.Param =
-    P4RuntimeOuterClass.Action.Param.newBuilder()
-      .setParamId(paramId)
-      .setValue(ByteString.copyFrom(value))
-      .build()
+  ): Action.Param =
+    Action.Param.newBuilder().setParamId(paramId).setValue(ByteString.copyFrom(value)).build()
 
   private fun action(
     actionId: Int = ACTION_ID,
-    params: List<P4RuntimeOuterClass.Action.Param> = listOf(param()),
-  ): P4RuntimeOuterClass.Action =
-    P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId).addAllParams(params).build()
+    params: List<Action.Param> = listOf(param()),
+  ): Action = Action.newBuilder().setActionId(actionId).addAllParams(params).build()
 
-  private fun ternaryAction(): P4RuntimeOuterClass.Action =
-    P4RuntimeOuterClass.Action.newBuilder().setActionId(TERNARY_ACTION_ID).build()
+  private fun ternaryAction(): Action = Action.newBuilder().setActionId(TERNARY_ACTION_ID).build()
 
   private fun tableUpdate(
-    type: P4RuntimeOuterClass.Update.Type,
+    type: Update.Type,
     tableId: Int,
-    matches: List<P4RuntimeOuterClass.FieldMatch> = emptyList(),
-    action: P4RuntimeOuterClass.Action? = null,
+    matches: List<FieldMatch> = emptyList(),
+    action: Action? = null,
     priority: Int = 0,
     isDefaultAction: Boolean = false,
-  ): P4RuntimeOuterClass.Update {
+  ): Update {
     val entry =
-      P4RuntimeOuterClass.TableEntry.newBuilder()
+      TableEntry.newBuilder()
         .setTableId(tableId)
         .addAllMatch(matches)
         .setPriority(priority)
         .setIsDefaultAction(isDefaultAction)
     if (action != null) {
-      entry.setAction(P4RuntimeOuterClass.TableAction.newBuilder().setAction(action))
+      entry.setAction(TableAction.newBuilder().setAction(action))
     }
-    return P4RuntimeOuterClass.Update.newBuilder()
+    return Update.newBuilder()
       .setType(type)
-      .setEntity(P4RuntimeOuterClass.Entity.newBuilder().setTableEntry(entry))
+      .setEntity(Entity.newBuilder().setTableEntry(entry))
       .build()
   }
 
   /** Convenience wrapper — most tests use INSERT. */
   private fun insertUpdate(
     tableId: Int,
-    match: P4RuntimeOuterClass.FieldMatch,
-    action: P4RuntimeOuterClass.Action,
+    match: FieldMatch,
+    action: Action,
     priority: Int = 0,
-  ): P4RuntimeOuterClass.Update =
-    tableUpdate(P4RuntimeOuterClass.Update.Type.INSERT, tableId, listOf(match), action, priority)
+  ): Update = tableUpdate(Update.Type.INSERT, tableId, listOf(match), action, priority)
 
   private fun insertUpdate(
     tableId: Int,
-    matches: List<P4RuntimeOuterClass.FieldMatch>,
-    action: P4RuntimeOuterClass.Action,
+    matches: List<FieldMatch>,
+    action: Action,
     priority: Int = 0,
-  ): P4RuntimeOuterClass.Update =
-    tableUpdate(P4RuntimeOuterClass.Update.Type.INSERT, tableId, matches, action, priority)
+  ): Update = tableUpdate(Update.Type.INSERT, tableId, matches, action, priority)
 
   private fun memberUpdate(
-    type: P4RuntimeOuterClass.Update.Type,
-    action: P4RuntimeOuterClass.Action,
+    type: Update.Type,
+    action: Action,
     profileId: Int = ACTION_PROFILE_ID,
     memberId: Int = 1,
-  ): P4RuntimeOuterClass.Update =
-    P4RuntimeOuterClass.Update.newBuilder()
+  ): Update =
+    Update.newBuilder()
       .setType(type)
       .setEntity(
-        P4RuntimeOuterClass.Entity.newBuilder()
+        Entity.newBuilder()
           .setActionProfileMember(
-            P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+            ActionProfileMember.newBuilder()
               .setActionProfileId(profileId)
               .setMemberId(memberId)
               .setAction(action)
@@ -1362,49 +1325,40 @@ class WriteValidatorTest {
       .build()
 
   private fun groupUpdate(
-    type: P4RuntimeOuterClass.Update.Type,
+    type: Update.Type,
     profileId: Int = ACTION_PROFILE_ID,
     groupId: Int = 1,
-  ): P4RuntimeOuterClass.Update =
-    P4RuntimeOuterClass.Update.newBuilder()
+  ): Update =
+    Update.newBuilder()
       .setType(type)
       .setEntity(
-        P4RuntimeOuterClass.Entity.newBuilder()
+        Entity.newBuilder()
           .setActionProfileGroup(
-            P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
-              .setActionProfileId(profileId)
-              .setGroupId(groupId)
+            ActionProfileGroup.newBuilder().setActionProfileId(profileId).setGroupId(groupId)
           )
       )
       .build()
 
   /** Builds an INSERT update with a one-shot ActionProfileActionSet. */
-  private fun oneShotUpdate(
-    tableId: Int,
-    match: P4RuntimeOuterClass.FieldMatch,
-    vararg actions: P4RuntimeOuterClass.Action,
-  ): P4RuntimeOuterClass.Update {
+  private fun oneShotUpdate(tableId: Int, match: FieldMatch, vararg actions: Action): Update {
     val entry =
-      P4RuntimeOuterClass.TableEntry.newBuilder()
+      TableEntry.newBuilder()
         .setTableId(tableId)
         .addMatch(match)
         .setAction(
-          P4RuntimeOuterClass.TableAction.newBuilder()
+          TableAction.newBuilder()
             .setActionProfileActionSet(
-              P4RuntimeOuterClass.ActionProfileActionSet.newBuilder()
+              ActionProfileActionSet.newBuilder()
                 .addAllActionProfileActions(
                   actions.map { action ->
-                    P4RuntimeOuterClass.ActionProfileAction.newBuilder()
-                      .setAction(action)
-                      .setWeight(1)
-                      .build()
+                    ActionProfileAction.newBuilder().setAction(action).setWeight(1).build()
                   }
                 )
             )
         )
-    return P4RuntimeOuterClass.Update.newBuilder()
-      .setType(P4RuntimeOuterClass.Update.Type.INSERT)
-      .setEntity(P4RuntimeOuterClass.Entity.newBuilder().setTableEntry(entry))
+    return Update.newBuilder()
+      .setType(Update.Type.INSERT)
+      .setEntity(Entity.newBuilder().setTableEntry(entry))
       .build()
   }
 }

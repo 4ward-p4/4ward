@@ -7,12 +7,12 @@ import fourward.simulator.DataplanePort
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
-import p4.config.v1.P4InfoOuterClass.P4Info
-import p4.config.v1.P4Types
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.PacketIn
-import p4.v1.P4RuntimeOuterClass.PacketOut
-import p4.v1.P4RuntimeOuterClass.Update
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.P4NewTypeSpec
+import org.p4.v1.Entity
+import org.p4.v1.PacketIn
+import org.p4.v1.PacketOut
+import org.p4.v1.Update
 
 /** Interprets a [ByteString] as an unsigned big-endian integer. Inverse of [encodeMinWidth]. */
 fun ByteString.toUnsignedInt(): Int =
@@ -270,12 +270,12 @@ private constructor(
    * the deprecated `Replica.egress_port` int32) pass through unchanged.
    */
   private fun translatePreReplicas(
-    pre: p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry,
+    pre: org.p4.v1.PacketReplicationEngineEntry,
     direction: Direction,
-  ): p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry? {
+  ): org.p4.v1.PacketReplicationEngineEntry? {
     val pt = portTranslator ?: return null
 
-    fun translate(replica: p4.v1.P4RuntimeOuterClass.Replica): p4.v1.P4RuntimeOuterClass.Replica {
+    fun translate(replica: org.p4.v1.Replica): org.p4.v1.Replica {
       if (replica.port.isEmpty) return replica
       val newPort: ByteString =
         when (direction) {
@@ -289,7 +289,7 @@ private constructor(
     }
 
     return when (pre.typeCase) {
-      p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.MULTICAST_GROUP_ENTRY -> {
+      org.p4.v1.PacketReplicationEngineEntry.TypeCase.MULTICAST_GROUP_ENTRY -> {
         val group = pre.multicastGroupEntry
         pre
           .toBuilder()
@@ -298,7 +298,7 @@ private constructor(
           )
           .build()
       }
-      p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.CLONE_SESSION_ENTRY -> {
+      org.p4.v1.PacketReplicationEngineEntry.TypeCase.CLONE_SESSION_ENTRY -> {
         val session = pre.cloneSessionEntry
         pre
           .toBuilder()
@@ -310,7 +310,7 @@ private constructor(
           )
           .build()
       }
-      p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.TYPE_NOT_SET,
+      org.p4.v1.PacketReplicationEngineEntry.TypeCase.TYPE_NOT_SET,
       null -> null
     }
   }
@@ -320,9 +320,9 @@ private constructor(
    * nothing was translated.
    */
   private fun translateTableEntry(
-    entry: p4.v1.P4RuntimeOuterClass.TableEntry,
+    entry: org.p4.v1.TableEntry,
     direction: Direction,
-  ): p4.v1.P4RuntimeOuterClass.TableEntry? {
+  ): org.p4.v1.TableEntry? {
     val translatedMatches = translateMatchFields(entry.tableId, entry.matchList, direction)
     val translatedAction = translateTableAction(entry.action, direction)
     if (translatedMatches == null && translatedAction == null) return null
@@ -380,9 +380,9 @@ private constructor(
    * profile action sets.
    */
   private fun translateTableAction(
-    tableAction: p4.v1.P4RuntimeOuterClass.TableAction,
+    tableAction: org.p4.v1.TableAction,
     direction: Direction,
-  ): p4.v1.P4RuntimeOuterClass.TableAction? {
+  ): org.p4.v1.TableAction? {
     if (tableAction.hasAction()) {
       val translated = translateAction(tableAction.action, direction) ?: return null
       return tableAction.toBuilder().setAction(translated).build()
@@ -414,10 +414,7 @@ private constructor(
   }
 
   /** Translates params of a single [Action], returning null if no translation was needed. */
-  private fun translateAction(
-    action: p4.v1.P4RuntimeOuterClass.Action,
-    direction: Direction,
-  ): p4.v1.P4RuntimeOuterClass.Action? {
+  private fun translateAction(action: org.p4.v1.Action, direction: Direction): org.p4.v1.Action? {
     val translated = translateParams(action.actionId, action.paramsList, direction) ?: return null
     return action.toBuilder().clearParams().addAllParams(translated).build()
   }
@@ -428,9 +425,9 @@ private constructor(
 
   private fun translateParams(
     actionId: Int,
-    params: List<p4.v1.P4RuntimeOuterClass.Action.Param>,
+    params: List<org.p4.v1.Action.Param>,
     direction: Direction,
-  ): List<p4.v1.P4RuntimeOuterClass.Action.Param>? {
+  ): List<org.p4.v1.Action.Param>? {
     var changed = false
     val result =
       params.map { param ->
@@ -448,9 +445,9 @@ private constructor(
 
   private fun translateMatchFields(
     tableId: Int,
-    matches: List<p4.v1.P4RuntimeOuterClass.FieldMatch>,
+    matches: List<org.p4.v1.FieldMatch>,
     direction: Direction,
-  ): List<p4.v1.P4RuntimeOuterClass.FieldMatch>? {
+  ): List<org.p4.v1.FieldMatch>? {
     var changed = false
     val result =
       matches.map { match ->
@@ -459,30 +456,26 @@ private constructor(
           changed = true
           val table = getOrCreateTable(typeName)
           when (match.fieldMatchTypeCase) {
-            p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT -> {
+            org.p4.v1.FieldMatch.FieldMatchTypeCase.EXACT -> {
               val translated = translateValue(table, match.exact.value, direction)
               match
                 .toBuilder()
-                .setExact(
-                  p4.v1.P4RuntimeOuterClass.FieldMatch.Exact.newBuilder().setValue(translated)
-                )
+                .setExact(org.p4.v1.FieldMatch.Exact.newBuilder().setValue(translated))
                 .build()
             }
-            p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -> {
+            org.p4.v1.FieldMatch.FieldMatchTypeCase.OPTIONAL -> {
               val translated = translateValue(table, match.optional.value, direction)
               match
                 .toBuilder()
-                .setOptional(
-                  p4.v1.P4RuntimeOuterClass.FieldMatch.Optional.newBuilder().setValue(translated)
-                )
+                .setOptional(org.p4.v1.FieldMatch.Optional.newBuilder().setValue(translated))
                 .build()
             }
             // Ternary/LPM/Range on translated types is nonsensical — pass through.
-            p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY,
-            p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM,
-            p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE,
-            p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-            p4.v1.P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
+            org.p4.v1.FieldMatch.FieldMatchTypeCase.TERNARY,
+            org.p4.v1.FieldMatch.FieldMatchTypeCase.LPM,
+            org.p4.v1.FieldMatch.FieldMatchTypeCase.RANGE,
+            org.p4.v1.FieldMatch.FieldMatchTypeCase.OTHER,
+            org.p4.v1.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
             null -> match
           }
         } else {
@@ -494,10 +487,10 @@ private constructor(
 
   private fun translateMetadata(
     typeNameMap: Map<Int, String>,
-    metadata: List<p4.v1.P4RuntimeOuterClass.PacketMetadata>,
+    metadata: List<org.p4.v1.PacketMetadata>,
     direction: Direction,
     lenient: Boolean = false,
-  ): List<p4.v1.P4RuntimeOuterClass.PacketMetadata>? {
+  ): List<org.p4.v1.PacketMetadata>? {
     var changed = false
     val result =
       metadata.map { meta ->
@@ -655,7 +648,7 @@ private constructor(
 
     private fun buildParamTypeNames(
       p4info: P4Info,
-      translatedTypes: Map<String, P4Types.P4NewTypeSpec>,
+      translatedTypes: Map<String, P4NewTypeSpec>,
     ): Map<Long, String> {
       val typeNames = mutableMapOf<Long, String>()
       for (action in p4info.actionsList) {
@@ -670,7 +663,7 @@ private constructor(
 
     private fun buildMatchFieldTypeNames(
       p4info: P4Info,
-      translatedTypes: Map<String, P4Types.P4NewTypeSpec>,
+      translatedTypes: Map<String, P4NewTypeSpec>,
     ): Map<Long, String> {
       val typeNames = mutableMapOf<Long, String>()
       for (table in p4info.tablesList) {
@@ -690,7 +683,7 @@ private constructor(
      */
     private fun buildPacketMetadataTypeNames(
       p4info: P4Info,
-      translatedTypes: Map<String, P4Types.P4NewTypeSpec>,
+      translatedTypes: Map<String, P4NewTypeSpec>,
     ): Pair<Map<Int, String>, Map<Int, String>> {
       val packetOut = mutableMapOf<Int, String>()
       val packetIn = mutableMapOf<Int, String>()

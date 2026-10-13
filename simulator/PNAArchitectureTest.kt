@@ -28,8 +28,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.Counter
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.v1.CounterEntry
+import org.p4.v1.Index
 
 /**
  * Unit tests for [PNAArchitecture].
@@ -284,11 +287,11 @@ class PNAArchitectureTest {
   private fun counterCount(instanceName: String, index: Long): Stmt =
     methodCallStmt(instanceName, "count", bit(index, 32), targetType = namedType("Counter"))
 
-  private fun p4InfoWithCounter(name: String, size: Int): P4InfoOuterClass.P4Info =
-    P4InfoOuterClass.P4Info.newBuilder()
+  private fun p4InfoWithCounter(name: String, size: Int): P4Info =
+    P4Info.newBuilder()
       .addCounters(
-        P4InfoOuterClass.Counter.newBuilder()
-          .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(1).setName(name))
+        Counter.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(1).setName(name))
           .setSize(size.toLong())
       )
       .build()
@@ -432,10 +435,7 @@ class PNAArchitectureTest {
 
     val results =
       tableStore.readCounterEntries(
-        P4RuntimeOuterClass.CounterEntry.newBuilder()
-          .setCounterId(1)
-          .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(3))
-          .build()
+        CounterEntry.newBuilder().setCounterId(1).setIndex(Index.newBuilder().setIndex(3)).build()
       )
 
     assertEquals(1, results.size)

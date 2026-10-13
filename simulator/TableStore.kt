@@ -6,10 +6,30 @@ import fourward.DeviceConfig
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLongArray
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.MatchField
+import org.p4.config.v1.P4Info
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.CounterData
+import org.p4.v1.CounterEntry
+import org.p4.v1.DirectCounterEntry
+import org.p4.v1.DirectMeterEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.Index
+import org.p4.v1.MeterConfig
+import org.p4.v1.MeterEntry
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.RegisterEntry
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
+import org.p4.v1.ValueSetEntry
+import org.p4.v1.ValueSetMember
 
 /**
  * Cache for wide (>63-bit) ByteString→BigInteger conversions. Identity-keyed: proto ByteStrings
@@ -36,7 +56,7 @@ private fun ByteString.toUnsignedLong(): Long {
  * majority), uses Long arithmetic with zero heap allocation. Wider fields (IPv6 at 128 bits) fall
  * back to BigInteger.
  */
-fun matchesFieldMatch(bits: BitVector, match: P4RuntimeOuterClass.FieldMatch): Boolean =
+fun matchesFieldMatch(bits: BitVector, match: FieldMatch): Boolean =
   if (bits.width <= BitVector.LONG_WIDTH) matchLong(bits.longValue, bits.width, match)
   else matchBig(bits.value, bits.width, match)
 
@@ -93,10 +113,8 @@ private fun entryWithInitialDefaultActionForReset(
   return entry
     .toBuilder()
     .setAction(
-      P4RuntimeOuterClass.TableAction.newBuilder()
-        .setAction(
-          P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId).addAllParams(default.params)
-        )
+      TableAction.newBuilder()
+        .setAction(Action.newBuilder().setActionId(actionId).addAllParams(default.params))
     )
     .build()
 }
@@ -112,7 +130,7 @@ private fun resolveTableWrite(
   val effectiveEntry =
     if (
       updateType == Update.Type.MODIFY &&
-        rawEntry.action.typeCase == P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET
+        rawEntry.action.typeCase == TableAction.TypeCase.TYPE_NOT_SET
     ) {
       if (rawEntry.isDefaultAction) {
         entryWithInitialDefaultActionForReset(
@@ -153,7 +171,7 @@ private fun defaultActionForEntry(
   initialDefaultActions: Map<String, DefaultAction>,
   actionNameById: Map<Int, String>,
 ): DefaultAction {
-  if (entry.action.typeCase != P4RuntimeOuterClass.TableAction.TypeCase.ACTION) {
+  if (entry.action.typeCase != TableAction.TypeCase.ACTION) {
     return initialDefaultActions[tableName] ?: DefaultAction("NoAction")
   }
   val action = entry.action.action
@@ -193,8 +211,7 @@ private fun validateInlineDirectResourceWrite(
     rawEntry.hasCounterData() || rawEntry.hasMeterConfig() || rawEntry.hasMeterCounterData()
   if (
     hasDirectResourceData &&
-      write.effectiveEntryForValidation?.action?.typeCase ==
-        P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET
+      write.effectiveEntryForValidation?.action?.typeCase == TableAction.TypeCase.TYPE_NOT_SET
   ) {
     return WriteResult.InvalidArgument(
       "TableEntry contained direct resource data, but the selected action for table " +
@@ -206,15 +223,14 @@ private fun validateInlineDirectResourceWrite(
   }
 }
 
-private fun matchLong(bits: Long, width: Int, match: P4RuntimeOuterClass.FieldMatch): Boolean =
+private fun matchLong(bits: Long, width: Int, match: FieldMatch): Boolean =
   when (match.fieldMatchTypeCase) {
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT ->
-      bits == match.exact.value.toUnsignedLong()
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY -> {
+    FieldMatch.FieldMatchTypeCase.EXACT -> bits == match.exact.value.toUnsignedLong()
+    FieldMatch.FieldMatchTypeCase.TERNARY -> {
       val mask = match.ternary.mask.toUnsignedLong()
       (bits and mask) == (match.ternary.value.toUnsignedLong() and mask)
     }
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM -> {
+    FieldMatch.FieldMatchTypeCase.LPM -> {
       val prefixLen = match.lpm.prefixLen
       if (prefixLen == 0) true
       else {
@@ -222,24 +238,22 @@ private fun matchLong(bits: Long, width: Int, match: P4RuntimeOuterClass.FieldMa
         bits ushr shift == match.lpm.value.toUnsignedLong() ushr shift
       }
     }
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE ->
+    FieldMatch.FieldMatchTypeCase.RANGE ->
       bits in match.range.low.toUnsignedLong()..match.range.high.toUnsignedLong()
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL ->
-      bits == match.optional.value.toUnsignedLong()
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
+    FieldMatch.FieldMatchTypeCase.OPTIONAL -> bits == match.optional.value.toUnsignedLong()
+    FieldMatch.FieldMatchTypeCase.OTHER,
+    FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
     null -> true
   }
 
-private fun matchBig(bits: BigInteger, width: Int, match: P4RuntimeOuterClass.FieldMatch): Boolean =
+private fun matchBig(bits: BigInteger, width: Int, match: FieldMatch): Boolean =
   when (match.fieldMatchTypeCase) {
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT ->
-      bits == match.exact.value.toUnsignedBigInteger()
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY -> {
+    FieldMatch.FieldMatchTypeCase.EXACT -> bits == match.exact.value.toUnsignedBigInteger()
+    FieldMatch.FieldMatchTypeCase.TERNARY -> {
       val mask = match.ternary.mask.toUnsignedBigInteger()
       bits.and(mask) == match.ternary.value.toUnsignedBigInteger().and(mask)
     }
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM -> {
+    FieldMatch.FieldMatchTypeCase.LPM -> {
       val prefixLen = match.lpm.prefixLen
       if (prefixLen == 0) true
       else {
@@ -247,15 +261,14 @@ private fun matchBig(bits: BigInteger, width: Int, match: P4RuntimeOuterClass.Fi
         bits.shiftRight(shift) == match.lpm.value.toUnsignedBigInteger().shiftRight(shift)
       }
     }
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE -> {
+    FieldMatch.FieldMatchTypeCase.RANGE -> {
       val lo = match.range.low.toUnsignedBigInteger()
       val hi = match.range.high.toUnsignedBigInteger()
       bits in lo..hi
     }
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL ->
-      bits == match.optional.value.toUnsignedBigInteger()
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-    P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
+    FieldMatch.FieldMatchTypeCase.OPTIONAL -> bits == match.optional.value.toUnsignedBigInteger()
+    FieldMatch.FieldMatchTypeCase.OTHER,
+    FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
     null -> true
   }
 
@@ -267,19 +280,12 @@ private fun matchBig(bits: BigInteger, width: Int, match: P4RuntimeOuterClass.Fi
 fun TableEntry.sameKey(other: TableEntry): Boolean =
   tableId == other.tableId && priority == other.priority && matchList == other.matchList
 
-private data class TableEntryKey(
-  val tableId: Int,
-  val priority: Int,
-  val match: List<P4RuntimeOuterClass.FieldMatch>,
-)
+private data class TableEntryKey(val tableId: Int, val priority: Int, val match: List<FieldMatch>)
 
 private fun TableEntry.key(): TableEntryKey = TableEntryKey(tableId, priority, matchList)
 
 /** Default action state for a table: action name and optional parameters. */
-data class DefaultAction(
-  val name: String,
-  val params: List<p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
-)
+data class DefaultAction(val name: String, val params: List<org.p4.v1.Action.Param> = emptyList())
 
 /** Result of a [TableStore.write] operation. */
 sealed class WriteResult {
@@ -325,8 +331,8 @@ class TableStore : TableDataReader {
     val actionAliasByName: Map<String, String>,
     val actionIdByName: Map<String, Int>,
     val tableIdByName: Map<String, Int>,
-    val actionParamInfo: Map<String, List<P4InfoOuterClass.Action.Param>>,
-    val tableMatchFields: Map<String, List<P4InfoOuterClass.MatchField>>,
+    val actionParamInfo: Map<String, List<P4InfoAction.Param>>,
+    val tableMatchFields: Map<String, List<MatchField>>,
     val counterMappings: CounterMappings,
   )
 
@@ -360,27 +366,19 @@ class TableStore : TableDataReader {
       mutableMapOf()
     private val tableFieldValueCounts: MutableMap<String, MutableMap<ReferencedFieldValue, Int>> =
       mutableMapOf()
-    internal val directMeterData: MutableMap<TableEntry, P4RuntimeOuterClass.MeterConfig> =
-      mutableMapOf()
+    internal val directMeterData: MutableMap<TableEntry, MeterConfig> = mutableMapOf()
     internal val defaultActions: MutableMap<String, DefaultAction> = mutableMapOf()
     /** Tables whose default action has been explicitly modified via P4Runtime Write. */
     internal val modifiedDefaults: MutableSet<String> = mutableSetOf()
-    internal val profileMembers:
-      MutableMap<Int, MutableMap<Int, P4RuntimeOuterClass.ActionProfileMember>> =
+    internal val profileMembers: MutableMap<Int, MutableMap<Int, ActionProfileMember>> =
       mutableMapOf()
-    internal val profileGroups:
-      MutableMap<Int, MutableMap<Int, P4RuntimeOuterClass.ActionProfileGroup>> =
+    internal val profileGroups: MutableMap<Int, MutableMap<Int, ActionProfileGroup>> =
       mutableMapOf()
-    internal val counters: MutableMap<Int, MutableMap<Int, P4RuntimeOuterClass.CounterData>> =
-      mutableMapOf()
-    internal val meters: MutableMap<Int, MutableMap<Int, P4RuntimeOuterClass.MeterConfig>> =
-      mutableMapOf()
-    internal val cloneSessions: MutableMap<Int, P4RuntimeOuterClass.CloneSessionEntry> =
-      mutableMapOf()
-    internal val multicastGroups: MutableMap<Int, P4RuntimeOuterClass.MulticastGroupEntry> =
-      mutableMapOf()
-    internal val valueSets: MutableMap<String, MutableList<P4RuntimeOuterClass.ValueSetMember>> =
-      mutableMapOf()
+    internal val counters: MutableMap<Int, MutableMap<Int, CounterData>> = mutableMapOf()
+    internal val meters: MutableMap<Int, MutableMap<Int, MeterConfig>> = mutableMapOf()
+    internal val cloneSessions: MutableMap<Int, CloneSessionEntry> = mutableMapOf()
+    internal val multicastGroups: MutableMap<Int, MulticastGroupEntry> = mutableMapOf()
+    internal val valueSets: MutableMap<String, MutableList<ValueSetMember>> = mutableMapOf()
 
     internal fun tableEntries(tableName: String): List<TableEntry> =
       tableEntriesByName[tableName] ?: emptyList()
@@ -480,17 +478,17 @@ class TableStore : TableDataReader {
     private fun referencedFieldValues(entry: TableEntry): Sequence<ReferencedFieldValue> =
       entry.matchList.asSequence().mapNotNull { match ->
         when (match.fieldMatchTypeCase) {
-          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT ->
+          FieldMatch.FieldMatchTypeCase.EXACT ->
             ReferencedFieldValue(match.fieldId, match.exact.value)
-          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL ->
+          FieldMatch.FieldMatchTypeCase.OPTIONAL ->
             ReferencedFieldValue(match.fieldId, match.optional.value)
           // @refers_to applies only to point values; range-like match types cannot be used as
           // reference targets, so they don't participate in the field-value index.
-          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY,
-          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM,
-          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE,
-          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-          P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
+          FieldMatch.FieldMatchTypeCase.TERNARY,
+          FieldMatch.FieldMatchTypeCase.LPM,
+          FieldMatch.FieldMatchTypeCase.RANGE,
+          FieldMatch.FieldMatchTypeCase.OTHER,
+          FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
           null -> null
         }
       }
@@ -687,7 +685,7 @@ class TableStore : TableDataReader {
   private var valueSetInfoById: Map<Int, ValueSetInfo> = emptyMap()
 
   /** Match field descriptors per table (behavioral name), for data-plane add_entry. */
-  private var tableMatchFields: Map<String, List<P4InfoOuterClass.MatchField>> = emptyMap()
+  private var tableMatchFields: Map<String, List<MatchField>> = emptyMap()
 
   /** Reverse mapping: behavioral action name -> action ID. */
   private var actionIdByName: Map<String, Int> = emptyMap()
@@ -696,7 +694,7 @@ class TableStore : TableDataReader {
   private var tableIdByName: Map<String, Int> = emptyMap()
 
   /** Action parameter info per action (behavioral name), for data-plane add_entry. */
-  private var actionParamInfo: Map<String, List<P4InfoOuterClass.Action.Param>> = emptyMap()
+  private var actionParamInfo: Map<String, List<P4InfoAction.Param>> = emptyMap()
 
   /**
    * Initialises the store for a loaded pipeline and clears all mutable state.
@@ -710,7 +708,7 @@ class TableStore : TableDataReader {
    * Must be called before [write] or [lookup]. Calling it again (pipeline reload) resets all state.
    */
   fun loadMappings(
-    p4info: P4InfoOuterClass.P4Info = P4InfoOuterClass.P4Info.getDefaultInstance(),
+    p4info: P4Info = P4Info.getDefaultInstance(),
     device: DeviceConfig = DeviceConfig.getDefaultInstance(),
   ) {
     val behavioral = device.behavioral
@@ -811,7 +809,7 @@ class TableStore : TableDataReader {
         val params =
           if (table.hasInitialDefaultAction())
             table.initialDefaultAction.argumentsList.map { arg ->
-              p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
+              org.p4.v1.Action.Param.newBuilder()
                 .setParamId(arg.paramId)
                 .setValue(arg.value)
                 .build()
@@ -831,7 +829,7 @@ class TableStore : TableDataReader {
   }
 
   private fun buildControlPlaneNameIndex(
-    p4info: P4InfoOuterClass.P4Info,
+    p4info: P4Info,
     device: DeviceConfig,
   ): ControlPlaneNameIndex {
     val behavioral = device.behavioral
@@ -936,7 +934,7 @@ class TableStore : TableDataReader {
       )
 
   private fun buildCounterMappings(
-    p4info: P4InfoOuterClass.P4Info,
+    p4info: P4Info,
     behavioral: BehavioralConfig,
     externBindings: Map<String, String>,
   ): CounterMappings {
@@ -972,9 +970,7 @@ class TableStore : TableDataReader {
     return CounterMappings(countersById, countersByName)
   }
 
-  private fun buildTableLocalActionNames(
-    p4info: P4InfoOuterClass.P4Info
-  ): Map<String, Map<String, String>> {
+  private fun buildTableLocalActionNames(p4info: P4Info): Map<String, Map<String, String>> {
     val actionById = p4info.actionsList.associateBy { it.preamble.id }
     return p4info.tablesList
       .mapNotNull { table ->
@@ -1004,7 +1000,7 @@ class TableStore : TableDataReader {
   fun setDefaultAction(
     tableName: String,
     actionName: String,
-    params: List<p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
+    params: List<org.p4.v1.Action.Param> = emptyList(),
   ) {
     writeState.defaultActions[tableName] = DefaultAction(actionName, params)
   }
@@ -1047,39 +1043,32 @@ class TableStore : TableDataReader {
         keyValues.find { it.first == mf.id.toString() }
           ?: error("add_entry: missing key value for field ${mf.id} in table '$tableName'")
       val bytes = valueToBytesForMatch(value, mf.bitwidth)
-      val fm = P4RuntimeOuterClass.FieldMatch.newBuilder().setFieldId(mf.id)
+      val fm = FieldMatch.newBuilder().setFieldId(mf.id)
       when (mf.matchType) {
-        P4InfoOuterClass.MatchField.MatchType.EXACT ->
-          fm.setExact(P4RuntimeOuterClass.FieldMatch.Exact.newBuilder().setValue(bytes))
-        P4InfoOuterClass.MatchField.MatchType.LPM ->
-          fm.setLpm(
-            P4RuntimeOuterClass.FieldMatch.LPM.newBuilder()
-              .setValue(bytes)
-              .setPrefixLen(mf.bitwidth)
-          )
-        P4InfoOuterClass.MatchField.MatchType.TERNARY ->
+        MatchField.MatchType.EXACT -> fm.setExact(FieldMatch.Exact.newBuilder().setValue(bytes))
+        MatchField.MatchType.LPM ->
+          fm.setLpm(FieldMatch.LPM.newBuilder().setValue(bytes).setPrefixLen(mf.bitwidth))
+        MatchField.MatchType.TERNARY ->
           fm.setTernary(
-            P4RuntimeOuterClass.FieldMatch.Ternary.newBuilder()
+            FieldMatch.Ternary.newBuilder()
               .setValue(bytes)
               .setMask(ByteString.copyFrom(ByteArray((mf.bitwidth + 7) / 8) { 0xFF.toByte() }))
           )
-        P4InfoOuterClass.MatchField.MatchType.OPTIONAL ->
-          fm.setOptional(P4RuntimeOuterClass.FieldMatch.Optional.newBuilder().setValue(bytes))
+        MatchField.MatchType.OPTIONAL ->
+          fm.setOptional(FieldMatch.Optional.newBuilder().setValue(bytes))
         else -> error("add_entry: unsupported match type ${mf.matchType} in table '$tableName'")
       }
       entryBuilder.addMatch(fm)
     }
 
-    val actionBuilder = P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId)
+    val actionBuilder = Action.newBuilder().setActionId(actionId)
     for ((i, value) in actionParams.withIndex()) {
       val paramId = paramInfo.getOrNull(i)?.id ?: (i + 1)
       actionBuilder.addParams(
-        P4RuntimeOuterClass.Action.Param.newBuilder()
-          .setParamId(paramId)
-          .setValue(valueToBytes(value))
+        Action.Param.newBuilder().setParamId(paramId).setValue(valueToBytes(value))
       )
     }
-    entryBuilder.setAction(P4RuntimeOuterClass.TableAction.newBuilder().setAction(actionBuilder))
+    entryBuilder.setAction(TableAction.newBuilder().setAction(actionBuilder))
 
     val entry = entryBuilder.build()
 
@@ -1138,27 +1127,20 @@ class TableStore : TableDataReader {
    * Takes an explicit [snapshot] so callers can pin the snapshot that was live during packet
    * processing, avoiding races with concurrent [publishSnapshot] calls.
    */
-  fun buildModifiedDefaultActionEntity(
-    displayName: String,
-    snapshot: ForwardingSnapshot,
-  ): P4RuntimeOuterClass.Entity? {
+  fun buildModifiedDefaultActionEntity(displayName: String, snapshot: ForwardingSnapshot): Entity? {
     val simulatorName = tableNameByAlias[displayName] ?: displayName
     if (simulatorName !in snapshot.modifiedDefaults) return null
     val default = snapshot.defaultActions[simulatorName] ?: return null
     val tableId = tableIdByName[simulatorName] ?: return null
     val actionId = actionIdByName[default.name] ?: return null
-    return P4RuntimeOuterClass.Entity.newBuilder()
+    return Entity.newBuilder()
       .setTableEntry(
-        P4RuntimeOuterClass.TableEntry.newBuilder()
+        TableEntry.newBuilder()
           .setTableId(tableId)
           .setIsDefaultAction(true)
           .setAction(
-            P4RuntimeOuterClass.TableAction.newBuilder()
-              .setAction(
-                P4RuntimeOuterClass.Action.newBuilder()
-                  .setActionId(actionId)
-                  .addAllParams(default.params)
-              )
+            TableAction.newBuilder()
+              .setAction(Action.newBuilder().setActionId(actionId).addAllParams(default.params))
           )
       )
       .build()
@@ -1170,16 +1152,15 @@ class TableStore : TableDataReader {
     return tableActionProfile[tableName]
   }
 
-  override fun getDirectCounterData(entry: TableEntry): P4RuntimeOuterClass.CounterData? {
+  override fun getDirectCounterData(entry: TableEntry): CounterData? {
     val counters = directCounterData[entry] ?: return null
-    return P4RuntimeOuterClass.CounterData.newBuilder()
+    return CounterData.newBuilder()
       .setPacketCount(counters.get(0))
       .setByteCount(counters.get(1))
       .build()
   }
 
-  override fun getDirectMeterData(entry: TableEntry): P4RuntimeOuterClass.MeterConfig? =
-    snapshot.directMeterData[entry]
+  override fun getDirectMeterData(entry: TableEntry): MeterConfig? = snapshot.directMeterData[entry]
 
   override fun hasDirectCounter(tableName: String): Boolean = tableName in directCounterTables
 
@@ -1211,7 +1192,7 @@ class TableStore : TableDataReader {
     }
   }
 
-  fun buildRegisterEntity(dependency: RegisterSeedDependency): P4RuntimeOuterClass.Entity {
+  fun buildRegisterEntity(dependency: RegisterSeedDependency): Entity {
     val (regId, info) =
       registerInfoByName[dependency.registerName]
         ?: error("register '${dependency.registerName}' has no P4Info mapping")
@@ -1227,10 +1208,7 @@ class TableStore : TableDataReader {
   }
 
   // P4Runtime spec: RegisterEntry MODIFY only (statically allocated arrays).
-  private fun writeRegisterEntry(
-    type: Update.Type,
-    entry: P4RuntimeOuterClass.RegisterEntry,
-  ): WriteResult {
+  private fun writeRegisterEntry(type: Update.Type, entry: RegisterEntry): WriteResult {
     if (type != Update.Type.MODIFY)
       return WriteResult.InvalidArgument("registers only support MODIFY, not $type")
     val info =
@@ -1258,9 +1236,8 @@ class TableStore : TableDataReader {
    * Unwritten indices return the default value (zero).
    */
   fun readRegisterEntries(
-    filter: P4RuntimeOuterClass.RegisterEntry =
-      P4RuntimeOuterClass.RegisterEntry.getDefaultInstance()
-  ): List<P4RuntimeOuterClass.Entity> {
+    filter: RegisterEntry = RegisterEntry.getDefaultInstance()
+  ): List<Entity> {
     val infos =
       if (filter.registerId == 0) registerInfoById
       else {
@@ -1278,18 +1255,14 @@ class TableStore : TableDataReader {
     }
   }
 
-  private fun buildRegisterEntity(
-    registerId: Int,
-    index: Int,
-    bits: BitVector,
-  ): P4RuntimeOuterClass.Entity {
+  private fun buildRegisterEntity(registerId: Int, index: Int, bits: BitVector): Entity {
     val data = ByteString.copyFrom(bits.toByteArray())
-    return P4RuntimeOuterClass.Entity.newBuilder()
+    return Entity.newBuilder()
       .setRegisterEntry(
-        P4RuntimeOuterClass.RegisterEntry.newBuilder()
+        RegisterEntry.newBuilder()
           .setRegisterId(registerId)
-          .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(index.toLong()))
-          .setData(p4.v1.P4DataOuterClass.P4Data.newBuilder().setBitstring(data))
+          .setIndex(Index.newBuilder().setIndex(index.toLong()))
+          .setData(org.p4.v1.P4Data.newBuilder().setBitstring(data))
       )
       .build()
   }
@@ -1308,7 +1281,7 @@ class TableStore : TableDataReader {
     type: Update.Type,
     entityName: String,
     id: Int,
-    index: P4RuntimeOuterClass.Index,
+    index: Index,
     infoById: Map<Int, IndexedExternInfo>,
     storage: MutableMap<Int, MutableMap<Int, V>>,
     value: V,
@@ -1332,10 +1305,7 @@ class TableStore : TableDataReader {
   // Counters
   // -------------------------------------------------------------------------
 
-  private fun writeCounterEntry(
-    type: Update.Type,
-    entry: P4RuntimeOuterClass.CounterEntry,
-  ): WriteResult {
+  private fun writeCounterEntry(type: Update.Type, entry: CounterEntry): WriteResult {
     // Counters have one live data source: indirectCounterData. writeState.counters is updated in
     // parallel so rollback checkpoints and published snapshots preserve the control-plane view
     // without making packet-side Counter.count() publish writeState.
@@ -1355,11 +1325,7 @@ class TableStore : TableDataReader {
     return result
   }
 
-  private fun setIndirectCounterData(
-    counterId: Int,
-    index: Int,
-    data: P4RuntimeOuterClass.CounterData,
-  ) {
+  private fun setIndirectCounterData(counterId: Int, index: Int, data: CounterData) {
     indirectCounterData
       .computeIfAbsent(counterId) { ConcurrentHashMap() }
       .computeIfAbsent(index) { AtomicLongArray(2) }
@@ -1369,15 +1335,9 @@ class TableStore : TableDataReader {
       }
   }
 
-  private fun readIndirectCounterData(
-    counterId: Int,
-    index: Int,
-  ): P4RuntimeOuterClass.CounterData? {
+  private fun readIndirectCounterData(counterId: Int, index: Int): CounterData? {
     val data = indirectCounterData[counterId]?.get(index) ?: return null
-    return P4RuntimeOuterClass.CounterData.newBuilder()
-      .setPacketCount(data.get(0))
-      .setByteCount(data.get(1))
-      .build()
+    return CounterData.newBuilder().setPacketCount(data.get(0)).setByteCount(data.get(1)).build()
   }
 
   fun counterIncrement(counterName: String, index: Int, byteCount: Int) {
@@ -1391,9 +1351,7 @@ class TableStore : TableDataReader {
     data.addAndGet(1, byteCount.toLong())
   }
 
-  fun readCounterEntries(
-    filter: P4RuntimeOuterClass.CounterEntry = P4RuntimeOuterClass.CounterEntry.getDefaultInstance()
-  ): List<P4RuntimeOuterClass.Entity> {
+  fun readCounterEntries(filter: CounterEntry = CounterEntry.getDefaultInstance()): List<Entity> {
     val infos =
       if (filter.counterId == 0) counterInfoById
       else {
@@ -1404,14 +1362,12 @@ class TableStore : TableDataReader {
     return infos.flatMap { (counterId, info) ->
       val indices = if (hasIndex) listOf(filter.index.index.toInt()) else (0 until info.size)
       indices.map { idx ->
-        val data =
-          readIndirectCounterData(counterId, idx)
-            ?: P4RuntimeOuterClass.CounterData.getDefaultInstance()
-        P4RuntimeOuterClass.Entity.newBuilder()
+        val data = readIndirectCounterData(counterId, idx) ?: CounterData.getDefaultInstance()
+        Entity.newBuilder()
           .setCounterEntry(
-            P4RuntimeOuterClass.CounterEntry.newBuilder()
+            CounterEntry.newBuilder()
               .setCounterId(counterId)
-              .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(idx.toLong()))
+              .setIndex(Index.newBuilder().setIndex(idx.toLong()))
               .setData(data)
           )
           .build()
@@ -1423,10 +1379,7 @@ class TableStore : TableDataReader {
   // Meters
   // -------------------------------------------------------------------------
 
-  private fun writeMeterEntry(
-    type: Update.Type,
-    entry: P4RuntimeOuterClass.MeterEntry,
-  ): WriteResult =
+  private fun writeMeterEntry(type: Update.Type, entry: MeterEntry): WriteResult =
     writeIndexedExtern(
       type,
       "meter",
@@ -1437,9 +1390,7 @@ class TableStore : TableDataReader {
       entry.config,
     )
 
-  fun readMeterEntries(
-    filter: P4RuntimeOuterClass.MeterEntry = P4RuntimeOuterClass.MeterEntry.getDefaultInstance()
-  ): List<P4RuntimeOuterClass.Entity> {
+  fun readMeterEntries(filter: MeterEntry = MeterEntry.getDefaultInstance()): List<Entity> {
     val infos =
       if (filter.meterId == 0) meterInfoById
       else {
@@ -1451,11 +1402,11 @@ class TableStore : TableDataReader {
       val indices = if (hasIndex) listOf(filter.index.index.toInt()) else (0 until info.size)
       indices.map { idx ->
         val builder =
-          P4RuntimeOuterClass.MeterEntry.newBuilder()
+          MeterEntry.newBuilder()
             .setMeterId(meterId)
-            .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(idx.toLong()))
+            .setIndex(Index.newBuilder().setIndex(idx.toLong()))
         snapshot.meters[meterId]?.get(idx)?.let { builder.setConfig(it) }
-        P4RuntimeOuterClass.Entity.newBuilder().setMeterEntry(builder).build()
+        Entity.newBuilder().setMeterEntry(builder).build()
       }
     }
   }
@@ -1515,10 +1466,7 @@ class TableStore : TableDataReader {
     return WriteResult.Success
   }
 
-  private fun writeDirectCounterEntry(
-    type: Update.Type,
-    entry: P4RuntimeOuterClass.DirectCounterEntry,
-  ): WriteResult =
+  private fun writeDirectCounterEntry(type: Update.Type, entry: DirectCounterEntry): WriteResult =
     writeDirectExtern(type, "direct counter", entry.tableEntry, directCounterTables) {
       val arr = directCounterData.getOrPut(it) { AtomicLongArray(2) }
       arr.set(0, entry.data.packetCount)
@@ -1526,33 +1474,26 @@ class TableStore : TableDataReader {
     }
 
   fun readDirectCounterEntries(
-    filter: P4RuntimeOuterClass.DirectCounterEntry =
-      P4RuntimeOuterClass.DirectCounterEntry.getDefaultInstance()
-  ): List<P4RuntimeOuterClass.Entity> {
+    filter: DirectCounterEntry = DirectCounterEntry.getDefaultInstance()
+  ): List<Entity> {
     val tableEntry = filter.tableEntry
     val tableNames = resolveTableNames(tableEntry.tableId, directCounterTables)
     if (tableEntry.isDefaultAction) {
       return tableNames.mapNotNull { tableName ->
         val tableId = tableIdByName[tableName] ?: return@mapNotNull null
         val entry = defaultDirectResourceEntry(tableId)
-        val data =
-          getDirectCounterData(entry) ?: P4RuntimeOuterClass.CounterData.getDefaultInstance()
-        P4RuntimeOuterClass.Entity.newBuilder()
-          .setDirectCounterEntry(
-            P4RuntimeOuterClass.DirectCounterEntry.newBuilder().setTableEntry(entry).setData(data)
-          )
+        val data = getDirectCounterData(entry) ?: CounterData.getDefaultInstance()
+        Entity.newBuilder()
+          .setDirectCounterEntry(DirectCounterEntry.newBuilder().setTableEntry(entry).setData(data))
           .build()
       }
     }
     val matchFilter = if (tableEntry.matchCount > 0) tableEntry else null
     return tableNames.flatMap { tableName ->
       filteredEntries(tableName, matchFilter).map { entry ->
-        val data =
-          getDirectCounterData(entry) ?: P4RuntimeOuterClass.CounterData.getDefaultInstance()
-        P4RuntimeOuterClass.Entity.newBuilder()
-          .setDirectCounterEntry(
-            P4RuntimeOuterClass.DirectCounterEntry.newBuilder().setTableEntry(entry).setData(data)
-          )
+        val data = getDirectCounterData(entry) ?: CounterData.getDefaultInstance()
+        Entity.newBuilder()
+          .setDirectCounterEntry(DirectCounterEntry.newBuilder().setTableEntry(entry).setData(data))
           .build()
       }
     }
@@ -1562,35 +1503,31 @@ class TableStore : TableDataReader {
   // Direct meters
   // -------------------------------------------------------------------------
 
-  private fun writeDirectMeterEntry(
-    type: Update.Type,
-    entry: P4RuntimeOuterClass.DirectMeterEntry,
-  ): WriteResult =
+  private fun writeDirectMeterEntry(type: Update.Type, entry: DirectMeterEntry): WriteResult =
     writeDirectExtern(type, "direct meter", entry.tableEntry, directMeterTables) {
       writeState.directMeterData[it] = entry.config
     }
 
   fun readDirectMeterEntries(
-    filter: P4RuntimeOuterClass.DirectMeterEntry =
-      P4RuntimeOuterClass.DirectMeterEntry.getDefaultInstance()
-  ): List<P4RuntimeOuterClass.Entity> {
+    filter: DirectMeterEntry = DirectMeterEntry.getDefaultInstance()
+  ): List<Entity> {
     val tableEntry = filter.tableEntry
     val tableNames = resolveTableNames(tableEntry.tableId, directMeterTables)
     if (tableEntry.isDefaultAction) {
       return tableNames.mapNotNull { tableName ->
         val tableId = tableIdByName[tableName] ?: return@mapNotNull null
         val entry = defaultDirectResourceEntry(tableId)
-        val builder = P4RuntimeOuterClass.DirectMeterEntry.newBuilder().setTableEntry(entry)
+        val builder = DirectMeterEntry.newBuilder().setTableEntry(entry)
         snapshot.directMeterData[entry]?.let { builder.setConfig(it) }
-        P4RuntimeOuterClass.Entity.newBuilder().setDirectMeterEntry(builder).build()
+        Entity.newBuilder().setDirectMeterEntry(builder).build()
       }
     }
     val matchFilter = if (tableEntry.matchCount > 0) tableEntry else null
     return tableNames.flatMap { tableName ->
       filteredEntries(tableName, matchFilter).map { entry ->
-        val builder = P4RuntimeOuterClass.DirectMeterEntry.newBuilder().setTableEntry(entry)
+        val builder = DirectMeterEntry.newBuilder().setTableEntry(entry)
         snapshot.directMeterData[entry]?.let { builder.setConfig(it) }
-        P4RuntimeOuterClass.Entity.newBuilder().setDirectMeterEntry(builder).build()
+        Entity.newBuilder().setDirectMeterEntry(builder).build()
       }
     }
   }
@@ -1600,18 +1537,15 @@ class TableStore : TableDataReader {
   // -------------------------------------------------------------------------
 
   /** Returns the members of a parser value_set, or empty if not populated. */
-  fun getValueSetMembers(name: String): List<P4RuntimeOuterClass.ValueSetMember> =
+  fun getValueSetMembers(name: String): List<ValueSetMember> =
     snapshot.valueSets[name] ?: emptyList()
 
   /** Directly sets value_set members by name, bypassing P4Runtime write path. For testing. */
-  internal fun populateValueSet(name: String, members: List<P4RuntimeOuterClass.ValueSetMember>) {
+  internal fun populateValueSet(name: String, members: List<ValueSetMember>) {
     writeState.valueSets[name] = members.toMutableList()
   }
 
-  private fun writeValueSetEntry(
-    type: Update.Type,
-    entry: P4RuntimeOuterClass.ValueSetEntry,
-  ): WriteResult {
+  private fun writeValueSetEntry(type: Update.Type, entry: ValueSetEntry): WriteResult {
     // P4Runtime spec §9.6: value_set only supports MODIFY (replaces all members atomically).
     if (type != Update.Type.MODIFY)
       return WriteResult.InvalidArgument("value_set only supports MODIFY, not $type")
@@ -1634,9 +1568,8 @@ class TableStore : TableDataReader {
   }
 
   fun readValueSetEntries(
-    filter: P4RuntimeOuterClass.ValueSetEntry =
-      P4RuntimeOuterClass.ValueSetEntry.getDefaultInstance()
-  ): List<P4RuntimeOuterClass.Entity> {
+    filter: ValueSetEntry = ValueSetEntry.getDefaultInstance()
+  ): List<Entity> {
     val entries =
       if (filter.valueSetId == 0) valueSetInfoById
       else {
@@ -1644,9 +1577,9 @@ class TableStore : TableDataReader {
         mapOf(filter.valueSetId to info)
       }
     return entries.map { (vsId, info) ->
-      P4RuntimeOuterClass.Entity.newBuilder()
+      Entity.newBuilder()
         .setValueSetEntry(
-          P4RuntimeOuterClass.ValueSetEntry.newBuilder()
+          ValueSetEntry.newBuilder()
             .setValueSetId(vsId)
             .addAllMembers(snapshot.valueSets[info.name] ?: emptyList())
         )
@@ -1662,28 +1595,24 @@ class TableStore : TableDataReader {
   fun write(update: Update): WriteResult {
     val entity = update.entity
     return when (entity.entityCase) {
-      P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_MEMBER ->
+      Entity.EntityCase.ACTION_PROFILE_MEMBER ->
         writeProfileMember(update.type, entity.actionProfileMember)
-      P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_GROUP ->
+      Entity.EntityCase.ACTION_PROFILE_GROUP ->
         writeProfileGroup(update.type, entity.actionProfileGroup)
-      P4RuntimeOuterClass.Entity.EntityCase.REGISTER_ENTRY ->
-        writeRegisterEntry(update.type, entity.registerEntry)
-      P4RuntimeOuterClass.Entity.EntityCase.COUNTER_ENTRY ->
-        writeCounterEntry(update.type, entity.counterEntry)
-      P4RuntimeOuterClass.Entity.EntityCase.METER_ENTRY ->
-        writeMeterEntry(update.type, entity.meterEntry)
-      P4RuntimeOuterClass.Entity.EntityCase.DIRECT_COUNTER_ENTRY ->
+      Entity.EntityCase.REGISTER_ENTRY -> writeRegisterEntry(update.type, entity.registerEntry)
+      Entity.EntityCase.COUNTER_ENTRY -> writeCounterEntry(update.type, entity.counterEntry)
+      Entity.EntityCase.METER_ENTRY -> writeMeterEntry(update.type, entity.meterEntry)
+      Entity.EntityCase.DIRECT_COUNTER_ENTRY ->
         writeDirectCounterEntry(update.type, entity.directCounterEntry)
-      P4RuntimeOuterClass.Entity.EntityCase.DIRECT_METER_ENTRY ->
+      Entity.EntityCase.DIRECT_METER_ENTRY ->
         writeDirectMeterEntry(update.type, entity.directMeterEntry)
-      P4RuntimeOuterClass.Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY ->
+      Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY ->
         writePreEntry(update.type, entity.packetReplicationEngineEntry)
-      P4RuntimeOuterClass.Entity.EntityCase.VALUE_SET_ENTRY ->
-        writeValueSetEntry(update.type, entity.valueSetEntry)
-      P4RuntimeOuterClass.Entity.EntityCase.TABLE_ENTRY -> writeTableEntry(update)
-      P4RuntimeOuterClass.Entity.EntityCase.EXTERN_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.DIGEST_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.ENTITY_NOT_SET,
+      Entity.EntityCase.VALUE_SET_ENTRY -> writeValueSetEntry(update.type, entity.valueSetEntry)
+      Entity.EntityCase.TABLE_ENTRY -> writeTableEntry(update)
+      Entity.EntityCase.EXTERN_ENTRY,
+      Entity.EntityCase.DIGEST_ENTRY,
+      Entity.EntityCase.ENTITY_NOT_SET,
       null ->
         WriteResult.InvalidArgument(
           "unsupported entity type; only table entries, action profiles, counters, meters, " +
@@ -1747,7 +1676,7 @@ class TableStore : TableDataReader {
         defaultActionForEntry(entry, tableName, initialDefaultActions, actionNameById)
       writeState.modifiedDefaults.add(tableName)
       val defaultResourceEntry = defaultDirectResourceEntry(entry.tableId)
-      if (rawEntry.action.typeCase == P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET) {
+      if (rawEntry.action.typeCase == TableAction.TypeCase.TYPE_NOT_SET) {
         directCounterData.remove(defaultResourceEntry)
         writeState.directMeterData.remove(defaultResourceEntry)
       }
@@ -1845,10 +1774,7 @@ class TableStore : TableDataReader {
       else -> WriteResult.InvalidArgument("unsupported update type: $type")
     }
 
-  private fun writeProfileMember(
-    type: Update.Type,
-    member: P4RuntimeOuterClass.ActionProfileMember,
-  ): WriteResult {
+  private fun writeProfileMember(type: Update.Type, member: ActionProfileMember): WriteResult {
     if (type == Update.Type.INSERT) {
       val err = checkProfileSizeLimit(member.actionProfileId)
       if (err != null) return err
@@ -1862,10 +1788,7 @@ class TableStore : TableDataReader {
     )
   }
 
-  private fun writeProfileGroup(
-    type: Update.Type,
-    group: P4RuntimeOuterClass.ActionProfileGroup,
-  ): WriteResult {
+  private fun writeProfileGroup(type: Update.Type, group: ActionProfileGroup): WriteResult {
     if (type == Update.Type.INSERT) {
       val err = checkProfileSizeLimit(group.actionProfileId)
       if (err != null) return err
@@ -1905,12 +1828,9 @@ class TableStore : TableDataReader {
     return null
   }
 
-  private fun writePreEntry(
-    type: Update.Type,
-    pre: P4RuntimeOuterClass.PacketReplicationEngineEntry,
-  ): WriteResult =
+  private fun writePreEntry(type: Update.Type, pre: PacketReplicationEngineEntry): WriteResult =
     when (pre.typeCase) {
-      P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.CLONE_SESSION_ENTRY -> {
+      PacketReplicationEngineEntry.TypeCase.CLONE_SESSION_ENTRY -> {
         val entry = pre.cloneSessionEntry
         writeProfileEntity(
           type,
@@ -1920,7 +1840,7 @@ class TableStore : TableDataReader {
           "clone session ${entry.sessionId}",
         )
       }
-      P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.MULTICAST_GROUP_ENTRY -> {
+      PacketReplicationEngineEntry.TypeCase.MULTICAST_GROUP_ENTRY -> {
         val entry = pre.multicastGroupEntry
         writeProfileEntity(
           type,
@@ -1930,15 +1850,13 @@ class TableStore : TableDataReader {
           "multicast group ${entry.multicastGroupId}",
         )
       }
-      P4RuntimeOuterClass.PacketReplicationEngineEntry.TypeCase.TYPE_NOT_SET,
+      PacketReplicationEngineEntry.TypeCase.TYPE_NOT_SET,
       null -> WriteResult.InvalidArgument("PRE entry must have a clone session or multicast group")
     }
 
-  fun getCloneSession(sessionId: Int): P4RuntimeOuterClass.CloneSessionEntry? =
-    snapshot.cloneSessions[sessionId]
+  fun getCloneSession(sessionId: Int): CloneSessionEntry? = snapshot.cloneSessions[sessionId]
 
-  fun getMulticastGroup(groupId: Int): P4RuntimeOuterClass.MulticastGroupEntry? =
-    snapshot.multicastGroups[groupId]
+  fun getMulticastGroup(groupId: Int): MulticastGroupEntry? = snapshot.multicastGroups[groupId]
 
   /**
    * Reads PRE entries matching the filter.
@@ -1947,9 +1865,8 @@ class TableStore : TableDataReader {
    * return entries of that type; ID 0 means all of that type, non-zero means that specific entry.
    */
   fun readPreEntries(
-    filter: P4RuntimeOuterClass.PacketReplicationEngineEntry =
-      P4RuntimeOuterClass.PacketReplicationEngineEntry.getDefaultInstance()
-  ): List<P4RuntimeOuterClass.Entity> {
+    filter: PacketReplicationEngineEntry = PacketReplicationEngineEntry.getDefaultInstance()
+  ): List<Entity> {
     val includeClone = filter.hasCloneSessionEntry() || !filter.hasMulticastGroupEntry()
     val includeMulticast = filter.hasMulticastGroupEntry() || !filter.hasCloneSessionEntry()
     return buildList {
@@ -1974,9 +1891,8 @@ class TableStore : TableDataReader {
     if (id != 0) listOfNotNull(map[id]) else map.values
 
   /** Wraps a PRE sub-entry into an `Entity` proto. */
-  private fun <T> T.toPreEntity(
-    setter: P4RuntimeOuterClass.PacketReplicationEngineEntry.Builder.(T) -> Unit
-  ): P4RuntimeOuterClass.Entity = buildPreEntity(this, setter)
+  private fun <T> T.toPreEntity(setter: PacketReplicationEngineEntry.Builder.(T) -> Unit): Entity =
+    buildPreEntity(this, setter)
 
   // -------------------------------------------------------------------------
   // Snapshot / Restore (for ROLLBACK_ON_ERROR / DATAPLANE_ATOMIC)
@@ -2071,10 +1987,7 @@ class TableStore : TableDataReader {
   }
 
   /** Returns entries from [tableName], filtered by match key if [matchFilter] is non-null. */
-  private fun filteredEntries(
-    tableName: String,
-    matchFilter: P4RuntimeOuterClass.TableEntry?,
-  ): List<P4RuntimeOuterClass.TableEntry> {
+  private fun filteredEntries(tableName: String, matchFilter: TableEntry?): List<TableEntry> {
     val entries = snapshot.tableEntries(tableName)
     if (matchFilter == null) return entries
     // P4Runtime spec §9.1: match key + priority uniquely identify an entry.
@@ -2091,8 +2004,8 @@ class TableStore : TableDataReader {
     storage: Map<Int, Map<Int, V>>,
     profileId: Int,
     entryId: Int,
-    toEntity: (V) -> P4RuntimeOuterClass.Entity,
-  ): List<P4RuntimeOuterClass.Entity> {
+    toEntity: (V) -> Entity,
+  ): List<Entity> {
     val sources =
       if (profileId == 0) storage.values.flatMap { it.values }
       else {
@@ -2103,19 +2016,17 @@ class TableStore : TableDataReader {
   }
 
   fun readProfileMembers(
-    filter: P4RuntimeOuterClass.ActionProfileMember =
-      P4RuntimeOuterClass.ActionProfileMember.getDefaultInstance()
-  ): List<P4RuntimeOuterClass.Entity> =
+    filter: ActionProfileMember = ActionProfileMember.getDefaultInstance()
+  ): List<Entity> =
     readProfileEntities(snapshot.profileMembers, filter.actionProfileId, filter.memberId) {
-      P4RuntimeOuterClass.Entity.newBuilder().setActionProfileMember(it).build()
+      Entity.newBuilder().setActionProfileMember(it).build()
     }
 
   fun readProfileGroups(
-    filter: P4RuntimeOuterClass.ActionProfileGroup =
-      P4RuntimeOuterClass.ActionProfileGroup.getDefaultInstance()
-  ): List<P4RuntimeOuterClass.Entity> =
+    filter: ActionProfileGroup = ActionProfileGroup.getDefaultInstance()
+  ): List<Entity> =
     readProfileEntities(snapshot.profileGroups, filter.actionProfileId, filter.groupId) {
-      P4RuntimeOuterClass.Entity.newBuilder().setActionProfileGroup(it).build()
+      Entity.newBuilder().setActionProfileGroup(it).build()
     }
 
   /**
@@ -2135,17 +2046,13 @@ class TableStore : TableDataReader {
   // Lookup
   // -------------------------------------------------------------------------
 
-  data class MemberAction(
-    val memberId: Int,
-    val actionName: String,
-    val params: List<P4RuntimeOuterClass.Action.Param>,
-  )
+  data class MemberAction(val memberId: Int, val actionName: String, val params: List<Action.Param>)
 
   data class LookupResult(
     val hit: Boolean,
     val entry: TableEntry?,
     val actionName: String,
-    val actionParams: List<p4.v1.P4RuntimeOuterClass.Action.Param> = emptyList(),
+    val actionParams: List<org.p4.v1.Action.Param> = emptyList(),
     val members: List<MemberAction>? = null,
   )
 
@@ -2312,14 +2219,13 @@ class TableStore : TableDataReader {
 
       // Only LPM contributes per field; priority-based kinds are scored once, below.
       when (match.fieldMatchTypeCase) {
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM ->
-          prefixLenSum += match.lpm.prefixLen.toLong()
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY,
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE,
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT,
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL,
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-        P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
+        FieldMatch.FieldMatchTypeCase.LPM -> prefixLenSum += match.lpm.prefixLen.toLong()
+        FieldMatch.FieldMatchTypeCase.TERNARY,
+        FieldMatch.FieldMatchTypeCase.RANGE,
+        FieldMatch.FieldMatchTypeCase.EXACT,
+        FieldMatch.FieldMatchTypeCase.OPTIONAL,
+        FieldMatch.FieldMatchTypeCase.OTHER,
+        FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
         null -> {}
       }
     }
@@ -2336,10 +2242,10 @@ class TableStore : TableDataReader {
 /** Wraps a PRE sub-entry (clone session or multicast group) into an [Entity] proto. */
 internal fun <T> buildPreEntity(
   entry: T,
-  setter: P4RuntimeOuterClass.PacketReplicationEngineEntry.Builder.(T) -> Unit,
-): P4RuntimeOuterClass.Entity =
-  P4RuntimeOuterClass.Entity.newBuilder()
+  setter: PacketReplicationEngineEntry.Builder.(T) -> Unit,
+): Entity =
+  Entity.newBuilder()
     .setPacketReplicationEngineEntry(
-      P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder().also { it.setter(entry) }
+      PacketReplicationEngineEntry.newBuilder().also { it.setter(entry) }
     )
     .build()

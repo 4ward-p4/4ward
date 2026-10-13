@@ -13,9 +13,19 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.config.v1.P4Types
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.MatchField
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.P4NamedType
+import org.p4.config.v1.P4NewTypeSpec
+import org.p4.config.v1.P4NewTypeTranslation
+import org.p4.config.v1.P4TypeInfo
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
 
 class TraceEnricherTest {
 
@@ -123,23 +133,20 @@ class TraceEnricherTest {
     translator.p4rtToDataplane(PORT_TYPE, p4rtBytes(5000))
 
     val matchedEntry =
-      P4RuntimeOuterClass.TableEntry.newBuilder()
+      TableEntry.newBuilder()
         .setTableId(TABLE_ID)
         .addMatch(
-          P4RuntimeOuterClass.FieldMatch.newBuilder()
+          FieldMatch.newBuilder()
             .setFieldId(MATCH_FIELD_ID)
-            .setExact(
-              P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
-                .setValue(ByteString.copyFrom(dpBytes(0)))
-            )
+            .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(dpBytes(0))))
         )
         .setAction(
-          P4RuntimeOuterClass.TableAction.newBuilder()
+          TableAction.newBuilder()
             .setAction(
-              P4RuntimeOuterClass.Action.newBuilder()
+              Action.newBuilder()
                 .setActionId(ACTION_ID)
                 .addParams(
-                  P4RuntimeOuterClass.Action.Param.newBuilder()
+                  Action.Param.newBuilder()
                     .setParamId(PARAM_ID)
                     .setValue(ByteString.copyFrom(dpBytes(0)))
                 )
@@ -257,54 +264,54 @@ class TraceEnricherTest {
   /** Creates a TypeTranslator with string port translation (simulating SAI P4). */
   private fun portTranslator(): TypeTranslator {
     val typeInfo =
-      P4Types.P4TypeInfo.newBuilder()
+      P4TypeInfo.newBuilder()
         .putNewTypes(
           PORT_TYPE,
-          P4Types.P4NewTypeSpec.newBuilder()
+          P4NewTypeSpec.newBuilder()
             .setTranslatedType(
-              P4Types.P4NewTypeTranslation.newBuilder()
-                .setSdnString(P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance())
+              P4NewTypeTranslation.newBuilder()
+                .setSdnString(P4NewTypeTranslation.SdnString.getDefaultInstance())
             )
             .build(),
         )
         .build()
-    val p4info = P4InfoOuterClass.P4Info.newBuilder().setTypeInfo(typeInfo).build()
+    val p4info = P4Info.newBuilder().setTypeInfo(typeInfo).build()
     return TypeTranslator.create(p4info, portTypeName = PORT_TYPE)
   }
 
   /** Creates a TypeTranslator with a translated match field and action param. */
   private fun tableTranslator(): TypeTranslator {
     val typeInfo =
-      P4Types.P4TypeInfo.newBuilder()
+      P4TypeInfo.newBuilder()
         .putNewTypes(
           PORT_TYPE,
-          P4Types.P4NewTypeSpec.newBuilder()
-            .setTranslatedType(P4Types.P4NewTypeTranslation.newBuilder().setSdnBitwidth(32))
+          P4NewTypeSpec.newBuilder()
+            .setTranslatedType(P4NewTypeTranslation.newBuilder().setSdnBitwidth(32))
             .build(),
         )
         .build()
     val p4info =
-      P4InfoOuterClass.P4Info.newBuilder()
+      P4Info.newBuilder()
         .setTypeInfo(typeInfo)
         .addTables(
-          P4InfoOuterClass.Table.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(TABLE_ID))
+          Table.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(TABLE_ID))
             .addMatchFields(
-              P4InfoOuterClass.MatchField.newBuilder()
+              MatchField.newBuilder()
                 .setId(MATCH_FIELD_ID)
                 .setBitwidth(32)
-                .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName(PORT_TYPE))
+                .setMatchType(MatchField.MatchType.EXACT)
+                .setTypeName(P4NamedType.newBuilder().setName(PORT_TYPE))
             )
         )
         .addActions(
-          P4InfoOuterClass.Action.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(ACTION_ID))
+          P4InfoAction.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(ACTION_ID))
             .addParams(
-              P4InfoOuterClass.Action.Param.newBuilder()
+              P4InfoAction.Param.newBuilder()
                 .setId(PARAM_ID)
                 .setBitwidth(32)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName(PORT_TYPE))
+                .setTypeName(P4NamedType.newBuilder().setName(PORT_TYPE))
             )
         )
         .build()

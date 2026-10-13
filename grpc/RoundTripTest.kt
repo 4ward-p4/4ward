@@ -15,27 +15,27 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass.Action
-import p4.v1.P4RuntimeOuterClass.ActionProfileGroup
-import p4.v1.P4RuntimeOuterClass.ActionProfileMember
-import p4.v1.P4RuntimeOuterClass.CloneSessionEntry
-import p4.v1.P4RuntimeOuterClass.CounterData
-import p4.v1.P4RuntimeOuterClass.CounterEntry
-import p4.v1.P4RuntimeOuterClass.DirectCounterEntry
-import p4.v1.P4RuntimeOuterClass.DirectMeterEntry
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.Index
-import p4.v1.P4RuntimeOuterClass.MeterConfig
-import p4.v1.P4RuntimeOuterClass.MeterEntry
-import p4.v1.P4RuntimeOuterClass.MulticastGroupEntry
-import p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.RegisterEntry
-import p4.v1.P4RuntimeOuterClass.Replica
-import p4.v1.P4RuntimeOuterClass.TableAction
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.CounterData
+import org.p4.v1.CounterEntry
+import org.p4.v1.DirectCounterEntry
+import org.p4.v1.DirectMeterEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.Index
+import org.p4.v1.MeterConfig
+import org.p4.v1.MeterEntry
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.ReadRequest
+import org.p4.v1.RegisterEntry
+import org.p4.v1.Replica
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 /**
  * Read-write symmetry tests, per P4Runtime spec §11.2: an entity Read response must be canonically
@@ -232,7 +232,7 @@ class RoundTripTest {
               .setRegisterId(register.preamble.id)
               .setIndex(Index.newBuilder().setIndex(0))
               .setData(
-                p4.v1.P4DataOuterClass.P4Data.newBuilder()
+                org.p4.v1.P4Data.newBuilder()
                   .setBitstring(ByteString.copyFrom(byteArrayOf(0, 0, 0, 0x42)))
               )
           )

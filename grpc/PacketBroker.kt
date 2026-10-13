@@ -13,7 +13,8 @@ import java.util.logging.Logger
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import p4.v1.P4RuntimeOuterClass
+import org.p4.v1.Entity
+import org.p4.v1.Update
 
 /**
  * Fan-out layer between packet sources and the simulator.
@@ -66,9 +67,9 @@ class PacketBroker(
    * Lambdas for building hook invocations and applying hook responses. Set by [FourwardServer]
    * after construction (avoids circular dependency with [P4RuntimeService]).
    */
-  var readAllEntities: () -> List<P4RuntimeOuterClass.Entity> = { emptyList() }
-  var readP4Info: () -> p4.config.v1.P4InfoOuterClass.P4Info? = { null }
-  var applyUpdates: (List<P4RuntimeOuterClass.Update>) -> Unit = {}
+  var readAllEntities: () -> List<Entity> = { emptyList() }
+  var readP4Info: () -> org.p4.config.v1.P4Info? = { null }
+  var applyUpdates: (List<Update>) -> Unit = {}
 
   /**
    * Fires the pre-packet hook if one is registered. Must be called while holding the [writeMutex].

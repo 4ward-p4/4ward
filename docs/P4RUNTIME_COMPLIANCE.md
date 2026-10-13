@@ -138,6 +138,7 @@ UNIMPLEMENTED (rejection is tested), **N/A** = out of scope
 | 9.43a | Empty group (zero members) accepted | Y | ConformanceTest #118 |
 | 9.43b | Group modify replaces member list entirely | Y | ConformanceTest #119 |
 | 9.43c | watch_port field | N/A | Not applicable — no physical ports in a reference simulator |
+| 9.43d | One-shot `group_action` (v1.6.0) rejected | R | WriteValidatorTest |
 
 ### Counters & meters (spec §9.3, §9.4)
 

@@ -11,21 +11,21 @@ import org.junit.Assume
 import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass.P4Info
-import p4.v1.P4RuntimeOuterClass.Action
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.MulticastGroupEntry
-import p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.ReadResponse
-import p4.v1.P4RuntimeOuterClass.Replica
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.TableAction
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
-import p4.v1.P4RuntimeOuterClass.WriteRequest
+import org.p4.config.v1.P4Info
+import org.p4.v1.Action
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.ReadRequest
+import org.p4.v1.ReadResponse
+import org.p4.v1.Replica
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
+import org.p4.v1.WriteRequest
 
 /**
  * P4Runtime differential scenarios using the basic_table fixture. Each scenario sends the same gRPC
@@ -350,8 +350,7 @@ class P4RuntimeDiffScenariosTest {
         val candidateTables =
           p4Info.tablesList.filter { t ->
             t.matchFieldsCount == 1 &&
-              t.matchFieldsList.first().matchType ==
-                p4.config.v1.P4InfoOuterClass.MatchField.MatchType.EXACT
+              t.matchFieldsList.first().matchType == org.p4.config.v1.MatchField.MatchType.EXACT
           }
         require(candidateTables.size == 1) {
           "expected exactly one single-EXACT-field table in P4Info; got ${candidateTables.size}: " +

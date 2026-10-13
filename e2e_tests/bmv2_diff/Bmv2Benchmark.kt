@@ -6,7 +6,7 @@ import java.io.Closeable
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
+import org.p4.config.v1.P4Info
 
 /**
  * BMv2 throughput benchmark on SAI P4 middleblock.
@@ -63,11 +63,8 @@ class Bmv2Benchmark {
   // BenchmarkRunner — wraps bmv2_driver subprocess
   // ===========================================================================
 
-  private class BenchmarkRunner(
-    driverBinary: Path,
-    jsonPath: Path,
-    private val p4Info: P4InfoOuterClass.P4Info,
-  ) : Closeable {
+  private class BenchmarkRunner(driverBinary: Path, jsonPath: Path, private val p4Info: P4Info) :
+    Closeable {
     private val process: Process
     private val writer: java.io.BufferedWriter
     private val reader: java.io.BufferedReader
@@ -370,7 +367,7 @@ class Bmv2Benchmark {
       return packet.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
     }
 
-    private fun loadP4Info(repoRelativePath: String): P4InfoOuterClass.P4Info {
+    private fun loadP4Info(repoRelativePath: String): P4Info {
       val text = fourward.bazel.repoRoot.resolve(repoRelativePath).toFile().readText()
       val builder = PipelineConfig.newBuilder()
       TextFormat.merge(text, builder)

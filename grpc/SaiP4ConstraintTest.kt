@@ -14,10 +14,11 @@ import java.nio.file.Path
 import org.junit.AfterClass
 import org.junit.BeforeClass
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.config.v1.Action
+import org.p4.config.v1.Table
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableEntry
 
 /**
  * Tests that @entry_restriction and @action_restriction constraints on SAI P4 middleblock tables
@@ -226,26 +227,23 @@ class SaiP4ConstraintTest {
 
   /** Builds the action portion of a table entry from an action proto and named params. */
   private fun buildTableAction(
-    action: P4InfoOuterClass.Action,
+    action: Action,
     actionParams: Map<String, ByteString> = emptyMap(),
-  ): p4.v1.P4RuntimeOuterClass.TableAction {
-    val actionBuilder =
-      p4.v1.P4RuntimeOuterClass.Action.newBuilder().setActionId(action.preamble.id)
+  ): org.p4.v1.TableAction {
+    val actionBuilder = org.p4.v1.Action.newBuilder().setActionId(action.preamble.id)
     for ((paramName, value) in actionParams) {
       actionBuilder.addParams(
-        p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
-          .setParamId(paramId(action, paramName))
-          .setValue(value)
+        org.p4.v1.Action.Param.newBuilder().setParamId(paramId(action, paramName)).setValue(value)
       )
     }
-    return p4.v1.P4RuntimeOuterClass.TableAction.newBuilder().setAction(actionBuilder).build()
+    return org.p4.v1.TableAction.newBuilder().setAction(actionBuilder).build()
   }
 
   /** Builds a ternary ACL-style table entry with ternary and optional match fields. */
   @Suppress("LongParameterList")
   private fun buildTernaryAclEntry(
-    table: P4InfoOuterClass.Table,
-    action: P4InfoOuterClass.Action,
+    table: Table,
+    action: Action,
     ternaryFields: Map<String, TernaryValue> = emptyMap(),
     optionalFields: Map<String, OptionalValue> = emptyMap(),
     actionParams: Map<String, ByteString> = emptyMap(),
@@ -282,8 +280,8 @@ class SaiP4ConstraintTest {
 
   /** Builds a table entry with exact match fields. */
   private fun buildExactEntry(
-    table: P4InfoOuterClass.Table,
-    action: P4InfoOuterClass.Action,
+    table: Table,
+    action: Action,
     exactFields: Map<String, ByteString> = emptyMap(),
     actionParams: Map<String, ByteString> = emptyMap(),
   ): Entity {
@@ -345,10 +343,8 @@ class SaiP4ConstraintTest {
                   )
               )
               .setAction(
-                p4.v1.P4RuntimeOuterClass.TableAction.newBuilder()
-                  .setAction(
-                    p4.v1.P4RuntimeOuterClass.Action.newBuilder().setActionId(noAction.preamble.id)
-                  )
+                org.p4.v1.TableAction.newBuilder()
+                  .setAction(org.p4.v1.Action.newBuilder().setActionId(noAction.preamble.id))
               )
           )
           .build()
@@ -357,13 +353,13 @@ class SaiP4ConstraintTest {
       harness.installEntry(
         Entity.newBuilder()
           .setPacketReplicationEngineEntry(
-            p4.v1.P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+            org.p4.v1.PacketReplicationEngineEntry.newBuilder()
               .setMulticastGroupEntry(
-                p4.v1.P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+                org.p4.v1.MulticastGroupEntry.newBuilder()
                   .setMulticastGroupId(1)
                   .addReplicas(
                     @Suppress("DEPRECATION")
-                    p4.v1.P4RuntimeOuterClass.Replica.newBuilder().setEgressPort(0).setInstance(0)
+                    org.p4.v1.Replica.newBuilder().setEgressPort(0).setInstance(0)
                   )
               )
           )

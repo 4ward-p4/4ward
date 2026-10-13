@@ -26,7 +26,8 @@ import fourward.Transition
 import fourward.ValueSetDecl
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass
+import org.p4.v1.FieldMatch
+import org.p4.v1.ValueSetMember
 
 /**
  * Unit tests for [Interpreter.runParser] state machine traversal.
@@ -146,25 +147,23 @@ class InterpreterParserTest {
   // ---------------------------------------------------------------------------
 
   /** Builds a value_set member with a single exact field match. */
-  private fun exactMember(value: ByteArray): P4RuntimeOuterClass.ValueSetMember =
-    P4RuntimeOuterClass.ValueSetMember.newBuilder()
+  private fun exactMember(value: ByteArray): ValueSetMember =
+    ValueSetMember.newBuilder()
       .addMatch(
-        P4RuntimeOuterClass.FieldMatch.newBuilder()
+        FieldMatch.newBuilder()
           .setFieldId(1)
-          .setExact(
-            P4RuntimeOuterClass.FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(value))
-          )
+          .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(value)))
       )
       .build()
 
   /** Builds a value_set member with a single ternary field match. */
-  private fun ternaryMember(value: ByteArray, mask: ByteArray): P4RuntimeOuterClass.ValueSetMember =
-    P4RuntimeOuterClass.ValueSetMember.newBuilder()
+  private fun ternaryMember(value: ByteArray, mask: ByteArray): ValueSetMember =
+    ValueSetMember.newBuilder()
       .addMatch(
-        P4RuntimeOuterClass.FieldMatch.newBuilder()
+        FieldMatch.newBuilder()
           .setFieldId(1)
           .setTernary(
-            P4RuntimeOuterClass.FieldMatch.Ternary.newBuilder()
+            FieldMatch.Ternary.newBuilder()
               .setValue(ByteString.copyFrom(value))
               .setMask(ByteString.copyFrom(mask))
           )

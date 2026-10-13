@@ -17,10 +17,10 @@ kt_jvm_library(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -31,8 +31,8 @@ kt_jvm_test(
     deps = [
         ":stf",
         "//simulator",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 

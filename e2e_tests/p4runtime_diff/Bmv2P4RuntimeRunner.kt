@@ -5,8 +5,8 @@ import io.grpc.StatusRuntimeException
 import io.grpc.netty.NettyChannelBuilder
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-import p4.v1.P4RuntimeGrpc
-import p4.v1.P4RuntimeOuterClass.CapabilitiesRequest
+import org.p4.v1.CapabilitiesRequest
+import org.p4.v1.P4RuntimeGrpc
 
 /**
  * Spawns BMv2's `simple_switch_grpc` as a subprocess and exposes a P4Runtime gRPC stub. Mirrors the

@@ -2,10 +2,12 @@ package fourward.grpc
 
 import fourward.simulator.TableDataReader
 import fourward.simulator.sameKey
-import p4.config.v1.P4InfoOuterClass.P4Info
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.config.v1.P4Info
+import org.p4.v1.Action
+import org.p4.v1.CounterData
+import org.p4.v1.Entity
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
 
 /**
  * Assembles P4Runtime [Entity] protos for table entry reads.
@@ -85,8 +87,7 @@ private constructor(
     val builder = entry.toBuilder()
     if (hasDirectCounter) {
       builder.counterData =
-        tables.getDirectCounterData(directResourceEntry)
-          ?: P4RuntimeOuterClass.CounterData.getDefaultInstance()
+        tables.getDirectCounterData(directResourceEntry) ?: CounterData.getDefaultInstance()
     }
     if (hasDirectMeter) {
       tables.getDirectMeterData(directResourceEntry)?.let { builder.meterConfig = it }
@@ -106,12 +107,12 @@ private constructor(
     val default = tables.getDefaultAction(tableName)
     val actionId = default?.let { actionIdByName[it.name] } ?: noActionId
     if (actionId == 0) return null
-    val actionBuilder = P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId)
+    val actionBuilder = Action.newBuilder().setActionId(actionId)
     default?.params?.forEach { actionBuilder.addParams(it) }
     return TableEntry.newBuilder()
       .setTableId(tableId)
       .setIsDefaultAction(true)
-      .setAction(P4RuntimeOuterClass.TableAction.newBuilder().setAction(actionBuilder))
+      .setAction(TableAction.newBuilder().setAction(actionBuilder))
       .build()
   }
 

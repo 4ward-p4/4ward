@@ -12,9 +12,9 @@ import fourward.Type
 import fourward.simulator.BitAccumulator
 import fourward.simulator.DataplanePort
 import java.math.BigInteger
-import p4.config.v1.P4InfoOuterClass.P4Info
-import p4.v1.P4RuntimeOuterClass.PacketIn
-import p4.v1.P4RuntimeOuterClass.PacketMetadata
+import org.p4.config.v1.P4Info
+import org.p4.v1.PacketIn
+import org.p4.v1.PacketMetadata
 
 /**
  * A port override that is either a raw dataplane port number or a P4Runtime port name that gets

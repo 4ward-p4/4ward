@@ -4,7 +4,7 @@ import com.google.rpc.Status as RpcStatus
 import io.grpc.Metadata
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
-import p4.v1.P4RuntimeOuterClass
+import org.p4.v1.Error
 
 /** Returns the single per-item canonical status from a P4Runtime batch error, if present. */
 fun StatusRuntimeException.singleBatchItemStatusCode(): Status.Code? {
@@ -13,6 +13,6 @@ fun StatusRuntimeException.singleBatchItemStatusCode(): Status.Code? {
   val bytes = trailers.get(key) ?: return null
   val rpcStatus = RpcStatus.parseFrom(bytes)
   if (rpcStatus.detailsCount != 1) return null
-  val error = P4RuntimeOuterClass.Error.parseFrom(rpcStatus.getDetails(0).value)
+  val error = Error.parseFrom(rpcStatus.getDetails(0).value)
   return Status.Code.values().find { it.value() == error.canonicalCode }
 }

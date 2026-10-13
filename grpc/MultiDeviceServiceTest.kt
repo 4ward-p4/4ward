@@ -36,17 +36,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
-import p4.v1.P4RuntimeGrpcKt.P4RuntimeCoroutineStub
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.MasterArbitrationUpdate
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.StreamMessageRequest
-import p4.v1.P4RuntimeOuterClass.StreamMessageResponse
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Uint128
+import org.p4.v1.Entity
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.GetForwardingPipelineConfigRequest
+import org.p4.v1.MasterArbitrationUpdate
+import org.p4.v1.P4RuntimeGrpcKt.P4RuntimeCoroutineStub
+import org.p4.v1.ReadRequest
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.StreamMessageRequest
+import org.p4.v1.StreamMessageResponse
+import org.p4.v1.TableEntry
+import org.p4.v1.Uint128
 
 class MultiDeviceServiceTest {
   private lateinit var harness: Harness

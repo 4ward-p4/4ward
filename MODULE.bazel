@@ -87,7 +87,7 @@ single_version_override(
 # --- P4 ecosystem ---
 
 # p4runtime provides p4info.proto, p4runtime.proto, and p4data.proto.
-bazel_dep(name = "p4runtime", version = "1.5.0.bcr.1")
+bazel_dep(name = "p4runtime", version = "1.6.0")
 
 # Transitively pulled by @p4runtime; declared directly so our BUILD
 # files can reference it by apparent name under strict deps.

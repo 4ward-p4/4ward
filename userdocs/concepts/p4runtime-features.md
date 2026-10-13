@@ -14,7 +14,7 @@ P4Runtime server automatically.
 Tables can declare a role via `@p4runtime_role("role_name")`. This scopes
 entity access per controller role, following the
 [P4Runtime spec
-(section 15)](https://p4lang.github.io/p4runtime/spec/v1.5.0/P4Runtime-Spec.html#sec-role).
+(section 15)](https://p4lang.github.io/p4runtime/spec/v1.6.0/P4Runtime-Spec.html#sec-role).
 
 ```p4
 @p4runtime_role("sdn_controller")

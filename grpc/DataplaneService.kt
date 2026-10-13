@@ -315,7 +315,7 @@ private fun enrichTrace(trace: TraceTree, translator: TypeTranslator?): TraceTre
 
 /**
  * Returns a copy of this [OutputPacket] enriched with P4Runtime fields: the translated port ID, and
- * for CPU-port outputs, the decoded [PacketIn][p4.v1.P4RuntimeOuterClass.PacketIn].
+ * for CPU-port outputs, the decoded [PacketIn][org.p4.v1.PacketIn].
  */
 private fun OutputPacket.toDualEncoded(
   translator: TypeTranslator?,

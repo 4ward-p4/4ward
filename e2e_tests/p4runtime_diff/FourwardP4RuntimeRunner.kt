@@ -4,7 +4,7 @@ import fourward.grpc.FourwardServer
 import io.grpc.ManagedChannel
 import io.grpc.netty.NettyChannelBuilder
 import java.util.concurrent.TimeUnit
-import p4.v1.P4RuntimeGrpc
+import org.p4.v1.P4RuntimeGrpc
 
 /**
  * Wraps an in-process 4ward [FourwardServer] for the diff harness, exposing the same gRPC surface

@@ -23,8 +23,8 @@ bazel run //grpc:fourward_server -- [flags]
 
 ## P4Runtime service
 
-Standard [P4Runtime](https://p4lang.github.io/p4runtime/spec/v1.5.0/P4Runtime-Spec.html) gRPC API (reports version
-**1.5.0**). All six RPCs are implemented:
+Standard [P4Runtime](https://p4lang.github.io/p4runtime/spec/v1.6.0/P4Runtime-Spec.html) gRPC API (reports version
+**1.6.0**). All six RPCs are implemented:
 
 Every normal P4Runtime request has a required nonzero `device_id`. In the
 usual one-device setup, use `1` (or the value passed to `--device-id`) and

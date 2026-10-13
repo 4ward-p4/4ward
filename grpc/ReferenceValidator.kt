@@ -2,8 +2,13 @@ package fourward.grpc
 
 import com.google.protobuf.ByteString
 import io.grpc.Status
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableAction
+import org.p4.v1.Update
 
 /**
  * Validates `@refers_to` referential integrity constraints at write time.
@@ -48,15 +53,15 @@ private constructor(
    * @param multicastGroupExists returns true if a multicast group with the given ID exists.
    */
   fun validate(
-    update: P4RuntimeOuterClass.Update,
+    update: Update,
     entryExists: (tableId: Int, fieldId: Int, value: ByteString) -> Boolean,
     multicastGroupExists: (groupId: Int) -> Boolean,
   ) {
-    if (update.type == P4RuntimeOuterClass.Update.Type.DELETE) return
+    if (update.type == Update.Type.DELETE) return
     val entity = update.entity
 
     when (entity.entityCase) {
-      P4RuntimeOuterClass.Entity.EntityCase.TABLE_ENTRY -> {
+      Entity.EntityCase.TABLE_ENTRY -> {
         val entry = entity.tableEntry
 
         // Check match fields.
@@ -75,41 +80,41 @@ private constructor(
         if (entry.hasAction()) {
           val tableAction = entry.action
           when (tableAction.typeCase) {
-            P4RuntimeOuterClass.TableAction.TypeCase.ACTION ->
+            TableAction.TypeCase.ACTION ->
               validateActionParams(tableAction.action, entryExists, multicastGroupExists)
-            P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_ACTION_SET ->
+            TableAction.TypeCase.ACTION_PROFILE_ACTION_SET ->
               for (profileAction in tableAction.actionProfileActionSet.actionProfileActionsList) {
                 validateActionParams(profileAction.action, entryExists, multicastGroupExists)
               }
-            P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID,
-            P4RuntimeOuterClass.TableAction.TypeCase.ACTION_PROFILE_GROUP_ID,
-            P4RuntimeOuterClass.TableAction.TypeCase.TYPE_NOT_SET,
+            TableAction.TypeCase.ACTION_PROFILE_MEMBER_ID,
+            TableAction.TypeCase.ACTION_PROFILE_GROUP_ID,
+            TableAction.TypeCase.TYPE_NOT_SET,
             null -> {}
           }
         }
       }
 
-      P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_MEMBER ->
+      Entity.EntityCase.ACTION_PROFILE_MEMBER ->
         validateActionParams(entity.actionProfileMember.action, entryExists, multicastGroupExists)
 
-      P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_GROUP,
-      P4RuntimeOuterClass.Entity.EntityCase.COUNTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.DIRECT_COUNTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.METER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.DIRECT_METER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.REGISTER_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.VALUE_SET_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.DIGEST_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.EXTERN_ENTRY,
-      P4RuntimeOuterClass.Entity.EntityCase.ENTITY_NOT_SET,
+      Entity.EntityCase.ACTION_PROFILE_GROUP,
+      Entity.EntityCase.COUNTER_ENTRY,
+      Entity.EntityCase.DIRECT_COUNTER_ENTRY,
+      Entity.EntityCase.METER_ENTRY,
+      Entity.EntityCase.DIRECT_METER_ENTRY,
+      Entity.EntityCase.REGISTER_ENTRY,
+      Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY,
+      Entity.EntityCase.VALUE_SET_ENTRY,
+      Entity.EntityCase.DIGEST_ENTRY,
+      Entity.EntityCase.EXTERN_ENTRY,
+      Entity.EntityCase.ENTITY_NOT_SET,
       null -> {}
     }
   }
 
   /** Validates `@refers_to` annotations on action parameters. */
   private fun validateActionParams(
-    action: P4RuntimeOuterClass.Action,
+    action: Action,
     entryExists: (Int, Int, ByteString) -> Boolean,
     multicastGroupExists: (Int) -> Boolean,
   ) {
@@ -148,15 +153,15 @@ private constructor(
   }
 
   /** Extracts the exact-match value from a FieldMatch, or null for non-exact fields. */
-  private fun extractExactValue(fm: P4RuntimeOuterClass.FieldMatch): ByteString? =
+  private fun extractExactValue(fm: FieldMatch): ByteString? =
     when (fm.fieldMatchTypeCase) {
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.EXACT -> fm.exact.value
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OPTIONAL -> fm.optional.value
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.TERNARY,
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.LPM,
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.RANGE,
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.OTHER,
-      P4RuntimeOuterClass.FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
+      FieldMatch.FieldMatchTypeCase.EXACT -> fm.exact.value
+      FieldMatch.FieldMatchTypeCase.OPTIONAL -> fm.optional.value
+      FieldMatch.FieldMatchTypeCase.TERNARY,
+      FieldMatch.FieldMatchTypeCase.LPM,
+      FieldMatch.FieldMatchTypeCase.RANGE,
+      FieldMatch.FieldMatchTypeCase.OTHER,
+      FieldMatch.FieldMatchTypeCase.FIELDMATCHTYPE_NOT_SET,
       null -> null
     }
 
@@ -169,7 +174,7 @@ private constructor(
      *
      * Resolves table and field names from annotations to their p4info IDs at construction time.
      */
-    fun create(p4info: P4InfoOuterClass.P4Info): ReferenceValidator? {
+    fun create(p4info: P4Info): ReferenceValidator? {
       val tablesByName =
         p4info.tablesList.associateBy { it.preamble.alias.ifEmpty { it.preamble.name } }
 
@@ -215,7 +220,7 @@ private constructor(
 
     private fun parseRefersTo(
       annotations: List<String>,
-      tablesByName: Map<String, P4InfoOuterClass.Table>,
+      tablesByName: Map<String, Table>,
       resolveFieldId: (tableName: String, fieldName: String) -> Int?,
     ): List<Reference> =
       annotations.mapNotNull { annotation ->

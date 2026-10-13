@@ -9,7 +9,7 @@ import fourward.TraceTree
 import fourward.TypeDecl
 import java.math.BigInteger
 import java.util.concurrent.ThreadLocalRandom
-import p4.v1.P4RuntimeOuterClass
+import org.p4.v1.Replica
 
 /** Simplified parameter descriptor: just name and type. */
 internal data class BlockParam(val name: String, val typeName: String)
@@ -25,12 +25,12 @@ internal fun randomInInclusiveRange(lo: BigInteger, hi: BigInteger): BigInteger 
 }
 
 /**
- * Reads the egress port from a [P4RuntimeOuterClass.Replica], supporting both `port` (bytes,
- * P4Runtime v1.4+) and the deprecated `egress_port` (uint32). On the per-packet hot path; written
- * as a plain loop to avoid the IntRange + lambda allocation of a `fold`.
+ * Reads the egress port from a [Replica], supporting both `port` (bytes, P4Runtime v1.4+) and the
+ * deprecated `egress_port` (uint32). On the per-packet hot path; written as a plain loop to avoid
+ * the IntRange + lambda allocation of a `fold`.
  */
 @Suppress("DEPRECATION")
-fun replicaPort(replica: P4RuntimeOuterClass.Replica): Int {
+fun replicaPort(replica: Replica): Int {
   val port = replica.port
   if (port.isEmpty) return replica.egressPort
   var acc = 0

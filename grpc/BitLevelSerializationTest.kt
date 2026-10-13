@@ -619,7 +619,7 @@ class BitLevelSerializationTest {
         session.arbitrate()
 
         val packetOut =
-          p4.v1.P4RuntimeOuterClass.PacketOut.newBuilder()
+          org.p4.v1.PacketOut.newBuilder()
             .setPayload(
               com.google.protobuf.ByteString.copyFrom(
                 byteArrayOf(
@@ -641,7 +641,7 @@ class BitLevelSerializationTest {
               )
             )
             .addMetadata(
-              p4.v1.P4RuntimeOuterClass.PacketMetadata.newBuilder()
+              org.p4.v1.PacketMetadata.newBuilder()
                 .setMetadataId(1)
                 .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(0)))
             )
@@ -745,15 +745,15 @@ class BitLevelSerializationTest {
             0x06,
           )
         val packetOut =
-          p4.v1.P4RuntimeOuterClass.PacketOut.newBuilder()
+          org.p4.v1.PacketOut.newBuilder()
             .setPayload(com.google.protobuf.ByteString.copyFrom(originalPayload))
             .addMetadata(
-              p4.v1.P4RuntimeOuterClass.PacketMetadata.newBuilder()
+              org.p4.v1.PacketMetadata.newBuilder()
                 .setMetadataId(1)
                 .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(123)))
             )
             .addMetadata(
-              p4.v1.P4RuntimeOuterClass.PacketMetadata.newBuilder()
+              org.p4.v1.PacketMetadata.newBuilder()
                 .setMetadataId(2)
                 .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(1)))
             )

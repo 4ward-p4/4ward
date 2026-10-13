@@ -10,9 +10,26 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.config.v1.P4Types
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.ControllerPacketMetadata
+import org.p4.config.v1.MatchField
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.P4NamedType
+import org.p4.config.v1.P4NewTypeSpec
+import org.p4.config.v1.P4NewTypeTranslation
+import org.p4.config.v1.P4TypeInfo
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.PacketIn
+import org.p4.v1.PacketMetadata
+import org.p4.v1.PacketOut
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 /**
  * Unit tests for [TypeTranslator]'s core mapping logic.
@@ -144,7 +161,7 @@ class TypeTranslatorTest {
 
   @Test
   fun `port translator reverse translates uint32 dataplane ports with high bit set`() {
-    val p4info = P4InfoOuterClass.P4Info.newBuilder().setTypeInfo(stringTypeInfo()).build()
+    val p4info = P4Info.newBuilder().setTypeInfo(stringTypeInfo()).build()
     val translator =
       TypeTranslator.create(
         p4info,
@@ -375,44 +392,44 @@ class TypeTranslatorTest {
     // SAI P4 uses @p4runtime_translation("", string) for all translated types.
     // They must get independent translation tables despite sharing the same URI.
     val typeInfo =
-      P4Types.P4TypeInfo.newBuilder()
+      P4TypeInfo.newBuilder()
         .putNewTypes(
           "port_id_t",
-          P4Types.P4NewTypeSpec.newBuilder()
+          P4NewTypeSpec.newBuilder()
             .setTranslatedType(
-              P4Types.P4NewTypeTranslation.newBuilder()
+              P4NewTypeTranslation.newBuilder()
                 .setUri("")
-                .setSdnString(P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance())
+                .setSdnString(P4NewTypeTranslation.SdnString.getDefaultInstance())
             )
             .build(),
         )
         .putNewTypes(
           "vrf_id_t",
-          P4Types.P4NewTypeSpec.newBuilder()
+          P4NewTypeSpec.newBuilder()
             .setTranslatedType(
-              P4Types.P4NewTypeTranslation.newBuilder()
+              P4NewTypeTranslation.newBuilder()
                 .setUri("")
-                .setSdnString(P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance())
+                .setSdnString(P4NewTypeTranslation.SdnString.getDefaultInstance())
             )
             .build(),
         )
         .build()
     val p4info =
-      P4InfoOuterClass.P4Info.newBuilder()
+      P4Info.newBuilder()
         .addActions(
-          P4InfoOuterClass.Action.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(ACTION_ID))
+          P4InfoAction.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(ACTION_ID))
             .addParams(
-              P4InfoOuterClass.Action.Param.newBuilder()
+              P4InfoAction.Param.newBuilder()
                 .setId(1)
                 .setBitwidth(9)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName("port_id_t"))
+                .setTypeName(P4NamedType.newBuilder().setName("port_id_t"))
             )
             .addParams(
-              P4InfoOuterClass.Action.Param.newBuilder()
+              P4InfoAction.Param.newBuilder()
                 .setId(2)
                 .setBitwidth(10)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName("vrf_id_t"))
+                .setTypeName(P4NamedType.newBuilder().setName("vrf_id_t"))
             )
         )
         .setTypeInfo(typeInfo)
@@ -437,15 +454,15 @@ class TypeTranslatorTest {
   @Test
   fun `type_uri resolves to type name via p4info`() {
     val p4info =
-      P4InfoOuterClass.P4Info.newBuilder()
+      P4Info.newBuilder()
         .addActions(
-          P4InfoOuterClass.Action.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(ACTION_ID))
+          P4InfoAction.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(ACTION_ID))
             .addParams(
-              P4InfoOuterClass.Action.Param.newBuilder()
+              P4InfoAction.Param.newBuilder()
                 .setId(PARAM_ID)
                 .setBitwidth(32)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName(TYPE_NAME))
+                .setTypeName(P4NamedType.newBuilder().setName(TYPE_NAME))
             )
         )
         .setTypeInfo(bitstringTypeInfo())
@@ -465,25 +482,25 @@ class TypeTranslatorTest {
   fun `ambiguous type_uri is rejected`() {
     // Two types share the same URI — type_uri resolution should fail.
     val typeInfo =
-      P4Types.P4TypeInfo.newBuilder()
+      P4TypeInfo.newBuilder()
         .putNewTypes(
           "type_a",
-          P4Types.P4NewTypeSpec.newBuilder()
+          P4NewTypeSpec.newBuilder()
             .setTranslatedType(
-              P4Types.P4NewTypeTranslation.newBuilder().setUri("shared.uri").setSdnBitwidth(32)
+              P4NewTypeTranslation.newBuilder().setUri("shared.uri").setSdnBitwidth(32)
             )
             .build(),
         )
         .putNewTypes(
           "type_b",
-          P4Types.P4NewTypeSpec.newBuilder()
+          P4NewTypeSpec.newBuilder()
             .setTranslatedType(
-              P4Types.P4NewTypeTranslation.newBuilder().setUri("shared.uri").setSdnBitwidth(32)
+              P4NewTypeTranslation.newBuilder().setUri("shared.uri").setSdnBitwidth(32)
             )
             .build(),
         )
         .build()
-    val p4info = P4InfoOuterClass.P4Info.newBuilder().setTypeInfo(typeInfo).build()
+    val p4info = P4Info.newBuilder().setTypeInfo(typeInfo).build()
 
     val translations =
       listOf(TypeTranslation.newBuilder().setTypeUri("shared.uri").setAutoAllocate(true).build())
@@ -503,7 +520,7 @@ class TypeTranslatorTest {
 
   @Test
   fun `type_uri matching zero types is rejected`() {
-    val p4info = P4InfoOuterClass.P4Info.newBuilder().setTypeInfo(bitstringTypeInfo()).build()
+    val p4info = P4Info.newBuilder().setTypeInfo(bitstringTypeInfo()).build()
 
     val translations =
       listOf(
@@ -538,20 +555,20 @@ class TypeTranslatorTest {
 
     // Reverse: simulate reading back a data-plane entity.
     val dpMember =
-      P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+      ActionProfileMember.newBuilder()
         .setActionProfileId(ACTION_PROFILE_ID)
         .setMemberId(1)
         .setAction(
-          P4RuntimeOuterClass.Action.newBuilder()
+          Action.newBuilder()
             .setActionId(ACTION_ID)
             .addParams(
-              P4RuntimeOuterClass.Action.Param.newBuilder()
+              Action.Param.newBuilder()
                 .setParamId(PARAM_ID)
                 .setValue(ByteString.copyFrom(dpBytes(0)))
             )
         )
         .build()
-    val dpEntity = P4RuntimeOuterClass.Entity.newBuilder().setActionProfileMember(dpMember).build()
+    val dpEntity = Entity.newBuilder().setActionProfileMember(dpMember).build()
     val sdnEntity = translator.translateForRead(dpEntity)
     val param = sdnEntity.actionProfileMember.action.paramsList.first()
     assertEquals(ByteString.copyFrom(p4rtBytes(5000)), param.value)
@@ -708,31 +725,25 @@ class TypeTranslatorTest {
 
     // Write with both match fields.
     val entry =
-      P4RuntimeOuterClass.TableEntry.newBuilder()
+      TableEntry.newBuilder()
         .setTableId(TABLE_ID)
         .addMatch(
-          P4RuntimeOuterClass.FieldMatch.newBuilder()
+          FieldMatch.newBuilder()
             .setFieldId(MATCH_FIELD_ID)
-            .setExact(
-              P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
-                .setValue(ByteString.copyFrom(stringBytes))
-            )
+            .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(stringBytes)))
         )
         .addMatch(
-          P4RuntimeOuterClass.FieldMatch.newBuilder()
+          FieldMatch.newBuilder()
             .setFieldId(BITWIDTH_FIELD_ID)
-            .setExact(
-              P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
-                .setValue(ByteString.copyFrom(bitstringBytes))
-            )
+            .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(bitstringBytes)))
         )
         .setAction(
-          P4RuntimeOuterClass.TableAction.newBuilder()
+          TableAction.newBuilder()
             .setAction(
-              P4RuntimeOuterClass.Action.newBuilder()
+              Action.newBuilder()
                 .setActionId(ACTION_ID)
                 .addParams(
-                  P4RuntimeOuterClass.Action.Param.newBuilder()
+                  Action.Param.newBuilder()
                     .setParamId(PARAM_ID)
                     .setValue(ByteString.copyFrom(stringBytes))
                 )
@@ -740,9 +751,9 @@ class TypeTranslatorTest {
         )
         .build()
     val update =
-      P4RuntimeOuterClass.Update.newBuilder()
-        .setType(P4RuntimeOuterClass.Update.Type.INSERT)
-        .setEntity(P4RuntimeOuterClass.Entity.newBuilder().setTableEntry(entry))
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
+        .setEntity(Entity.newBuilder().setTableEntry(entry))
         .build()
 
     val translated = translator.translateForWrite(update)
@@ -755,33 +766,27 @@ class TypeTranslatorTest {
 
     // Read back: string field returns UTF-8, bitwidth field returns raw bytes.
     val dpEntity =
-      P4RuntimeOuterClass.Entity.newBuilder()
+      Entity.newBuilder()
         .setTableEntry(
-          P4RuntimeOuterClass.TableEntry.newBuilder()
+          TableEntry.newBuilder()
             .setTableId(TABLE_ID)
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(MATCH_FIELD_ID)
-                .setExact(
-                  P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
-                    .setValue(ByteString.copyFrom(dpBytes(0)))
-                )
+                .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(dpBytes(0))))
             )
             .addMatch(
-              P4RuntimeOuterClass.FieldMatch.newBuilder()
+              FieldMatch.newBuilder()
                 .setFieldId(BITWIDTH_FIELD_ID)
-                .setExact(
-                  P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
-                    .setValue(ByteString.copyFrom(dpBytes(0)))
-                )
+                .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(dpBytes(0))))
             )
             .setAction(
-              P4RuntimeOuterClass.TableAction.newBuilder()
+              TableAction.newBuilder()
                 .setAction(
-                  P4RuntimeOuterClass.Action.newBuilder()
+                  Action.newBuilder()
                     .setActionId(ACTION_ID)
                     .addParams(
-                      P4RuntimeOuterClass.Action.Param.newBuilder()
+                      Action.Param.newBuilder()
                         .setParamId(PARAM_ID)
                         .setValue(ByteString.copyFrom(dpBytes(0)))
                     )
@@ -804,10 +809,10 @@ class TypeTranslatorTest {
     val translator = buildP4InfoTranslatorWithPacketIO()
 
     val packetOut =
-      P4RuntimeOuterClass.PacketOut.newBuilder()
+      PacketOut.newBuilder()
         .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
         .addMetadata(
-          P4RuntimeOuterClass.PacketMetadata.newBuilder()
+          PacketMetadata.newBuilder()
             .setMetadataId(PACKET_METADATA_ID)
             .setValue(ByteString.copyFrom(p4rtBytes(5000)))
         )
@@ -824,10 +829,10 @@ class TypeTranslatorTest {
 
     // Install forward mapping first.
     val packetOut =
-      P4RuntimeOuterClass.PacketOut.newBuilder()
+      PacketOut.newBuilder()
         .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
         .addMetadata(
-          P4RuntimeOuterClass.PacketMetadata.newBuilder()
+          PacketMetadata.newBuilder()
             .setMetadataId(PACKET_METADATA_ID)
             .setValue(ByteString.copyFrom(p4rtBytes(5000)))
         )
@@ -836,10 +841,10 @@ class TypeTranslatorTest {
 
     // Reverse: data-plane → P4RT.
     val packetIn =
-      P4RuntimeOuterClass.PacketIn.newBuilder()
+      PacketIn.newBuilder()
         .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
         .addMetadata(
-          P4RuntimeOuterClass.PacketMetadata.newBuilder()
+          PacketMetadata.newBuilder()
             .setMetadataId(PACKET_METADATA_ID)
             .setValue(ByteString.copyFrom(dpBytes(0)))
         )
@@ -855,10 +860,10 @@ class TypeTranslatorTest {
     val translator = buildP4InfoTranslatorWithStringPacketIO()
 
     val packetOut =
-      P4RuntimeOuterClass.PacketOut.newBuilder()
+      PacketOut.newBuilder()
         .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
         .addMetadata(
-          P4RuntimeOuterClass.PacketMetadata.newBuilder()
+          PacketMetadata.newBuilder()
             .setMetadataId(PACKET_METADATA_ID)
             .setValue(ByteString.copyFromUtf8("Ethernet0"))
         )
@@ -869,10 +874,10 @@ class TypeTranslatorTest {
 
     // Reverse: data-plane → P4RT.
     val packetIn =
-      P4RuntimeOuterClass.PacketIn.newBuilder()
+      PacketIn.newBuilder()
         .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
         .addMetadata(
-          P4RuntimeOuterClass.PacketMetadata.newBuilder()
+          PacketMetadata.newBuilder()
             .setMetadataId(PACKET_METADATA_ID)
             .setValue(ByteString.copyFrom(dpBytes(0)))
         )
@@ -892,12 +897,10 @@ class TypeTranslatorTest {
     // the controller on a punt.
     val unmappedValue = ByteString.copyFrom(dpBytes(7))
     val packetIn =
-      P4RuntimeOuterClass.PacketIn.newBuilder()
+      PacketIn.newBuilder()
         .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
         .addMetadata(
-          P4RuntimeOuterClass.PacketMetadata.newBuilder()
-            .setMetadataId(PACKET_METADATA_ID)
-            .setValue(unmappedValue)
+          PacketMetadata.newBuilder().setMetadataId(PACKET_METADATA_ID).setValue(unmappedValue)
         )
         .build()
 
@@ -984,11 +987,11 @@ class TypeTranslatorTest {
     assertThrows(IllegalArgumentException::class.java) { encodeMinWidth(-1) }
   }
 
-  private fun packetInWithMeta(value: ByteArray): P4RuntimeOuterClass.PacketIn =
-    P4RuntimeOuterClass.PacketIn.newBuilder()
+  private fun packetInWithMeta(value: ByteArray): PacketIn =
+    PacketIn.newBuilder()
       .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
       .addMetadata(
-        P4RuntimeOuterClass.PacketMetadata.newBuilder()
+        PacketMetadata.newBuilder()
           .setMetadataId(PACKET_METADATA_ID)
           .setValue(ByteString.copyFrom(value))
       )
@@ -1000,12 +1003,10 @@ class TypeTranslatorTest {
 
     val rawValue = ByteString.copyFrom(p4rtBytes(42))
     val packetOut =
-      P4RuntimeOuterClass.PacketOut.newBuilder()
+      PacketOut.newBuilder()
         .setPayload(ByteString.copyFrom(byteArrayOf(0x00)))
         .addMetadata(
-          P4RuntimeOuterClass.PacketMetadata.newBuilder()
-            .setMetadataId(NON_TRANSLATED_METADATA_ID)
-            .setValue(rawValue)
+          PacketMetadata.newBuilder().setMetadataId(NON_TRANSLATED_METADATA_ID).setValue(rawValue)
         )
         .build()
 
@@ -1038,13 +1039,13 @@ class TypeTranslatorTest {
   private fun typeInfo(
     typeName: String,
     uri: String,
-    p4rtType: P4Types.P4NewTypeTranslation.Builder.() -> Unit,
-  ): P4Types.P4TypeInfo =
-    P4Types.P4TypeInfo.newBuilder()
+    p4rtType: P4NewTypeTranslation.Builder.() -> Unit,
+  ): P4TypeInfo =
+    P4TypeInfo.newBuilder()
       .putNewTypes(
         typeName,
-        P4Types.P4NewTypeSpec.newBuilder()
-          .setTranslatedType(P4Types.P4NewTypeTranslation.newBuilder().setUri(uri).apply(p4rtType))
+        P4NewTypeSpec.newBuilder()
+          .setTranslatedType(P4NewTypeTranslation.newBuilder().setUri(uri).apply(p4rtType))
           .build(),
       )
       .build()
@@ -1052,26 +1053,26 @@ class TypeTranslatorTest {
   /** Builds a TypeTranslator with sdn_string translated match field and action param. */
   private fun buildP4InfoTranslatorWithStringType(): TypeTranslator {
     val p4info =
-      P4InfoOuterClass.P4Info.newBuilder()
+      P4Info.newBuilder()
         .addTables(
-          P4InfoOuterClass.Table.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(TABLE_ID))
+          Table.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(TABLE_ID))
             .addMatchFields(
-              P4InfoOuterClass.MatchField.newBuilder()
+              MatchField.newBuilder()
                 .setId(MATCH_FIELD_ID)
                 .setBitwidth(32)
-                .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName(STRING_TYPE_NAME))
+                .setMatchType(MatchField.MatchType.EXACT)
+                .setTypeName(P4NamedType.newBuilder().setName(STRING_TYPE_NAME))
             )
         )
         .addActions(
-          P4InfoOuterClass.Action.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(ACTION_ID))
+          P4InfoAction.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(ACTION_ID))
             .addParams(
-              P4InfoOuterClass.Action.Param.newBuilder()
+              P4InfoAction.Param.newBuilder()
                 .setId(PARAM_ID)
                 .setBitwidth(32)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName(STRING_TYPE_NAME))
+                .setTypeName(P4NamedType.newBuilder().setName(STRING_TYPE_NAME))
             )
         )
         .setTypeInfo(stringTypeInfo())
@@ -1082,21 +1083,21 @@ class TypeTranslatorTest {
   /** Builds a TypeTranslator with sdn_string translated PacketIO metadata. */
   private fun buildP4InfoTranslatorWithStringPacketIO(): TypeTranslator {
     val translatedMetadata =
-      P4InfoOuterClass.ControllerPacketMetadata.Metadata.newBuilder()
+      ControllerPacketMetadata.Metadata.newBuilder()
         .setId(PACKET_METADATA_ID)
         .setName("ingress_port")
         .setBitwidth(32)
-        .setTypeName(P4Types.P4NamedType.newBuilder().setName(STRING_TYPE_NAME))
+        .setTypeName(P4NamedType.newBuilder().setName(STRING_TYPE_NAME))
     val p4info =
-      P4InfoOuterClass.P4Info.newBuilder()
+      P4Info.newBuilder()
         .addControllerPacketMetadata(
-          P4InfoOuterClass.ControllerPacketMetadata.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(1).setName("packet_out"))
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(1).setName("packet_out"))
             .addMetadata(translatedMetadata)
         )
         .addControllerPacketMetadata(
-          P4InfoOuterClass.ControllerPacketMetadata.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(2).setName("packet_in"))
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(2).setName("packet_in"))
             .addMetadata(translatedMetadata)
         )
         .setTypeInfo(stringTypeInfo())
@@ -1109,33 +1110,33 @@ class TypeTranslatorTest {
     val typeInfo =
       bitstringTypeInfo().toBuilder().putAllNewTypes(stringTypeInfo().newTypesMap).build()
     val p4info =
-      P4InfoOuterClass.P4Info.newBuilder()
+      P4Info.newBuilder()
         .addTables(
-          P4InfoOuterClass.Table.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(TABLE_ID))
+          Table.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(TABLE_ID))
             .addMatchFields(
-              P4InfoOuterClass.MatchField.newBuilder()
+              MatchField.newBuilder()
                 .setId(MATCH_FIELD_ID)
                 .setBitwidth(32)
-                .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName(STRING_TYPE_NAME))
+                .setMatchType(MatchField.MatchType.EXACT)
+                .setTypeName(P4NamedType.newBuilder().setName(STRING_TYPE_NAME))
             )
             .addMatchFields(
-              P4InfoOuterClass.MatchField.newBuilder()
+              MatchField.newBuilder()
                 .setId(BITWIDTH_FIELD_ID)
                 .setBitwidth(32)
-                .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName(TYPE_NAME))
+                .setMatchType(MatchField.MatchType.EXACT)
+                .setTypeName(P4NamedType.newBuilder().setName(TYPE_NAME))
             )
         )
         .addActions(
-          P4InfoOuterClass.Action.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(ACTION_ID))
+          P4InfoAction.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(ACTION_ID))
             .addParams(
-              P4InfoOuterClass.Action.Param.newBuilder()
+              P4InfoAction.Param.newBuilder()
                 .setId(PARAM_ID)
                 .setBitwidth(32)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName(STRING_TYPE_NAME))
+                .setTypeName(P4NamedType.newBuilder().setName(STRING_TYPE_NAME))
             )
         )
         .setTypeInfo(typeInfo)
@@ -1147,38 +1148,38 @@ class TypeTranslatorTest {
 
   private fun stringTypeInfo() =
     typeInfo(STRING_TYPE_NAME, STRING_TYPE_URI) {
-      setSdnString(P4Types.P4NewTypeTranslation.SdnString.getDefaultInstance())
+      setSdnString(P4NewTypeTranslation.SdnString.getDefaultInstance())
     }
 
   /** Builds a TypeTranslator from synthetic p4info with a translated match field. */
   private fun buildP4InfoTranslator(): TypeTranslator {
     val p4info =
-      P4InfoOuterClass.P4Info.newBuilder()
+      P4Info.newBuilder()
         .addTables(
-          P4InfoOuterClass.Table.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(TABLE_ID))
+          Table.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(TABLE_ID))
             .addMatchFields(
-              P4InfoOuterClass.MatchField.newBuilder()
+              MatchField.newBuilder()
                 .setId(MATCH_FIELD_ID)
                 .setBitwidth(32)
-                .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName(TYPE_NAME))
+                .setMatchType(MatchField.MatchType.EXACT)
+                .setTypeName(P4NamedType.newBuilder().setName(TYPE_NAME))
             )
             .addMatchFields(
-              P4InfoOuterClass.MatchField.newBuilder()
+              MatchField.newBuilder()
                 .setId(NON_TRANSLATED_FIELD_ID)
                 .setBitwidth(16)
-                .setMatchType(P4InfoOuterClass.MatchField.MatchType.EXACT)
+                .setMatchType(MatchField.MatchType.EXACT)
             )
         )
         .addActions(
-          P4InfoOuterClass.Action.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(ACTION_ID))
+          P4InfoAction.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(ACTION_ID))
             .addParams(
-              P4InfoOuterClass.Action.Param.newBuilder()
+              P4InfoAction.Param.newBuilder()
                 .setId(PARAM_ID)
                 .setBitwidth(32)
-                .setTypeName(P4Types.P4NamedType.newBuilder().setName(TYPE_NAME))
+                .setTypeName(P4NamedType.newBuilder().setName(TYPE_NAME))
             )
         )
         .setTypeInfo(bitstringTypeInfo())
@@ -1189,27 +1190,27 @@ class TypeTranslatorTest {
   /** Builds a TypeTranslator from synthetic p4info with translated PacketIO metadata. */
   private fun buildP4InfoTranslatorWithPacketIO(): TypeTranslator {
     val translatedMetadata =
-      P4InfoOuterClass.ControllerPacketMetadata.Metadata.newBuilder()
+      ControllerPacketMetadata.Metadata.newBuilder()
         .setId(PACKET_METADATA_ID)
         .setName("ingress_port")
         .setBitwidth(32)
-        .setTypeName(P4Types.P4NamedType.newBuilder().setName(TYPE_NAME))
+        .setTypeName(P4NamedType.newBuilder().setName(TYPE_NAME))
     val p4info =
-      P4InfoOuterClass.P4Info.newBuilder()
+      P4Info.newBuilder()
         .addControllerPacketMetadata(
-          P4InfoOuterClass.ControllerPacketMetadata.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(1).setName("packet_out"))
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(1).setName("packet_out"))
             .addMetadata(translatedMetadata)
             .addMetadata(
-              P4InfoOuterClass.ControllerPacketMetadata.Metadata.newBuilder()
+              ControllerPacketMetadata.Metadata.newBuilder()
                 .setId(NON_TRANSLATED_METADATA_ID)
                 .setName("padding")
                 .setBitwidth(7)
             )
         )
         .addControllerPacketMetadata(
-          P4InfoOuterClass.ControllerPacketMetadata.newBuilder()
-            .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(2).setName("packet_in"))
+          ControllerPacketMetadata.newBuilder()
+            .setPreamble(Preamble.newBuilder().setId(2).setName("packet_in"))
             .addMetadata(translatedMetadata)
         )
         .setTypeInfo(bitstringTypeInfo())
@@ -1225,7 +1226,7 @@ class TypeTranslatorTest {
     actionId: Int,
     paramId: Int,
     paramValue: ByteArray,
-  ): P4RuntimeOuterClass.Update {
+  ): Update {
     val match = exactMatch(fieldId, matchValue)
     return wrapUpdate(buildTableEntry(tableId, match, actionId, paramId, paramValue))
   }
@@ -1238,14 +1239,11 @@ class TypeTranslatorTest {
     actionId: Int,
     paramId: Int,
     paramValue: ByteArray,
-  ): P4RuntimeOuterClass.Update {
+  ): Update {
     val match =
-      P4RuntimeOuterClass.FieldMatch.newBuilder()
+      FieldMatch.newBuilder()
         .setFieldId(fieldId)
-        .setOptional(
-          P4RuntimeOuterClass.FieldMatch.Optional.newBuilder()
-            .setValue(ByteString.copyFrom(matchValue))
-        )
+        .setOptional(FieldMatch.Optional.newBuilder().setValue(ByteString.copyFrom(matchValue)))
         .build()
     return wrapUpdate(buildTableEntry(tableId, match, actionId, paramId, paramValue))
   }
@@ -1258,38 +1256,36 @@ class TypeTranslatorTest {
     actionId: Int,
     paramId: Int,
     paramValue: ByteArray,
-  ): P4RuntimeOuterClass.Entity {
+  ): Entity {
     val match = exactMatch(fieldId, matchValue)
-    return P4RuntimeOuterClass.Entity.newBuilder()
+    return Entity.newBuilder()
       .setTableEntry(buildTableEntry(tableId, match, actionId, paramId, paramValue))
       .build()
   }
 
-  private fun exactMatch(fieldId: Int, value: ByteArray): P4RuntimeOuterClass.FieldMatch =
-    P4RuntimeOuterClass.FieldMatch.newBuilder()
+  private fun exactMatch(fieldId: Int, value: ByteArray): FieldMatch =
+    FieldMatch.newBuilder()
       .setFieldId(fieldId)
-      .setExact(
-        P4RuntimeOuterClass.FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(value))
-      )
+      .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(value)))
       .build()
 
   private fun buildTableEntry(
     tableId: Int,
-    match: P4RuntimeOuterClass.FieldMatch,
+    match: FieldMatch,
     actionId: Int,
     paramId: Int,
     paramValue: ByteArray,
-  ): P4RuntimeOuterClass.TableEntry =
-    P4RuntimeOuterClass.TableEntry.newBuilder()
+  ): TableEntry =
+    TableEntry.newBuilder()
       .setTableId(tableId)
       .addMatch(match)
       .setAction(
-        P4RuntimeOuterClass.TableAction.newBuilder()
+        TableAction.newBuilder()
           .setAction(
-            P4RuntimeOuterClass.Action.newBuilder()
+            Action.newBuilder()
               .setActionId(actionId)
               .addParams(
-                P4RuntimeOuterClass.Action.Param.newBuilder()
+                Action.Param.newBuilder()
                   .setParamId(paramId)
                   .setValue(ByteString.copyFrom(paramValue))
               )
@@ -1297,35 +1293,31 @@ class TypeTranslatorTest {
       )
       .build()
 
-  private fun wrapUpdate(entry: P4RuntimeOuterClass.TableEntry): P4RuntimeOuterClass.Update =
-    P4RuntimeOuterClass.Update.newBuilder()
-      .setType(P4RuntimeOuterClass.Update.Type.INSERT)
-      .setEntity(P4RuntimeOuterClass.Entity.newBuilder().setTableEntry(entry))
+  private fun wrapUpdate(entry: TableEntry): Update =
+    Update.newBuilder()
+      .setType(Update.Type.INSERT)
+      .setEntity(Entity.newBuilder().setTableEntry(entry))
       .build()
 
   /** Builds an Update wrapping an ActionProfileMember with a single param. */
-  private fun memberUpdate(
-    actionId: Int,
-    paramId: Int,
-    paramValue: ByteArray,
-  ): P4RuntimeOuterClass.Update {
+  private fun memberUpdate(actionId: Int, paramId: Int, paramValue: ByteArray): Update {
     val member =
-      P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+      ActionProfileMember.newBuilder()
         .setActionProfileId(ACTION_PROFILE_ID)
         .setMemberId(1)
         .setAction(
-          P4RuntimeOuterClass.Action.newBuilder()
+          Action.newBuilder()
             .setActionId(actionId)
             .addParams(
-              P4RuntimeOuterClass.Action.Param.newBuilder()
+              Action.Param.newBuilder()
                 .setParamId(paramId)
                 .setValue(ByteString.copyFrom(paramValue))
             )
         )
         .build()
-    return P4RuntimeOuterClass.Update.newBuilder()
-      .setType(P4RuntimeOuterClass.Update.Type.INSERT)
-      .setEntity(P4RuntimeOuterClass.Entity.newBuilder().setActionProfileMember(member))
+    return Update.newBuilder()
+      .setType(Update.Type.INSERT)
+      .setEntity(Entity.newBuilder().setActionProfileMember(member))
       .build()
   }
 

@@ -36,9 +36,9 @@ kt_jvm_test(
     deps = [
         "//bazel:runfiles",
         "//simulator:ir_java_proto",
-        "//simulator:p4info_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
     ],
 )
 

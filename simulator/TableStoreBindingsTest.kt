@@ -11,8 +11,14 @@ import fourward.TableBehavior
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.Action
+import org.p4.config.v1.ActionRef
+import org.p4.config.v1.Counter
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Table
+import org.p4.v1.CounterEntry
+import org.p4.v1.Index
 
 class TableStoreBindingsTest {
   @Test
@@ -23,9 +29,9 @@ class TableStoreBindingsTest {
       buildP4Info(
         tables =
           listOf(
-            P4InfoOuterClass.Table.newBuilder()
+            Table.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(nestedTableId)
                   .setName("ingress.inner.myTable")
                   .setAlias("inner.myTable")
@@ -35,9 +41,9 @@ class TableStoreBindingsTest {
           ),
         actions =
           listOf(
-            P4InfoOuterClass.Action.newBuilder()
+            Action.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(nestedActionId)
                   .setName("ingress.inner.myAction")
                   .setAlias("inner.myAction")
@@ -78,30 +84,30 @@ class TableStoreBindingsTest {
       buildP4Info(
         tables =
           listOf(
-            P4InfoOuterClass.Table.newBuilder()
+            Table.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(tableId)
                   .setName("MainControlImpl.outbound.conntrack.ct_tcp_table")
                   .setAlias("outbound.conntrack.ct_tcp_table")
               )
-              .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(hitActionId))
-              .addActionRefs(P4InfoOuterClass.ActionRef.newBuilder().setId(missActionId))
+              .addActionRefs(ActionRef.newBuilder().setId(hitActionId))
+              .addActionRefs(ActionRef.newBuilder().setId(missActionId))
               .build()
           ),
         actions =
           listOf(
-            P4InfoOuterClass.Action.newBuilder()
+            Action.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(hitActionId)
                   .setName("MainControlImpl.outbound.conntrack.ct_tcp_table_hit")
                   .setAlias("outbound.conntrack.ct_tcp_table_hit")
               )
               .build(),
-            P4InfoOuterClass.Action.newBuilder()
+            Action.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(missActionId)
                   .setName("MainControlImpl.outbound.conntrack.ct_tcp_table_miss")
                   .setAlias("outbound.conntrack.ct_tcp_table_miss")
@@ -165,9 +171,9 @@ class TableStoreBindingsTest {
       buildP4Info(
         tables =
           listOf(
-            P4InfoOuterClass.Table.newBuilder()
+            Table.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(4)
                   .setName("ingress.inner.myTable")
                   .setAlias("inner.myTable")
@@ -208,9 +214,9 @@ class TableStoreBindingsTest {
       buildP4Info(
         tables =
           listOf(
-            P4InfoOuterClass.Table.newBuilder()
+            Table.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(3)
                   .setName("ingress.routing_lookup.ipv4_table")
                   .setAlias("ipv4_table")
@@ -220,20 +226,17 @@ class TableStoreBindingsTest {
           ),
         actions =
           listOf(
-            P4InfoOuterClass.Action.newBuilder()
+            Action.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(routeDropId)
                   .setName("ingress.routing_lookup.drop")
                   .setAlias("drop")
               )
               .build(),
-            P4InfoOuterClass.Action.newBuilder()
+            Action.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
-                  .setId(aclDropId)
-                  .setName("ingress.acl.drop")
-                  .setAlias("drop")
+                Preamble.newBuilder().setId(aclDropId).setName("ingress.acl.drop").setAlias("drop")
               )
               .build(),
           ),
@@ -270,9 +273,9 @@ class TableStoreBindingsTest {
       buildP4Info(
         actions =
           listOf(
-            P4InfoOuterClass.Action.newBuilder()
+            Action.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(30)
                   .setName("ingress.inner.myAction")
                   .setAlias("inner.myAction")
@@ -315,9 +318,9 @@ class TableStoreBindingsTest {
       buildP4Info(
         counters =
           listOf(
-            P4InfoOuterClass.Counter.newBuilder()
+            Counter.newBuilder()
               .setPreamble(
-                P4InfoOuterClass.Preamble.newBuilder()
+                Preamble.newBuilder()
                   .setId(counterId)
                   .setName("ingress.inner.pktCounter")
                   .setAlias("inner.pktCounter")
@@ -349,9 +352,9 @@ class TableStoreBindingsTest {
 
     val results =
       store.readCounterEntries(
-        P4RuntimeOuterClass.CounterEntry.newBuilder()
+        CounterEntry.newBuilder()
           .setCounterId(counterId)
-          .setIndex(P4RuntimeOuterClass.Index.newBuilder().setIndex(2))
+          .setIndex(Index.newBuilder().setIndex(2))
           .build()
       )
     assertEquals(1, results.size)
@@ -360,15 +363,11 @@ class TableStoreBindingsTest {
   }
 
   private fun buildP4Info(
-    tables: List<P4InfoOuterClass.Table> = emptyList(),
-    actions: List<P4InfoOuterClass.Action> = emptyList(),
-    counters: List<P4InfoOuterClass.Counter> = emptyList(),
-  ): P4InfoOuterClass.P4Info =
-    P4InfoOuterClass.P4Info.newBuilder()
-      .addAllTables(tables)
-      .addAllActions(actions)
-      .addAllCounters(counters)
-      .build()
+    tables: List<Table> = emptyList(),
+    actions: List<Action> = emptyList(),
+    counters: List<Counter> = emptyList(),
+  ): P4Info =
+    P4Info.newBuilder().addAllTables(tables).addAllActions(actions).addAllCounters(counters).build()
 
   private fun binding(p4infoName: String, simulatorName: String): ControlPlaneBinding =
     ControlPlaneBinding.newBuilder()

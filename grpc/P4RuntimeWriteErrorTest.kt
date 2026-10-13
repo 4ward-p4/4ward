@@ -10,13 +10,13 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass.CounterData
-import p4.v1.P4RuntimeOuterClass.DigestEntry
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.MeterConfig
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Update
-import p4.v1.P4RuntimeOuterClass.WriteRequest
+import org.p4.v1.CounterData
+import org.p4.v1.DigestEntry
+import org.p4.v1.Entity
+import org.p4.v1.MeterConfig
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
+import org.p4.v1.WriteRequest
 
 /**
  * Spec-driven conformance tests for P4Runtime Write RPC error conditions.
@@ -575,16 +575,16 @@ class P4RuntimeWriteErrorTest {
           TableEntry.newBuilder()
             .setTableId(tableId)
             .addMatch(
-              p4.v1.P4RuntimeOuterClass.FieldMatch.newBuilder()
+              org.p4.v1.FieldMatch.newBuilder()
                 .setFieldId(table.matchFieldsList.first().id)
                 .setExact(
-                  p4.v1.P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+                  org.p4.v1.FieldMatch.Exact.newBuilder()
                     .setValue(ByteString.copyFrom(byteArrayOf(0x01)))
                 )
             )
             .setAction(
-              p4.v1.P4RuntimeOuterClass.TableAction.newBuilder()
-                .setAction(p4.v1.P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId))
+              org.p4.v1.TableAction.newBuilder()
+                .setAction(org.p4.v1.Action.newBuilder().setActionId(actionId))
             )
         )
         .build()
@@ -621,7 +621,7 @@ class P4RuntimeWriteErrorTest {
     harness.loadPipeline(loadBasicTableConfig())
     val entity =
       Entity.newBuilder()
-        .setValueSetEntry(p4.v1.P4RuntimeOuterClass.ValueSetEntry.newBuilder().setValueSetId(1))
+        .setValueSetEntry(org.p4.v1.ValueSetEntry.newBuilder().setValueSetId(1))
         .build()
     assertGrpcError(Status.Code.INVALID_ARGUMENT, "MODIFY") { harness.installEntry(entity) }
   }
@@ -631,9 +631,7 @@ class P4RuntimeWriteErrorTest {
     harness.loadPipeline(loadBasicTableConfig())
     val entity =
       Entity.newBuilder()
-        .setExternEntry(
-          p4.v1.P4RuntimeOuterClass.ExternEntry.newBuilder().setExternTypeId(1).setExternId(1)
-        )
+        .setExternEntry(org.p4.v1.ExternEntry.newBuilder().setExternTypeId(1).setExternId(1))
         .build()
     assertGrpcError(Status.Code.UNIMPLEMENTED, "ExternEntry") { harness.installEntry(entity) }
   }

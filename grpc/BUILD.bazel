@@ -121,7 +121,7 @@ java_grpc_library(
     name = "p4runtime_java_grpc",
     srcs = ["@p4runtime//proto/p4/v1:p4runtime_proto"],
     visibility = ["//e2e_tests/p4runtime_diff:__pkg__"],
-    deps = ["//simulator:p4runtime_java_proto"],
+    deps = ["@p4runtime//proto/p4/v1:p4runtime_java_proto"],
 )
 
 # Kotlin gRPC stubs — coroutine-based service base class and client stub.
@@ -129,7 +129,7 @@ kt_jvm_grpc_library(
     name = "p4runtime_kt_grpc",
     srcs = ["@p4runtime//proto/p4/v1:p4runtime_proto"],
     visibility = ["//e2e_tests/p4runtime_diff:__pkg__"],
-    deps = ["//simulator:p4runtime_java_proto"],
+    deps = ["@p4runtime//proto/p4/v1:p4runtime_java_proto"],
 )
 
 # =============================================================================
@@ -156,15 +156,15 @@ kt_jvm_library(
         ":p4runtime_kt_grpc",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
-        "//simulator:p4types_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
         "@fourward_maven//:io_grpc_grpc_netty",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4types_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -209,10 +209,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
-        "//simulator:p4types_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -220,6 +216,10 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4types_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -242,9 +242,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -252,6 +249,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -280,9 +280,6 @@ kt_jvm_test(
         "//e2e_tests:inline_p4_compiler",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -290,6 +287,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -313,9 +313,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -323,6 +320,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -358,9 +358,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -368,6 +365,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -377,11 +377,11 @@ kt_jvm_test(
     test_class = "fourward.grpc.WriteValidatorTest",
     deps = [
         ":grpc",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -391,10 +391,10 @@ kt_jvm_test(
     test_class = "fourward.grpc.BytestringsTest",
     deps = [
         ":grpc",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -405,10 +405,10 @@ kt_jvm_test(
     deps = [
         ":grpc",
         "//simulator",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -418,11 +418,11 @@ kt_jvm_test(
     test_class = "fourward.grpc.ReferenceValidatorTest",
     deps = [
         ":grpc",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -432,9 +432,9 @@ kt_jvm_test(
     test_class = "fourward.grpc.RoleMapTest",
     deps = [
         ":grpc",
-        "//simulator:p4info_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
     ],
 )
 
@@ -445,12 +445,12 @@ kt_jvm_test(
     deps = [
         ":grpc",
         "//simulator:ir_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
-        "//simulator:p4types_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4types_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -462,11 +462,11 @@ kt_jvm_test(
         ":grpc",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
-        "//simulator:p4types_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4types_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -483,10 +483,10 @@ kt_jvm_test(
         ":grpc",
         "//bazel:runfiles",
         "//simulator:ir_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -543,15 +543,15 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
         "@fourward_maven//:io_grpc_grpc_inprocess",
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -574,9 +574,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -584,6 +581,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -607,9 +607,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -617,6 +614,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -640,9 +640,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -650,6 +647,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -672,9 +672,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -682,6 +679,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -703,9 +703,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -713,6 +710,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -724,11 +724,11 @@ kt_jvm_test(
         ":dataplane_java_proto",
         ":grpc",
         "//simulator",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -761,10 +761,6 @@ kt_jvm_test(
         "//e2e_tests:inline_p4_compiler",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
-        "//simulator:p4types_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -772,6 +768,10 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4types_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -783,10 +783,10 @@ kt_jvm_test(
         ":grpc",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -809,9 +809,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -819,6 +816,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -843,9 +843,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -853,6 +850,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -874,10 +874,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
-        "//simulator:p4types_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -885,6 +881,10 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4types_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -906,9 +906,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -916,6 +913,9 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -938,9 +938,6 @@ kt_jvm_test(
         "//bazel:runfiles",
         "//simulator",
         "//simulator:ir_java_proto",
-        "//simulator:p4data_java_proto",
-        "//simulator:p4info_java_proto",
-        "//simulator:p4runtime_java_proto",
         "//simulator:simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:io_grpc_grpc_api",
@@ -948,5 +945,8 @@ kt_jvm_test(
         "@fourward_maven//:junit_junit",
         "@fourward_maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )

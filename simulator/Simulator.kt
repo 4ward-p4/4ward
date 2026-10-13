@@ -176,8 +176,7 @@ class Simulator : TableDataReader {
    *
    * @throws IllegalStateException if no pipeline is loaded.
    */
-  fun writeEntry(update: p4.v1.P4RuntimeOuterClass.Update): WriteResult =
-    loaded().tableStore.write(update)
+  fun writeEntry(update: org.p4.v1.Update): WriteResult = loaded().tableStore.write(update)
 
   /** The pipeline config from the currently loaded pipeline, or null if none is loaded. */
   val pipelineConfig: PipelineConfig?
@@ -234,10 +233,10 @@ class Simulator : TableDataReader {
   override fun isDefaultModified(tableName: String) =
     loaded().tableStore.isDefaultModified(tableName)
 
-  override fun getDirectCounterData(entry: p4.v1.P4RuntimeOuterClass.TableEntry) =
+  override fun getDirectCounterData(entry: org.p4.v1.TableEntry) =
     loaded().tableStore.getDirectCounterData(entry)
 
-  override fun getDirectMeterData(entry: p4.v1.P4RuntimeOuterClass.TableEntry) =
+  override fun getDirectMeterData(entry: org.p4.v1.TableEntry) =
     loaded().tableStore.getDirectMeterData(entry)
 
   override fun hasDirectCounter(tableName: String) = loaded().tableStore.hasDirectCounter(tableName)
@@ -250,34 +249,31 @@ class Simulator : TableDataReader {
    * Table entries are handled by [fourward.grpc.EntityReader] in the P4Runtime layer; this method
    * handles all other entity types.
    */
-  fun readEntries(
-    filters: List<p4.v1.P4RuntimeOuterClass.Entity>
-  ): List<p4.v1.P4RuntimeOuterClass.Entity> {
+  fun readEntries(filters: List<org.p4.v1.Entity>): List<org.p4.v1.Entity> {
     val tableStore = loaded().tableStore
     return filters.flatMap { entity ->
       when (entity.entityCase) {
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.TABLE_ENTRY -> emptyList()
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_MEMBER ->
+        org.p4.v1.Entity.EntityCase.TABLE_ENTRY -> emptyList()
+        org.p4.v1.Entity.EntityCase.ACTION_PROFILE_MEMBER ->
           tableStore.readProfileMembers(entity.actionProfileMember)
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.ACTION_PROFILE_GROUP ->
+        org.p4.v1.Entity.EntityCase.ACTION_PROFILE_GROUP ->
           tableStore.readProfileGroups(entity.actionProfileGroup)
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.REGISTER_ENTRY ->
+        org.p4.v1.Entity.EntityCase.REGISTER_ENTRY ->
           tableStore.readRegisterEntries(entity.registerEntry)
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.COUNTER_ENTRY ->
+        org.p4.v1.Entity.EntityCase.COUNTER_ENTRY ->
           tableStore.readCounterEntries(entity.counterEntry)
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.METER_ENTRY ->
-          tableStore.readMeterEntries(entity.meterEntry)
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.DIRECT_COUNTER_ENTRY ->
+        org.p4.v1.Entity.EntityCase.METER_ENTRY -> tableStore.readMeterEntries(entity.meterEntry)
+        org.p4.v1.Entity.EntityCase.DIRECT_COUNTER_ENTRY ->
           tableStore.readDirectCounterEntries(entity.directCounterEntry)
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.DIRECT_METER_ENTRY ->
+        org.p4.v1.Entity.EntityCase.DIRECT_METER_ENTRY ->
           tableStore.readDirectMeterEntries(entity.directMeterEntry)
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY ->
+        org.p4.v1.Entity.EntityCase.PACKET_REPLICATION_ENGINE_ENTRY ->
           tableStore.readPreEntries(entity.packetReplicationEngineEntry)
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.VALUE_SET_ENTRY ->
+        org.p4.v1.Entity.EntityCase.VALUE_SET_ENTRY ->
           tableStore.readValueSetEntries(entity.valueSetEntry)
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.EXTERN_ENTRY,
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.DIGEST_ENTRY,
-        p4.v1.P4RuntimeOuterClass.Entity.EntityCase.ENTITY_NOT_SET,
+        org.p4.v1.Entity.EntityCase.EXTERN_ENTRY,
+        org.p4.v1.Entity.EntityCase.DIGEST_ENTRY,
+        org.p4.v1.Entity.EntityCase.ENTITY_NOT_SET,
         null -> error("unsupported entity type for read: ${entity.entityCase}")
       }
     }

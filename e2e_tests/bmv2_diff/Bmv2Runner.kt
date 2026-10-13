@@ -21,7 +21,9 @@ import fourward.stf.stripNamedParamPrefix
 import java.io.Closeable
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-import p4.config.v1.P4InfoOuterClass
+import org.p4.config.v1.Action
+import org.p4.config.v1.MatchField
+import org.p4.config.v1.P4Info
 
 /**
  * Drives a BMv2 simple_switch subprocess via the bmv2_driver binary.
@@ -30,8 +32,7 @@ import p4.config.v1.P4InfoOuterClass
  * 4ward PipelineConfig) to resolve field names and encode match/action values with correct
  * bitwidths.
  */
-class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoOuterClass.P4Info) :
-  Closeable {
+class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4Info) : Closeable {
   private val process: Process
   private val writer: java.io.BufferedWriter
   private val reader: java.io.BufferedReader
@@ -246,19 +247,13 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
   /**
    * Encodes named params (from member directives) directly, without round-tripping through strings.
    */
-  private fun encodeNamedParams(
-    params: Map<String, String>,
-    action: P4InfoOuterClass.Action,
-  ): List<String> =
+  private fun encodeNamedParams(params: Map<String, String>, action: Action): List<String> =
     action.paramsList.map { paramInfo ->
       val raw = params[paramInfo.name] ?: error("missing ${paramInfo.name}")
       encodeValue(raw, paramInfo.bitwidth).toByteArray().hex()
     }
 
-  private fun encodeActionParams(
-    stfParams: List<String>,
-    action: P4InfoOuterClass.Action,
-  ): List<String> =
+  private fun encodeActionParams(stfParams: List<String>, action: Action): List<String> =
     action.paramsList.mapIndexed { i, paramInfo ->
       val raw =
         stfParams.find { it.extractParamName() == paramInfo.name }
@@ -268,10 +263,7 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
     }
 
   /** Find the STF match field corresponding to a P4Info match field, or null if not found. */
-  private fun findStfMatchOrNull(
-    entry: StfAddEntry,
-    mf: P4InfoOuterClass.MatchField,
-  ): StfMatchField? =
+  private fun findStfMatchOrNull(entry: StfAddEntry, mf: MatchField): StfMatchField? =
     entry.matches.find { stf ->
       val norm = stf.fieldName.replace(ARRAY_INDEX_REGEX, "[$1]")
       val mfSuffix = mf.name.substringAfter(".")
@@ -281,13 +273,9 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
   // Encode a match field for the bmv2_driver command format. Accepts null for absent OPTIONAL
   // fields: BMv2 compiles P4 OPTIONAL to ternary, and a wildcard OPTIONAL is all-zeros value +
   // all-zeros mask (don't-care ternary).
-  private fun encodeMatchForDriver(
-    stf: StfMatchField?,
-    mf: P4InfoOuterClass.MatchField,
-    tableName: String,
-  ): String {
+  private fun encodeMatchForDriver(stf: StfMatchField?, mf: MatchField, tableName: String): String {
     if (stf == null) {
-      check(mf.matchType == P4InfoOuterClass.MatchField.MatchType.OPTIONAL) {
+      check(mf.matchType == MatchField.MatchType.OPTIONAL) {
         "no STF match for P4Info field '${mf.name}' in table '$tableName'"
       }
       val zero = allZerosMask(mf.bitwidth)
@@ -306,8 +294,8 @@ class Bmv2Runner(driverBinary: Path, jsonPath: Path, private val p4Info: P4InfoO
       MatchKind.EXACT -> {
         when (mf.matchType) {
           // If the table declares ternary/lpm but the STF value is exact, promote.
-          P4InfoOuterClass.MatchField.MatchType.TERNARY -> "$valueHex&&&${allOnesMask(mf.bitwidth)}"
-          P4InfoOuterClass.MatchField.MatchType.LPM -> "$valueHex/${mf.bitwidth}"
+          MatchField.MatchType.TERNARY -> "$valueHex&&&${allOnesMask(mf.bitwidth)}"
+          MatchField.MatchType.LPM -> "$valueHex/${mf.bitwidth}"
           else -> valueHex
         }
       }

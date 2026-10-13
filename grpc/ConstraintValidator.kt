@@ -9,8 +9,8 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-import p4.config.v1.P4InfoOuterClass.P4Info
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.config.v1.P4Info
+import org.p4.v1.TableEntry
 
 /**
  * Client for the p4-constraints validator subprocess.

@@ -21,11 +21,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.v1.Entity
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.ReadRequest
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.TableEntry
 
 class WebServerTest {
 

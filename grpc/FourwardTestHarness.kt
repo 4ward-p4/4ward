@@ -25,26 +25,32 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
-import p4.v1.P4RuntimeGrpcKt.P4RuntimeCoroutineStub
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.CapabilitiesRequest
-import p4.v1.P4RuntimeOuterClass.CapabilitiesResponse
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.ForwardingPipelineConfig
-import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.GetForwardingPipelineConfigResponse
-import p4.v1.P4RuntimeOuterClass.MasterArbitrationUpdate
-import p4.v1.P4RuntimeOuterClass.PacketOut
-import p4.v1.P4RuntimeOuterClass.ReadRequest
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigRequest
-import p4.v1.P4RuntimeOuterClass.SetForwardingPipelineConfigResponse
-import p4.v1.P4RuntimeOuterClass.StreamMessageRequest
-import p4.v1.P4RuntimeOuterClass.StreamMessageResponse
-import p4.v1.P4RuntimeOuterClass.TableEntry
-import p4.v1.P4RuntimeOuterClass.Uint128
-import p4.v1.P4RuntimeOuterClass.Update
-import p4.v1.P4RuntimeOuterClass.WriteRequest
-import p4.v1.P4RuntimeOuterClass.WriteResponse
+import org.p4.v1.Action
+import org.p4.v1.CapabilitiesRequest
+import org.p4.v1.CapabilitiesResponse
+import org.p4.v1.Entity
+import org.p4.v1.Error
+import org.p4.v1.ForwardingPipelineConfig
+import org.p4.v1.GetForwardingPipelineConfigRequest
+import org.p4.v1.GetForwardingPipelineConfigResponse
+import org.p4.v1.MasterArbitrationUpdate
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.P4RuntimeGrpcKt.P4RuntimeCoroutineStub
+import org.p4.v1.PacketOut
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.ReadRequest
+import org.p4.v1.Replica
+import org.p4.v1.Role
+import org.p4.v1.SetForwardingPipelineConfigRequest
+import org.p4.v1.SetForwardingPipelineConfigResponse
+import org.p4.v1.StreamMessageRequest
+import org.p4.v1.StreamMessageResponse
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Uint128
+import org.p4.v1.Update
+import org.p4.v1.WriteRequest
+import org.p4.v1.WriteResponse
 
 /**
  * In-process test harness for the P4Runtime gRPC service.
@@ -309,8 +315,7 @@ class FourwardTestHarness(
         .addEntities(
           Entity.newBuilder()
             .setActionProfileMember(
-              p4.v1.P4RuntimeOuterClass.ActionProfileMember.newBuilder()
-                .setActionProfileId(actionProfileId)
+              org.p4.v1.ActionProfileMember.newBuilder().setActionProfileId(actionProfileId)
             )
         )
         .build()
@@ -324,8 +329,7 @@ class FourwardTestHarness(
         .addEntities(
           Entity.newBuilder()
             .setActionProfileGroup(
-              p4.v1.P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
-                .setActionProfileId(actionProfileId)
+              org.p4.v1.ActionProfileGroup.newBuilder().setActionProfileId(actionProfileId)
             )
         )
         .build()
@@ -338,9 +342,7 @@ class FourwardTestHarness(
         .setDeviceId(1)
         .addEntities(
           Entity.newBuilder()
-            .setRegisterEntry(
-              p4.v1.P4RuntimeOuterClass.RegisterEntry.newBuilder().setRegisterId(registerId)
-            )
+            .setRegisterEntry(org.p4.v1.RegisterEntry.newBuilder().setRegisterId(registerId))
         )
         .build()
     )
@@ -352,9 +354,7 @@ class FourwardTestHarness(
         .setDeviceId(1)
         .addEntities(
           Entity.newBuilder()
-            .setCounterEntry(
-              p4.v1.P4RuntimeOuterClass.CounterEntry.newBuilder().setCounterId(counterId)
-            )
+            .setCounterEntry(org.p4.v1.CounterEntry.newBuilder().setCounterId(counterId))
         )
         .build()
     )
@@ -365,8 +365,7 @@ class FourwardTestHarness(
       ReadRequest.newBuilder()
         .setDeviceId(1)
         .addEntities(
-          Entity.newBuilder()
-            .setMeterEntry(p4.v1.P4RuntimeOuterClass.MeterEntry.newBuilder().setMeterId(meterId))
+          Entity.newBuilder().setMeterEntry(org.p4.v1.MeterEntry.newBuilder().setMeterId(meterId))
         )
         .build()
     )
@@ -379,10 +378,8 @@ class FourwardTestHarness(
         .addEntities(
           Entity.newBuilder()
             .setDirectCounterEntry(
-              p4.v1.P4RuntimeOuterClass.DirectCounterEntry.newBuilder()
-                .setTableEntry(
-                  p4.v1.P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(tableId)
-                )
+              org.p4.v1.DirectCounterEntry.newBuilder()
+                .setTableEntry(org.p4.v1.TableEntry.newBuilder().setTableId(tableId))
             )
         )
         .build()
@@ -396,10 +393,8 @@ class FourwardTestHarness(
         .addEntities(
           Entity.newBuilder()
             .setDirectMeterEntry(
-              p4.v1.P4RuntimeOuterClass.DirectMeterEntry.newBuilder()
-                .setTableEntry(
-                  p4.v1.P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(tableId)
-                )
+              org.p4.v1.DirectMeterEntry.newBuilder()
+                .setTableEntry(org.p4.v1.TableEntry.newBuilder().setTableId(tableId))
             )
         )
         .build()
@@ -438,7 +433,7 @@ class FourwardTestHarness(
           .setDeviceId(deviceId)
           .setElectionId(Uint128.newBuilder().setHigh(0).setLow(electionId))
       if (roleName.isNotEmpty()) {
-        arb.setRole(P4RuntimeOuterClass.Role.newBuilder().setName(roleName))
+        arb.setRole(Role.newBuilder().setName(roleName))
       }
       requestChannel.send(StreamMessageRequest.newBuilder().setArbitration(arb).build())
       withTimeout(STREAM_TIMEOUT_MS) { responseChannel.receive() }
@@ -465,7 +460,7 @@ class FourwardTestHarness(
             PacketOut.newBuilder()
               .setPayload(ByteString.copyFrom(payload))
               .addMetadata(
-                p4.v1.P4RuntimeOuterClass.PacketMetadata.newBuilder()
+                org.p4.v1.PacketMetadata.newBuilder()
                   .setMetadataId(1) // ingress_port
                   .setValue(portToBytes(ingressPort))
               )
@@ -561,18 +556,18 @@ class FourwardTestHarness(
       }
     }
 
-    /** Extracts per-update [P4RuntimeOuterClass.Error] details from a batch UNKNOWN error. */
-    fun extractBatchErrors(e: StatusException): List<P4RuntimeOuterClass.Error>? {
+    /** Extracts per-update [Error] details from a batch UNKNOWN error. */
+    fun extractBatchErrors(e: StatusException): List<Error>? {
       val trailers = e.trailers ?: return null
       val key =
         io.grpc.Metadata.Key.of("grpc-status-details-bin", io.grpc.Metadata.BINARY_BYTE_MARSHALLER)
       val bytes = trailers.get(key) ?: return null
       val rpcStatus = RpcStatus.parseFrom(bytes)
-      return rpcStatus.detailsList.map { any -> P4RuntimeOuterClass.Error.parseFrom(any.value) }
+      return rpcStatus.detailsList.map { any -> Error.parseFrom(any.value) }
     }
 
     /** Executes [block], asserts it throws a batch UNKNOWN, and returns the per-item errors. */
-    fun assertBatchError(block: () -> Unit): List<P4RuntimeOuterClass.Error> {
+    fun assertBatchError(block: () -> Unit): List<Error> {
       try {
         block()
         throw AssertionError("expected batch error")
@@ -594,18 +589,16 @@ class FourwardTestHarness(
       val table = config.p4Info.tablesList.first()
       val matchField = table.matchFieldsList.first()
       val fieldMatch =
-        p4.v1.P4RuntimeOuterClass.FieldMatch.newBuilder()
+        org.p4.v1.FieldMatch.newBuilder()
           .setFieldId(matchField.id)
           .setExact(
-            p4.v1.P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
+            org.p4.v1.FieldMatch.Exact.newBuilder()
               .setValue(ByteString.copyFrom(longToBytes(matchValue, (matchField.bitwidth + 7) / 8)))
           )
           .build()
       return Entity.newBuilder()
         .setTableEntry(
-          p4.v1.P4RuntimeOuterClass.TableEntry.newBuilder()
-            .setTableId(table.preamble.id)
-            .addMatch(fieldMatch)
+          org.p4.v1.TableEntry.newBuilder().setTableId(table.preamble.id).addMatch(fieldMatch)
         )
         .build()
     }
@@ -622,7 +615,7 @@ class FourwardTestHarness(
 
       val filter = buildMatchFilter(config, matchValue)
       val actionParam =
-        p4.v1.P4RuntimeOuterClass.Action.Param.newBuilder()
+        org.p4.v1.Action.Param.newBuilder()
           .setParamId(forwardAction.paramsList.first().id)
           .setValue(
             ByteString.copyFrom(
@@ -636,9 +629,9 @@ class FourwardTestHarness(
           filter.tableEntry
             .toBuilder()
             .setAction(
-              p4.v1.P4RuntimeOuterClass.TableAction.newBuilder()
+              org.p4.v1.TableAction.newBuilder()
                 .setAction(
-                  p4.v1.P4RuntimeOuterClass.Action.newBuilder()
+                  org.p4.v1.Action.newBuilder()
                     .setActionId(forwardAction.preamble.id)
                     .addParams(actionParam)
                 )
@@ -666,12 +659,12 @@ class FourwardTestHarness(
         ?: error("action '$alias' not found in p4info")
 
     /** Finds a match field ID by name in a table, or throws with a clear error. */
-    fun matchFieldId(table: p4.config.v1.P4InfoOuterClass.Table, name: String): Int =
+    fun matchFieldId(table: org.p4.config.v1.Table, name: String): Int =
       table.matchFieldsList.find { it.name == name }?.id
         ?: error("match field '$name' not found in table '${table.preamble.alias}'")
 
     /** Finds an action param ID by name, or throws with a clear error. */
-    fun paramId(action: p4.config.v1.P4InfoOuterClass.Action, name: String): Int =
+    fun paramId(action: org.p4.config.v1.Action, name: String): Int =
       action.paramsList.find { it.name == name }?.id
         ?: error("param '$name' not found in action '${action.preamble.alias}'")
 
@@ -703,10 +696,10 @@ class FourwardTestHarness(
     fun buildMemberEntity(actionProfileId: Int, memberId: Int, actionId: Int): Entity =
       Entity.newBuilder()
         .setActionProfileMember(
-          p4.v1.P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+          org.p4.v1.ActionProfileMember.newBuilder()
             .setActionProfileId(actionProfileId)
             .setMemberId(memberId)
-            .setAction(p4.v1.P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId))
+            .setAction(org.p4.v1.Action.newBuilder().setActionId(actionId))
         )
         .build()
 
@@ -714,12 +707,12 @@ class FourwardTestHarness(
     fun buildGroupEntity(actionProfileId: Int, groupId: Int, memberIds: List<Int>): Entity =
       Entity.newBuilder()
         .setActionProfileGroup(
-          p4.v1.P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
+          org.p4.v1.ActionProfileGroup.newBuilder()
             .setActionProfileId(actionProfileId)
             .setGroupId(groupId)
             .addAllMembers(
               memberIds.map { mid ->
-                p4.v1.P4RuntimeOuterClass.ActionProfileGroup.Member.newBuilder()
+                org.p4.v1.ActionProfileGroup.Member.newBuilder()
                   .setMemberId(mid)
                   .setWeight(1)
                   .build()
@@ -732,12 +725,10 @@ class FourwardTestHarness(
      * Builds a default-action Entity for the given table. Used to MODIFY/INSERT/DELETE defaults.
      */
     fun buildDefaultActionEntity(tableId: Int, actionId: Int? = null): Entity {
-      val builder =
-        P4RuntimeOuterClass.TableEntry.newBuilder().setTableId(tableId).setIsDefaultAction(true)
+      val builder = TableEntry.newBuilder().setTableId(tableId).setIsDefaultAction(true)
       if (actionId != null) {
         builder.setAction(
-          P4RuntimeOuterClass.TableAction.newBuilder()
-            .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId))
+          TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId))
         )
       }
       return Entity.newBuilder().setTableEntry(builder).build()
@@ -748,11 +739,11 @@ class FourwardTestHarness(
     fun buildRegisterEntry(registerId: Int, index: Long, value: Long, byteLen: Int = 4): Entity =
       Entity.newBuilder()
         .setRegisterEntry(
-          p4.v1.P4RuntimeOuterClass.RegisterEntry.newBuilder()
+          org.p4.v1.RegisterEntry.newBuilder()
             .setRegisterId(registerId)
-            .setIndex(p4.v1.P4RuntimeOuterClass.Index.newBuilder().setIndex(index))
+            .setIndex(org.p4.v1.Index.newBuilder().setIndex(index))
             .setData(
-              p4.v1.P4DataOuterClass.P4Data.newBuilder()
+              org.p4.v1.P4Data.newBuilder()
                 .setBitstring(ByteString.copyFrom(longToBytes(value, byteLen)))
             )
         )
@@ -767,13 +758,11 @@ class FourwardTestHarness(
     ): Entity =
       Entity.newBuilder()
         .setCounterEntry(
-          p4.v1.P4RuntimeOuterClass.CounterEntry.newBuilder()
+          org.p4.v1.CounterEntry.newBuilder()
             .setCounterId(counterId)
-            .setIndex(p4.v1.P4RuntimeOuterClass.Index.newBuilder().setIndex(index))
+            .setIndex(org.p4.v1.Index.newBuilder().setIndex(index))
             .setData(
-              p4.v1.P4RuntimeOuterClass.CounterData.newBuilder()
-                .setByteCount(byteCount)
-                .setPacketCount(packetCount)
+              org.p4.v1.CounterData.newBuilder().setByteCount(byteCount).setPacketCount(packetCount)
             )
         )
         .build()
@@ -789,11 +778,11 @@ class FourwardTestHarness(
     ): Entity =
       Entity.newBuilder()
         .setMeterEntry(
-          p4.v1.P4RuntimeOuterClass.MeterEntry.newBuilder()
+          org.p4.v1.MeterEntry.newBuilder()
             .setMeterId(meterId)
-            .setIndex(p4.v1.P4RuntimeOuterClass.Index.newBuilder().setIndex(index))
+            .setIndex(org.p4.v1.Index.newBuilder().setIndex(index))
             .setConfig(
-              p4.v1.P4RuntimeOuterClass.MeterConfig.newBuilder()
+              org.p4.v1.MeterConfig.newBuilder()
                 .setCir(cir)
                 .setCburst(cburst)
                 .setPir(pir)
@@ -806,13 +795,13 @@ class FourwardTestHarness(
     fun buildMulticastGroup(groupId: Int, ports: List<Int>): Entity =
       Entity.newBuilder()
         .setPacketReplicationEngineEntry(
-          P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+          PacketReplicationEngineEntry.newBuilder()
             .setMulticastGroupEntry(
-              P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+              MulticastGroupEntry.newBuilder()
                 .setMulticastGroupId(groupId)
                 .addAllReplicas(
                   ports.mapIndexed { idx, port ->
-                    P4RuntimeOuterClass.Replica.newBuilder()
+                    Replica.newBuilder()
                       .setPort(ByteString.copyFrom(longToBytes(port.toLong(), 2)))
                       .setInstance(idx)
                       .build()

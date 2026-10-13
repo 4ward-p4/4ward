@@ -12,10 +12,11 @@ import fourward.grpc.FourwardTestHarness.Companion.paramId
 import io.grpc.Status
 import java.nio.file.Path
 import org.junit.Test
-import p4.v1.P4RuntimeOuterClass
-import p4.v1.P4RuntimeOuterClass.Entity
-import p4.v1.P4RuntimeOuterClass.FieldMatch
-import p4.v1.P4RuntimeOuterClass.TableEntry
+import org.p4.v1.Action
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
 
 /**
  * Tests that `disableRefersToChecking` and `disableP4ConstraintsChecking` flags suppress
@@ -133,12 +134,12 @@ class DisableCheckingTest {
               )
           )
           .setAction(
-            P4RuntimeOuterClass.TableAction.newBuilder()
+            TableAction.newBuilder()
               .setAction(
-                P4RuntimeOuterClass.Action.newBuilder()
+                Action.newBuilder()
                   .setActionId(forwardAction.preamble.id)
                   .addParams(
-                    P4RuntimeOuterClass.Action.Param.newBuilder()
+                    Action.Param.newBuilder()
                       .setParamId(paramId(forwardAction, "port"))
                       .setValue(ByteString.copyFrom(longToBytes(1, 2)))
                   )
@@ -178,12 +179,12 @@ class DisableCheckingTest {
               )
           )
           .setAction(
-            P4RuntimeOuterClass.TableAction.newBuilder()
+            TableAction.newBuilder()
               .setAction(
-                P4RuntimeOuterClass.Action.newBuilder()
+                Action.newBuilder()
                   .setActionId(forwardAction.preamble.id)
                   .addParams(
-                    P4RuntimeOuterClass.Action.Param.newBuilder()
+                    Action.Param.newBuilder()
                       .setParamId(paramId(forwardAction, "port"))
                       .setValue(ByteString.copyFrom(longToBytes(1L, 2)))
                   )

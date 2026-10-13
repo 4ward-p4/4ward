@@ -71,38 +71,6 @@ cc_library(
     ],
 )
 
-# The p4runtime BCR module only ships cc/go/py proto targets; we
-# generate the Java ones ourselves. Strict-deps also requires a
-# *direct* java_proto_library wrapper for every proto referenced
-# from Kotlin — classes leaking through another wrapper aren't enough.
-#
-# TODO(strict-deps): drop these once p4lang/p4runtime#607 lands
-# and a BCR release ships; then depend on
-# `@p4runtime//proto/p4/...:X_java_proto` directly.
-java_proto_library(
-    name = "p4runtime_java_proto",
-    visibility = ["//visibility:public"],
-    deps = ["@p4runtime//proto/p4/v1:p4runtime_proto"],
-)
-
-java_proto_library(
-    name = "p4info_java_proto",
-    visibility = ["//visibility:public"],
-    deps = ["@p4runtime//proto/p4/config/v1:p4info_proto"],
-)
-
-java_proto_library(
-    name = "p4data_java_proto",
-    visibility = ["//visibility:public"],
-    deps = ["@p4runtime//proto/p4/v1:p4data_proto"],
-)
-
-java_proto_library(
-    name = "p4types_java_proto",
-    visibility = ["//visibility:public"],
-    deps = ["@p4runtime//proto/p4/config/v1:p4types_proto"],
-)
-
 # =============================================================================
 # Kotlin simulator
 # =============================================================================
@@ -119,11 +87,11 @@ kt_jvm_library(
     visibility = ["//visibility:public"],
     deps = [
         ":ir_java_proto",
-        ":p4data_java_proto",
-        ":p4info_java_proto",
-        ":p4runtime_java_proto",
         ":simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -137,9 +105,9 @@ kt_jvm_library(
     srcs = ["InterpreterTestDsl.kt"],
     deps = [
         ":ir_java_proto",
-        ":p4runtime_java_proto",
         ":simulator",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -211,10 +179,10 @@ kt_jvm_test(
     srcs = ["MatchesFieldMatchTest.kt"],
     test_class = "fourward.simulator.MatchesFieldMatchTest",
     deps = [
-        ":p4runtime_java_proto",
         ":simulator",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -249,13 +217,13 @@ kt_jvm_test(
     deps = [
         ":interpreter_test_dsl",
         ":ir_java_proto",
-        ":p4data_java_proto",
-        ":p4info_java_proto",
-        ":p4runtime_java_proto",
-        ":p4types_java_proto",
         ":simulator",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4types_java_proto",
+        "@p4runtime//proto/p4/v1:p4data_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -265,10 +233,10 @@ kt_jvm_test(
     test_class = "fourward.simulator.TableStoreBindingsTest",
     deps = [
         ":ir_java_proto",
-        ":p4info_java_proto",
-        ":p4runtime_java_proto",
         ":simulator",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -278,11 +246,11 @@ kt_jvm_test(
     test_class = "fourward.simulator.DirectResourceUsageTest",
     deps = [
         ":ir_java_proto",
-        ":p4info_java_proto",
-        ":p4runtime_java_proto",
         ":simulator",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -339,12 +307,12 @@ kt_jvm_test(
     deps = [
         ":interpreter_test_dsl",
         ":ir_java_proto",
-        ":p4info_java_proto",
-        ":p4runtime_java_proto",
         ":simulator",
         ":simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -355,12 +323,12 @@ kt_jvm_test(
     deps = [
         ":interpreter_test_dsl",
         ":ir_java_proto",
-        ":p4info_java_proto",
-        ":p4runtime_java_proto",
         ":simulator",
         ":simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -371,12 +339,12 @@ kt_jvm_test(
     deps = [
         ":interpreter_test_dsl",
         ":ir_java_proto",
-        ":p4info_java_proto",
-        ":p4runtime_java_proto",
         ":simulator",
         ":simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -388,9 +356,9 @@ kt_jvm_test(
     deps = [
         ":interpreter_test_dsl",
         ":ir_java_proto",
-        ":p4runtime_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -413,12 +381,12 @@ kt_jvm_test(
     deps = [
         ":interpreter_test_dsl",
         ":ir_java_proto",
-        ":p4info_java_proto",
-        ":p4runtime_java_proto",
         ":simulator",
         ":simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -429,12 +397,12 @@ kt_jvm_test(
     deps = [
         ":interpreter_test_dsl",
         ":ir_java_proto",
-        ":p4info_java_proto",
-        ":p4runtime_java_proto",
         ":simulator",
         ":simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 
@@ -458,11 +426,11 @@ kt_jvm_test(
     test_class = "fourward.simulator.ReproducerExtractorTest",
     deps = [
         ":ir_java_proto",
-        ":p4info_java_proto",
-        ":p4runtime_java_proto",
-        ":p4types_java_proto",
         ":simulator_java_proto",
         "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/config/v1:p4types_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )

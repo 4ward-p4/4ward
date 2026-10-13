@@ -283,7 +283,7 @@ class PacketBrokerTest {
   @Test
   fun `hook applyUpdates is called when response has updates`(): Unit = runBlocking {
     val broker = broker(0 to result(outputPacket(1)))
-    val appliedUpdates = mutableListOf<p4.v1.P4RuntimeOuterClass.Update>()
+    val appliedUpdates = mutableListOf<org.p4.v1.Update>()
     broker.applyUpdates = { updates -> appliedUpdates.addAll(updates) }
 
     val invocations = Channel<PrePacketHookInvocation>(Channel.UNLIMITED)
@@ -291,10 +291,7 @@ class PacketBrokerTest {
     broker.registerHook(PacketBroker.Hook(invocations, responses))
 
     // Respond with one update.
-    val update =
-      p4.v1.P4RuntimeOuterClass.Update.newBuilder()
-        .setType(p4.v1.P4RuntimeOuterClass.Update.Type.INSERT)
-        .build()
+    val update = org.p4.v1.Update.newBuilder().setType(org.p4.v1.Update.Type.INSERT).build()
     Thread {
         runBlocking {
           invocations.receive()
@@ -309,6 +306,6 @@ class PacketBrokerTest {
     broker.processPacket(port(0), byteArrayOf())
 
     assertEquals("applyUpdates should receive the update", 1, appliedUpdates.size)
-    assertEquals(p4.v1.P4RuntimeOuterClass.Update.Type.INSERT, appliedUpdates[0].type)
+    assertEquals(org.p4.v1.Update.Type.INSERT, appliedUpdates[0].type)
   }
 }

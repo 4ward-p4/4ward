@@ -3,7 +3,7 @@ package fourward.grpc
 import fourward.TraceEvent
 import fourward.TraceTree
 import fourward.simulator.DataplanePort
-import p4.v1.P4RuntimeOuterClass.Entity
+import org.p4.v1.Entity
 
 /**
  * Enriches a [TraceTree] with P4Runtime representations alongside the raw dataplane values produced

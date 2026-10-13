@@ -16,7 +16,11 @@ import fourward.NameRef
 import fourward.SourceInfo
 import fourward.Stmt
 import fourward.Type
-import p4.v1.P4RuntimeOuterClass
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.Entity
+import org.p4.v1.PacketReplicationEngineEntry
+import org.p4.v1.Replica
+import org.p4.v1.Update
 
 /**
  * Shared proto-building helpers for interpreter unit tests.
@@ -200,21 +204,18 @@ fun controlConfig(controlName: String, vararg stmts: Stmt): BehavioralConfig =
 /** Inserts a clone session into [store] with the given replicas (instance, egressPort). */
 fun writeCloneSession(store: TableStore, sessionId: Int, replicas: List<Pair<Int, Int>>) {
   store.write(
-    P4RuntimeOuterClass.Update.newBuilder()
-      .setType(P4RuntimeOuterClass.Update.Type.INSERT)
+    Update.newBuilder()
+      .setType(Update.Type.INSERT)
       .setEntity(
-        P4RuntimeOuterClass.Entity.newBuilder()
+        Entity.newBuilder()
           .setPacketReplicationEngineEntry(
-            P4RuntimeOuterClass.PacketReplicationEngineEntry.newBuilder()
+            PacketReplicationEngineEntry.newBuilder()
               .setCloneSessionEntry(
-                P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
+                CloneSessionEntry.newBuilder()
                   .setSessionId(sessionId)
                   .addAllReplicas(
                     replicas.map { (instance, port) ->
-                      P4RuntimeOuterClass.Replica.newBuilder()
-                        .setInstance(instance)
-                        .setPort(portToBytes(port))
-                        .build()
+                      Replica.newBuilder().setInstance(instance).setPort(portToBytes(port)).build()
                     }
                   )
               )

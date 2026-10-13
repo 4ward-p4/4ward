@@ -35,7 +35,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
+import org.p4.config.v1.Action
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Table
 
 /**
  * Unit tests for [Simulator] — name resolution, default action handling, and error responses.
@@ -55,8 +58,8 @@ class SimulatorTest {
    * tables/actions, sufficient to exercise pipeline loading and name resolution.
    */
   private fun pipelineConfig(
-    p4infoTables: List<P4InfoOuterClass.Table> = emptyList(),
-    p4infoActions: List<P4InfoOuterClass.Action> = emptyList(),
+    p4infoTables: List<Table> = emptyList(),
+    p4infoActions: List<Action> = emptyList(),
     behavioralTableNames: List<String> = emptyList(),
     behavioralActionNames: List<String> = emptyList(),
   ): PipelineConfig {
@@ -92,11 +95,7 @@ class SimulatorTest {
         )
         .addAllActions(behavioralActionNames.map { ActionDecl.newBuilder().setName(it).build() })
         .build()
-    val p4info =
-      P4InfoOuterClass.P4Info.newBuilder()
-        .addAllTables(p4infoTables)
-        .addAllActions(p4infoActions)
-        .build()
+    val p4info = P4Info.newBuilder().addAllTables(p4infoTables).addAllActions(p4infoActions).build()
     return PipelineConfig.newBuilder()
       .setDevice(
         DeviceConfig.newBuilder()
@@ -117,14 +116,14 @@ class SimulatorTest {
       .setSimulatorName(simulatorName)
       .build()
 
-  private fun p4infoTable(id: Int, alias: String): P4InfoOuterClass.Table =
-    P4InfoOuterClass.Table.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(alias).setAlias(alias))
+  private fun p4infoTable(id: Int, alias: String): Table =
+    Table.newBuilder()
+      .setPreamble(Preamble.newBuilder().setId(id).setName(alias).setAlias(alias))
       .build()
 
-  private fun p4infoAction(id: Int, alias: String): P4InfoOuterClass.Action =
-    P4InfoOuterClass.Action.newBuilder()
-      .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(id).setName(alias).setAlias(alias))
+  private fun p4infoAction(id: Int, alias: String): Action =
+    Action.newBuilder()
+      .setPreamble(Preamble.newBuilder().setId(id).setName(alias).setAlias(alias))
       .build()
 
   @Test
@@ -186,7 +185,7 @@ class SimulatorTest {
   fun `write entry with no pipeline loaded throws`() {
     val sim = Simulator()
     assertThrows(IllegalStateException::class.java) {
-      sim.writeEntry(p4.v1.P4RuntimeOuterClass.Update.getDefaultInstance())
+      sim.writeEntry(org.p4.v1.Update.getDefaultInstance())
     }
   }
 
@@ -280,7 +279,7 @@ class SimulatorTest {
 
     return PipelineConfig.newBuilder()
       .setDevice(DeviceConfig.newBuilder().setBehavioral(behavioral))
-      .setP4Info(P4InfoOuterClass.P4Info.getDefaultInstance())
+      .setP4Info(P4Info.getDefaultInstance())
       .build()
   }
 

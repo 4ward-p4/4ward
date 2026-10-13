@@ -10,33 +10,35 @@ import fourward.TraceTree
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import p4.config.v1.P4InfoOuterClass
-import p4.v1.P4RuntimeOuterClass
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Register
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileGroup
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.CloneSessionEntry
+import org.p4.v1.Entity
+import org.p4.v1.FieldMatch
+import org.p4.v1.MulticastGroupEntry
+import org.p4.v1.Replica
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 class ReproducerExtractorTest {
 
-  private fun tableEntry(
-    tableId: Int,
-    matchValue: ByteArray,
-    actionId: Int,
-  ): P4RuntimeOuterClass.TableEntry =
-    P4RuntimeOuterClass.TableEntry.newBuilder()
+  private fun tableEntry(tableId: Int, matchValue: ByteArray, actionId: Int): TableEntry =
+    TableEntry.newBuilder()
       .setTableId(tableId)
       .addMatch(
-        P4RuntimeOuterClass.FieldMatch.newBuilder()
+        FieldMatch.newBuilder()
           .setFieldId(1)
-          .setExact(
-            P4RuntimeOuterClass.FieldMatch.Exact.newBuilder()
-              .setValue(ByteString.copyFrom(matchValue))
-          )
+          .setExact(FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(matchValue)))
       )
-      .setAction(
-        P4RuntimeOuterClass.TableAction.newBuilder()
-          .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(actionId))
-      )
+      .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(actionId)))
       .build()
 
-  private fun tableLookupHit(entry: P4RuntimeOuterClass.TableEntry): TraceEvent =
+  private fun tableLookupHit(entry: TableEntry): TraceEvent =
     TraceEvent.newBuilder()
       .setTableLookup(
         TableLookupEvent.newBuilder()
@@ -71,18 +73,18 @@ class ReproducerExtractorTest {
   private fun tableStoreWithRegister(): TableStore {
     val store = TableStore()
     val register =
-      P4InfoOuterClass.Register.newBuilder()
-        .setPreamble(P4InfoOuterClass.Preamble.newBuilder().setId(500).setName("myRegister"))
+      Register.newBuilder()
+        .setPreamble(Preamble.newBuilder().setId(500).setName("myRegister"))
         .setTypeSpec(
-          p4.config.v1.P4Types.P4DataTypeSpec.newBuilder()
+          org.p4.config.v1.P4DataTypeSpec.newBuilder()
             .setBitstring(
-              p4.config.v1.P4Types.P4BitstringLikeTypeSpec.newBuilder()
-                .setBit(p4.config.v1.P4Types.P4BitTypeSpec.newBuilder().setBitwidth(32))
+              org.p4.config.v1.P4BitstringLikeTypeSpec.newBuilder()
+                .setBit(org.p4.config.v1.P4BitTypeSpec.newBuilder().setBitwidth(32))
             )
         )
         .setSize(4)
         .build()
-    store.loadMappings(P4InfoOuterClass.P4Info.newBuilder().addRegisters(register).build())
+    store.loadMappings(P4Info.newBuilder().addRegisters(register).build())
     return store
   }
 
@@ -96,9 +98,8 @@ class ReproducerExtractorTest {
   private fun extract(
     trace: TraceTree,
     store: TableStore,
-    staticEntries: List<P4RuntimeOuterClass.Update> = emptyList(),
-  ): List<P4RuntimeOuterClass.Entity> =
-    extractReproducerEntities(trace, store.snapshot, store, staticEntries)
+    staticEntries: List<Update> = emptyList(),
+  ): List<Entity> = extractReproducerEntities(trace, store.snapshot, store, staticEntries)
 
   @Test
   fun `empty trace produces no entities`() {
@@ -132,9 +133,9 @@ class ReproducerExtractorTest {
   fun `static entries are excluded`() {
     val entry = tableEntry(tableId = 1, matchValue = byteArrayOf(0x08, 0x00), actionId = 10)
     val staticUpdate =
-      P4RuntimeOuterClass.Update.newBuilder()
-        .setType(P4RuntimeOuterClass.Update.Type.INSERT)
-        .setEntity(P4RuntimeOuterClass.Entity.newBuilder().setTableEntry(entry))
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
+        .setEntity(Entity.newBuilder().setTableEntry(entry))
         .build()
 
     val trace =
@@ -184,14 +185,12 @@ class ReproducerExtractorTest {
   @Test
   fun `clone session lookup extracts clone session entry`() {
     val cloneEntry =
-      P4RuntimeOuterClass.CloneSessionEntry.newBuilder()
+      CloneSessionEntry.newBuilder()
         .setSessionId(42)
         .setClassOfService(0)
         .setPacketLengthBytes(0)
         .addReplicas(
-          P4RuntimeOuterClass.Replica.newBuilder()
-            .setPort(ByteString.copyFrom(byteArrayOf(1)))
-            .setInstance(0)
+          Replica.newBuilder().setPort(ByteString.copyFrom(byteArrayOf(1))).setInstance(0)
         )
         .build()
     val store = tableStoreWith { cloneSessions[42] = cloneEntry }
@@ -253,19 +252,15 @@ class ReproducerExtractorTest {
   ): TableStore {
     val store = TableStore()
     val p4info =
-      p4.config.v1.P4InfoOuterClass.P4Info.newBuilder()
+      org.p4.config.v1.P4Info.newBuilder()
         .addTables(
-          p4.config.v1.P4InfoOuterClass.Table.newBuilder()
-            .setPreamble(
-              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(tableId).setAlias("t")
-            )
+          org.p4.config.v1.Table.newBuilder()
+            .setPreamble(org.p4.config.v1.Preamble.newBuilder().setId(tableId).setAlias("t"))
             .setImplementationId(profileId)
         )
         .addActionProfiles(
-          p4.config.v1.P4InfoOuterClass.ActionProfile.newBuilder()
-            .setPreamble(
-              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(profileId).setAlias("ap")
-            )
+          org.p4.config.v1.ActionProfile.newBuilder()
+            .setPreamble(org.p4.config.v1.Preamble.newBuilder().setId(profileId).setAlias("ap"))
         )
         .build()
     store.loadMappings(p4info, fourward.DeviceConfig.getDefaultInstance())
@@ -276,18 +271,18 @@ class ReproducerExtractorTest {
   @Test
   fun `action profile member is extracted from matched entry`() {
     val member =
-      P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+      ActionProfileMember.newBuilder()
         .setActionProfileId(100)
         .setMemberId(5)
-        .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(10))
+        .setAction(Action.newBuilder().setActionId(10))
         .build()
 
     val store = tableStoreWithActionProfile { profileMembers[100] = mutableMapOf(5 to member) }
 
     val entry =
-      P4RuntimeOuterClass.TableEntry.newBuilder()
+      TableEntry.newBuilder()
         .setTableId(1)
-        .setAction(P4RuntimeOuterClass.TableAction.newBuilder().setActionProfileMemberId(5))
+        .setAction(TableAction.newBuilder().setActionProfileMemberId(5))
         .build()
 
     val trace =
@@ -304,27 +299,23 @@ class ReproducerExtractorTest {
   @Test
   fun `action profile group and its members are extracted`() {
     val member1 =
-      P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+      ActionProfileMember.newBuilder()
         .setActionProfileId(100)
         .setMemberId(1)
-        .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(10))
+        .setAction(Action.newBuilder().setActionId(10))
         .build()
     val member2 =
-      P4RuntimeOuterClass.ActionProfileMember.newBuilder()
+      ActionProfileMember.newBuilder()
         .setActionProfileId(100)
         .setMemberId(2)
-        .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(20))
+        .setAction(Action.newBuilder().setActionId(20))
         .build()
     val group =
-      P4RuntimeOuterClass.ActionProfileGroup.newBuilder()
+      ActionProfileGroup.newBuilder()
         .setActionProfileId(100)
         .setGroupId(7)
-        .addMembers(
-          P4RuntimeOuterClass.ActionProfileGroup.Member.newBuilder().setMemberId(1).setWeight(1)
-        )
-        .addMembers(
-          P4RuntimeOuterClass.ActionProfileGroup.Member.newBuilder().setMemberId(2).setWeight(1)
-        )
+        .addMembers(ActionProfileGroup.Member.newBuilder().setMemberId(1).setWeight(1))
+        .addMembers(ActionProfileGroup.Member.newBuilder().setMemberId(2).setWeight(1))
         .build()
 
     val store = tableStoreWithActionProfile {
@@ -333,9 +324,9 @@ class ReproducerExtractorTest {
     }
 
     val entry =
-      P4RuntimeOuterClass.TableEntry.newBuilder()
+      TableEntry.newBuilder()
         .setTableId(1)
-        .setAction(P4RuntimeOuterClass.TableAction.newBuilder().setActionProfileGroupId(7))
+        .setAction(TableAction.newBuilder().setActionProfileGroupId(7))
         .build()
 
     val trace =
@@ -354,36 +345,29 @@ class ReproducerExtractorTest {
   fun `modified default action is extracted on table miss`() {
     val store = TableStore()
     val p4info =
-      p4.config.v1.P4InfoOuterClass.P4Info.newBuilder()
+      org.p4.config.v1.P4Info.newBuilder()
         .addTables(
-          p4.config.v1.P4InfoOuterClass.Table.newBuilder()
-            .setPreamble(
-              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(1).setAlias("MyTable")
-            )
+          org.p4.config.v1.Table.newBuilder()
+            .setPreamble(org.p4.config.v1.Preamble.newBuilder().setId(1).setAlias("MyTable"))
         )
         .addActions(
-          p4.config.v1.P4InfoOuterClass.Action.newBuilder()
-            .setPreamble(
-              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(10).setAlias("my_action")
-            )
+          org.p4.config.v1.Action.newBuilder()
+            .setPreamble(org.p4.config.v1.Preamble.newBuilder().setId(10).setAlias("my_action"))
         )
         .build()
     store.loadMappings(p4info, fourward.DeviceConfig.getDefaultInstance())
     store.setDefaultAction("MyTable", "my_action")
     // Use write() with a MODIFY to mark the default as modified, matching production behavior.
     store.write(
-      P4RuntimeOuterClass.Update.newBuilder()
-        .setType(P4RuntimeOuterClass.Update.Type.MODIFY)
+      Update.newBuilder()
+        .setType(Update.Type.MODIFY)
         .setEntity(
-          P4RuntimeOuterClass.Entity.newBuilder()
+          Entity.newBuilder()
             .setTableEntry(
-              P4RuntimeOuterClass.TableEntry.newBuilder()
+              TableEntry.newBuilder()
                 .setTableId(1)
                 .setIsDefaultAction(true)
-                .setAction(
-                  P4RuntimeOuterClass.TableAction.newBuilder()
-                    .setAction(P4RuntimeOuterClass.Action.newBuilder().setActionId(10))
-                )
+                .setAction(TableAction.newBuilder().setAction(Action.newBuilder().setActionId(10)))
             )
         )
         .build()
@@ -406,18 +390,14 @@ class ReproducerExtractorTest {
   fun `unmodified default action is not extracted on table miss`() {
     val store = TableStore()
     val p4info =
-      p4.config.v1.P4InfoOuterClass.P4Info.newBuilder()
+      org.p4.config.v1.P4Info.newBuilder()
         .addTables(
-          p4.config.v1.P4InfoOuterClass.Table.newBuilder()
-            .setPreamble(
-              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(1).setAlias("MyTable")
-            )
+          org.p4.config.v1.Table.newBuilder()
+            .setPreamble(org.p4.config.v1.Preamble.newBuilder().setId(1).setAlias("MyTable"))
         )
         .addActions(
-          p4.config.v1.P4InfoOuterClass.Action.newBuilder()
-            .setPreamble(
-              p4.config.v1.P4InfoOuterClass.Preamble.newBuilder().setId(10).setAlias("my_action")
-            )
+          org.p4.config.v1.Action.newBuilder()
+            .setPreamble(org.p4.config.v1.Preamble.newBuilder().setId(10).setAlias("my_action"))
         )
         .build()
     store.loadMappings(p4info, fourward.DeviceConfig.getDefaultInstance())
@@ -444,17 +424,13 @@ class ReproducerExtractorTest {
   @Test
   fun `multicast group lookup extracts multicast group entity`() {
     val group =
-      P4RuntimeOuterClass.MulticastGroupEntry.newBuilder()
+      MulticastGroupEntry.newBuilder()
         .setMulticastGroupId(1)
         .addReplicas(
-          P4RuntimeOuterClass.Replica.newBuilder()
-            .setPort(ByteString.copyFrom(byteArrayOf(1)))
-            .setInstance(0)
+          Replica.newBuilder().setPort(ByteString.copyFrom(byteArrayOf(1))).setInstance(0)
         )
         .addReplicas(
-          P4RuntimeOuterClass.Replica.newBuilder()
-            .setPort(ByteString.copyFrom(byteArrayOf(2)))
-            .setInstance(0)
+          Replica.newBuilder().setPort(ByteString.copyFrom(byteArrayOf(2))).setInstance(0)
         )
         .build()
     val store = tableStoreWith { multicastGroups[1] = group }
