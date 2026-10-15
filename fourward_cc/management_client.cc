@@ -3,7 +3,6 @@
 
 #include "fourward_cc/management_client.h"
 
-#include <chrono>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -11,26 +10,12 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/time/time.h"
+#include "fourward_cc/grpc_util.h"
 #include "grpc/management.pb.h"
 #include "grpcpp/client_context.h"
 #include "grpcpp/support/status.h"
 
 namespace fourward {
-namespace {
-
-absl::Status ToAbsl(const grpc::Status& s) {
-  if (s.ok()) return absl::OkStatus();
-  return absl::Status(static_cast<absl::StatusCode>(s.error_code()),
-                      s.error_message());
-}
-
-std::chrono::system_clock::time_point AbsoluteDeadline(
-    absl::Duration relative) {
-  return std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-      std::chrono::system_clock::now() + absl::ToChronoNanoseconds(relative));
-}
-
-}  // namespace
 
 ManagementClient::ManagementClient(const FourwardServer& server,
                                    absl::Duration default_timeout)

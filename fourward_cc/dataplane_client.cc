@@ -3,7 +3,6 @@
 
 #include "fourward_cc/dataplane_client.h"
 
-#include <chrono>
 #include <deque>
 #include <memory>
 #include <optional>
@@ -19,6 +18,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "fourward_cc/fourward_server.h"
+#include "fourward_cc/grpc_util.h"
 #include "grpc/dataplane.grpc.pb.h"
 #include "grpc/dataplane.pb.h"
 #include "grpcpp/client_context.h"
@@ -27,19 +27,6 @@
 
 namespace fourward {
 namespace {
-
-absl::Status ToAbsl(const grpc::Status &s) {
-  if (s.ok()) return absl::OkStatus();
-  return absl::Status(static_cast<absl::StatusCode>(s.error_code()),
-                      s.error_message());
-}
-
-std::chrono::system_clock::time_point AbsoluteDeadline(
-    absl::Duration relative) {
-  // time_point_cast: macOS system_clock uses microseconds, not nanoseconds.
-  return std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-      std::chrono::system_clock::now() + absl::ToChronoNanoseconds(relative));
-}
 
 InjectPacketRequest MakeRequest(uint64_t device_id, DataplanePort ingress_port,
                                 std::string_view payload, Tag tag) {

@@ -36,7 +36,7 @@
 #include "grpcpp/create_channel.h"
 #include "grpcpp/security/credentials.h"
 #include "grpcpp/support/channel_arguments.h"
-#include "tools/cpp/runfiles/runfiles.h"
+#include "rules_cc/cc/runfiles/runfiles.h"
 
 #ifndef FOURWARD_SERVER_RLOCATION
 #error "FOURWARD_SERVER_RLOCATION must be set by the BUILD rule"
@@ -47,7 +47,7 @@ extern char** environ;
 namespace fourward {
 namespace {
 
-using ::bazel::tools::cpp::runfiles::Runfiles;
+using ::rules_cc::cc::runfiles::Runfiles;
 
 // Runfile path of the server binary, baked in from BUILD via
 // `$(rlocationpath //grpc:fourward_server)`. Has the canonical repo
