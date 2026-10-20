@@ -719,14 +719,17 @@ class V1ModelArchitecture(
    * makes egress see a packet 4 bytes shorter. SAI P4 relies on this when computing encap lengths
    * (e.g. `gre_encap.p4`'s outer IPv6 payload_length). The ingress-visible `packet_length` is left
    * at the original input length, again matching BMv2.
+   *
+   * The arithmetic is done in bits and rounded up to whole bytes, the same way the deparser pads
+   * its output. This matters because 4ward, unlike BMv2, allows non-byte-aligned headers: e.g. SAI
+   * P4's 4ward packet_out header is 39 bits, and its `setInvalid()` must yield exactly the payload
+   * length. Starting from [PacketBits.validBitLength] rather than the byte length keeps the
+   * PacketOut transport padding bits out of the result.
    */
   private fun setEgressPacketLength(ctx: PipelineContext, s: PipelineState) {
-    val deltaBits = s.env.packetLengthDeltaBits
-    check(deltaBits % Byte.SIZE_BITS == 0) {
-      "setValid/setInvalid changed the packet length by $deltaBits bits, which is not a whole " +
-        "number of bytes; v1model packet_length is in bytes"
-    }
-    val length = ctx.packet.packetByteLength.toLong() + deltaBits / Byte.SIZE_BITS
+    val bits = ctx.packet.validBitLength.toLong() + s.env.packetLengthDeltaBits
+    check(bits >= 0) { "setValid/setInvalid made the packet length negative ($bits bits)" }
+    val length = (bits + Byte.SIZE_BITS - 1) / Byte.SIZE_BITS
     s.standardMetadata.setBitField("packet_length", length)
   }
 
