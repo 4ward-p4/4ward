@@ -1,0 +1,34 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_test")
+load("//bazel:fourward_pipeline.bzl", "fourward_pipeline")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = True,
+    licenses = ["notice"],
+)
+
+# P4/STF files also used by bmv2_diff tests (cross-package reference).
+exports_files([
+    "packet_length.p4",
+    "packet_length.stf",
+])
+
+fourward_pipeline(
+    name = "packet_length",
+    src = "packet_length.p4",
+    out = "packet_length.txtpb",
+)
+
+kt_jvm_test(
+    name = "packet_length_test",
+    srcs = ["PacketLengthTest.kt"],
+    data = [
+        "packet_length.stf",
+        ":packet_length",
+    ],
+    test_class = "fourward.e2e.packetlength.PacketLengthTest",
+    deps = [
+        "//stf",
+        "@fourward_maven//:junit_junit",
+    ],
+)

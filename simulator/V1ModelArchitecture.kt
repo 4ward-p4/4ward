@@ -416,8 +416,9 @@ class V1ModelArchitecture(
         fork.forkPointPendingOps,
         CLONE_E2E_INSTANCE_TYPE,
         fork.preservedMetadata,
-      ) { _, s ->
+      ) { c, s ->
         resetEgressSpec(s)
+        setEgressPacketLength(c, s)
         runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
         if (egressSpecIsDropPort(s))
           buildDropTrace(
@@ -453,7 +454,6 @@ class V1ModelArchitecture(
           s.standardMetadata.setBitField("instance_type", instanceType)
           s.standardMetadata.setBitField("egress_port", replica.port.toLong())
           s.standardMetadata.setBitField("egress_rid", replica.rid.toLong())
-          s.standardMetadata.setBitField("packet_length", ctx.packet.packetByteLength.toLong())
           applyPreservedMetadata(ctx, s.env, preservedMetadata)
         },
         pipelineTail = pipelineTail,
@@ -695,6 +695,7 @@ class V1ModelArchitecture(
    */
   private fun runEgressAndDeparser(ctx: PipelineContext, s: PipelineState): TraceTree {
     resetEgressSpec(s)
+    setEgressPacketLength(ctx, s)
     setEgressTimestamps(s)
     runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
     postEgressBoundary(ctx, s)
@@ -707,6 +708,29 @@ class V1ModelArchitecture(
     }
 
     return runDeparser(s)
+  }
+
+  /**
+   * Reloads `standard_metadata.packet_length` at egress entry, as BMv2 simple_switch does.
+   *
+   * BMv2 keeps the packet length in a per-packet register that its `add_header` / `remove_header`
+   * primitives (i.e. `setValid()` / `setInvalid()`) adjust by the header's size, and copies that
+   * register into `packet_length` at the start of egress. So e.g. popping a VLAN tag in ingress
+   * makes egress see a packet 4 bytes shorter. SAI P4 relies on this when computing encap lengths
+   * (e.g. `gre_encap.p4`'s outer IPv6 payload_length). The ingress-visible `packet_length` is left
+   * at the original input length, again matching BMv2.
+   *
+   * The arithmetic is done in bits and rounded up to whole bytes, the same way the deparser pads
+   * its output. This matters because 4ward, unlike BMv2, allows non-byte-aligned headers: e.g. SAI
+   * P4's 4ward packet_out header is 39 bits, and its `setInvalid()` must yield exactly the payload
+   * length. Starting from [PacketBits.validBitLength] rather than the byte length keeps the
+   * PacketOut transport padding bits out of the result.
+   */
+  private fun setEgressPacketLength(ctx: PipelineContext, s: PipelineState) {
+    val bits = ctx.packet.validBitLength.toLong() + s.env.packetLengthDeltaBits
+    check(bits >= 0) { "setValid/setInvalid made the packet length negative ($bits bits)" }
+    val length = (bits + Byte.SIZE_BITS - 1) / Byte.SIZE_BITS
+    s.standardMetadata.setBitField("packet_length", length)
   }
 
   /**
