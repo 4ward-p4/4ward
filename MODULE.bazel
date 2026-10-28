@@ -114,7 +114,7 @@ git_override(
 )
 
 # p4-constraints validates @entry_restriction / @action_restriction annotations.
-bazel_dep(name = "p4_constraints", version = "20260311.0")
+bazel_dep(name = "p4_constraints", version = "20260909.0")
 
 # BMv2 (behavioral-model) — v1model reference simulator for differential testing.
 # Dev/CI-only via `dev_dependency = True`.
