@@ -375,7 +375,12 @@ class V1ModelArchitecture(
         CLONE_I2E_INSTANCE_TYPE,
         fork.preservedMetadata,
       ) { c, s ->
-        runEgressAndDeparser(c, s)
+        runEgressAndDeparser(
+          c,
+          s,
+          inputBits = ctx.packet.validBitLength.toLong(),
+          truncateBytes = fork.truncateBytes,
+        )
       },
     )
   }
@@ -416,9 +421,9 @@ class V1ModelArchitecture(
         fork.forkPointPendingOps,
         CLONE_E2E_INSTANCE_TYPE,
         fork.preservedMetadata,
-      ) { c, s ->
+      ) { _, s ->
         resetEgressSpec(s)
-        setEgressPacketLength(c, s)
+        setEgressPacketLength(s, ctx.packet.validBitLength.toLong(), fork.truncateBytes)
         runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
         if (egressSpecIsDropPort(s))
           buildDropTrace(
@@ -692,10 +697,19 @@ class V1ModelArchitecture(
   /**
    * Runs egress controls, post-egress boundary, deparser, and output. Called after the
    * ingress-egress boundary has set egress_port.
+   *
+   * [inputBits] and [truncateBytes] feed [setEgressPacketLength]. They default to [ctx]'s packet
+   * with no truncation; truncated clones pass the untruncated input length and the clone session's
+   * `packet_length_bytes` instead, because their [ctx] already holds the truncated packet.
    */
-  private fun runEgressAndDeparser(ctx: PipelineContext, s: PipelineState): TraceTree {
+  private fun runEgressAndDeparser(
+    ctx: PipelineContext,
+    s: PipelineState,
+    inputBits: Long = ctx.packet.validBitLength.toLong(),
+    truncateBytes: Int = 0,
+  ): TraceTree {
     resetEgressSpec(s)
-    setEgressPacketLength(ctx, s)
+    setEgressPacketLength(s, inputBits, truncateBytes)
     setEgressTimestamps(s)
     runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
     postEgressBoundary(ctx, s)
@@ -725,12 +739,22 @@ class V1ModelArchitecture(
    * P4's 4ward packet_out header is 39 bits, and its `setInvalid()` must yield exactly the payload
    * length. Starting from [PacketBits.validBitLength] rather than the byte length keeps the
    * PacketOut transport padding bits out of the result.
+   *
+   * [inputBits] is the length of the packet as received, before any clone-session truncation. If
+   * [truncateBytes] is positive (a clone session's `packet_length_bytes`), the result is capped at
+   * it — after applying the header delta, so that e.g. a 100-byte packet that lost a 4-byte VLAN
+   * tag and is cloned with a 64-byte cap reports min(96, 64) = 64.
+   *
+   * The result is clamped at zero. It can only go negative when a program `setInvalid()`s headers
+   * that never added to the delta — e.g. a header made valid by assignment (`hdr.b = hdr.a`), which
+   * BMv2 doesn't count either. BMv2's unsigned register would wrap around in that case; reporting
+   * an empty packet is the closest sane equivalent, and much better than crashing the simulator.
    */
-  private fun setEgressPacketLength(ctx: PipelineContext, s: PipelineState) {
-    val bits = ctx.packet.validBitLength.toLong() + s.env.packetLengthDeltaBits
-    check(bits >= 0) { "setValid/setInvalid made the packet length negative ($bits bits)" }
+  private fun setEgressPacketLength(s: PipelineState, inputBits: Long, truncateBytes: Int) {
+    val bits = maxOf(0L, inputBits + s.env.packetLengthDeltaBits)
     val length = (bits + Byte.SIZE_BITS - 1) / Byte.SIZE_BITS
-    s.standardMetadata.setBitField("packet_length", length)
+    val cappedLength = if (truncateBytes > 0) minOf(length, truncateBytes.toLong()) else length
+    s.standardMetadata.setBitField("packet_length", cappedLength)
   }
 
   /**

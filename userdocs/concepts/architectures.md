@@ -36,7 +36,15 @@ present). Both can be overridden via `--drop-port` and `--cpu-port` flags.
 | `egress_port` | `bit<9>` | Actual output port (read-only in egress) |
 | `instance_type` | `bit<32>` | 0 = normal, 1 = ingress clone, 2 = egress clone |
 | `mcast_grp` | `bit<16>` | Multicast group ID |
-| `packet_length` | `bit<32>` | Packet byte count |
+| `packet_length` | `bit<32>` | Packet byte count (see below) |
+
+As in BMv2 `simple_switch`, `packet_length` is the input packet's byte count
+throughout ingress, even after `setValid()` / `setInvalid()`. At egress entry it
+is reloaded with the net size of the headers that `setValid()` added and
+`setInvalid()` removed so far (only calls that actually change a header's
+validity count). So popping a 4-byte VLAN tag in ingress makes egress see a
+packet 4 bytes shorter. I2E clones see the input length; E2E clones also see
+the original's egress changes. Clone-session truncation caps the result.
 
 ### Externs
 

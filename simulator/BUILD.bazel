@@ -349,6 +349,32 @@ kt_jvm_test(
 )
 
 kt_jvm_test(
+    name = "V1ModelPacketLengthTest",
+    srcs = ["V1ModelPacketLengthTest.kt"],
+    data = [
+        "//p4c_backend:p4c-4ward",
+        "@p4c//p4include",
+        "@p4c//p4include:core.p4",
+    ],
+    jvm_flags = [
+        "-Dp4c_4ward=$(rlocationpath //p4c_backend:p4c-4ward)",
+        "-Dp4include=$(rlocationpath @p4c//p4include:core.p4)",
+    ],
+    test_class = "fourward.simulator.V1ModelPacketLengthTest",
+    deps = [
+        ":ir_java_proto",
+        ":simulator",
+        ":simulator_java_proto",
+        "//e2e_tests:inline_p4_compiler",
+        "//stf",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
+        "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
+    ],
+)
+
+kt_jvm_test(
     name = "InterpreterParserTest",
     srcs = ["InterpreterParserTest.kt"],
     associates = [":simulator"],
