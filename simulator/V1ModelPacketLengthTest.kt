@@ -415,8 +415,70 @@ class V1ModelPacketLengthTest {
     val original = outputs.single { it.dataplaneEgressPort == 1 }
     val clone = outputs.single { it.dataplaneEgressPort == 2 }
     assertEquals(96L, egressPacketLength(original.payload))
-    // min(100 - 4, 64), not 64 - 4.
+    assertEquals(96, original.payload.size())
+    // min(100 - 4, 64), not 64 - 4. The clone's wire payload matches its packet_length.
     assertEquals(64L, egressPacketLength(clone.payload))
+    assertEquals(64, clone.payload.size())
+  }
+
+  @Test
+  fun `truncated I2E clone caps headers added in egress and survives a cap inside the headers`() {
+    // The clone session truncates to 8 bytes: less than the 14-byte Ethernet header the parser
+    // already consumed. The clone must still deparse (the cap applies to its output, not its
+    // input), and a header added in egress must not be emitted past the cap.
+    val sim =
+      loadInlineP4(
+        """
+        #include <core.p4>
+        #include <v1model.p4>
+
+        header ethernet_t { bit<48> dst_addr; bit<48> src_addr; bit<16> ether_type; }
+        header tag_t { bit<16> marker; }
+        struct headers_t { ethernet_t ethernet; tag_t tag; }
+        struct meta_t {}
+
+        parser P(packet_in pkt, out headers_t hdr, inout meta_t meta,
+                 inout standard_metadata_t sm) {
+          state start { pkt.extract(hdr.ethernet); transition accept; }
+        }
+        control VC(inout headers_t hdr, inout meta_t meta) { apply {} }
+        control Ig(inout headers_t hdr, inout meta_t meta, inout standard_metadata_t sm) {
+          apply {
+            clone(CloneType.I2E, 32w100);
+            sm.egress_spec = 1;
+          }
+        }
+        control Eg(inout headers_t hdr, inout meta_t meta, inout standard_metadata_t sm) {
+          apply {
+            hdr.tag.setValid();  // +2 bytes, before the Ethernet header on the wire.
+            hdr.tag.marker = 0xBEEF;
+            hdr.ethernet.src_addr = (bit<48>) sm.packet_length;
+          }
+        }
+        control CC(inout headers_t hdr, inout meta_t meta) { apply {} }
+        control D(packet_out pkt, in headers_t hdr) {
+          apply { pkt.emit(hdr.tag); pkt.emit(hdr.ethernet); }
+        }
+        V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+        """
+      )
+    sim.writeEntry(cloneSession(sessionId = 100, egressPort = 2, packetLengthBytes = 8))
+    sim.publishSnapshot()
+
+    // ethernet (14) | payload (2) = 16 bytes.
+    val input = hex("FFFFFFFFFFFF 000000000001 0800 ABCD")
+    val outputs = sim.processPacket(0, input).possibleOutcomes.single()
+
+    // Original: tag (2) | ethernet (14) | payload (2). src_addr holds egress packet_length = 16:
+    // the tag is added during egress, after packet_length was loaded.
+    val original = outputs.single { it.dataplaneEgressPort == 1 }
+    assertEquals(
+      hex("BEEF FFFFFFFFFFFF 000000000010 0800 ABCD").toList(),
+      original.payload.toByteArray().toList(),
+    )
+    // Clone: the same deparsed bytes cut to 8, so the egress-added tag counts against the cap.
+    val clone = outputs.single { it.dataplaneEgressPort == 2 }
+    assertEquals(hex("BEEF FFFFFFFFFFFF").toList(), clone.payload.toByteArray().toList())
   }
 
   @Test

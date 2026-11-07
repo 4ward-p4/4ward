@@ -38,14 +38,4 @@ class PacketBitsTest {
 
     assertEquals(2, packet.packetByteLength)
   }
-
-  @Test
-  fun `truncate caps valid bit length at truncated buffer size`() {
-    val packet = PacketBits.ofPaddedBytes(byteArrayOf(0xAB.toByte(), 0xC0.toByte()), 10)
-
-    val truncated = packet.truncateToBytes(1)
-
-    assertEquals(8, truncated.validBitLength)
-    assertArrayEquals(byteArrayOf(0xAB.toByte()), truncated.copySemanticBytes())
-  }
 }
