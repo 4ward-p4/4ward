@@ -362,20 +362,20 @@ class V1ModelArchitecture(
           else runEgressAndDeparser(c, s)
         },
       )
-    val cloneCtx = truncatePayload(ctx, fork.truncateBytes)
     return assembleCloneFork(
       fork.eventsBeforeFork,
       original,
       buildCloneBranches(
-        cloneCtx,
+        ctx,
         fork.replicas,
         fork.bitsConsumed,
         fork.postParserEnv,
         snapshotPendingOps = null,
         CLONE_I2E_INSTANCE_TYPE,
         fork.preservedMetadata,
+        fork.truncateBytes,
       ) { c, s ->
-        runEgressAndDeparser(c, s)
+        runEgressAndDeparser(c, s, cloneTruncateBytes = fork.truncateBytes)
       },
     )
   }
@@ -404,20 +404,21 @@ class V1ModelArchitecture(
           else runDeparser(s)
         },
       )
-    val cloneCtx = truncatePayload(ctx, fork.truncateBytes)
     return assembleCloneFork(
       fork.eventsBeforeFork,
       original,
       buildCloneBranches(
-        cloneCtx,
+        ctx,
         fork.replicas,
         fork.bitsConsumed,
         fork.forkPointEnv,
         fork.forkPointPendingOps,
         CLONE_E2E_INSTANCE_TYPE,
         fork.preservedMetadata,
-      ) { _, s ->
+        fork.truncateBytes,
+      ) { c, s ->
         resetEgressSpec(s)
+        setEgressPacketLength(c, s, cloneTruncateBytes = fork.truncateBytes)
         runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
         if (egressSpecIsDropPort(s))
           buildDropTrace(
@@ -429,7 +430,13 @@ class V1ModelArchitecture(
     )
   }
 
-  /** Builds one clone branch per replica, setting instance_type/egress_port/egress_rid. */
+  /**
+   * Builds one clone branch per replica, setting instance_type/egress_port/egress_rid.
+   *
+   * A positive [truncateBytes] (the clone session's `packet_length_bytes`) caps each clone's
+   * deparsed output, the same way the `truncate()` extern does. The input packet itself is left
+   * whole: the clone still parses and deparses the full packet, and only its output is cut.
+   */
   @Suppress("LongParameterList")
   private fun buildCloneBranches(
     ctx: PipelineContext,
@@ -439,6 +446,7 @@ class V1ModelArchitecture(
     snapshotPendingOps: V1ModelPendingOps?,
     instanceType: Long,
     preservedMetadata: Map<String, Value>?,
+    truncateBytes: Int,
     pipelineTail: (PipelineContext, PipelineState) -> TraceTree,
   ): List<TraceTree> {
     val buildBranch = { replica: Replica ->
@@ -453,8 +461,11 @@ class V1ModelArchitecture(
           s.standardMetadata.setBitField("instance_type", instanceType)
           s.standardMetadata.setBitField("egress_port", replica.port.toLong())
           s.standardMetadata.setBitField("egress_rid", replica.rid.toLong())
-          s.standardMetadata.setBitField("packet_length", ctx.packet.packetByteLength.toLong())
           applyPreservedMetadata(ctx, s.env, preservedMetadata)
+          if (truncateBytes > 0) {
+            val existing = s.pendingOps.truncateBytes
+            s.pendingOps.truncateBytes = minOf(existing ?: truncateBytes, truncateBytes)
+          }
         },
         pipelineTail = pipelineTail,
       )
@@ -692,9 +703,17 @@ class V1ModelArchitecture(
   /**
    * Runs egress controls, post-egress boundary, deparser, and output. Called after the
    * ingress-egress boundary has set egress_port.
+   *
+   * [cloneTruncateBytes] is the clone session's `packet_length_bytes` for clone branches (0 for
+   * none); see [setEgressPacketLength].
    */
-  private fun runEgressAndDeparser(ctx: PipelineContext, s: PipelineState): TraceTree {
+  private fun runEgressAndDeparser(
+    ctx: PipelineContext,
+    s: PipelineState,
+    cloneTruncateBytes: Int = 0,
+  ): TraceTree {
     resetEgressSpec(s)
+    setEgressPacketLength(ctx, s, cloneTruncateBytes)
     setEgressTimestamps(s)
     runControlStages(s, s.egressControls, dataplanePort = readEgressPort(s))
     postEgressBoundary(ctx, s)
@@ -707,6 +726,47 @@ class V1ModelArchitecture(
     }
 
     return runDeparser(s)
+  }
+
+  /**
+   * Reloads `standard_metadata.packet_length` at egress entry, as BMv2 simple_switch does.
+   *
+   * BMv2 keeps the packet length in a per-packet register that its `add_header` / `remove_header`
+   * primitives (i.e. `setValid()` / `setInvalid()`) adjust by the header's size, and copies that
+   * register into `packet_length` at the start of egress. So e.g. popping a VLAN tag in ingress
+   * makes egress see a packet 4 bytes shorter. SAI P4 relies on this when computing encap lengths
+   * (e.g. `gre_encap.p4`'s outer IPv6 payload_length). The ingress-visible `packet_length` is left
+   * at the original input length, again matching BMv2.
+   *
+   * The arithmetic is done in bits and rounded up to whole bytes, the same way the deparser pads
+   * its output. This matters because 4ward, unlike BMv2, allows non-byte-aligned headers: e.g. SAI
+   * P4's 4ward packet_out header is 39 bits, and its `setInvalid()` must yield exactly the payload
+   * length. Starting from [PacketBits.validBitLength] rather than the byte length keeps the
+   * PacketOut transport padding bits out of the result.
+   *
+   * If [cloneTruncateBytes] is positive (a clone session's `packet_length_bytes`), the result is
+   * capped at it — after applying the header delta, so that e.g. a 100-byte packet that lost a
+   * 4-byte VLAN tag and is cloned with a 64-byte cap reports min(96, 64) = 64, matching the 64
+   * bytes the clone emits (see [buildCloneBranches]). This is a 4ward extension: BMv2 simple_switch
+   * doesn't implement `packet_length_bytes` (P4Runtime writes with a non-zero value are rejected),
+   * and its only truncation is the post-deparser `truncate()` extern, which doesn't change
+   * `packet_length`.
+   *
+   * The result is clamped at zero. It can only go negative when a program `setInvalid()`s headers
+   * that never added to the delta — e.g. a header made valid by assignment (`hdr.b = hdr.a`), which
+   * BMv2 doesn't count either. BMv2's unsigned register would wrap around in that case; reporting
+   * an empty packet is the closest sane equivalent, and much better than crashing the simulator.
+   */
+  private fun setEgressPacketLength(
+    ctx: PipelineContext,
+    s: PipelineState,
+    cloneTruncateBytes: Int = 0,
+  ) {
+    val bits = maxOf(0L, ctx.packet.validBitLength.toLong() + s.env.packetLengthDeltaBits)
+    val length = (bits + Byte.SIZE_BITS - 1) / Byte.SIZE_BITS
+    val cappedLength =
+      if (cloneTruncateBytes > 0) minOf(length, cloneTruncateBytes.toLong()) else length
+    s.standardMetadata.setBitField("packet_length", cappedLength)
   }
 
   /**
@@ -991,14 +1051,6 @@ class V1ModelArchitecture(
     val mask = if (width >= Long.SIZE_BITS) -1L else (1L shl width) - 1
     metadata.setBitField(field, microseconds and mask)
   }
-
-  /** Returns [ctx] with payload truncated to [maxBytes], or [ctx] unchanged if no truncation. */
-  private fun truncatePayload(ctx: PipelineContext, maxBytes: Int): PipelineContext =
-    if (maxBytes > 0 && maxBytes < ctx.packet.packetByteLength) {
-      ctx.copy(packet = ctx.packet.truncateToBytes(maxBytes))
-    } else {
-      ctx
-    }
 
   // Trace helpers (buildDropTrace, buildOutputTrace, packetIngressEvent, stageEvent)
   // are shared with PSAArchitecture — see TraceHelpers.kt.

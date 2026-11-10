@@ -769,6 +769,104 @@ class BitLevelSerializationTest {
   }
 
   @Test
+  @Suppress("MagicNumber")
+  fun `egress packet_length excludes non-byte-aligned packet_out header removed in ingress`() {
+    // SAI P4 on 4ward: the packet_out header is 39 bits (32-bit port_id_t + 1-bit
+    // submit_to_ingress + 6-bit pad), and packet_out_decap setInvalid()s it in ingress. Egress
+    // packet_length must then be exactly the payload length — not crash on the sub-byte delta, and
+    // not count the header's transport padding bits.
+    val config =
+      compileInlineP4(
+        """
+      #include <core.p4>
+      #include <v1model.p4>
+
+      @controller_header("packet_out")
+      header packet_out_t {
+        bit<32> egress_port;
+        bit<1> submit_to_ingress;
+        @padding bit<6> unused_pad;
+      }
+
+      @controller_header("packet_in")
+      header packet_in_t { bit<32> egress_packet_length; }
+
+      header ethernet_t { bit<48> dst; bit<48> src; bit<16> etype; }
+      struct headers_t { packet_out_t pkt_out; packet_in_t pkt_in; ethernet_t eth; }
+      struct meta_t {}
+
+      parser P(packet_in pkt, out headers_t hdr, inout meta_t m, inout standard_metadata_t sm) {
+        state start {
+          pkt.extract(hdr.pkt_out);
+          pkt.extract(hdr.eth);
+          transition accept;
+        }
+      }
+      control VC(inout headers_t h, inout meta_t m) { apply {} }
+      control CC(inout headers_t h, inout meta_t m) { apply {} }
+      control Ig(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply {
+          h.pkt_out.setInvalid();
+          sm.egress_spec = 510;
+        }
+      }
+      control Eg(inout headers_t h, inout meta_t m, inout standard_metadata_t sm) {
+        apply {
+          h.pkt_in.setValid();
+          h.pkt_in.egress_packet_length = sm.packet_length;
+        }
+      }
+      control D(packet_out pkt, in headers_t h) {
+        apply {
+          pkt.emit(h.pkt_out);
+          pkt.emit(h.pkt_in);
+          pkt.emit(h.eth);
+        }
+      }
+      V1Switch(P(), VC(), Ig(), Eg(), CC(), D()) main;
+      """
+      )
+
+    val harness = FourwardTestHarness()
+    harness.use {
+      it.loadPipeline(config)
+
+      it.openStream().use { session ->
+        session.arbitrate()
+
+        val payload = ByteArray(14) { 0xAA.toByte() }
+        val packetOut =
+          org.p4.v1.PacketOut.newBuilder()
+            .setPayload(com.google.protobuf.ByteString.copyFrom(payload))
+            .addMetadata(
+              org.p4.v1.PacketMetadata.newBuilder()
+                .setMetadataId(1)
+                .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(1)))
+            )
+            .addMetadata(
+              org.p4.v1.PacketMetadata.newBuilder()
+                .setMetadataId(2)
+                .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(1)))
+            )
+            .addMetadata(
+              org.p4.v1.PacketMetadata.newBuilder()
+                .setMetadataId(3)
+                .setValue(com.google.protobuf.ByteString.copyFrom(byteArrayOf(0)))
+            )
+            .build()
+
+        val response = session.sendPacketOut(packetOut)
+
+        assertNotNull("should get PacketIn response from CPU port", response)
+        assertTrue("response should be PacketIn: $response", response!!.hasPacket())
+        val egressPacketLength =
+          BigInteger(1, response.packet.metadataList.single().value.toByteArray()).toInt()
+        assertEquals(payload.size, egressPacketLength)
+      }
+    }
+  }
+
+  @Test
   fun `field_list_ids emitted for enum-valued field_list annotations`() {
     val config =
       compileInlineP4(

@@ -16,6 +16,22 @@ class Environment {
 
   private val scopes: ArrayDeque<MutableMap<String, Value>> = ArrayDeque()
 
+  /**
+   * Net number of bits added to (positive) or removed from (negative) the packet by header
+   * `setValid()` / `setInvalid()` calls that actually changed a header's validity.
+   *
+   * Models BMv2's packet-length register: its `add_header` / `remove_header` primitives adjust the
+   * register by the header's size, and v1model reloads `standard_metadata.packet_length` from it at
+   * egress entry. See simple_switch `primitives.cpp` and `egress_thread`. Tracked in bits (not
+   * bytes) because P4₁₆ allows non-byte-aligned headers; architectures that consume this delta
+   * convert to bytes themselves.
+   *
+   * Why here and not in [PacketContext]? Fork branches get a fresh [PacketContext] but a deep copy
+   * of the [Environment]. This delta is derived from header validity, which lives in the
+   * environment, so it must be forked together with it.
+   */
+  var packetLengthDeltaBits: Int = 0
+
   init {
     pushScope()
   } // top-level scope
@@ -63,6 +79,7 @@ class Environment {
   /** Returns an independent deep copy of this environment (all scopes and values). */
   fun deepCopy(): Environment {
     val copy = Environment()
+    copy.packetLengthDeltaBits = packetLengthDeltaBits
     copy.scopes.clear()
     for (scope in scopes) {
       // Pre-size to skip HashMap.resize on the fork-copy hot path (load factor 0.75).

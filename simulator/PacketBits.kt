@@ -44,13 +44,6 @@ class PacketBits private constructor(private val paddedBytes: ByteArray, val val
    */
   internal fun backingBytesForParser(): ByteArray = paddedBytes
 
-  fun truncateToBytes(maxBytes: Int): PacketBits =
-    if (maxBytes > 0 && maxBytes < packetByteLength) {
-      PacketBits(paddedBytes.copyOf(maxBytes), minOf(validBitLength, maxBytes * Byte.SIZE_BITS))
-    } else {
-      this
-    }
-
   override fun equals(other: Any?): Boolean =
     other is PacketBits &&
       validBitLength == other.validBitLength &&

@@ -110,6 +110,22 @@ data class HeaderVal(
   fun copy(): HeaderVal = HeaderVal(typeName, copyFields(), valid)
 
   /**
+   * The header's size on the wire in bits: the sum of its field widths (varbit fields contribute
+   * their current runtime width). Mirrors BMv2's `Header::get_nbytes_packet`, but in bits so that
+   * non-byte-aligned headers (legal in P4₁₆) don't need rounding here.
+   */
+  fun bitLength(): Int =
+    fields.values.sumOf { v ->
+      when (v) {
+        is BitVal -> v.bits.width
+        is IntVal -> v.bits.width
+        is BoolVal -> 1
+        is UnitVal -> 0
+        else -> error("unexpected header field type: ${v::class.simpleName}")
+      }
+    }
+
+  /**
    * P4 headers contain only primitive fields (`bit<N>`, `int<N>`, `bool`, `varbit`), whose
    * [Value.deepCopy] returns `this`. So deep-copy is equivalent to a shallow map copy — no
    * per-entry recursion needed. For [CompactFieldMap]-backed headers (the common path via
