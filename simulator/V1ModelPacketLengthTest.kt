@@ -608,9 +608,10 @@ class V1ModelPacketLengthTest {
     val outcomes = sim.processPacket(0, input).possibleOutcomes
 
     // One possible outcome per member; each must see only its own member's header change.
-    val lengthByPort = outcomes.associate { outcome ->
+    val lengthByPort = mutableMapOf<Int, Long>()
+    for (outcome in outcomes) {
       val output = outcome.single()
-      output.dataplaneEgressPort to egressPacketLength(output.payload)
+      lengthByPort[output.dataplaneEgressPort] = egressPacketLength(output.payload)
     }
     assertEquals(mapOf(1 to 20L - 4, 2 to 20L + 2), lengthByPort)
   }
