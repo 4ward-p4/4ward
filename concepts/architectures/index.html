@@ -20,7 +20,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -1468,10 +1468,22 @@ present). Both can be overridden via <code>--drop-port</code> and <code>--cpu-po
 <tr>
 <td><code>packet_length</code></td>
 <td><code>bit&lt;32&gt;</code></td>
-<td>Packet byte count</td>
+<td>Packet byte count (see below)</td>
 </tr>
 </tbody>
 </table>
+<p>As in BMv2 <code>simple_switch</code>, <code>packet_length</code> is the input packet's byte count
+throughout ingress, even after <code>setValid()</code> / <code>setInvalid()</code>. At egress entry it
+is reloaded with the net size of the headers that <code>setValid()</code> added and
+<code>setInvalid()</code> removed so far (only calls that actually change a header's
+validity count). So popping a 4-byte VLAN tag in ingress makes egress see a
+packet 4 bytes shorter. I2E clones see the input length; E2E clones also see
+the original's egress changes.</p>
+<p>4ward also supports P4Runtime clone-session truncation
+(<code>CloneSessionEntry.packet_length_bytes</code>), which BMv2 <code>simple_switch</code> does not
+implement (it only has the post-deparser <code>truncate()</code> extern). In 4ward, a
+truncating session cuts each clone's deparsed output to <code>packet_length_bytes</code>,
+and caps the clone's egress <code>packet_length</code> at the same value.</p>
 <h3 id="externs">Externs<a class="headerlink" href="#externs" title="Permanent link">¶</a></h3>
 <p><strong>Forwarding and drops:</strong></p>
 <ul>
@@ -1792,7 +1804,7 @@ for the full list.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "search.highlight"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   
