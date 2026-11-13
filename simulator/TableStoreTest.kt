@@ -1061,6 +1061,8 @@ class TableStoreTest {
     assertTrue(result.hit)
     assertNull(result.members)
     assertEquals("action42", result.actionName)
+    assertEquals(1, result.actionParams.size)
+    assertEquals(ByteString.copyFrom(byteArrayOf(0x7F)), result.actionParams[0].value)
   }
 
   @Test
@@ -3397,6 +3399,24 @@ class TableStoreTest {
     for (i in 0 until threads * writesPerThread) {
       assertEquals(BitVal(i, REGISTER_BITWIDTH), s.registerRead(REGISTER_NAME, i))
     }
+  }
+
+  @Test
+  fun `table entry key identity is independent of FieldMatch proto order`() {
+    val forwardOrder = exactEntry(1, byteArrayOf(0x0A), 2, byteArrayOf(0x0B), actionId = 10)
+    val reversedOrder = exactEntry(2, byteArrayOf(0x0B), 1, byteArrayOf(0x0A), actionId = 20)
+
+    assertTrue(forwardOrder.sameKey(reversedOrder))
+    assertEquals(WriteResult.Success, store.write(insertUpdate(forwardOrder)))
+    assertTrue(store.write(insertUpdate(reversedOrder)) is WriteResult.AlreadyExists)
+    assertEquals(WriteResult.Success, store.write(modifyUpdate(reversedOrder)))
+    store.publishSnapshot()
+
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0x0A, 8), "2" to BitVal(0x0B, 8)))
+    assertTrue(result.hit)
+    assertEquals("action20", result.actionName)
+
+    assertEquals(WriteResult.Success, store.write(deleteUpdate(reversedOrder)))
   }
 
   // ---------------------------------------------------------------------------

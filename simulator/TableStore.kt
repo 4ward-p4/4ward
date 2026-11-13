@@ -275,14 +275,22 @@ private fun matchBig(bits: BigInteger, width: Int, match: FieldMatch): Boolean =
 /**
  * P4Runtime spec §9.1: two entries match the same key iff they have the same table_id, match
  * fields, and priority (priority is part of the key for tables with ternary, range, or optional
- * fields).
+ * fields). Match fields are compared by `field_id` rather than proto list order.
  */
-fun TableEntry.sameKey(other: TableEntry): Boolean =
-  tableId == other.tableId && priority == other.priority && matchList == other.matchList
+fun TableEntry.sameKey(other: TableEntry): Boolean = key() == other.key()
 
 private data class TableEntryKey(val tableId: Int, val priority: Int, val match: List<FieldMatch>)
 
-private fun TableEntry.key(): TableEntryKey = TableEntryKey(tableId, priority, matchList)
+private fun TableEntry.key(): TableEntryKey {
+  var sorted = matchList
+  for (i in 1 until sorted.size) {
+    if (sorted[i - 1].fieldId > sorted[i].fieldId) {
+      sorted = sorted.sortedBy { it.fieldId }
+      break
+    }
+  }
+  return TableEntryKey(tableId, priority, sorted)
+}
 
 /** Default action state for a table: action name and optional parameters. */
 data class DefaultAction(val name: String, val params: List<org.p4.v1.Action.Param> = emptyList())
@@ -693,8 +701,9 @@ class TableStore : TableDataReader {
   /** Reverse mapping: behavioral table name -> table ID. */
   private var tableIdByName: Map<String, Int> = emptyMap()
 
-  /** Action parameter info per action (behavioral name), for data-plane add_entry. */
-  private var actionParamInfo: Map<String, List<P4InfoAction.Param>> = emptyMap()
+  /** Action parameter info per action (behavioral name). */
+  internal var actionParamInfo: Map<String, List<P4InfoAction.Param>> = emptyMap()
+    private set
 
   /**
    * Initialises the store for a loaded pipeline and clears all mutable state.
@@ -888,12 +897,17 @@ class TableStore : TableDataReader {
       actionIdByName = actionById.entries.associate { (id, name) -> name to id },
       tableIdByName = tableById.entries.associate { (id, name) -> name to id },
       actionParamInfo =
-        p4info.actionsList
-          .mapNotNull { action ->
-            val name = actionById[action.preamble.id] ?: return@mapNotNull null
-            name to action.paramsList
+        buildMap {
+          for (action in p4info.actionsList) {
+            val name = actionById[action.preamble.id] ?: continue
+            put(name, action.paramsList)
           }
-          .toMap(),
+          for (table in behavioral.tablesList) {
+            for ((actionName, overrideName) in table.actionOverridesMap) {
+              get(actionName)?.let { put(overrideName, it) }
+            }
+          }
+        },
       tableMatchFields =
         p4info.tablesList
           .mapNotNull { table ->
@@ -2133,10 +2147,20 @@ class TableStore : TableDataReader {
       val member =
         snapshot.profileMembers[profileId]?.get(tableAction.actionProfileMemberId)
           ?: error("unknown member ${tableAction.actionProfileMemberId} in profile $profileId")
-      return LookupResult(true, entry, resolveActionName(member.action.actionId))
+      return LookupResult(
+        true,
+        entry,
+        resolveActionName(member.action.actionId),
+        member.action.paramsList,
+      )
     }
 
-    return LookupResult(true, entry, resolveActionName(entry.action.action.actionId))
+    return LookupResult(
+      true,
+      entry,
+      resolveActionName(entry.action.action.actionId),
+      entry.action.action.paramsList,
+    )
   }
 
   private fun formatOptions(options: List<String>): String =

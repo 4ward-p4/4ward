@@ -206,7 +206,10 @@ kt_jvm_test(
         ":interpreter_test_dsl",
         ":ir_java_proto",
         ":simulator",
+        "@fourward_maven//:com_google_protobuf_protobuf_java",
         "@fourward_maven//:junit_junit",
+        "@p4runtime//proto/p4/config/v1:p4info_java_proto",
+        "@p4runtime//proto/p4/v1:p4runtime_java_proto",
     ],
 )
 

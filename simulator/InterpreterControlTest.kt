@@ -1,16 +1,21 @@
 package fourward.simulator
 
+import com.google.protobuf.ByteString
 import fourward.ActionDecl
 import fourward.AssignmentStmt
 import fourward.BehavioralConfig
 import fourward.BitType
 import fourward.BlockStmt
 import fourward.ControlDecl
+import fourward.ControlPlaneBinding
+import fourward.ControlPlaneBindings
+import fourward.DeviceConfig
 import fourward.ExitStmt
 import fourward.Expr
 import fourward.FieldAccess
 import fourward.MethodCallStmt
 import fourward.NameRef
+import fourward.ParamDecl
 import fourward.Stmt
 import fourward.SwitchCase
 import fourward.SwitchStmt
@@ -22,6 +27,20 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.p4.config.v1.Action as P4InfoAction
+import org.p4.config.v1.ActionProfile
+import org.p4.config.v1.ActionRef
+import org.p4.config.v1.P4Info
+import org.p4.config.v1.Preamble
+import org.p4.config.v1.Table
+import org.p4.v1.Action
+import org.p4.v1.ActionProfileAction
+import org.p4.v1.ActionProfileActionSet
+import org.p4.v1.ActionProfileMember
+import org.p4.v1.Entity
+import org.p4.v1.TableAction
+import org.p4.v1.TableEntry
+import org.p4.v1.Update
 
 /**
  * Unit tests for [Interpreter] control and statement execution.
@@ -697,5 +716,343 @@ class InterpreterControlTest {
     interpreterExecution(config, TableStore(), pktCtx, externHandler = handler)
       .runControl("MyControl", emptyEnv)
     assertEquals(payload.toList(), captured?.toList())
+  }
+
+  // ---------------------------------------------------------------------------
+  // Action parameter binding by param_id
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Builds a two-parameter action `set_vlan_and_meta(bit<12> vlan_id, bit<8> acl_metadata)` that
+   * copies its parameters into environment variables `out_vlan` and `out_meta`.
+   *
+   * Parameter 1 (`vlan_id`, 12 bits) is wider than parameter 2 (`acl_metadata`, 8 bits), so binding
+   * reversed `Action.Param` protos positionally attempts to load a 12-bit value (e.g. `0x801` =
+   * 2049) into an 8-bit parameter and throws `value 2049 does not fit in 8 bits`.
+   */
+  private fun vlanAndMetaActionDecl(
+    currentName: String = "",
+    paramSuffix: String = "",
+  ): ActionDecl =
+    ActionDecl.newBuilder()
+      .setName("set_vlan_and_meta")
+      .apply { if (currentName.isNotEmpty()) setCurrentName(currentName) }
+      .addParams(ParamDecl.newBuilder().setName("vlan_id$paramSuffix").setType(bitType(12)))
+      .addParams(ParamDecl.newBuilder().setName("acl_metadata$paramSuffix").setType(bitType(8)))
+      .addBody(assign("out_vlan", nameRef("vlan_id$paramSuffix", bitType(12))))
+      .addBody(assign("out_meta", nameRef("acl_metadata$paramSuffix", bitType(8))))
+      .build()
+
+  private fun applyTableStmt(tableName: String): Stmt =
+    Stmt.newBuilder()
+      .setMethodCall(
+        MethodCallStmt.newBuilder()
+          .setCall(
+            Expr.newBuilder().setTableApply(TableApplyExpr.newBuilder().setTableName(tableName))
+          )
+      )
+      .build()
+
+  private fun reversedVlanAndMetaParams(): List<Action.Param> =
+    listOf(
+      Action.Param.newBuilder()
+        .setParamId(20)
+        .setValue(ByteString.copyFrom(byteArrayOf(0x42)))
+        .build(),
+      Action.Param.newBuilder()
+        .setParamId(10)
+        .setValue(ByteString.copyFrom(byteArrayOf(0x08, 0x01)))
+        .build(),
+    )
+
+  private fun vlanAndMetaP4Info(implementationId: Int = 0): P4Info {
+    val tableBuilder =
+      Table.newBuilder()
+        .setPreamble(Preamble.newBuilder().setId(1).setName("t").setAlias("t"))
+        .addActionRefs(ActionRef.newBuilder().setId(10))
+    if (implementationId != 0) tableBuilder.setImplementationId(implementationId)
+
+    val p4infoBuilder =
+      P4Info.newBuilder()
+        .addTables(tableBuilder)
+        .addActions(
+          P4InfoAction.newBuilder()
+            .setPreamble(
+              Preamble.newBuilder()
+                .setId(10)
+                .setName("set_vlan_and_meta")
+                .setAlias("set_vlan_and_meta")
+            )
+            // Non-sequential parameter IDs (10 and 20) ensure binding uses P4Info metadata
+            // rather than falling back to 1-based positional indices (i + 1).
+            .addParams(P4InfoAction.Param.newBuilder().setId(10).setName("vlan_id").setBitwidth(12))
+            .addParams(
+              P4InfoAction.Param.newBuilder().setId(20).setName("acl_metadata").setBitwidth(8)
+            )
+        )
+    if (implementationId != 0) {
+      p4infoBuilder.addActionProfiles(
+        ActionProfile.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(implementationId).setName("ap").setAlias("ap"))
+          .addTableIds(1)
+      )
+    }
+    return p4infoBuilder.build()
+  }
+
+  private fun vlanAndMetaDevice(behavioral: BehavioralConfig): DeviceConfig =
+    DeviceConfig.newBuilder()
+      .setBehavioral(behavioral)
+      .setControlPlaneBindings(
+        ControlPlaneBindings.newBuilder()
+          .addTables(ControlPlaneBinding.newBuilder().setP4InfoName("t").setSimulatorName("t"))
+          .addActions(
+            ControlPlaneBinding.newBuilder()
+              .setP4InfoName("set_vlan_and_meta")
+              .setSimulatorName("set_vlan_and_meta")
+          )
+      )
+      .build()
+
+  @Test
+  fun `table entry action binds parameters by param_id regardless of proto order`() {
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTables(
+          TableBehavior.newBuilder()
+            .setName("t")
+            .putActionOverrides("set_vlan_and_meta", "set_vlan_and_meta_0")
+        )
+        .addActions(vlanAndMetaActionDecl(currentName = "set_vlan_and_meta_0", paramSuffix = "_0"))
+        .addControls(
+          ControlDecl.newBuilder().setName("MyControl").addApplyBody(applyTableStmt("t"))
+        )
+        .build()
+
+    val ts = TableStore()
+    ts.loadMappings(vlanAndMetaP4Info(), vlanAndMetaDevice(behavioral))
+    ts.write(
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
+        .setEntity(
+          Entity.newBuilder()
+            .setTableEntry(
+              TableEntry.newBuilder()
+                .setTableId(1)
+                .setAction(
+                  TableAction.newBuilder()
+                    .setAction(
+                      Action.newBuilder().setActionId(10).addAllParams(reversedVlanAndMetaParams())
+                    )
+                )
+            )
+        )
+        .build()
+    )
+    ts.publishSnapshot()
+
+    val env = emptyEnv
+    env.define("out_vlan", BitVal(0, 12))
+    env.define("out_meta", BitVal(0, 8))
+    interp(behavioral, ts).runControl("MyControl", env)
+
+    assertEquals(BitVal(0x801, 12), env.lookup("out_vlan"))
+    assertEquals(BitVal(0x42, 8), env.lookup("out_meta"))
+  }
+
+  @Test
+  fun `default action binds parameters by param_id regardless of proto order`() {
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTables(TableBehavior.newBuilder().setName("t"))
+        .addActions(vlanAndMetaActionDecl())
+        .addControls(
+          ControlDecl.newBuilder().setName("MyControl").addApplyBody(applyTableStmt("t"))
+        )
+        .build()
+    val ts = TableStore()
+    ts.loadMappings(vlanAndMetaP4Info(), vlanAndMetaDevice(behavioral))
+    ts.setDefaultAction("t", "set_vlan_and_meta", reversedVlanAndMetaParams())
+    ts.publishSnapshot()
+
+    val env = emptyEnv
+    env.define("out_vlan", BitVal(0, 12))
+    env.define("out_meta", BitVal(0, 8))
+    interp(behavioral, ts).runControl("MyControl", env)
+
+    assertEquals(BitVal(0x801, 12), env.lookup("out_vlan"))
+    assertEquals(BitVal(0x42, 8), env.lookup("out_meta"))
+  }
+
+  @Test
+  fun `action profile member binds parameters by param_id regardless of proto order`() {
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTables(TableBehavior.newBuilder().setName("t"))
+        .addActions(vlanAndMetaActionDecl())
+        .addControls(
+          ControlDecl.newBuilder().setName("MyControl").addApplyBody(applyTableStmt("t"))
+        )
+        .build()
+
+    val ts = TableStore()
+    ts.loadMappings(vlanAndMetaP4Info(implementationId = 100), vlanAndMetaDevice(behavioral))
+    ts.write(
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
+        .setEntity(
+          Entity.newBuilder()
+            .setActionProfileMember(
+              ActionProfileMember.newBuilder()
+                .setActionProfileId(100)
+                .setMemberId(5)
+                .setAction(
+                  Action.newBuilder().setActionId(10).addAllParams(reversedVlanAndMetaParams())
+                )
+            )
+        )
+        .build()
+    )
+    ts.write(
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
+        .setEntity(
+          Entity.newBuilder()
+            .setTableEntry(
+              TableEntry.newBuilder()
+                .setTableId(1)
+                .setAction(TableAction.newBuilder().setActionProfileMemberId(5))
+            )
+        )
+        .build()
+    )
+    ts.publishSnapshot()
+
+    val env = emptyEnv
+    env.define("out_vlan", BitVal(0, 12))
+    env.define("out_meta", BitVal(0, 8))
+    interp(behavioral, ts).runControl("MyControl", env)
+
+    assertEquals(BitVal(0x801, 12), env.lookup("out_vlan"))
+    assertEquals(BitVal(0x42, 8), env.lookup("out_meta"))
+  }
+
+  @Test
+  fun `one-shot action profile action set binds parameters by param_id with action override`() {
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTables(
+          TableBehavior.newBuilder()
+            .setName("t")
+            .putActionOverrides("set_vlan_and_meta", "set_vlan_and_meta_0")
+        )
+        .addActions(vlanAndMetaActionDecl(currentName = "set_vlan_and_meta_0"))
+        .addControls(
+          ControlDecl.newBuilder().setName("MyControl").addApplyBody(applyTableStmt("t"))
+        )
+        .build()
+
+    val ts = TableStore()
+    ts.loadMappings(vlanAndMetaP4Info(implementationId = 100), vlanAndMetaDevice(behavioral))
+    ts.write(
+      Update.newBuilder()
+        .setType(Update.Type.INSERT)
+        .setEntity(
+          Entity.newBuilder()
+            .setTableEntry(
+              TableEntry.newBuilder()
+                .setTableId(1)
+                .setAction(
+                  TableAction.newBuilder()
+                    .setActionProfileActionSet(
+                      ActionProfileActionSet.newBuilder()
+                        .addActionProfileActions(
+                          ActionProfileAction.newBuilder()
+                            .setAction(
+                              Action.newBuilder()
+                                .setActionId(10)
+                                .addAllParams(reversedVlanAndMetaParams())
+                            )
+                            .setWeight(1)
+                        )
+                    )
+                )
+            )
+        )
+        .build()
+    )
+    ts.publishSnapshot()
+
+    val env = emptyEnv
+    env.define("out_vlan", BitVal(0, 12))
+    env.define("out_meta", BitVal(0, 8))
+    interpreterExecution(
+        behavioral,
+        ts,
+        selectorOverrides = mapOf("t" to 0),
+        externHandler = testExternHandler(ts),
+      )
+      .runControl("MyControl", env)
+
+    assertEquals(BitVal(0x801, 12), env.lookup("out_vlan"))
+    assertEquals(BitVal(0x42, 8), env.lookup("out_meta"))
+  }
+
+  @Test
+  fun `action parameter binding throws when required param_id is missing`() {
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTables(TableBehavior.newBuilder().setName("t"))
+        .addActions(vlanAndMetaActionDecl())
+        .addControls(
+          ControlDecl.newBuilder().setName("MyControl").addApplyBody(applyTableStmt("t"))
+        )
+        .build()
+    val onlyFirstParam =
+      listOf(
+        Action.Param.newBuilder()
+          .setParamId(10)
+          .setValue(ByteString.copyFrom(byteArrayOf(0x08, 0x01)))
+          .build()
+      )
+    val ts = TableStore()
+    ts.loadMappings(vlanAndMetaP4Info(), vlanAndMetaDevice(behavioral))
+    ts.setDefaultAction("t", "set_vlan_and_meta", onlyFirstParam)
+    ts.publishSnapshot()
+
+    val env = emptyEnv
+    env.define("out_vlan", BitVal(0, 12))
+    env.define("out_meta", BitVal(0, 8))
+    assertThrows(IllegalStateException::class.java) {
+      interp(behavioral, ts).runControl("MyControl", env)
+    }
+  }
+
+  @Test
+  fun `action parameter binding falls back to positional order when param_id is unset`() {
+    val behavioral =
+      BehavioralConfig.newBuilder()
+        .addTables(TableBehavior.newBuilder().setName("t"))
+        .addActions(vlanAndMetaActionDecl())
+        .addControls(
+          ControlDecl.newBuilder().setName("MyControl").addApplyBody(applyTableStmt("t"))
+        )
+        .build()
+    val positionalParamsWithoutIds =
+      listOf(
+        Action.Param.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(0x08, 0x01))).build(),
+        Action.Param.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(0x42))).build(),
+      )
+    val ts = TableStore()
+    ts.setDefaultAction("t", "set_vlan_and_meta", positionalParamsWithoutIds)
+    ts.publishSnapshot()
+
+    val env = emptyEnv
+    env.define("out_vlan", BitVal(0, 12))
+    env.define("out_meta", BitVal(0, 8))
+    interp(behavioral, ts).runControl("MyControl", env)
+
+    assertEquals(BitVal(0x801, 12), env.lookup("out_vlan"))
+    assertEquals(BitVal(0x42, 8), env.lookup("out_meta"))
   }
 }

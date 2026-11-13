@@ -141,6 +141,24 @@ class WriteValidatorTest {
   }
 
   @Test
+  fun `duplicate param ID in table entry returns INVALID_ARGUMENT`() {
+    val v = validator()
+    val duplicateParams = listOf(param(paramId = PARAM_ID), param(paramId = PARAM_ID))
+    val e =
+      assertThrows(StatusException::class.java) {
+        v.validate(
+          insertUpdate(
+            EXACT_TABLE_ID,
+            exactMatch(MATCH_FIELD_ID, bytes(2)),
+            action(actionId = TWO_PARAM_ACTION_ID, params = duplicateParams),
+          )
+        )
+      }
+    assertEquals(Status.Code.INVALID_ARGUMENT, e.status.code)
+    assert(e.status.description!!.contains("duplicate param"))
+  }
+
+  @Test
   fun `param value too narrow accepted as canonical encoding`() {
     // §8.3: shorter-than-fixed-width is the canonical form (read-write symmetric).
     val v = validator()
@@ -579,6 +597,24 @@ class WriteValidatorTest {
   }
 
   @Test
+  fun `one-shot with duplicate param ID returns INVALID_ARGUMENT`() {
+    val v = validator()
+    val duplicateParams = listOf(param(paramId = PARAM_ID), param(paramId = PARAM_ID))
+    val e =
+      assertThrows(StatusException::class.java) {
+        v.validate(
+          oneShotUpdate(
+            EXACT_TABLE_ID,
+            exactMatch(MATCH_FIELD_ID, bytes(2)),
+            action(actionId = TWO_PARAM_ACTION_ID, params = duplicateParams),
+          )
+        )
+      }
+    assertEquals(Status.Code.INVALID_ARGUMENT, e.status.code)
+    assert(e.status.description!!.contains("duplicate param"))
+  }
+
+  @Test
   fun `one-shot with group_action returns UNIMPLEMENTED`() {
     val v = validator()
     val base = oneShotUpdate(EXACT_TABLE_ID, exactMatch(MATCH_FIELD_ID, bytes(2)), action())
@@ -852,6 +888,23 @@ class WriteValidatorTest {
   }
 
   @Test
+  fun `member with duplicate param ID returns INVALID_ARGUMENT`() {
+    val v = validator()
+    val duplicateParams = listOf(param(paramId = PARAM_ID), param(paramId = PARAM_ID))
+    val e =
+      assertThrows(StatusException::class.java) {
+        v.validate(
+          memberUpdate(
+            Update.Type.INSERT,
+            action(actionId = TWO_PARAM_ACTION_ID, params = duplicateParams),
+          )
+        )
+      }
+    assertEquals(Status.Code.INVALID_ARGUMENT, e.status.code)
+    assert(e.status.description!!.contains("duplicate param"))
+  }
+
+  @Test
   fun `member with param value out of range returns OUT_OF_RANGE`() {
     val v = validator()
     val e =
@@ -1008,8 +1061,10 @@ class WriteValidatorTest {
     private const val ACTION_ID = 10
     private const val OTHER_ACTION_ID = 11
     private const val TERNARY_ACTION_ID = 12
+    private const val TWO_PARAM_ACTION_ID = 13
     private const val ACTION_PROFILE_ID = 20
     private const val PARAM_ID = 1
+    private const val SECOND_PARAM_ID = 2
     private const val MATCH_BITWIDTH = 16
     private const val PARAM_BITWIDTH = 16
   }
@@ -1034,6 +1089,7 @@ class WriteValidatorTest {
               .setMatchType(MatchField.MatchType.EXACT)
           )
           .addActionRefs(ActionRef.newBuilder().setId(ACTION_ID))
+          .addActionRefs(ActionRef.newBuilder().setId(TWO_PARAM_ACTION_ID))
       )
       .addTables(
         Table.newBuilder()
@@ -1113,6 +1169,22 @@ class WriteValidatorTest {
       .addActions(
         P4InfoAction.newBuilder()
           .setPreamble(Preamble.newBuilder().setId(TERNARY_ACTION_ID).setName("drop"))
+      )
+      .addActions(
+        P4InfoAction.newBuilder()
+          .setPreamble(Preamble.newBuilder().setId(TWO_PARAM_ACTION_ID).setName("set_both"))
+          .addParams(
+            P4InfoAction.Param.newBuilder()
+              .setId(PARAM_ID)
+              .setName("p1")
+              .setBitwidth(PARAM_BITWIDTH)
+          )
+          .addParams(
+            P4InfoAction.Param.newBuilder()
+              .setId(SECOND_PARAM_ID)
+              .setName("p2")
+              .setBitwidth(PARAM_BITWIDTH)
+          )
       )
       .addActionProfiles(
         ActionProfile.newBuilder()
