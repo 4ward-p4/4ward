@@ -97,6 +97,7 @@ UNIMPLEMENTED (rejection is tested), **N/A** = out of scope
 | 9.11 | Action not in table's action_refs → INVALID_ARGUMENT | Y | WriteValidatorTest |
 | 9.12 | Wrong param count → INVALID_ARGUMENT | Y | WriteValidatorTest, WriteErrorTest |
 | 9.13 | Unknown param_id → INVALID_ARGUMENT | Y | WriteValidatorTest |
+| 9.13a | Duplicate param_id → INVALID_ARGUMENT | Y | WriteValidatorTest |
 | 9.14 | Param byte width mismatch → INVALID_ARGUMENT | Y | WriteValidatorTest |
 | 9.15 | Unknown match field_id → INVALID_ARGUMENT | Y | WriteValidatorTest |
 | 9.16 | Wrong match kind (e.g. ternary on exact field) → INVALID_ARGUMENT | Y | WriteValidatorTest, WriteErrorTest |
