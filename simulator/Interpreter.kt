@@ -280,15 +280,22 @@ class Interpreter internal constructor(config: BehavioralConfig) {
     /**
      * Matches a list of select key values against a single [ValueSetMember]'s field matches.
      *
-     * Each member has one [FieldMatch] per key, in the same order as the select keys. An unset
-     * FieldMatch acts as a wildcard (matches any value).
+     * Matches by 1-based [org.p4.v1.FieldMatch.getFieldId] when populated, falling back to
+     * declaration order when `field_id` is unset (`0`). An unset FieldMatch acts as a wildcard
+     * (matches any value).
      */
     private fun matchesValueSetMember(
       keyValues: List<Value>,
       member: org.p4.v1.ValueSetMember,
     ): Boolean {
       if (member.matchCount != keyValues.size) return false
-      return keyValues.zip(member.matchList).all { (value, fieldMatch) ->
+      if (member.matchList.all { it.fieldId == 0 }) {
+        return keyValues.zip(member.matchList).all { (value, fieldMatch) ->
+          matchFieldMatch(value, fieldMatch)
+        }
+      }
+      return member.matchList.all { fieldMatch ->
+        val value = keyValues.getOrNull(fieldMatch.fieldId - 1) ?: return false
         matchFieldMatch(value, fieldMatch)
       }
     }
@@ -1039,8 +1046,7 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       // Resolve per-table action specialization: the p4info uses original names,
       // but the midend may have created per-table copies with distinct bodies.
       val resolvedName = tableBehavior.actionOverridesMap[result.actionName] ?: result.actionName
-      val params = result.entry?.action?.action?.paramsList ?: result.actionParams
-      execAction(resolvedName, params, env)
+      execAction(resolvedName, result.actionParams, env)
       return TableResult(result.hit, result.actionName)
     }
 
@@ -1063,13 +1069,30 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       }
 
       val actionDecl = actions[actionName] ?: error("unknown action: $actionName")
+      val paramInfo = tableStore.actionParamInfo[actionName]
+      require(paramInfo == null || paramInfo.size == actionDecl.paramsList.size) {
+        "P4Info param count (${paramInfo?.size}) does not match IR param count " +
+          "(${actionDecl.paramsList.size}) for action '$actionName'"
+      }
+      val usePositional = paramProtos.all { it.paramId == 0 }
 
       val paramMap = mutableMapOf<String, com.google.protobuf.ByteString>()
 
       env.pushScope()
       try {
         actionDecl.paramsList.forEachIndexed { i, paramDecl ->
-          val paramProto = paramProtos.getOrNull(i)
+          val paramProto =
+            if (usePositional) {
+              paramProtos.getOrNull(i)
+            } else {
+              // p4c's midend may suffix IR param names (e.g. "foo" -> "foo_1") while P4Info keeps
+              // the source name in declaration order; match by name first and fall back to index.
+              val paramId =
+                (paramInfo?.find { it.name == paramDecl.name } ?: paramInfo?.getOrNull(i))?.id
+                  ?: (i + 1)
+              paramProtos.find { it.paramId == paramId }
+                ?: error("missing param '${paramDecl.name}' (id=$paramId) for action '$actionName'")
+            }
           val value: Value =
             if (paramProto != null) {
               val width = paramDecl.type.bit.width

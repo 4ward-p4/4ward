@@ -311,4 +311,63 @@ class InterpreterParserTest {
 
     assertEquals(BitVal(1, 8), env.lookup("y"))
   }
+
+  @Test
+  fun `value_set member matches multi-key select by field_id regardless of proto order`() {
+    val store = TableStore()
+    val reversedMember =
+      ValueSetMember.newBuilder()
+        .addMatch(
+          FieldMatch.newBuilder()
+            .setFieldId(2)
+            .setExact(
+              FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(0x20)))
+            )
+        )
+        .addMatch(
+          FieldMatch.newBuilder()
+            .setFieldId(1)
+            .setExact(
+              FieldMatch.Exact.newBuilder().setValue(ByteString.copyFrom(byteArrayOf(0x01, 0x02)))
+            )
+        )
+        .build()
+    store.populateValueSet("pvs", listOf(reversedMember))
+    store.publishSnapshot()
+
+    val env = Environment()
+    env.define("k1", BitVal(0x0102, 16))
+    env.define("k2", BitVal(0x20, 8))
+    env.define("y", BitVal(0, 8))
+
+    val selectState =
+      ParserState.newBuilder()
+        .setName("start")
+        .setTransition(
+          Transition.newBuilder()
+            .setSelect(
+              SelectTransition.newBuilder()
+                .addKeys(nameRef("k1", bitType(16)))
+                .addKeys(nameRef("k2", bitType(8)))
+                .addCases(
+                  SelectCase.newBuilder()
+                    .addKeysets(KeysetExpr.newBuilder().setValueSet("pvs"))
+                    .setNextState("matched")
+                )
+                .setDefaultState("reject")
+            )
+        )
+        .build()
+    val matchedState = state("matched", "accept", assign("y", bit(1, 8)))
+
+    interp(
+        selectState,
+        matchedState,
+        tableStore = store,
+        valueSets = listOf(ValueSetDecl.newBuilder().setName("pvs").setSize(4).build()),
+      )
+      .runParser("MyParser", env)
+
+    assertEquals(BitVal(1, 8), env.lookup("y"))
+  }
 }

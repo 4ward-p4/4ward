@@ -207,6 +207,7 @@ class WriteValidator(p4Info: P4Info) {
       )
     }
     val paramLookup = paramInfoByAction[action.actionId] ?: return
+    val presentParamIds = mutableSetOf<Int>()
     for (param in action.paramsList) {
       val paramInfo =
         paramLookup[param.paramId]
@@ -216,6 +217,12 @@ class WriteValidator(p4Info: P4Info) {
                 "'${it.value.name}' (${it.key})"
               })})"
           )
+      if (!presentParamIds.add(param.paramId)) {
+        throw invalidArg(
+          "duplicate param '${paramInfo.name}' (ID ${param.paramId}) " +
+            "for action '${actionInfo.preamble.name}'"
+        )
+      }
       // §8.3: value must fit in the param's bitwidth. Bitwidth 0 means unspecified
       // (e.g. @p4runtime_translation with sdn_string) — only an empty bytestring is rejected.
       requireFitsInBitwidth(param.value, paramInfo.bitwidth, "param '${paramInfo.name}'")
