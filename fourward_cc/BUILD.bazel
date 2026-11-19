@@ -7,6 +7,16 @@ package(
 )
 
 cc_library(
+    name = "grpc_util",
+    hdrs = ["grpc_util.h"],
+    deps = [
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/time",
+        "@grpc//:grpc++",
+    ],
+)
+
+cc_library(
     name = "output_capture",
     srcs = ["output_capture.cc"],
     hdrs = ["output_capture.h"],
@@ -34,6 +44,8 @@ cc_library(
         "//grpc:dataplane_cc_proto",
         "//grpc:management_cc_grpc",
         "//grpc:management_cc_proto",
+        "//grpc:network_cc_grpc",
+        "//grpc:network_cc_proto",
         "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/log",
         "@abseil-cpp//absl/status",
@@ -41,10 +53,10 @@ cc_library(
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
-        "@bazel_tools//tools/cpp/runfiles",
         "@grpc//:grpc++",
         "@p4runtime//proto/p4/v1:p4runtime_cc_grpc",
         "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+        "@rules_cc//cc/runfiles",
     ],
 )
 
@@ -55,6 +67,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":fourward_server",
+        ":grpc_util",
         "//grpc:management_cc_grpc",
         "//grpc:management_cc_proto",
         "@abseil-cpp//absl/status",
@@ -71,6 +84,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":fourward_server",
+        ":grpc_util",
         "//grpc:dataplane_cc_grpc",
         "//grpc:dataplane_cc_proto",
         "@abseil-cpp//absl/base:core_headers",
@@ -80,6 +94,41 @@ cc_library(
         "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
         "@grpc//:grpc++",
+    ],
+)
+
+cc_library(
+    name = "network_client",
+    srcs = ["network_client.cc"],
+    hdrs = ["network_client.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":fourward_server",
+        ":grpc_util",
+        "//grpc:network_cc_grpc",
+        "//grpc:network_cc_proto",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
+        "@grpc//:grpc++",
+    ],
+)
+
+cc_library(
+    name = "test_util",
+    testonly = True,
+    hdrs = ["test_util.h"],
+    deps = [
+        ":fourward_server",
+        ":grpc_util",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@grpc//:grpc++",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_grpc",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+        "@rules_cc//cc/runfiles",
     ],
 )
 
@@ -164,6 +213,27 @@ cc_test(
 )
 
 cc_test(
+    name = "network_client_test",
+    srcs = ["network_client_test.cc"],
+    data = ["//e2e_tests/passthrough:passthrough_p4runtime"],
+    local_defines = [
+        'PASSTHROUGH_PIPELINE_RLOCATION=\\"$(rlocationpath //e2e_tests/passthrough:passthrough_p4runtime)\\"',
+    ],
+    deps = [
+        ":fourward_server",
+        ":management_client",
+        ":network_client",
+        ":test_util",
+        "//grpc:network_cc_proto",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+    ],
+)
+
+cc_test(
     name = "dataplane_client_e2e_test",
     srcs = ["dataplane_client_e2e_test.cc"],
     data = [
@@ -179,12 +249,11 @@ cc_test(
         ":dataplane_matchers",
         ":fourward_server",
         ":management_client",
+        ":test_util",
         "//grpc:dataplane_cc_proto",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:statusor",
-        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
-        "@bazel_tools//tools/cpp/runfiles",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
         "@grpc//:grpc++",
@@ -218,11 +287,11 @@ cc_test(
         "@abseil-cpp//absl/status:statusor",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
-        "@bazel_tools//tools/cpp/runfiles",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
         "@grpc//:grpc++",
         "@p4runtime//proto/p4/v1:p4runtime_cc_grpc",
         "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+        "@rules_cc//cc/runfiles",
     ],
 )

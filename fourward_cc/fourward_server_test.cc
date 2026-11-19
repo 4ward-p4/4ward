@@ -26,7 +26,7 @@
 #include "gtest/gtest.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
-#include "tools/cpp/runfiles/runfiles.h"
+#include "rules_cc/cc/runfiles/runfiles.h"
 
 #ifndef PASSTHROUGH_PIPELINE_RLOCATION
 #error "PASSTHROUGH_PIPELINE_RLOCATION must be set by the BUILD rule"
@@ -35,7 +35,7 @@
 namespace fourward {
 namespace {
 
-using ::bazel::tools::cpp::runfiles::Runfiles;
+using ::rules_cc::cc::runfiles::Runfiles;
 
 // Issues a Capabilities RPC and asserts it succeeds. This proves the server
 // is not just TCP-listening but actually serving gRPC. Capabilities is used
@@ -336,7 +336,7 @@ TEST(FourwardServerTest, LargeResponseSucceedsUnderDefaultLimits) {
   // gRPC's default 4MB receive limit. This verifies the client channel is
   // correctly configured with an unlimited receive message size.
   std::string error;
-  std::unique_ptr<Runfiles> runfiles(Runfiles::Create("", &error));
+  std::unique_ptr<Runfiles> runfiles(Runfiles::CreateForTest(&error));
   ASSERT_NE(runfiles, nullptr) << error;
   std::string path =
       runfiles->Rlocation(PASSTHROUGH_PIPELINE_RLOCATION);

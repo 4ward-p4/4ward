@@ -9,8 +9,6 @@
 #include "fourward_cc/dataplane_client.h"
 
 #include <cstdint>
-#include <fstream>
-#include <iterator>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -18,18 +16,17 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "fourward_cc/dataplane_matchers.h"
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-#include "grpc/dataplane.pb.h"
-#include "grpcpp/client_context.h"
-#include "p4/v1/p4runtime.grpc.pb.h"
-#include "p4/v1/p4runtime.pb.h"
 #include "fourward_cc/fourward_server.h"
 #include "fourward_cc/management_client.h"
-#include "tools/cpp/runfiles/runfiles.h"
+#include "fourward_cc/test_util.h"
+#include "gmock/gmock.h"
+#include "grpc/dataplane.pb.h"
+#include "grpcpp/client_context.h"
+#include "gtest/gtest.h"
+#include "p4/v1/p4runtime.grpc.pb.h"
+#include "p4/v1/p4runtime.pb.h"
 
 #ifndef PASSTHROUGH_PIPELINE_RLOCATION
 #error "PASSTHROUGH_PIPELINE_RLOCATION must be set by the BUILD rule"
@@ -41,82 +38,6 @@
 
 namespace fourward {
 namespace {
-
-using ::bazel::tools::cpp::runfiles::Runfiles;
-
-using P4RuntimeStream =
-    grpc::ClientReaderWriter<p4::v1::StreamMessageRequest,
-                             p4::v1::StreamMessageResponse>;
-
-absl::Status ToAbsl(const grpc::Status& s) {
-  if (s.ok()) return absl::OkStatus();
-  return absl::Status(static_cast<absl::StatusCode>(s.error_code()),
-                      s.error_message());
-}
-
-absl::StatusOr<std::string> ReadRunfile(const std::string& rlocation) {
-  std::string error;
-  std::unique_ptr<Runfiles> runfiles(Runfiles::Create("", &error));
-  if (runfiles == nullptr) {
-    return absl::InternalError(absl::StrCat("runfiles: ", error));
-  }
-  std::string path = runfiles->Rlocation(rlocation);
-  if (path.empty()) {
-    return absl::NotFoundError(
-        absl::StrCat("not found in runfiles: ", rlocation));
-  }
-  std::ifstream file(path, std::ios::binary);
-  if (!file) {
-    return absl::NotFoundError(absl::StrCat("cannot open: ", path));
-  }
-  return std::string(std::istreambuf_iterator<char>(file),
-                     std::istreambuf_iterator<char>());
-}
-
-absl::Status EstablishMasterArbitration(uint64_t device_id,
-                                        P4RuntimeStream* stream) {
-  p4::v1::StreamMessageRequest arbitration;
-  arbitration.mutable_arbitration()->set_device_id(device_id);
-  arbitration.mutable_arbitration()->mutable_election_id()->set_low(1);
-  if (!stream->Write(arbitration)) {
-    return absl::InternalError("failed to write arbitration request");
-  }
-
-  p4::v1::StreamMessageResponse response;
-  if (!stream->Read(&response)) {
-    return absl::InternalError("failed to read arbitration response");
-  }
-  return absl::OkStatus();
-}
-
-// Pushes a ForwardingPipelineConfig to the server via the P4Runtime API.
-// Handles the arbitration handshake.
-absl::Status PushPipeline(const FourwardServer& server,
-                          const p4::v1::ForwardingPipelineConfig& config,
-                          uint64_t device_id) {
-  auto stub = server.NewP4RuntimeStub();
-
-  grpc::ClientContext stream_ctx;
-  auto stream = stub->StreamChannel(&stream_ctx);
-  absl::Status arbitration = EstablishMasterArbitration(device_id, stream.get());
-  if (!arbitration.ok()) return arbitration;
-
-  // Push pipeline.
-  grpc::ClientContext set_ctx;
-  p4::v1::SetForwardingPipelineConfigRequest req;
-  req.set_device_id(device_id);
-  req.mutable_election_id()->set_low(1);
-  req.set_action(
-      p4::v1::SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
-  *req.mutable_config() = config;
-  p4::v1::SetForwardingPipelineConfigResponse resp;
-  grpc::Status status =
-      stub->SetForwardingPipelineConfig(&set_ctx, req, &resp);
-  if (!status.ok()) return ToAbsl(status);
-
-  stream_ctx.TryCancel();
-  return absl::OkStatus();
-}
 
 absl::Status PushPipeline(const FourwardServer& server,
                           const p4::v1::ForwardingPipelineConfig& config) {
@@ -313,7 +234,7 @@ class DataplaneClientE2ETest : public ::testing::Test {
 
     // Load the passthrough pipeline.
     absl::StatusOr<std::string> binpb =
-        ReadRunfile(PASSTHROUGH_PIPELINE_RLOCATION);
+        ReadRunfileForTest(PASSTHROUGH_PIPELINE_RLOCATION);
     ASSERT_TRUE(binpb.ok()) << binpb.status();
     p4::v1::ForwardingPipelineConfig config;
     ASSERT_TRUE(config.ParseFromString(*binpb))
@@ -402,7 +323,7 @@ TEST_F(DataplaneClientE2ETest, ExplicitDeviceIdScopesStreamingDataplaneRpc) {
       management.CreateDevices({.first_device_id = kSecondDeviceId, .count = 1}).ok());
 
   absl::StatusOr<std::string> binpb =
-      ReadRunfile(PASSTHROUGH_PIPELINE_RLOCATION);
+      ReadRunfileForTest(PASSTHROUGH_PIPELINE_RLOCATION);
   ASSERT_TRUE(binpb.ok()) << binpb.status();
   p4::v1::ForwardingPipelineConfig config;
   ASSERT_TRUE(config.ParseFromString(*binpb))
@@ -447,7 +368,8 @@ class SaiPacketIoE2ETest : public ::testing::Test {
     ASSERT_TRUE(s.ok()) << s.status();
     server_ = std::make_unique<FourwardServer>(*std::move(s));
 
-    absl::StatusOr<std::string> binpb = ReadRunfile(SAI_PIPELINE_RLOCATION);
+    absl::StatusOr<std::string> binpb =
+        ReadRunfileForTest(SAI_PIPELINE_RLOCATION);
     ASSERT_TRUE(binpb.ok()) << binpb.status();
     ASSERT_TRUE(config_.ParseFromString(*binpb))
         << "failed to parse ForwardingPipelineConfig";

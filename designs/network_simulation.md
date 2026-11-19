@@ -1,6 +1,6 @@
 # Network-Wide Simulation
 
-**Status: proposed**
+**Status: implemented**
 
 ## Problem
 
@@ -158,10 +158,10 @@ message InjectNetworkPacketRequest {
 
 message InjectNetworkPacketResponse {
   NetworkTrace trace = 1;
-  repeated NetworkPacketSet possible_outcomes = 2;
+  repeated NetworkOutcome possible_outcomes = 2;
 }
 
-message NetworkPacketSet {
+message NetworkOutcome {
   repeated NetworkEgressPacket packets = 1;
 }
 ```
@@ -204,9 +204,8 @@ message LinkTraversal {
 }
 
 message NetworkEgressPacket {
-  uint64 device_id = 1;
-  NetworkPort egress = 2;
-  bytes payload = 3;
+  NetworkPort egress = 1;
+  bytes payload = 2;
 }
 
 message HopLimitExceeded {
@@ -234,7 +233,7 @@ The network layer follows only terminal `Output` leaves:
 | `Output` without a matching configured link | Record a network egress packet. |
 | `Output` with multiple matching configured links | Fail with an ambiguous-topology error. |
 | `Replication` | Follow every output leaf in every branch. |
-| `Choice` | Preserve each branch as a possible world; do not combine downstream paths across alternatives. |
+| `Choice` | Preserve each branch as a possible outcome; do not combine downstream paths across alternatives. |
 | `Continuation` | Continue walking the nested trace until terminal leaves are reached. |
 
 The response mirrors the existing Dataplane API: `trace` is the structured
@@ -245,15 +244,16 @@ only need final packets leaving the modeled network.
 
 `possible_outcomes` is derived from the network trace:
 
-- `Replication` combines packets in the same possible world.
-- `Choice` creates alternative possible worlds.
+- `Replication` combines packets in the same possible outcome.
+- `Choice` creates alternative possible outcomes.
 - Downstream `Choice` nodes multiply with upstream choices.
-- Only packets that leave the modeled topology appear in the final packet sets.
+- Only packets that leave the modeled topology appear in the final outcomes.
 
 This matches the existing Dataplane meaning, lifted from one switch to the
-whole network.
+whole network: the outer collection is a set of distinct outcomes, while each
+outcome is a multiset of packets.
 
-Possible worlds can converge. For example, two upstream choice branches may
+Possible outcomes can converge. For example, two upstream choice branches may
 emit the same packet into the same downstream endpoint, producing the same
 network suffix. The first design intentionally does not memoize those suffixes.
 Memoization is only correct if the suffix is pure with respect to the topology,
@@ -329,6 +329,7 @@ simulation reuses the same dataplane behavior as `InjectPacket`.
 | endpoint already linked | `ALREADY_EXISTS` |
 | removing an absent link | `NOT_FOUND` |
 | malformed asymmetric remove request | `INVALID_ARGUMENT` |
+| duplicate endpoint in a bulk add/remove request | `INVALID_ARGUMENT` |
 | missing pipeline or port translation during injection | `FAILED_PRECONDITION` |
 | output matches both a dataplane-port link and a P4Runtime-port link | `FAILED_PRECONDITION` |
 | `max_hops = 0` in request | `INVALID_ARGUMENT` |
@@ -368,7 +369,8 @@ Tests should prove the contracts that are easy to break:
 - outputs matching both a dataplane-port link and a P4Runtime-port link fail
   loudly
 - multicast/clone output follows all linked output leaves
-- action-selector `Choice` preserves separate possible worlds
+- action-selector `Choice` preserves separate possible outcomes, and identical
+  outcomes collapse
 - hop limit stops loops deterministically
 - missing P4Runtime port translation produces an actionable error
 - existing Dataplane and P4Runtime single-device tests remain unchanged

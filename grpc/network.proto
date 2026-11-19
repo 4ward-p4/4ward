@@ -1,0 +1,113 @@
+// Network-wide packet simulation across multiple 4ward devices.
+//
+// This is a 4ward-native service. P4Runtime programs individual devices;
+// Network owns only topology and packet traversal between devices.
+
+syntax = "proto3";
+
+package fourward;
+
+import "simulator/simulator.proto";
+
+option java_package = "fourward";
+option java_outer_classname = "NetworkProto";
+option java_multiple_files = true;
+
+service Network {
+  rpc AddLinks(AddLinksRequest) returns (AddLinksResponse);
+  rpc RemoveLinks(RemoveLinksRequest) returns (RemoveLinksResponse);
+  rpc ListLinks(ListLinksRequest) returns (ListLinksResponse);
+  rpc InjectPacket(InjectNetworkPacketRequest)
+      returns (InjectNetworkPacketResponse);
+}
+
+message NetworkPort {
+  // Logical 4ward device ID. Must be nonzero.
+  uint64 device_id = 1;
+
+  oneof port {
+    // P4Runtime port ID bytes. Preferred for controller-facing network tests.
+    bytes p4rt_port = 2;
+
+    // Raw simulator port. Useful for programs without P4Runtime port
+    // translation.
+    uint32 dataplane_port = 3;
+  }
+}
+
+message Link {
+  NetworkPort a = 1;
+  NetworkPort b = 2;
+}
+
+message AddLinksRequest {
+  repeated Link links = 1;
+}
+
+message AddLinksResponse {}
+
+message RemoveLinksRequest {
+  repeated Link links = 1;
+}
+
+message RemoveLinksResponse {}
+
+message ListLinksRequest {}
+
+message ListLinksResponse {
+  repeated Link links = 1;
+}
+
+message InjectNetworkPacketRequest {
+  NetworkPort ingress = 1;
+  bytes payload = 2;
+  // Safety bound for forwarding loops. Must be positive.
+  uint32 max_hops = 3;
+  // Opaque caller-provided tag, copied into the first switch injection.
+  int64 tag = 4;
+}
+
+message InjectNetworkPacketResponse {
+  NetworkTrace trace = 1;
+  // The set of possible network outcomes. Alternative switch executions that
+  // produce identical network egress packets collapse to one entry. Within an
+  // outcome, packet multiplicity is meaningful: multicast/clone can emit the
+  // same packet more than once.
+  repeated NetworkOutcome possible_outcomes = 2;
+}
+
+message NetworkOutcome {
+  repeated NetworkEgressPacket packets = 1;
+}
+
+message NetworkTrace {
+  NetworkHop root = 1;
+}
+
+message NetworkHop {
+  uint64 device_id = 1;
+  NetworkPort ingress = 2;
+  TraceTree switch_trace = 3;
+  repeated LinkTraversal traversals = 4;
+}
+
+message LinkTraversal {
+  // Hop-local ID assigned to terminal Output leaves in deterministic DFS order.
+  uint64 source_output_id = 1;
+  OutputPacket source_output = 2;
+
+  oneof result {
+    NetworkHop next_hop = 3;
+    NetworkEgressPacket network_egress = 4;
+    HopLimitExceeded hop_limit_exceeded = 5;
+  }
+}
+
+message NetworkEgressPacket {
+  NetworkPort egress = 1;
+  bytes payload = 2;
+}
+
+message HopLimitExceeded {
+  NetworkPort next_ingress = 1;
+}
