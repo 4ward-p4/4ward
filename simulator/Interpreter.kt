@@ -1039,14 +1039,13 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       // Resolve per-table action specialization: the p4info uses original names,
       // but the midend may have created per-table copies with distinct bodies.
       val resolvedName = tableBehavior.actionOverridesMap[result.actionName] ?: result.actionName
-      val params = result.entry?.action?.action?.paramsList ?: result.actionParams
-      execAction(resolvedName, params, env)
+      execAction(resolvedName, result.actionParams, env)
       return TableResult(result.hit, result.actionName)
     }
 
     private fun execAction(
       actionName: String,
-      paramProtos: List<org.p4.v1.Action.Param>,
+      paramValues: List<com.google.protobuf.ByteString>,
       env: Environment,
     ) {
       // NoAction is a P4 built-in no-op (P4 spec §12.7) that is implicitly available in
@@ -1063,22 +1062,19 @@ class Interpreter internal constructor(config: BehavioralConfig) {
       }
 
       val actionDecl = actions[actionName] ?: error("unknown action: $actionName")
+      require(paramValues.size == actionDecl.paramsCount) {
+        "action '$actionName' expects ${actionDecl.paramsCount} param(s), got ${paramValues.size}"
+      }
 
       val paramMap = mutableMapOf<String, com.google.protobuf.ByteString>()
 
       env.pushScope()
       try {
         actionDecl.paramsList.forEachIndexed { i, paramDecl ->
-          val paramProto = paramProtos.getOrNull(i)
-          val value: Value =
-            if (paramProto != null) {
-              val width = paramDecl.type.bit.width
-              paramMap[paramDecl.name] = paramProto.value
-              BitVal(BitVector.ofBytes(paramProto.value.toByteArray(), width))
-            } else {
-              UnitVal
-            }
-          env.define(paramDecl.name, value)
+          val paramBytes = paramValues[i]
+          val width = paramDecl.type.bit.width
+          paramMap[paramDecl.name] = paramBytes
+          env.define(paramDecl.name, BitVal(BitVector.ofBytes(paramBytes.toByteArray(), width)))
         }
 
         // Use the p4info alias (short source-level name) for trace display. The behavioral

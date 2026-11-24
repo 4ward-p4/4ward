@@ -16,6 +16,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -24,6 +25,7 @@ import org.p4.config.v1.ActionProfile
 import org.p4.config.v1.Counter
 import org.p4.config.v1.DirectCounter
 import org.p4.config.v1.DirectMeter
+import org.p4.config.v1.MatchField
 import org.p4.config.v1.Meter
 import org.p4.config.v1.P4Info
 import org.p4.config.v1.Preamble
@@ -924,7 +926,17 @@ class TableStoreTest {
             listOf(
               p4infoTable(PROFILE_TABLE_ID, PROFILE_TABLE_NAME, implementationId = PROFILE_ID)
             ),
-          actions = ACTION_LIST,
+          actions =
+            ACTION_IDS.map { id ->
+              P4InfoAction.newBuilder()
+                .setPreamble(
+                  Preamble.newBuilder().setId(id).setName("action$id").setAlias("action$id")
+                )
+                .addParams(
+                  P4InfoAction.Param.newBuilder().setId(1).setName("p1").setBitwidth(8).build()
+                )
+                .build()
+            },
         )
     )
     return store
@@ -1061,6 +1073,8 @@ class TableStoreTest {
     assertTrue(result.hit)
     assertNull(result.members)
     assertEquals("action42", result.actionName)
+    assertEquals(1, result.actionParams.size)
+    assertEquals(ByteString.copyFrom(byteArrayOf(0x7F)), result.actionParams[0])
   }
 
   @Test
@@ -1084,7 +1098,7 @@ class TableStoreTest {
     val result = s.lookup(PROFILE_TABLE_NAME, listOf("1" to BitVal(0x0A, 8)))
     val params = checkNotNull(result.members)[0].params
     assertEquals(1, params.size)
-    assertEquals(ByteString.copyFrom(byteArrayOf(0x42)), params[0].value)
+    assertEquals(ByteString.copyFrom(byteArrayOf(0x42)), params[0])
   }
 
   // ---------------------------------------------------------------------------
@@ -1165,7 +1179,7 @@ class TableStoreTest {
     assertEquals("action42", members[0].actionName)
     val params = members[0].params
     assertEquals(1, params.size)
-    assertEquals(ByteString.copyFrom(byteArrayOf(0x7F)), params[0].value)
+    assertEquals(ByteString.copyFrom(byteArrayOf(0x7F)), params[0])
   }
 
   @Test
@@ -3397,6 +3411,96 @@ class TableStoreTest {
     for (i in 0 until threads * writesPerThread) {
       assertEquals(BitVal(i, REGISTER_BITWIDTH), s.registerRead(REGISTER_NAME, i))
     }
+  }
+
+  @Test
+  fun `table entry key identity is independent of FieldMatch proto order`() {
+    val forwardOrder = exactEntry(1, byteArrayOf(0x0A), 2, byteArrayOf(0x0B), actionId = 10)
+    val reversedOrder = exactEntry(2, byteArrayOf(0x0B), 1, byteArrayOf(0x0A), actionId = 20)
+
+    assertTrue(forwardOrder.sameKey(reversedOrder))
+    assertEquals(WriteResult.Success, store.write(insertUpdate(forwardOrder)))
+    assertTrue(store.write(insertUpdate(reversedOrder)) is WriteResult.AlreadyExists)
+    assertEquals(WriteResult.Success, store.write(modifyUpdate(reversedOrder)))
+    store.publishSnapshot()
+
+    val result = store.lookup(TABLE_NAME, listOf("1" to BitVal(0x0A, 8), "2" to BitVal(0x0B, 8)))
+    assertTrue(result.hit)
+    assertEquals("action20", result.actionName)
+
+    assertEquals(WriteResult.Success, store.write(deleteUpdate(reversedOrder)))
+  }
+
+  @Test
+  fun `PNA addEntry encodes non-sequential param_ids and lookup resolves them in order`() {
+    val s = TableStore()
+    val p4info =
+      buildP4Info(
+        tables =
+          listOf(
+            Table.newBuilder()
+              .setPreamble(
+                Preamble.newBuilder().setId(TABLE_ID).setName(TABLE_NAME).setAlias(TABLE_NAME)
+              )
+              .addMatchFields(
+                MatchField.newBuilder()
+                  .setId(1)
+                  .setName("k")
+                  .setBitwidth(8)
+                  .setMatchType(MatchField.MatchType.EXACT)
+              )
+              .build()
+          ),
+        actions =
+          listOf(
+            P4InfoAction.newBuilder()
+              .setPreamble(Preamble.newBuilder().setId(10).setName("set_pair").setAlias("set_pair"))
+              .addParams(P4InfoAction.Param.newBuilder().setId(10).setName("first").setBitwidth(16))
+              .addParams(P4InfoAction.Param.newBuilder().setId(20).setName("second").setBitwidth(8))
+              .build()
+          ),
+      )
+    s.loadMappings(p4info = p4info)
+
+    assertTrue(
+      s.addEntry(
+        TABLE_NAME,
+        keyValues = listOf("1" to BitVal(0x0A, 8)),
+        actionName = "set_pair",
+        actionParams = listOf(BitVal(0x0801, 16), BitVal(0x42, 8)),
+      )
+    )
+
+    val result = s.lookup(TABLE_NAME, listOf("1" to BitVal(0x0A, 8)))
+    assertTrue(result.hit)
+    assertEquals("set_pair", result.actionName)
+    assertEquals(
+      listOf(ByteString.copyFrom(byteArrayOf(0x08, 0x01)), ByteString.copyFrom(byteArrayOf(0x42))),
+      result.actionParams,
+    )
+    // Stored proto preserves exact P4Info param_ids for P4Runtime Read.
+    val storedParams = checkNotNull(result.entry).action.action.paramsList
+    assertEquals(listOf(10, 20), storedParams.map { it.paramId })
+  }
+
+  @Test
+  fun `lookup rejects empty params list for parameterized action`() {
+    val s = TableStore()
+    val p4info =
+      buildP4Info(
+        tables = listOf(p4infoTable(TABLE_ID, TABLE_NAME)),
+        actions =
+          listOf(
+            P4InfoAction.newBuilder()
+              .setPreamble(Preamble.newBuilder().setId(10).setName("set_pair").setAlias("set_pair"))
+              .addParams(P4InfoAction.Param.newBuilder().setId(10).setName("first").setBitwidth(8))
+              .build()
+          ),
+      )
+    s.loadMappings(p4info = p4info)
+    s.setDefaultActionAndPublish(TABLE_NAME, "set_pair", emptyList())
+
+    assertThrows(IllegalArgumentException::class.java) { s.lookup(TABLE_NAME, emptyList()) }
   }
 
   // ---------------------------------------------------------------------------

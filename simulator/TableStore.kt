@@ -275,14 +275,43 @@ private fun matchBig(bits: BigInteger, width: Int, match: FieldMatch): Boolean =
 /**
  * P4Runtime spec §9.1: two entries match the same key iff they have the same table_id, match
  * fields, and priority (priority is part of the key for tables with ternary, range, or optional
- * fields).
+ * fields). Match fields are compared by `field_id` rather than proto list order.
  */
-fun TableEntry.sameKey(other: TableEntry): Boolean =
-  tableId == other.tableId && priority == other.priority && matchList == other.matchList
+fun TableEntry.sameKey(other: TableEntry): Boolean = key() == other.key()
 
 private data class TableEntryKey(val tableId: Int, val priority: Int, val match: List<FieldMatch>)
 
-private fun TableEntry.key(): TableEntryKey = TableEntryKey(tableId, priority, matchList)
+private fun TableEntry.key(): TableEntryKey =
+  TableEntryKey(tableId, priority, matchList.sortedBy { it.fieldId })
+
+/**
+ * Resolves P4Runtime [Action.Param] protos by `param_id` into P4Info declaration order (`0..N-1`).
+ *
+ * Stored entries retain their original protos verbatim so P4Runtime `Read` stays exact; this
+ * projection happens only at lookup time so the interpreter never sees numeric `param_id`s.
+ */
+private fun resolveActionParams(
+  actionName: String,
+  expectedParams: List<P4InfoAction.Param>?,
+  params: List<Action.Param>,
+): List<ByteString> {
+  if (expectedParams == null) {
+    require(params.isEmpty()) {
+      "action '$actionName' has no P4Info parameter metadata, but got ${params.size} param(s)"
+    }
+    return emptyList()
+  }
+  require(params.size == expectedParams.size) {
+    "action '$actionName' expects ${expectedParams.size} param(s), got ${params.size}"
+  }
+  val byId = params.associateBy { it.paramId }
+  require(byId.size == params.size) { "duplicate param_id for action '$actionName'" }
+  return expectedParams.map { expected ->
+    (byId[expected.id]
+        ?: error("missing param '${expected.name}' (id=${expected.id}) for action '$actionName'"))
+      .value
+  }
+}
 
 /** Default action state for a table: action name and optional parameters. */
 data class DefaultAction(val name: String, val params: List<org.p4.v1.Action.Param> = emptyList())
@@ -693,7 +722,7 @@ class TableStore : TableDataReader {
   /** Reverse mapping: behavioral table name -> table ID. */
   private var tableIdByName: Map<String, Int> = emptyMap()
 
-  /** Action parameter info per action (behavioral name), for data-plane add_entry. */
+  /** Action parameter info per action (behavioral name). */
   private var actionParamInfo: Map<String, List<P4InfoAction.Param>> = emptyMap()
 
   /**
@@ -2046,13 +2075,13 @@ class TableStore : TableDataReader {
   // Lookup
   // -------------------------------------------------------------------------
 
-  data class MemberAction(val memberId: Int, val actionName: String, val params: List<Action.Param>)
+  data class MemberAction(val memberId: Int, val actionName: String, val params: List<ByteString>)
 
   data class LookupResult(
     val hit: Boolean,
     val entry: TableEntry?,
     val actionName: String,
-    val actionParams: List<org.p4.v1.Action.Param> = emptyList(),
+    val actionParams: List<ByteString> = emptyList(),
     val members: List<MemberAction>? = null,
   )
 
@@ -2089,7 +2118,14 @@ class TableStore : TableDataReader {
       }
     }
 
-    val entry = bestEntry ?: return LookupResult(false, null, default.name, default.params)
+    val entry =
+      bestEntry
+        ?: return LookupResult(
+          false,
+          null,
+          default.name,
+          resolveActionParams(default.name, actionParamInfo[default.name], default.params),
+        )
     val tableAction = entry.action
 
     // Action profile group: resolve group → members → individual actions.
@@ -2104,10 +2140,15 @@ class TableStore : TableDataReader {
           val member =
             snapshot.profileMembers[profileId]?.get(groupMember.memberId)
               ?: error("unknown member ${groupMember.memberId} in profile $profileId")
+          val memberActionName = resolveActionName(member.action.actionId)
           MemberAction(
             groupMember.memberId,
-            resolveActionName(member.action.actionId),
-            member.action.paramsList,
+            memberActionName,
+            resolveActionParams(
+              memberActionName,
+              actionParamInfo[memberActionName],
+              member.action.paramsList,
+            ),
           )
         }
       // Use the first member's action name for the table_lookup event.
@@ -2120,7 +2161,16 @@ class TableStore : TableDataReader {
     if (tableAction.hasActionProfileActionSet()) {
       val members =
         tableAction.actionProfileActionSet.actionProfileActionsList.mapIndexed { i, action ->
-          MemberAction(i, resolveActionName(action.action.actionId), action.action.paramsList)
+          val memberActionName = resolveActionName(action.action.actionId)
+          MemberAction(
+            i,
+            memberActionName,
+            resolveActionParams(
+              memberActionName,
+              actionParamInfo[memberActionName],
+              action.action.paramsList,
+            ),
+          )
         }
       val actionName = members.firstOrNull()?.actionName ?: "NoAction"
       return LookupResult(true, entry, actionName, members = members)
@@ -2133,10 +2183,26 @@ class TableStore : TableDataReader {
       val member =
         snapshot.profileMembers[profileId]?.get(tableAction.actionProfileMemberId)
           ?: error("unknown member ${tableAction.actionProfileMemberId} in profile $profileId")
-      return LookupResult(true, entry, resolveActionName(member.action.actionId))
+      val memberActionName = resolveActionName(member.action.actionId)
+      return LookupResult(
+        true,
+        entry,
+        memberActionName,
+        resolveActionParams(
+          memberActionName,
+          actionParamInfo[memberActionName],
+          member.action.paramsList,
+        ),
+      )
     }
 
-    return LookupResult(true, entry, resolveActionName(entry.action.action.actionId))
+    val actionName = resolveActionName(entry.action.action.actionId)
+    return LookupResult(
+      true,
+      entry,
+      actionName,
+      resolveActionParams(actionName, actionParamInfo[actionName], entry.action.action.paramsList),
+    )
   }
 
   private fun formatOptions(options: List<String>): String =
