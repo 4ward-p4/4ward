@@ -1,12 +1,13 @@
-name: Check BuildBuddy cache availability
+name: Configure BuildBuddy cache
 description: |
   Emits a `Remote cache: ENABLED` notice when BUILDBUDDY_API_KEY is set, fails
   fast (`::error`, exit 1) on `push` events to main when it's missing — where
   absence indicates a config regression — and warns without failing on PRs
   (fork PRs legitimately don't get repo secrets). Outputs `enabled=true|false`
-  so callers can gate their own cache-config payload (whether bazelrc or
-  command-line flags) on the result. Centralises the gating so a future cache
-  outage doesn't silently degrade CI to an uncached build (issue #605).
+  so callers can gate their own cache-config payload on the result, and by
+  default (`write-bazelrc: 'true'`) writes the CI remote-cache and BES auth
+  flags to `~/.bazelrc`. Centralises the gating so a future cache outage
+  doesn't silently degrade CI to an uncached build (issue #605).
 
 inputs:
   api-key:
@@ -15,10 +16,18 @@ inputs:
       The BUILDBUDDY_API_KEY secret value (pass `secrets.BUILDBUDDY_API_KEY`
       from the workflow); will be empty for fork-PR runs, since GitHub
       strips repo secrets from those.
+  write-bazelrc:
+    required: false
+    default: 'true'
+    description: |
+      When `"true"` and `api-key` is non-empty, appends `build --config=ci`,
+      `--remote_header`, and `--bes_header` to `~/.bazelrc`. Pass `"false"` for
+      jobs that pass flags explicitly (e.g., `bcr-consumer-check`, whose
+      separate workspace does not define `--config=ci`).
 
 outputs:
   enabled:
-    description: '`"true"` if the cache is configured, `"false"` if absent on a fork PR.'
+    description: '`"true"` if BUILDBUDDY_API_KEY is available, `"false"` if absent on a fork PR.'
     value: ${{ steps.gate.outputs.enabled }}
 
 runs:
@@ -28,12 +37,30 @@ runs:
       shell: bash
       env:
         API_KEY: ${{ inputs.api-key }}
+        WRITE_BAZELRC: ${{ inputs.write-bazelrc }}
       run: |
+        case "${WRITE_BAZELRC}" in
+          true|false) ;;
+          *)
+            echo "::error title=Remote cache::Invalid write-bazelrc value '${WRITE_BAZELRC}'; expected 'true' or 'false'."
+            exit 1
+            ;;
+        esac
+
         if [[ -n "${API_KEY}" ]]; then
           echo "enabled=true" >> "$GITHUB_OUTPUT"
           echo "::notice title=Remote cache::ENABLED (BuildBuddy)"
+          if [[ "${WRITE_BAZELRC}" == "true" ]]; then
+            touch ~/.bazelrc
+            chmod 600 ~/.bazelrc
+            {
+              printf '%s\n' "build --config=ci"
+              printf '%s\n' "build --remote_header=x-buildbuddy-api-key=${API_KEY}"
+              printf '%s\n' "build --bes_header=x-buildbuddy-api-key=${API_KEY}"
+            } >> ~/.bazelrc
+          fi
         elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-          echo "::error title=Remote cache::DISABLED — BUILDBUDDY_API_KEY secret is missing on a main push. Restore it in repo Settings → Secrets and re-run; if intentionally disabling BuildBuddy, also drop the cache-config blocks from .github/workflows/ci.yml."
+          echo "::error title=Remote cache::DISABLED — BUILDBUDDY_API_KEY secret is missing on a main push. Restore it in repo Settings → Secrets and re-run; if intentionally disabling BuildBuddy, also remove the configure-cache / BuildBuddy cache setup from .github/workflows/ci.yml and build:ci from .bazelrc."
           exit 1
         else
           echo "enabled=false" >> "$GITHUB_OUTPUT"

@@ -90,19 +90,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check remote cache availability
-        id: cache
+      - name: Configure remote cache
         uses: ./.github/actions/configure-cache
         with:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
-
-      - name: Add cache flags to bazelrc
-        if: steps.cache.outputs.enabled == 'true'
-        env:
-          BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
-        run: |
-          echo "build --config=ci" >> ~/.bazelrc
-          echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
 
       # Restore-only: the build-and-test job owns the authoritative cache for
       # this key.  Lint builds a subset of targets, so letting it save would
@@ -154,19 +145,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check remote cache availability
-        id: cache
+      - name: Configure remote cache
         uses: ./.github/actions/configure-cache
         with:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
-
-      - name: Add cache flags to bazelrc
-        if: steps.cache.outputs.enabled == 'true'
-        env:
-          BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
-        run: |
-          echo "build --config=ci" >> ~/.bazelrc
-          echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
 
       # Use an Xcode version Bazel's xcode-locator can resolve on macos-26.
       # The runner also exposes a 26.5.0 path, but xcode-locator only reports
@@ -300,6 +282,7 @@ jobs:
         uses: ./.github/actions/configure-cache
         with:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
+          write-bazelrc: 'false'
 
       # Separate local cache namespace (`bazel-bcr-*`) from the main
       # build-and-test job: this workspace uses a different `.bazelrc`
@@ -474,19 +457,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check remote cache availability
-        id: cache
+      - name: Configure remote cache
         uses: ./.github/actions/configure-cache
         with:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
-
-      - name: Add cache flags to bazelrc
-        if: steps.cache.outputs.enabled == 'true'
-        env:
-          BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
-        run: |
-          echo "build --config=ci" >> ~/.bazelrc
-          echo "common --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}" >> ~/.bazelrc
 
       - name: Restore Bazel cache
         uses: actions/cache/restore@v6
