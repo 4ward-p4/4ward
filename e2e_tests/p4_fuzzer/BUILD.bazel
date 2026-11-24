@@ -1,0 +1,49 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:fourward_pipeline.bzl", "fourward_pipeline")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = True,
+    licenses = ["notice"],
+)
+
+fourward_pipeline(
+    name = "fuzzer_table_pipeline",
+    src = "fuzzer_table.p4",
+    out = "fuzzer_table_pipeline.binpb",
+    out_format = "p4runtime",
+)
+
+cc_test(
+    name = "p4_fuzzer_test",
+    size = "large",
+    srcs = ["p4_fuzzer_test.cc"],
+    data = [":fuzzer_table_pipeline"],
+    local_defines = [
+        'PIPELINE_RLOCATION=\\"$(rlocationpath :fuzzer_table_pipeline)\\"',
+    ],
+    tags = ["heavy"],
+    deps = [
+        "//fourward_cc:fourward_server",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/types:span",
+        "@bazel_tools//tools/cpp/runfiles",
+        "@googleapis//google/rpc:code_cc_proto",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
+        "@gutil//gutil:status_matchers",
+        "@p4runtime//proto/p4/v1:p4runtime_cc_proto",
+        "@sonic_pins//lib/p4rt:p4rt_port",
+        "@sonic_pins//p4_fuzzer:annotation_util",
+        "@sonic_pins//p4_fuzzer:fuzzer_cc_proto",
+        "@sonic_pins//p4_fuzzer:fuzzer_config",
+        "@sonic_pins//p4_fuzzer:mutation_and_fuzz_util",
+        "@sonic_pins//p4_fuzzer:oracle_util",
+        "@sonic_pins//p4_fuzzer:switch_state",
+        "@sonic_pins//p4_infra/p4_runtime:p4_runtime_session",
+        "@sonic_pins//p4_infra/p4_runtime:p4_runtime_session_extras",
+    ],
+)
